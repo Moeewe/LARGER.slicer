@@ -1,12 +1,8 @@
----
-
 # LARGE FORMAT 3D PRINTING ALGORITHM
 
-**Version 1.0.0**
-**BY MORITZ WESSELER – FH MÜNSTER 2025**
+**Version 1.0.0**  
+**BY MORITZ WESSELER – FH MÜNSTER 2025**  
 *Originally inspired by Ginger.Additive; now fully reimplemented.*
-
----
 
 ## TABLE OF CONTENTS
 
