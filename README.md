@@ -70,7 +70,7 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 ## SETUP GRASSHOPPER COMPONENTS
 
 1. Launch Grasshopper in Rhino.
-2. **File → Open** → select `LARGE.gh`.
+2. **File → Open** → select `LARGER.gh`.
 3. Ensure LunchBox and Pufferfish are loaded (check in the toolbar).
 4. Unlock custom clusters: right-click any password-protected component and enter **XXXXX**.
 5. Verify clusters appear in **Input**, **Path Maker**, and **G-Code Maker** stages.
@@ -108,7 +108,7 @@ The component generates **Toolpath Curves** along the midline of each layer.
 ## FILES & STRUCTURE
 
 ```text
-├── LARGE.gh             # Main Grasshopper definition
+├── LARGER.gh             # Main Grasshopper definition
 ├── LICENSE              # MIT License
 └── README.md            # This documentation
 ```
