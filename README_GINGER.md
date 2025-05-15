@@ -207,10 +207,11 @@ Before every print, verify:
 | QiTECH PETg       | Pellets  |        260 |        260 |        240 | —            | 93 / 7 %    |
 | [Your Material]   | [Type]   |      [__] |      [__] |      [__] | [Additive]   | [__ / __ %] |
 
-- **Dry Materials**: PETg, ABS, ASA, PC, PET (all require drying).  
+- **Dry Materials**: PETg, ABS, ASA, PC, PET (all require drying).
+- **Material Slicer Settings**: All materials have custom factors to multiply the E-Value with.
 - **Forms**: pellets, flakes, filament.  
 - **Additives**: glycol for flakes.  
-- **Nozzle Swap**: wrap threads with Teflon tape to seal after swapping.
+- **Nozzle Swap**: wrap threads with Teflon tape to seal after swapping
 
 ---
 
