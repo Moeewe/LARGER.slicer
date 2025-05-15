@@ -1,6 +1,6 @@
 # Weber DXR25 3D-Printing Robot (KUKA KR120)
 
-> **Work in Progress** – structure only
+> **Work in Progress** – structure only and start & end G-Code
 
 ---
 
