@@ -1,7 +1,6 @@
 # Ginger V1.3 Beta LFAM 3D Printer Handbook & Cheat Sheet
 
-> **Large-Format Additive Manufacturing (LFAM)** with the Ginger V1.3 Beta requires careful setup, design considerations, and process control.  
-> This guide collects all the essential steps, rules, and tips—from geometry preparation to troubleshooting—to help you achieve reliable, high-quality prints.
+**Large-Format Additive Manufacturing (LFAM)** with the Ginger V1.3 Beta requires careful setup, design considerations, and process control. This guide collects all the essential steps, rules, and tips—from geometry preparation to troubleshooting—to help you achieve reliable, high-quality prints.
 
 ---
 
