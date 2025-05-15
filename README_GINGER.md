@@ -80,10 +80,10 @@ _Print and keep this sheet next to the printer to track your test prints._
 Before every print, verify:
 
 1. **Nozzle Size** matches your layer-height and flow settings.  
-2. **Nozzle Cleanliness**—wipe or purge any residue **before** homing.  
-3. **Power Setup**—bed and printer on separate circuits to avoid brown-outs.  
-4. **Bed Leveling & Z-Offset**—auto-level and save in EEPROM; adjust Z-offset for proper first-layer squish.  
-5. **Bed Adhesion**—apply glue stick, tape, or appropriate adhesive.
+2. **Nozzle Cleanliness** — wipe or purge any residue **before** homing.  
+3. **Power Setup** — bed and printer on separate circuits to avoid brown-outs.  
+4. **Bed Leveling & Z-Offset** — auto-level and save in EEPROM; adjust Z-offset for proper first-layer squish.  
+5. **Bed Adhesion** — apply glue stick, tape, or appropriate adhesive.
 
 ---
 
@@ -102,7 +102,7 @@ Before every print, verify:
 6. **Monitor Brim & First Layers**  
    - Ensure adhesion; adjust flow if needed.  
 7. **Activate Cooling**  
-   - After 4 solid layers, set fan to 60–100 % for overhangs.  
+   - After 4 solid layers, set fan to 60 – 100 % for overhangs.  
 8. **Finish & Cool**  
    - Once complete, let bed temperature drop before removal.
 
@@ -112,9 +112,9 @@ Before every print, verify:
 
 ### Geometry Types
 
-- **Polysurface**: Joined surfaces; can be open or closed.  
-- **BREP**: Solid definition with faces & edges; must be watertight.  
-- **Mesh**: Vertex/edge/face network; ensure manifold.
+- **Polysurface**: joined surfaces; can be open or closed.  
+- **BREP**: solid definition with faces & edges; must be watertight.  
+- **Mesh**: vertex/edge/face network; ensure manifold.
 
 ### Characteristics
 
@@ -146,7 +146,7 @@ Before every print, verify:
 - **Layer Width : Height ≥ 2 : 1** for good bonding.  
 - **Max Layer Height ≤ 60 %** of nozzle diameter.  
 - **Min Layer Width ≥ 150 %** of nozzle diameter.  
-- **Double Beads**: use 0.8–0.9× layer width; set nozzle width to 1.2–1.4× diameter for strong walls.
+- **Double Beads**: use 0.8 – 0.9× layer width; set nozzle width to 1.2 – 1.4× diameter for strong walls.
 
 ### General Slicing Tips
 
@@ -159,7 +159,7 @@ Before every print, verify:
   - *Dynamic Z-Lift*: avoid collisions on complex prints.
 
 - **Overhangs & Bridging**  
-  - Standard limit 45°; steep up to 90° with stepover rule.  
+  - Standard limit 45 °; steep up to 90 ° with stepover rule.  
   - Avoid bridges when possible; design to minimize.
 
 - **Infill**  
@@ -239,7 +239,7 @@ Before every print, verify:
 
 | Problem                          | Solutions                                                                                           |
 |----------------------------------|----------------------------------------------------------------------------------------------------|
-| **First-Layer Doesn’t Stick**    | – Re-level bed & adjust Z-offset<br>– Slow first-layer speed<br>– Increase first-layer flow rate   |
+| **First-Layer Doesn’t Stick**    | – Re-level bed & adjust Z-offset<br>– Slow first-layer speed<br>– Increase first-layer flow rate    |
 | **Warping**                      | – Add brim<br>– Secure with screws/clamps or tape<br>– 0 % cooling on initial layers<br>– Bed @ 60 °C |
 | **Insufficient Extrusion**       | – Purge to clear blockage<br>– Adjust flow rate or print speed                                     |
 | **Polymer Droplets on Surface**  | – Replace Teflon tape on nozzle<br>– Thoroughly mix masterbatch<br>– Dry materials                 |
@@ -301,8 +301,11 @@ M83
 
 </details>
 
+
 <details>
 <summary><strong>End G-Code</strong></summary>
+
+
 ; END CODE
 ; Deactivate temperature control
 M42 P49 I T1 S1
@@ -323,9 +326,12 @@ G4 P1000
 M300 P500
 G4 P1000
 M300 P1000
+
 </details>
 
-##credits
+---
 
-Created by Moritz Wesseler, July 2024
-© Ginger V1.3 Beta Handbook & Cheat Sheet
+## Credits
+
+Ginger V1.3 Beta Handbook & Cheat Sheet  
+© Created by **Moritz Wesseler**, July 2024  
