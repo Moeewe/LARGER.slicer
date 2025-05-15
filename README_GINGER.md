@@ -298,8 +298,8 @@ G90
 G1 F200 Z2
 G92 E0
 M83
-
-</details>
+```
+`</details>
 
 
 <details>
