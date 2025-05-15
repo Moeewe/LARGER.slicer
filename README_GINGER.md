@@ -299,13 +299,13 @@ G1 F200 Z2
 G92 E0
 M83
 ```
-`</details>
+</details>
 
 
 <details>
 <summary><strong>End G-Code</strong></summary>
 
-
+```gcode
 ; END CODE
 ; Deactivate temperature control
 M42 P49 I T1 S1
@@ -326,7 +326,7 @@ G4 P1000
 M300 P500
 G4 P1000
 M300 P1000
-
+```
 </details>
 
 ---
