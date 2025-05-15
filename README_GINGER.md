@@ -1,106 +1,68 @@
-# Ginger V1.3 Beta 3D Printer Handbook
+# Ginger V1.3 Beta LFAM 3D Printer Handbook & Cheat Sheet
 
-> **Large-Format Additive Manufacturing (LFAM)** demands special attention to geometry, slicing, machine setup, and materials.  
-> This handbook aggregates process steps, design guidelines, slicing recipes, materials data, and troubleshooting tips for the Ginger V1.3 Beta printer.
+> **Large-Format Additive Manufacturing (LFAM)** with the Ginger V1.3 Beta requires careful setup, design considerations, and process control.  
+> This guide collects all the essential steps, rules, and tips—from geometry preparation to troubleshooting—to help you achieve reliable, high-quality prints.
 
 ---
 
 ## Table of Contents
 
-1. [Quick Start: The Process](#quick-start-the-process)  
-2. [Printer Setup & Pre-Print](#printer-setup--pre-print)  
-   - [Starting a Print](#starting-a-print)  
-   - [Important Pre-Print Checks](#important-pre-print-checks)  
-   - [3D Printing Production Plate (Template)](#3d-printing-production-plate-template)  
-3. [Design & Geometry](#design--geometry)  
-4. [Slicing Recipes](#slicing-recipes)  
+1. [Introduction](#introduction)  
+2. [Quick Start & Production Plate Template](#quick-start--production-plate-template)  
+3. [Pre-Print Checks & Setup](#pre-print-checks--setup)  
+4. [Print Process Overview](#print-process-overview)  
+5. [Geometries & Design Guidelines](#geometries---design-guidelines)  
+6. [Slicing Guidelines](#slicing-guidelines)  
    - [Software Overview](#software-overview)  
-   - [Layer-Size Rules](#layer-size-rules)  
+   - [Layer & Flow Rules](#layer---flow-rules)  
    - [General Slicing Tips](#general-slicing-tips)  
-   - [Grasshopper Workflow](#grasshopper-workflow)  
-5. [Materials](#materials)  
-6. [Troubleshooting During Printing](#troubleshooting-during-printing)  
-7. [Credits](#credits)  
+7. [Grasshopper-Based Custom Slicing](#grasshopper-based-custom-slicing)  
+8. [Material Handling & Settings](#material-handling---settings)  
+9. [Troubleshooting During Printing](#troubleshooting-during-printing)  
+10. [Credits](#credits)  
 
 ---
 
-## Quick Start: The Process
+## Introduction
 
-1. **Design Geometry.**  
-   Create your 3D model in CAD (Polysurface, Mesh, BREP, etc.).
+Large-scale 3D printing introduces unique mechanical, thermal, and material challenges. The Ginger V1.3 Beta printer, with its dual-pellet mixer and wide-format build area, empowers complex, structural parts—but only when carefully configured. This handbook consolidates:
 
-2. **Slice Geometry.**  
-   Import into your slicer (Cura, Orca, Grasshopper…) and generate G-code.
+- Printer start-up & shutdown  
+- Geometry preparation & design rules  
+- Slicer choices & parameter guidelines  
+- Grasshopper workflows for non-planar/custom slicing  
+- Material recipes & drying requirements  
+- Troubleshooting common issues  
 
-3. **Transfer to Printer.**  
-   Copy the G-code to SD or wireless.
-
-4. **Preheat Printer & Bed.**  
-   Set nozzle and bed temperatures.
-
-5. **Extrude & Purge.**  
-   Clear any residue for a clean start.
-
-6. **Start Print.**  
-   Select file, confirm settings, and launch.
-
-7. **Monitor & Adjust.**  
-   Mixer ratio, flow, fans, cooling, etc.
-
-8. **Cool Down & Remove.**  
-   Let the part stabilize, then demold carefully.
+Use it as both a step-by-step guide and a quick reference during your print runs.
 
 ---
 
-## Printer Setup & Pre-Print
+## Quick Start & Production Plate Template
 
-### Starting a Print
+### Quick Start
 
-1. **Power On** the machine.  
-2. **Preheat** bed & extruder.  
-3. **Set Temperature** → Confirm.  
-4. **Auto-Feeding** → **On**  
-5. **Fan Control** → **Off** (initial layers)  
-6. **Bed Prep** → Glue, tape, or adhesive spray  
-7. **Purge** nozzle until clean  
-8. **Home** all axes  
-9. **Select File** and start  
-10. **Mixer Ratio** e.g. `93/7%`  
-11. **Flow** tweaks during brim phase  
-12. **Cooling** → Enable after 4 layers (60–100%)  
-13. **Bed Off** once adhesion phase ends  
-14. **Enjoy** your print!
+1. **Power On** the printer.  
+2. **Preheat** bed & extruder to your material’s recommended temperatures.  
+3. **Purge** filament until the nozzle is clean.  
+4. **Home** all axes to ensure proper positioning.  
+5. **Load File** via SD or wireless.  
+6. **Set Mixer Ratio** (default **93 % base / 7 % additive**).  
+7. **Adjust Flow** for initial layers.  
+8. **Start Print**.
 
-> **Tip:**  
-> Keep a small brim or skirt to stabilize first layers.
+### Production Plate Template
 
-### Important Pre-Print Checks
-
-- **Nozzle Size** matches slicer settings.  
-- **Nozzle Cleanliness** → Wipe & purge before homing.  
-- **Power Setup** → Avoid sharing bed & printer on one outlet.  
-- **Bed Leveling** → Auto-level + manual Z-offset check.
-
-### 3D Printing Production Plate (Template)
-
-| Date       | Operator   | File              |
-|:----------:|:----------:|:-----------------:|
-| yyyy-mm-dd | Your name  | YourPrint.gcode   |
-
-| Mixer Ratio | Flow Rate | Slicer      |
-|:-----------:|:---------:|:-----------:|
-| 93/7%       | ____%     | [ ] Grasshopper  
-|             |           | [ ] Cura  
-|             |           | [ ] Prusa  
-|             |           | [ ] Orca  
-
-| Material | PLA | PETg | ABS | ASA | Other |
-|:--------:|:---:|:----:|:---:|:---:|:-----:|
-| [ ]      | [ ] | [ ]  | [ ] | [ ] | [ ]   |
-
-| Nozzle  | Adapter | 2 mm | 3 mm | 5 mm | 8 mm |
-|:-------:|:-------:|:----:|:----:|:----:|:----:|
-| [ ]     | [ ]     | [ ]  | [ ]  | [ ]  | [ ]  |
+| Field         | Entry                              |
+|--------------:|------------------------------------|
+| **Date**      | __________                         |
+| **Operator**  | __________                         |
+| **File Name** | __________                         |
+| **Mixer**     | __________                         |
+| **Flow (%)**  | __________                         |
+| **Slicer**    | ◻ Grasshopper ◻ Cura ◻ Prusa ◻ Orca |
+| **Material**  | ◻ PLA ◻ PETg ◻ ABS ◻ ASA ◻ Other:__ |
+| **Nozzle**    | ◻ Adapter ◻ 2 mm ◻ 3 mm ◻ 5 mm ◻ 8 mm |
 
 | Zone | Material | Nozzle |
 |:----:|:--------:|:------:|
@@ -110,139 +72,138 @@
 
 ---
 
-## Design & Geometry
+## Pre-Print Checks & Setup
+
+Before every print, verify:
+
+1. **Nozzle Size** matches your layer-height and flow settings.  
+2. **Nozzle Cleanliness**—wipe or purge any residue.  
+3. **Power Setup**—bed and printer on separate circuits to avoid brown-outs.  
+4. **Bed Leveling & Z-Offset**—auto-level and save in EEPROM; adjust Z-offset for proper first-layer squish.  
+5. **Bed Adhesion**—apply glue stick, tape, or appropriate adhesive.  
+
+---
+
+## Print Process Overview
+
+1. **Design & Slice**  
+   - Model in CAD → export STL/OBJ → import into slicer.  
+2. **Transfer File**  
+   - Use SD card or wireless connection.  
+3. **Preheat**  
+   - Bed & nozzle to target temperatures.  
+4. **Purge Material**  
+   - Extrude until flow is stable and clean.  
+5. **Start Print**  
+   - Initiate from printer UI.  
+6. **Monitor Brim & First Layers**  
+   - Ensure adhesion; adjust flow if needed.  
+7. **Activate Cooling**  
+   - After 4 solid layers, set fan to 60–100 % for overhangs.  
+8. **Finish & Cool**  
+   - Once complete, let bed temperature drop before removal.  
+
+---
+
+## Geometries & Design Guidelines
 
 ### Geometry Types
 
-- **Polysurface:** joined surfaces (open/closed)  
-- **Surface:** single continuous face (usually open)  
-- **BREP:** solid boundary (can include edges & faces)  
-- **Mesh:** vertices/edges/faces polyhedron
+- **Polysurface**: Joined surfaces; can be open/closed.  
+- **BREP**: Solid definition with faces & edges; must be watertight.  
+- **Mesh**: Vertex/edge/face network; ensure manifold.  
 
 ### Characteristics
 
-- **Open vs. Closed**  
-  - *Open:* gaps/hollows → must seal.  
-  - *Closed:* watertight.
-
-- **Surface Properties**  
-  - Top Open / Closed / Smooth / Angled / Undercuts
+- **Open vs Closed**: Close gaps for slicer compatibility.  
+- **Surface Profiles**:  
+  - **Top Open**: good for hollow or vented parts.  
+  - **Top Closed**: airtight/sealed prints.  
+  - **Angled & Undercuts**: require supports or custom slicing strategies.  
 
 ### Design Rules
 
-- **Continuous Toolpath** minimizes retractions.  
-- **No Seams/Bridging** → better finish & strength.  
-- **Brim/Skirt** → adhesion & stability.
-
-### Recommended Methods
-
-| Type           | Software     | Use Case                           | Highlights                    |
-|:--------------:|:------------:|:----------------------------------:|:------------------------------:|
-| Simple & Fast  | Orca         | Planar, quick, standard shapes     | Remove preset G-code blocks   |
-| Custom & Complex | Grasshopper | Non-planar, bespoke geometries      | Adaptive slicing, custom ends |
+- **Continuous Toolpath**: avoid retractions and minimize seams.  
+- **Include Brim/Skirt**: stabilizes base layers & improves adhesion.  
+- **Avoid Excessive Bridges**: design features to minimize unsupported spans.  
 
 ---
 
-## Slicing Recipes
+## Slicing Guidelines
 
 ### Software Overview
 
-- **Cura** – convert STEP → STL/OBJ first.  
-- **Orca** – clear start/end G-code for full control.  
-- **Grasshopper** – ultimate custom slicing via scripts.
+- **Cura**: popular; convert STEP→STL/OBJ first.  
+- **Orca**: delete default start/end G-code for full control.  
+- **PrusaSlicer**: robust defaults; supports custom scripts.  
+- **Grasshopper**: advanced, parametric slicing for non-planar parts.
 
-### Layer-Size Rules
+### Layer & Flow Rules
 
-- **Width:Height ≥ 2:1**  
-- **Max Height ≤ 60%** of nozzle diameter  
-- **Min Width ≥ 150%** of nozzle diameter
+- **Layer Width : Height ≥ 2 : 1** for good bonding.  
+- **Max Layer Height ≤ 60 %** of nozzle diameter.  
+- **Min Layer Width ≥ 150 %** of nozzle diameter.  
+- **Double Beads**: use 0.8–0.9× layer width; set nozzle width to 1.2–1.4× diameter for strong walls.
 
-### General Tips
+### General Slicing Tips
 
-#### Travel Moves
+- **Travel Moves**  
+  - *Continuous Path*: reduces stringing & time.  
+  - *Combine Multiple Parts*: fewer retracts.  
+  - *Ooze Walls*: catch excess filament.
 
-- **Continuous Toolpath**  
-- **Combine Multiple Parts** in one job  
-- **Artificial Ooze Walls** reduce stringing
+- **Support Structures**  
+  - *Dynamic Z-Lift*: avoid collisions on complex prints.
 
-#### Support
+- **Overhangs & Bridging**  
+  - Standard limit 45°; steep up to 90° with stepover rule.  
+  - Avoid bridges when possible; design to minimize.
 
-- **Dynamic Z-Lift** during travels
+- **Infill**  
+  - Integrate patterns into model for strength & aesthetics.
 
-#### Overhangs
-
-- **≤ 45°** standard; **up to 90°** with special strategies  
-- **Stepover Rule** for layer support
-
-#### Bridging
-
-- **Minimize** → avoid poor quality
-
-#### Infill
-
-- **Integrated** into model for strength
-
-#### Corners
-
-- **Round or Step** to reduce stress  
-- Radius ≥ 0.5× nozzle diameter
-
-#### Double Beads
-
-- **Layer Width:** 0.8–0.9× nominal  
-- **Height/Width:** 1.2–1.4× nozzle diameter
-
-### Grasshopper Workflow
-
-<details>
-<summary>1. Check & Prepare Geometry</summary>
-
-- Identify as Surface, Open/Closed Polysurface  
-- Seal gaps for watertight print  
-- Decide planar vs. non-planar → use adaptive heights  
-- Select brim/skirt/infill strategy
-</details>
-
-<details>
-<summary>2. Contour Slicing Steps</summary>
-
-1. Slice with **Contour** component  
-2. Order & align curves along Z  
-3. Divide/join curves → ensure continuous spiral  
-4. Flip/guide curves for consistent direction  
-5. Generate G-code:  
-   - **Non-planar:** variable feed per height  
-   - **Planar:** constant feed
-</details>
+- **Corners**  
+  - Round or step-divide sharp corners.  
+  - Corner radius ≥ 0.5× nozzle diameter.
 
 ---
 
-## Materials
+## Grasshopper-Based Custom Slicing
 
-### Material Settings
+### 1. Geometry Assessment
 
-| Material           | Form     | Zone 1 | Zone 2 | Zone 3 | Additive    | Mixer  |
-|:------------------:|:--------:|:-----: |:-----: |:-----: |:-----------:|:------:|
-| Nateruworks PLA    | Pellets  | 220 °C | 210 °C | 205 °C | Gleitmittel | 93/7%  |
-| _Your custom row_  |          |        |        |        |             |        |
+- Identify **Surface**, **Open/Closed Polysurface**.  
+- Determine **Planar vs Non-Planar** surfaces → adaptive layer heights.
 
-### Dry Materials
+### 2. Model Preparation
 
-> Except PLA: PETG, ABS, ASA, PC, PET
+- Seal open polysurfaces to create watertight solids.  
+- Select bottom supports: **infill**, **brim**, **skirt**.  
 
-### Specifications
+### 3. Curve & Contour Workflow
 
-- Pellets, Flakes, Filament  
-- Dry/Not-dry status  
-- Mixer & additive recipes
+1. **Contour Slicing**: use Contour component.  
+2. **Order & Sort**: align curves along Z-axis.  
+3. **Divide & Join**: generate continuous spirals or seams.  
+4. **Guide & Flip**: ensure consistent curve direction.  
 
-<details>
-<summary>Notes & Recipes</summary>
+### 4. G-Code Generation
 
-– List custom material blends here  
-– Glycol % for flakes  
-– …
-</details>
+- **Non-Planar**: feed rate varies with point-to-point distance.  
+- **Planar**: constant feed rate for uniform layers.
+
+---
+
+## Material Handling & Settings
+
+| Material          | Form     | Zone 1 (°C) | Zone 2 (°C) | Zone 3 (°C) | Additive      | Mixer Ratio |
+|------------------:|----------|-----------:|-----------:|-----------:|--------------|------------:|
+| Nateruworks PLA   | Pellets  |        220 |        210 |        205 | Flow Aid     | 93 / 7 %    |
+| [Your Material]   | [Type]   |      [__] |      [__] |      [__] | [Additive]   | [__ / __ %] |
+
+- **Dry Materials**: PETg, ABS, ASA, PC, PET (all require drying).  
+- **Forms**: pellets, flakes, filament.  
+- **Additives**: glycol for flakes; teflon tape for nozzle seal.
 
 ---
 
@@ -250,81 +211,37 @@
 
 ### Mixer Settings
 
-> **Recommended:** 93/7% (per experience)
+- Default **93 % base / 7 % additive** for smooth, consistent extrusion.
 
 ### Cooling Guidelines
 
-- **Layers 1–4:** 0% fan  
-- **After:** 60% (up to 100% for overhangs)
+- **Layers 1–4**: 0 % cooling to ensure bed adhesion.  
+- **After Layer 4**: 60 % cooling standard, 100 % for heavy overhangs.
 
 ### Homing
 
-- Clear nozzle first → avoid build-plate damage
+- Clear any residual material from the nozzle before homing to protect the build plate.
 
 ### Bed Leveling
 
-- Auto-level → save Z-offset in EEPROM  
-- Manually check each corner motor if uneven
+1. Auto-level and save Z-offset in EEPROM.  
+2. Manually verify frame level; adjust each Z-motor if uneven.
 
-### Common Problems
+### Common Problems & Remedies
 
-<details>
-<summary>First Layer Doesn’t Stick</summary>
-
-- **Bed Leveling:** re-run or manual adjust  
-- **Z-Offset:** verify & fine-tune  
-- **Speed:** slow first layer  
-- **Flow:** increase for layer 1  
-- **Adhesive:** spray or tape
-</details>
-
-<details>
-<summary>Warping</summary>
-
-- **Brim:** increase surface area  
-- **Clamps/Screws:** secure part  
-- **Fan:** 0% for first layers  
-- **Bed Temp:** ~60 °C
-</details>
-
-<details>
-<summary>Insufficient Extrusion</summary>
-
-- **Purge:** clear blockage  
-- **Flow/Speed:** adjust extrusion rate
-</details>
-
-<details>
-<summary>Polymer Droplets / Steam</summary>
-
-- **Nozzle Seal:** fresh Teflon tape  
-- **Mixing:** fully disperse masterbatch  
-- **Drying:** ensure material dryness
-</details>
-
-<details>
-<summary>Poor Print Quality</summary>
-
-- **Material Dryness**  
-- **Temperature Tuning** up/down
-</details>
-
-<details>
-<summary>Extruder Crashes</summary>
-
-- **Clearance:** increase part offset  
-- **Redesign:** raise or enlarge model
-</details>
-
-<details>
-<summary>Notes</summary>
-
-– …  
-</details>
+| Problem                                   | Solutions                                                                                              |
+|-------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| **First-Layer Doesn’t Stick**             | - Re-level bed & adjust Z-offset<br>- Slow first-layer speed<br>- Increase first-layer flow rate     |
+| **Warping**                               | - Add brim<br>- Secure with screws/clamps or tape<br>- 0 % cooling on initial layers<br>- Bed @ 60 °C |
+| **Insufficient Extrusion**                | - Purge to clear blockage<br>- Adjust flow rate or print speed                                       |
+| **Polymer Droplets on Surface**           | - Replace Teflon tape on nozzle<br>- Ensure masterbatch is thoroughly mixed<br>- Dry materials       |
+| **Hissing/Steam at Nozzle**               | - Dry pellets/flakes completely before use                                                           |
+| **Poor Surface Quality**                  | - Verify material dryness<br>- Fine-tune extrusion temperature                                        |
+| **Nozzle Collision / Printer Crash**      | - Increase part clearance or redesign features<br>- Re-check bed leveling & Z-offset                  |
 
 ---
 
 ## Credits
 
-> **Cheat Sheet & Handbook** for Ginger V1.3 Beta  
-> © Moritz Wesseler, July 2024
+Created by **Moritz Wesseler**, July 2024  
+© Ginger V1.3 Beta Handbook & Cheat Sheet  
