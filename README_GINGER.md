@@ -327,5 +327,4 @@
 ## Credits
 
 > **Cheat Sheet & Handbook** for Ginger V1.3 Beta  
-> © Moritz Wesseler, July 2024  
-> Maintained by: _Your Name / Team_
+> © Moritz Wesseler, July 2024
