@@ -1,11 +1,9 @@
 # LARGE FORMAT 3D PRINTING ALGORITHM
   
-**BY MORITZ WESSELER - FH MÜNSTER 2025**  
-*Originally inspired by Ginger.Additive; now fully reimplemented.* 
-
 This Grasshopper definition—**LARGE FORMAT 3D PRINTING ALGORITHM**—is a two-stage slicer for generating large-format toolpaths and G-code directly in Rhino/Grasshopper. It supports skirts, brims (with flip option), adaptive layer widths, and live previews.
 
-Originally inspired by Ginger.Additive; current version is a complete reimplementation.
+**BY MORITZ WESSELER - FH MÜNSTER 2025**  
+*Originally inspired by Ginger.Additive; now fully reimplemented.* 
 
 ## TABLE OF CONTENTS
 
