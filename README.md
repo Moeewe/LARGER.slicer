@@ -1,8 +1,9 @@
 # LARGE FORMAT 3D PRINTING ALGORITHM
+  
+This Grasshopper definition—**LARGE FORMAT 3D PRINTING ALGORITHM**—is a two-stage slicer for generating large-format toolpaths and G-code directly in Rhino/Grasshopper. It supports skirts, brims (with flip option), adaptive layer widths, and live previews.
 
-**Version 1.0.0**  
 **BY MORITZ WESSELER - FH MÜNSTER 2025**  
-*Originally inspired by Ginger.Additive; now fully reimplemented.*
+*Originally inspired by Ginger.Additive; now fully reimplemented.* 
 
 ## TABLE OF CONTENTS
 
@@ -131,7 +132,6 @@ The component generates **Toolpath Curves** along the midline of each layer.
 | Problem                                | Cause                          | Solution                                               |
 | -------------------------------------- | ------------------------------ | ------------------------------------------------------ |
 | Missing LunchBox/Pufferfish components | Plugins not installed          | Install via Rhino’s PackageManager                     |
-| Components locked by password          | Custom clusters require unlock | Right-click component → enter **Supersizedprinting**   |
 | Surface not accepted                   | Wrong geometry type            | Use **Set One Surface** on a valid Brep surface        |
 | G-Code file not appearing              | Write command not triggered    | Click **Write G-Code** and confirm save path           |
 | Preview slider has no effect           | Path Preview not connected     | Check that **Path Preview** input is wired to polyline |
