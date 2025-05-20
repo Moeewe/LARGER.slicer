@@ -140,7 +140,7 @@ This Grasshopper definition slices your 3D geometry or 2D curves into robot‐re
 ## Generating & Uploading Robot Code
 
 1. Connect the `program` output to a Grasshopper **Panel**.  
-2. Click **Upload** → this streams the URScript to `192.168.1.2`.  
+2. Click **Upload** → this streams the URScript to `192.168.1.66`.  
 3. Check **Warnings** & **Errors** panels for issues.
 
 ---
