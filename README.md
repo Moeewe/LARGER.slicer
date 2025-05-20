@@ -112,18 +112,9 @@ The component generates **Toolpath Curves** along the midline of each layer.
 ├── LARGERslicer.gh             # Main Grasshopper definition
 ├── LICENSE              # MIT License
 └── README.md            # This documentation
-└── PRINTER            # Contains printer specific readmes and files
+└── PRINTER            # Contains printer and robot specific readmes and files and .gh
 
 ```
-
----
-
-## FUTURE PROJECTS
-
-* **Ginger Printer Readme** – dedicated documentation for Ginger machine setup.
-* **Weber Printer Readme** – dedicated documentation for Weber machine.
-* **Non-Planar Module** – advanced slicing for curved surfaces.
-* **Direct Robot Control** – integrate with KUKA/UR for robotic deposition.
 
 ---
 
