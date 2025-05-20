@@ -19,9 +19,8 @@ This Grasshopper definition—**LARGE FORMAT 3D PRINTING ALGORITHM**—is a two-
    1. [Part 1: 3D Print Path Maker](#part-1-3d-print-path-maker)
    2. [Part 2: G-Code Maker](#part-2-g-code-maker)
 6. [FILES & STRUCTURE](#files--structure)
-7. [FUTURE PROJECTS](#future-projects)
-8. [TROUBLESHOOTING](#troubleshooting)
-9. [LICENSE](#license)
+7. [TROUBLESHOOTING](#troubleshooting)
+8. [LICENSE](#license)
 
 ---
 
