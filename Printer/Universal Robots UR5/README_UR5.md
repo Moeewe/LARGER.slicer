@@ -42,17 +42,31 @@ This Grasshopper definition slices your 3D geometry or 2D curves into robot‐re
 
 ## Network Setup
 
-1. **Wired connection only**: connect your laptop’s Ethernet port to the UR5’s network adapter.  
-2. **Static IP (laptop)**:  
-   - IP: `192.168.1.66`  
-   - Subnet mask: `255.255.255.0`  
-3. **Robot IP** (default): `192.168.1.2`  
-4. **Verify link**:  
-   ```bash
-   ping 192.168.1.2
+1. **Wired Connection Only**  
+   Connect your laptop’s Ethernet port directly to the UR5’s network adapter.
+
+2. **Configure Static IP (Laptop)**  
+   1. Open **Network Settings**.  
+   2. Select **USB-C Dock Ethernet** → **Details**.  
+   3. Under **TCP/IP**, set **Configure IPv4** to **Manual** and enter:  
+      - **IP Address:** `192.168.1.44`  
+      - **Subnet Mask:** `255.255.255.0`  
+
+3. **Robot IP** (default in Grasshopper):  
+   ```
+   192.168.1.66
    ```
 
----
+4. **Verify Connection**  
+   ```bash
+   ping 192.168.1.66
+   ```
+
+> **Troubleshooting Tips**  
+> - If the Grasshopper upload hangs, disconnect the Ethernet cable, verify your IP settings and cable connection, then reconnect.  
+> - Always **save** your Grasshopper definition before uploading to prevent crashes.  
+> - When the connection succeeds, the UR5 pendant will display **Abort | Execute or Continue Script** – select **Execute** to start the job.  
+
 
 ## Rhino & Grasshopper Setup
 
@@ -159,8 +173,10 @@ This Grasshopper definition slices your 3D geometry or 2D curves into robot‐re
 ## Credits
 
 **Authors:**  
-— Fabio Koczula & Torben Kurzhals, FH Münster 2025  
-**Further Contributors:**  
 — Moritz Wesseler  
+
+**Further Contributors:**  
+
+— Fabio Koczula & Torben Kurzhals, FH Münster 2025  
 
 © All rights reserved.
