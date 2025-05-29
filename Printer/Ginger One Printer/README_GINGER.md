@@ -7,8 +7,11 @@
 ## Table of Contents
 
 1. [Introduction](#introduction)  
-2. [Quick Start & Production Plate Template](#quick-start--production-plate-template)  
-3. [Pre-Print Checks & Setup](#pre-print-checks--setup)  
+2. [Quick Start Guide](#quick-start-guide)  
+3. [Prerequisites & Setup](#prerequisites--setup)  
+   - [Power & Safety](#power--safety)  
+   - [Pre-Print Checks](#pre-print-checks)  
+   - [Heating System](#heating-system)  
 4. [Print Process Overview](#print-process-overview)  
 5. [Geometries & Design Guidelines](#geometries--design-guidelines)  
 6. [Slicing Guidelines](#slicing-guidelines)  
@@ -38,18 +41,37 @@ Use it as both a step-by-step guide and a quick reference during your print runs
 
 ---
 
-## Quick Start & Production Plate Template
+## Quick Start Guide
 
-### Quick Start
+1. **Power On** the printer via the power box with multiple sockets.
+2. **Remove** all red emergency safety knobs.
+3. **Preheat** bed & extruder to your material's recommended temperatures.
+4. **Purge** material until the nozzle is clean.
+5. **Home** all axes to ensure proper positioning.
+6. **Load File** via micro-SD.
+7. **Set Mixer Ratio** (default **93 % base / 7 % additive**).
+8. **Adjust Flow** for initial layers.
+9. **Start Print**.
 
-1. **Power On** the printer.  
-2. **Preheat** bed & extruder to your material’s recommended temperatures.  
-3. **Purge** material until the nozzle is clean.  
-4. **Home** all axes to ensure proper positioning.  
-5. **Load File** via micro-SD.  
-6. **Set Mixer Ratio** (default **93 % base / 7 % additive**).  
-7. **Adjust Flow** for initial layers.  
-8. **Start Print**.
+---
+
+## Prerequisites & Setup
+
+### Power & Safety
+- **Heatbed Power**: The heatbed requires a separate power cable and **must be connected to a different circuit**. It consumes up to **4 x 800 W**, so never plug it into the same circuit as the main machine.
+- **Main Power-On**: The machine is turned on via a **power box with multiple sockets**. Look for a small switch (usually on top of the box).
+- **Emergency Buttons**: Ensure **all red emergency safety knobs** are removed before starting the system.
+
+### Pre-Print Checks
+1. **Nozzle Size** matches your layer-height and flow settings.  
+2. **Nozzle Cleanliness** — wipe or purge any residue **before** homing.  
+3. **Power Setup** — bed and printer on separate circuits to avoid brown-outs.  
+4. **Bed Leveling & Z-Offset** — auto-level and save in EEPROM; adjust Z-offset for proper first-layer squish.  
+5. **Bed Adhesion** — apply glue stick, tape, or appropriate adhesive.
+
+### Heating System
+- **Extruder Heating**: On the **right-hand display**, set the target temperature using the rotary knob or touchscreen. 
+- Activate the heating system and wait until the **target temperature is reached** before moving forward.
 
 ### Production Plate Template
 
@@ -74,36 +96,34 @@ _Print and keep this sheet next to the printer to track your test prints._
 
 ---
 
-## Pre-Print Checks & Setup
-
-Before every print, verify:
-
-1. **Nozzle Size** matches your layer-height and flow settings.  
-2. **Nozzle Cleanliness** — wipe or purge any residue **before** homing.  
-3. **Power Setup** — bed and printer on separate circuits to avoid brown-outs.  
-4. **Bed Leveling & Z-Offset** — auto-level and save in EEPROM; adjust Z-offset for proper first-layer squish.  
-5. **Bed Adhesion** — apply glue stick, tape, or appropriate adhesive.
-
----
-
 ## Print Process Overview
 
+### Initial Setup
 1. **Design & Slice**  
    - Model in CAD → export STL/OBJ → import into slicer.  
 2. **Transfer File**  
-   - Use micro-SD.  
-3. **Preheat**  
-   - Bed & nozzle to target temperatures.  
-4. **Purge Material**  
-   - Extrude until flow is stable and clean.  
-5. **Start Print**  
-   - Initiate from printer UI.  
-6. **Monitor Brim & First Layers**  
-   - Ensure adhesion; adjust flow if needed.  
-7. **Activate Cooling**  
-   - After 4 solid layers, set fan to 60 – 100 % for overhangs.  
-8. **Finish & Cool**  
-   - Once complete, let bed temperature drop before removal.
+   - Export your sliced G-code using **Larger Slicer**
+   - Place the `.gcode` file on a **microSD card**
+   - Insert it into the **rear-left slot of the controller box**
+
+### Startup Sequence
+1. **Home** the printer
+2. Wait until **extruder temperature is reached**, then allow Z-homing to avoid material drag
+3. **Clean leftover material** manually from the nozzle to avoid clogging or displacement during the start
+
+### Print Monitoring
+1. **Monitor Brim & First Layers**  
+   - Ensure adhesion; adjust flow if needed
+2. **Activate Cooling**  
+   - After 4 solid layers, set fan to 60 – 100 % for overhangs
+3. **Z-Offset & Flow Adjustments**
+   - Can be changed during the print via the **Tune menu** on the printer
+   - Ideally adjust these in the Grasshopper script before export
+
+### Completion
+1. **Wait for Cooling**
+   - Once complete, let bed temperature drop before removal
+   - This prevents damaging the surface or deforming the part
 
 ---
 
@@ -206,11 +226,16 @@ Before every print, verify:
 | QiTECH PETg       | Pellets  |        260 |        260 |        240 | —            | 93 / 7 %    |
 | [Your Material]   | [Type]   |      [__] |      [__] |      [__] | [Additive]   | [__ / __ %] |
 
-- **Dry Materials**: PETg, ABS, ASA, PC, PET (all require drying).
-- **Material Slicer Settings**: All materials have custom factors to multiply the E-Value with.
-- **Forms**: pellets, flakes, filament.  
-- **Additives**: glycol for flakes.  
+### Material Requirements
+- **Dry Materials**: PETg, ABS, ASA, PC, PET (all require drying)
+- **Material Slicer Settings**: All materials have custom factors to multiply the E-Value with
+- **Forms**: pellets, flakes  
+- **Additives**: glycol for flakes  
 - **Nozzle Swap**: wrap threads with Teflon tape to seal after swapping
+
+### Material Feed System
+- The yellow hose leads from the extruder to the material box
+- Inside the box, place the **gray suction tube at the bottom** to ensure reliable pellet intake
 
 ---
 
@@ -233,13 +258,13 @@ Before every print, verify:
 
 1. Auto-level and save Z-offset in EEPROM.  
 2. Manually verify frame level; adjust each Z-motor if uneven.  
-3. Ensure your start/end G-codes match your firmware’s bed-level commands.
+3. Ensure your start/end G-codes match your firmware's bed-level commands.
 
 ### Common Problems & Remedies
 
 | Problem                          | Solutions                                                                                           |
 |----------------------------------|----------------------------------------------------------------------------------------------------|
-| **First-Layer Doesn’t Stick**    | – Re-level bed & adjust Z-offset<br>– Slow first-layer speed<br>– Increase first-layer flow rate    |
+| **First-Layer Doesn't Stick**    | – Re-level bed & adjust Z-offset<br>– Slow first-layer speed<br>– Increase first-layer flow rate    |
 | **Warping**                      | – Add brim<br>– Secure with screws/clamps or tape<br>– 0 % cooling on initial layers<br>– Bed @ 60 °C |
 | **Insufficient Extrusion**       | – Purge to clear blockage<br>– Adjust flow rate or print speed                                     |
 | **Polymer Droplets on Surface**  | – Replace Teflon tape on nozzle<br>– Thoroughly mix masterbatch<br>– Dry materials                 |
