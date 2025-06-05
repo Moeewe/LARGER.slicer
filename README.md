@@ -37,7 +37,7 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 ### Requirements
 
 * Windows 10 or newer
-* Rhino 7 (or newer) with Grasshopper
+* Rhino 8 (or newer) with Grasshopper and Python 3
 * **LunchBox** (fast R-Tree searches)
 * **Pufferfish** (utility components)
 
@@ -55,7 +55,7 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 ### Requirements
 
 * macOS 11 Big Sur or newer
-* Rhino 7 for Mac with Grasshopper
+* Rhino 8 for Mac with Grasshopper and Python 3
 * **LunchBox**
 * **Pufferfish**
 
