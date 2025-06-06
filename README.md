@@ -69,6 +69,7 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 
 ## SETUP GRASSHOPPER COMPONENTS
 
+0. Launch Rhino and create a file in mm measurement.
 1. Launch Grasshopper in Rhino.
 2. **File → Open** → select `LARGERslicer.gh`.
 3. Ensure LunchBox and Pufferfish are loaded (check in the toolbar).
