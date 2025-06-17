@@ -22,9 +22,9 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 
 | Platform | Status | Control Script | Documentation |
 |----------|--------|----------------|---------------|
-| **Ginger One Printer** | Production Ready | `LARGERslicer.gh` | [Ginger Quick Start Guide](./_PRINTER/Ginger%20One%20Printer/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
-| **Universal Robots UR5** | Production Ready | `UR5slicer.gh` | [UR5 Quick Start Guide](./_PRINTER/Universal%20Robots%20UR5/README%20UR5%2000%20QUICK%20START%20GUIDE.md) |
-| **Weber DXR Robot** | Work in Progress | `LARGERslicer.gh` | [Weber DXR Quick Start Guide](./_PRINTER/Weber%20DXR%20Robot/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE.md) |
+| **Ginger One Printer** | Production Ready | `LARGERslicer.gh` | [Ginger Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/_%20PRINTER/Ginger%20One%20Printer/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
+| **Universal Robots UR5** | Production Ready | `UR5slicer.gh` | [UR5 Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/_%20PRINTER/Universal%20Robots%20UR5/README%20UR5%2000%20QUICK%20START%20GUIDE.md) |
+| **Weber DXR Robot** | Work in Progress | `LARGERslicer.gh` | [Weber DXR Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/_%20PRINTER/Weber%20DXR%20Robot/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE.md) |
 
 ### Recommended Workflow
 
