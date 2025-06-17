@@ -103,23 +103,27 @@ The LARGER Slicer is organized into two main stages:
 
 ### Part 2: G-Code Maker
 
-**Export Setup:**
-1. **Output Folder**: Right-click **Save to** → **Set One File Path**
-2. **Job Name**: Enter filename in text panel
-3. **Machine Settings**:
-   - **Print Speed (mm/min)**: Default 3500 (~60 mm/s)
-   - **Flow (%)**: Extrusion multiplier
-   - **Printer Profile**: Choose **Ginger** or **Weber** presets
+**Setup Process:**
+1. **Preview Toolpath**: Use **Preview Slider (0→1)** to scrub through toolpath animation
+2. **Select Printer Profile**: Choose **Ginger One** or **Weber DXR** (for UR5, use separate `UR5slicer.gh`)
+3. **Set Output Location**: 
+   - Use integrated desktop path finder, OR
+   - Add your own filepath component with desired save location
+4. **Configure Settings**:
+   - **Job Name**: Enter desired filename (e.g., "Testobject")
+   - **Feedrate/Speed**: Adjust print speed as needed
+   - **Flow (%)**: Set extrusion multiplier
 
-**Generate G-Code**: Click **Export G-Code** to create file with auto-generated filename including:
-- Estimated material weight
-- Estimated print time  
-- Date and timestamp
-- Your custom job name
+**Generate G-Code (Important 2-Step Process):**
+1. **Click "1. Slice Data"** - This calculates weight, time, and generates coordinates
+2. **Click "2. Export G-Code"** - This exports the final G-code file
 
-**Preview Options**:
-- **Printer Bed Preview**: Visualizes printer and build area
-- **Toolpath Progress Preview**: Animates toolpath curves with **Preview Slider (0→1)**
+**Note**: You MUST click "Slice Data" first, otherwise you'll only get standard start/end G-code without coordinates, weight, or time calculations. This two-step process keeps the script running efficiently.
+
+**Outputs**:
+- **Weight in kg**: Displays estimated material usage
+- **Time**: Shows estimated print time
+- **G-Code**: Generated machine-ready code with coordinates
 
 ## Project Structure
 
