@@ -38,6 +38,7 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 
 * Windows 10 or newer
 * Rhino 8 (or newer) with Grasshopper and Python 3
+<<<<<<< HEAD
 * **Different GH Plugins** (Load on startup automatically)
 
 * **Pufferfish**
@@ -47,6 +48,10 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 * **Heteroptera**
 * **Wombat**
 
+=======
+* **LunchBox** (fast R-Tree searches)
+* **Pufferfish** (utility components)
+>>>>>>> af3c9d32a6b4e7449985a6c60d382ba52f77496c
 
 ### Installation Steps
 
@@ -63,8 +68,13 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 All plugins should load automatically while opening the script first time. Feel free to optimize, so that no plugins are required.
 
 * macOS 11 Big Sur or newer
+<<<<<<< HEAD
 * Rhino 8 for Mac with Python 3 Grasshopper
 
+=======
+* Rhino 8 for Mac with Grasshopper and Python 3
+* **LunchBox**
+>>>>>>> af3c9d32a6b4e7449985a6c60d382ba52f77496c
 * **Pufferfish**
 * **Clipper Components**
 * **Sasquatsch**
@@ -82,6 +92,7 @@ All plugins should load automatically while opening the script first time. Feel 
 
 ## SETUP GRASSHOPPER COMPONENTS
 
+0. Launch Rhino and create a file in mm measurement.
 1. Launch Grasshopper in Rhino.
 2. **File → Open** → select `LARGERslicer.gh`.
 3. Ensure Plugins are loaded (check in the toolbar).
