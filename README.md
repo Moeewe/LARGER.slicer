@@ -37,16 +37,22 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 ### Requirements
 
 * Windows 10 or newer
-* Rhino 7 (or newer) with Grasshopper
-* **LunchBox** (fast R-Tree searches)
-* **Pufferfish** (utility components)
+* Rhino 8 (or newer) with Grasshopper and Python 3
+* **Different GH Plugins** (Load on startup automatically)
+
+* **Pufferfish**
+* **Clipper Components**
+* **Sasquatsch**
+* **Lunchbox**
+* **Heteroptera**
+* **Wombat**
+
 
 ### Installation Steps
 
-1. Open Rhino → **PackageManager**.
-2. Search for and install **LunchBox**.
-3. Search for and install **Pufferfish**.
-4. Download or clone this repository (as `.gh`).
+1. Download or clone the LARGERslicer.gh file.
+2. Open Rhino and Grasshopper
+3. Drag and Drop the .gh file onto the Grasshopper canvas.
 
 ---
 
@@ -54,16 +60,23 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 
 ### Requirements
 
+All plugins should load automatically while opening the script first time. Feel free to optimize, so that no plugins are required.
+
 * macOS 11 Big Sur or newer
-* Rhino 7 for Mac with Grasshopper
-* **LunchBox**
+* Rhino 8 for Mac with Python 3 Grasshopper
+
 * **Pufferfish**
+* **Clipper Components**
+* **Sasquatsch**
+* **Lunchbox**
+* **Heteroptera**
+* **Wombat**
 
 ### Installation Steps
 
-1. Open Rhino for Mac → **PackageManager**.
-2. Install **LunchBox** and **Pufferfish**.
-3. Clone or download this repo (as `.gh`).
+1. Download or clone the LARGERslicer.gh file.
+2. Open Rhino and Grasshopper
+3. Drag and Drop the .gh file onto the Grasshopper canvas.
 
 ---
 
@@ -71,8 +84,8 @@ Originally inspired by Ginger.Additive; current version is a complete reimplemen
 
 1. Launch Grasshopper in Rhino.
 2. **File → Open** → select `LARGERslicer.gh`.
-3. Ensure LunchBox and Pufferfish are loaded (check in the toolbar).
-4. Unlock custom clusters: right-click any password-protected component and enter **XXXXX**.
+3. Ensure Plugins are loaded (check in the toolbar).
+4. Unlock custom clusters if ou need: right-click any password-protected component and enter **Supersizedprinting***.
 5. Verify clusters appear in **Input**, **Path Maker**, and **G-Code Maker** stages.
 
 ---
