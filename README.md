@@ -22,9 +22,9 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 
 | Platform | Status | Control Script | Documentation |
 |----------|--------|----------------|---------------|
-| **Ginger One Printer** | Production Ready | `LARGERslicer.gh` | [Ginger Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/_%20PRINTER/Ginger%20One%20Printer/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
-| **Universal Robots UR5** | Production Ready | `UR5slicer.gh` | [UR5 Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/_%20PRINTER/Universal%20Robots%20UR5/README%20UR5%2000%20QUICK%20START%20GUIDE.md) |
-| **Weber DXR Robot** | Work in Progress | `LARGERslicer.gh` | [Weber DXR Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/_%20PRINTER/Weber%20DXR%20Robot/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE.md) |
+| **Ginger One Printer** | Production Ready | `LARGERslicer.gh` | [Ginger Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/PRINTER/00%20-%20GINGER%20-%20ONE/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
+| **Universal Robots UR5** | Production Ready | `UR5slicer.gh` | [UR5 Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/PRINTER/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/README%20UR5%2000%20QUICK%20START%20GUIDE.md) |
+| **Weber DXR25 Robot** | Work in Progress | `LARGERslicer.gh` | [Weber DXR25 Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/PRINTER/00%20-%20WEBER%20-%20DXR25/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE.md) |
 
 ### Recommended Workflow
 
@@ -129,24 +129,28 @@ The LARGER Slicer is organized into two main stages:
 
 ```
 LARGER.slicer/
-├── LARGERslicer.gh                      # Main LARGER Slicer algorithm
-├── LICENSE                              # MIT License
-├── README.md                            # This documentation
-├── _ LARGERslicer WIP/                  # Development versions
-│   ├── _ PYTHON Components/             # Supporting Python modules
-│   └── [Specialized variants]          # Machine-specific developments
-└── _ PRINTER/                           # Machine-specific documentation
-    ├── Ginger One Printer/             # Ginger V1.3 Beta LFAM system
-    ├── Universal Robots UR5/           # UR5 Robot control system  
-    └── Weber DXR Robot/                # Weber DXR Robot platform
+├── LARGERslicer.gh                                    # Main LARGER Slicer algorithm
+├── LICENSE                                            # MIT License
+├── README.md                                          # This documentation
+└── PRINTER/                                           # Machine-specific documentation and scripts
+    ├── 00 - GINGER - ONE/                            # Ginger V1.3 Beta LFAM system
+    │   ├── README GINGER 00 QUICK START GUIDE.md     # Setup and operation guide
+    │   └── Archive/                                   # Historical versions
+    ├── 00 - UNIVERSAL ROBOTS - UR5/                  # UR5 Robot control system
+    │   ├── README UR5 00 QUICK START GUIDE.md        # Setup and operation guide
+    │   └── UR5slicer.gh                              # Dedicated UR5 control script
+    ├── 00 - WEBER - DXR25/                           # Weber DXR25 Robot platform
+    │   ├── README Weber DXR25 PRINTER QUICK START GUIDE.md  # Setup guide
+    │   └── WIP Grasshopper Simulation/               # Development simulation scripts
+    └── 01 - WIP - PRINTER GH SCRIPTS : NEW FEATURES/ # Development and new features
 ```
 
 ### Key Components
 
-- **Primary Slicer**: `LARGERslicer.gh` - Main toolpath generation algorithm
-- **Development Versions**: Specialized variants for specific use cases
-- **Machine Documentation**: Complete setup and operation guides
-- **Python Utilities**: Supporting modules for file operations
+- **Primary Slicer**: `LARGERslicer.gh` - Main toolpath generation algorithm for all platforms
+- **Machine Documentation**: Complete setup and operation guides for each platform
+- **UR5 Dedicated Script**: `UR5slicer.gh` - Specialized control for Universal Robots UR5
+- **Development Area**: WIP folder contains experimental features and new developments
 
 ## System Overview
 
