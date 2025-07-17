@@ -5,6 +5,9 @@ A complete ecosystem for large-format additive manufacturing, featuring the LARG
 **BY MORITZ WESSELER - FH MÜNSTER 2025**  
 *Originally inspired by Ginger.Additive; now fully reimplemented with expanded machine support.*
 
+Further Contributors: Fabio Koczula, Claudio Schröder
+ 
+
 ## Table of Contents
 
 - [Supported Machines](#supported-machines)
