@@ -65,7 +65,15 @@
    192.168.1.66
    ```
 
-4. **Verify Connection**  
+4. **Robot Access Passwords**  
+   If prompted for Admin, Master, or Safety password, try:  
+   ```
+   Alwin  
+   alwin
+   ```
+   *(Robot nickname)*
+
+5. **Verify Connection**  
    ```bash
    ping 192.168.1.66
    ```
@@ -246,6 +254,7 @@ Some clusters automatically insert lifting movements between paths or even insid
 - **No network link**: verify static IP and cable
 - **Red components**: install missing GH plugins or unlock clusters
 - **Upload fails**: ensure UR5 firmware matches your GH Robots plugin version
+- **Password prompts**: If asked for Admin, Master, or Safety password, try `Alwin` or `alwin` (robot nickname)
 - **Multiple overlapping robots in simulation**: This usually indicates that your input planes are not flattened. Check if your planes are in nested lists/branches - they should be in a single, flat list. Use the Flatten component to resolve this issue, as separate branches will create individual robot programs.
 
 ---

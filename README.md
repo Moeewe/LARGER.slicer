@@ -24,7 +24,7 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 |----------|--------|----------------|---------------|
 | **Ginger One Printer** | Production Ready | `LARGERslicer.gh` | [Ginger Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/PRINTER/00%20-%20GINGER%20-%20ONE/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
 | **Universal Robots UR5** | Production Ready | `UR5slicer.gh` | [UR5 Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/PRINTER/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/README%20UR5%2000%20QUICK%20START%20GUIDE.md) |
-| **Weber DXR25 Robot** | Work in Progress | `LARGERslicer.gh` | [Weber DXR25 Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/PRINTER/00%20-%20WEBER%20-%20DXR25/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE.md) |
+| **Weber DXR25 Robot** | Multi-Axial Ready | `LARGERslicer.gh` + `DXR Script` | [Weber DXR25 Quick Start Guide](https://github.com/Moeewe/LARGER.slicer/blob/main/PRINTER/00%20-%20WEBER%20-%20DXR25/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE.md) |
 
 ### Recommended Workflow
 
@@ -195,4 +195,4 @@ This project is released under the MIT License. See `LICENSE` for details.
 
 ---
 
-**Note**: Weber DXR multi-axial control is under development. Current workflow uses `LARGERslicer.gh` for path preparation with simulation scripts for previews.
+**Note**: Weber DXR25 now supports multi-axial printing through Grasshopper script with automatic G-code to DXR conversion. Safety fence configuration and collision object setup are currently in development.
