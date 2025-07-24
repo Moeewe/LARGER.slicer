@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "dgSpecHash": "kwDg7jSGUJM=",
+  "success": true,
+  "projectFilePath": "/Users/moritz/Documents/LARGER.slicer/LARGERslicer/LARGERslicer.csproj",
+  "expectedPackageFiles": [
+    "/Users/moritz/.nuget/packages/grasshopper/8.0.23304.9001/grasshopper.8.0.23304.9001.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/microsoft.netframework.referenceassemblies/1.0.3/microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/microsoft.netframework.referenceassemblies.net48/1.0.3/microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/microsoft.win32.systemevents/7.0.0/microsoft.win32.systemevents.7.0.0.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/newtonsoft.json/13.0.3/newtonsoft.json.13.0.3.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/rhinocommon/8.0.23304.9001/rhinocommon.8.0.23304.9001.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/system.drawing.common/7.0.0/system.drawing.common.7.0.0.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/microsoft.netcore.app.ref/7.0.20/microsoft.netcore.app.ref.7.0.20.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/microsoft.windowsdesktop.app.ref/7.0.20/microsoft.windowsdesktop.app.ref.7.0.20.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/microsoft.aspnetcore.app.ref/7.0.20/microsoft.aspnetcore.app.ref.7.0.20.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/microsoft.netcore.app.ref/7.0.20/microsoft.netcore.app.ref.7.0.20.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/microsoft.windowsdesktop.app.ref/7.0.20/microsoft.windowsdesktop.app.ref.7.0.20.nupkg.sha512",
+    "/Users/moritz/.nuget/packages/microsoft.aspnetcore.app.ref/7.0.20/microsoft.aspnetcore.app.ref.7.0.20.nupkg.sha512"
+  ],
+  "logs": []
+}
