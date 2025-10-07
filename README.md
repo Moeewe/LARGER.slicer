@@ -133,7 +133,7 @@ The LARGER Slicer is organized into two main stages:
 ```
 LARGER.slicer/
 ├── LARGERslicer.gh                                    # Main LARGER Slicer algorithm
-├── LICENSE                                            # MIT License
+├── LICENSE                                            # Licensed under [CC BY-NC 4.0]
 ├── README.md                                          # This documentation
 └── PRINTER/                                           # Machine-specific documentation and scripts
     ├── 00 - GINGER - ONE/                            # Ginger V1.3 Beta LFAM system
@@ -194,8 +194,9 @@ LARGER.slicer/
 
 ## License
 
-This project is released under the MIT License. See `LICENSE` for details.
-
+Licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) —  
+non-commercial use only.  
+© 2025 Moritz Wesseler.
 ---
 
 **Note**: Weber DXR25 now supports multi-axial printing through Grasshopper script with automatic G-code to DXR conversion. Safety fence configuration and collision object setup are currently in development.
