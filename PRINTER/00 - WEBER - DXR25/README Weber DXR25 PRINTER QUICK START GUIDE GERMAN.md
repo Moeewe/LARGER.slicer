@@ -73,10 +73,10 @@ Der DXR25 ist ein industrieller 6-Achs-KUKA-Roboter mit Weber-Pellet-Extruder f�
 ---
 
 ## ⚙️ 3. Aufbau & Komponentenüberblick
-
+Sicherheitszaun
 ### Stellplan der Anlage
 
-![Weber DXR25 Stellplan](../../../Documentation/DXR25_Stellplan.svg)
+![Weber DXR25 Stellplan](../../Documentation/DXR25_Stellplan.svg)
 
 *Abbildung: Stellplan des Weber DXR25 3D-Druck-Robotersystems mit Anschaltsequenz (1→2→3)*
 
