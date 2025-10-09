@@ -233,10 +233,13 @@ Remotezugriff:
 - Windows Remote Desktop kann ggf. verfügbar sein (vor Ort prüfen/freigeben lassen).
 
 Voraussetzungen für Rhino/Grasshopper‑Workflow:
-- Rhino/Grasshopper mit Robot‑Plugin installiert.
-- Custom Plugin LargerSlicer.gha in den Grasshopper‑Komponenten‑Ordner kopieren.
-- Weber DXR25‑Skripte nutzen: LargerSlicer.gh bzw. LargerSlicerMultiaxial.gh (im Hauptordner abgelegt).
-- In den Skripten Sicherheitszäune/Kollisionsobjekte korrekt setzen.
+ - Rhino 8 oder höher mit Robot‑Plugin installiert. Achtung: Läuft nur auf Rhino 8+ wegen Python‑2‑Skripten.
+ - Plugin installieren: folgende Dateien in den Grasshopper‑Komponenten‑Ordner kopieren und Rhino/Grasshopper neu starten:
+    - LargerSlicer.gha
+    - Newtonsoft.Json.dll
+    - Optional: LargerSlicer.pdb (Debug‑Symbole)
+ - .gh‑Dateien je nach Anwendungsfall herunterladen/öffnen (LargerSlicer.gh bzw. LargerSlicerMultiaxial.gh). Wichtig: Diese Grasshopper‑Dateien benötigen das Plugin (GHA + DLL), sonst laufen sie nicht.
+ - In den Skripten Sicherheitszäune/Kollisionsobjekte korrekt setzen.
 
 DXR‑Kurzreferenz:
 - DXR spiegelt G‑Code‑Zeilen mit N‑Nummern, XYZ, G90/G91 und Orientierungen A/B/C wider.
