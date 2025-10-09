@@ -33,7 +33,6 @@ Diese Anleitung fasst die Einweisung, Transkripte und Meeting-Notizen zusammen. 
 16. Quick-Start-Checkliste DXR25
  17. Credits
  18. Anhang – DXR‑Code‑Beispiel (vollständig)
-   19. Abbildungen (Screenshots)
 
 ---
 
@@ -41,6 +40,13 @@ Diese Anleitung fasst die Einweisung, Transkripte und Meeting-Notizen zusammen. 
 Der DXR25 ist ein industrieller 6-Achs-KUKA-Roboter mit Weber-Pellet-Extruder für großformatigen 3D-Druck. Diese Anleitung beschreibt sichere Inbetriebnahme, Bedienung, typische Fehlerbilder und Pflegemaßnahmen. Betrieb ausschließlich durch eingewiesene Personen.
 
 ## 🧱 2. Sicherheit & Vorbereitung
+
+> Notfall-Kurzanleitung (Merkkasten)
+> 1) Sofort stoppen: „Druck stoppen“ → wenn Gefahr: Not‑Aus drücken (Display, Zaun oder Smartpad)
+> 2) Heizzonen prüfen: Düsen-/Zonentemperaturen im HMI checken; keine heißen Teile berühren
+> 3) Bereich sichern: Tür verriegelt lassen, Freifahren erst nach Sichtprüfung
+> 4) Ursachenanalyse: Meldungstext lesen, Antriebsbelastung prüfen, Offsets/Programm überprüfen
+> 5) Wiederanlauf: Nur nach Fehlerbehebung und erneuter Sicht- und Kollisionskontrolle
 
 ### 2.1 Allgemeines, Lüftung & Türpolicy
 - Vor jeder Nutzung den Raum lüften (Arbeitsschutzvorgabe, 5–10 Minuten). Während der Anwesenheit darf die Tür offen bleiben; beim Verlassen stets schließen (Sicherheitsbereich!).
@@ -228,7 +234,7 @@ Remotezugriff:
 
 Voraussetzungen für Rhino/Grasshopper‑Workflow:
 - Rhino/Grasshopper mit Robot‑Plugin installiert.
-- Custom Plugin LargerSliver.gha in den Grasshopper‑Komponenten‑Ordner kopieren.
+- Custom Plugin LargerSlicer.gha in den Grasshopper‑Komponenten‑Ordner kopieren.
 - Weber DXR25‑Skripte nutzen: LargerSlicer.gh bzw. LargerSlicerMultiaxial.gh (im Hauptordner abgelegt).
 - In den Skripten Sicherheitszäune/Kollisionsobjekte korrekt setzen.
 
@@ -309,6 +315,8 @@ Probleme nach Programmabbruch oder manuellem Verfahren:
 - Überdrucksicherung visuell prüfen; bei Auslösung alle Schrauben ersetzen (Ersatz im Regal über KUKA-Steuerung). Bestände monatlich kontrollieren und ggf. nachbestellen.
 - Ordnung im Raum sicherstellen; Materialsäcke entsorgen; Arbeitsfläche sauber halten.
 - Materialfaktoren (Durchfluss) für PETG/PLA bei Gelegenheit kalibrieren und dokumentieren.
+
+
 
 Kalibrierung/Homing:
 - Die aktuelle Installation ist mechanisch fix; regelmäßige Kalibrierung (TCP/Base/Bett) ist im Normalbetrieb nicht erforderlich.
