@@ -1,0 +1,7 @@
+N9999994 V.P.VAR_heatbedtemp = 0
+N9999995 L heatbedTemp_sub.nc
+N9999996 V.P.VAR_fan = 0
+N9999997 L fan_sub.nc
+N9999998 V.P.VAR_extrudertemp = 0
+N9999999 L extruderTemp_sub.nc
+M29
