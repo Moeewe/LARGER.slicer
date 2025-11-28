@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("Grasshopper plugin for advanced slicing operations and mesh processing")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+6459a388a1a3575ae5bc3fbbf67dee3fd6603620")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+d028c18e8312a6cc14a9468fa1146788e53dd86c")]
 [assembly: System.Reflection.AssemblyProductAttribute("LARGERslicer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LARGERslicer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -42,6 +42,7 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 
 - **Operating System**: Windows 11+ or macOS 11 Big Sur+
 - **Software**: Rhino 8+ with Grasshopper and Python 3
+- **LARGERslicer Plugin**: Install `LARGERslicer.gha` from `LARGERSlicer PLUGIN INSTALL FILES/` directory
 - **Required Grasshopper Plugins** (auto-load on first open):
   - Pufferfish
   - Clipper Components  
@@ -66,15 +67,25 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 
 ### Installation Steps
 
-1. Download or clone the `.gh` files from this repository:
+1. **Install LARGERslicer Plugin** (if using DXR/CNC components):
+   - Copy `LARGERslicer.gha`, `LARGERslicer.pdb`, and `Newtonsoft.Json.dll` from `LARGERSlicer PLUGIN INSTALL FILES/` to your Grasshopper Libraries folder
+   - Restart Rhino/Grasshopper
+   - Plugin components will appear under the **LARGER** category
+
+2. **Download or clone the `.gh` files** from this repository:
    - [LARGERslicer Weber Robot and Ginger.gh](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) — Standard toolpath generation
    - [LARGERSlicerMultiaxial Weber Robot.gh](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERSlicerMultiaxial%20Weber%20Robot.gh) — Multi-axial printing capabilities
    - [UR5slicer.gh](PRINTER%20EXAMPLE%20FILES/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/UR5slicer.gh) — Dedicated UR5 robotic workflow
-2. Open Rhino and create a new file in **millimeter** measurement units
-3. Launch Grasshopper within Rhino
-4. **File → Open** → select your desired `.gh` file
-5. Allow plugins to load automatically (may take a moment on first open)
-6. Unlock custom clusters if needed: right-click any password-protected component and enter **Supersizedprinting**
+
+3. **Open Rhino** and create a new file in **millimeter** measurement units
+
+4. **Launch Grasshopper** within Rhino
+
+5. **File → Open** → select your desired `.gh` file
+
+6. Allow plugins to load automatically (may take a moment on first open)
+
+7. Unlock custom clusters if needed: right-click any password-protected component and enter **Supersizedprinting**
 
 **Note**: All required plugins should load automatically when opening the script for the first time. If you encounter missing components, install them via Rhino's PackageManager.
 
@@ -138,9 +149,22 @@ The LARGER Slicer is organized into two main stages:
 LARGER.slicer/
 ├── LICENSE                                           # Licensed under [CC BY-NC 4.0]
 ├── README.md                                         # This documentation
-├── LARGERSlicerMultiaxial Plugin/                    # Multi-axial plugin components
-│   └── LARGERslicer.gha                              # Grasshopper assembly (+ deps)
-└── PRINTER EXAMPLE FILES/                            # Machine-specific scripts and docs
+├── LARGERslicer/                                     # Grasshopper plugin source code
+│   ├── README.md                                     # Plugin documentation
+│   ├── COMPONENTS_OVERVIEW.md                        # Component reference
+│   ├── LARGERslicer.csproj                          # .NET project file
+│   ├── Components/                                   # Plugin components
+│   │   ├── CNC/                                     # CNC toolpath components
+│   │   ├── Export/                                  # DXR export components
+│   │   └── Utils/                                   # Utility components
+│   ├── Types/                                       # Custom data types
+│   ├── Utils/                                       # Helper classes
+│   └── Resources/                                   # Icons and assets
+├── LARGERSlicer PLUGIN INSTALL FILES/               # Pre-built plugin files
+│   ├── LARGERslicer.gha                             # Grasshopper assembly
+│   ├── LARGERslicer.pdb                             # Debug symbols
+│   └── Newtonsoft.Json.dll                          # Dependency
+└── PRINTER EXAMPLE FILES/                           # Machine-specific scripts and docs
    ├── 00 - UNIVERSAL ROBOTS - UR5/                  # UR5 Robot control system
    │   ├── README UR5 00 QUICK START GUIDE.md        # Setup and operation guide
    │   └── UR5slicer.gh                              # Dedicated UR5 control script
@@ -165,6 +189,7 @@ LARGER.slicer/
 
 ### Key Components
 
+- **Grasshopper Plugin**: `LARGERslicer.gha` — Custom Grasshopper components for DXR generation, CNC toolpaths, and utilities (see `LARGERslicer/` directory)
 - **Primary Slicer**: `LARGERslicer Weber Robot and Ginger.gh` — Main toolpath generation algorithm (see `PRINTER EXAMPLE FILES/00 - WEBER : GINGER/`)
 - **Multi-Axial Slicer**: `LARGERSlicerMultiaxial Weber Robot.gh` — Advanced multi-axial printing capabilities
 - **Machine Documentation**: Complete setup and operation guides for each platform (German & English) under `PRINTER EXAMPLE FILES/`
@@ -182,10 +207,18 @@ LARGER.slicer/
 - Support for skirts, brims with flip option
 - Direct integration with multiple machine platforms
 
+**LARGERslicer Grasshopper Plugin:**
+- **DXR Processing**: DXR Generator and GCode Postprocessor for robot control systems
+- **CNC Toolpaths**: Boustrophedon (zigzag) toolpath generation with Zünd PLT output
+- **Utilities**: File operations, timestamps, spatial indexing, and more
+- Automatic header calculation (runtime, layers, extrusion totals)
+- Sequential line numbering and proper DXR file formatting
+- Version 1.0.0
+
 **Machine Control Systems:**
 - **Ginger One**: Large-format pellet extruder with material database
 - **UR5 Robot**: Complete Grasshopper workflow for Universal Robots systems  
-- **Weber DXR**: Specialized control for Weber robotic platforms
+- **Weber DXR**: Specialized control for Weber robotic platforms with DXR file generation
 
 **Documentation & Support:**
 - Comprehensive setup guides for all platforms
@@ -216,4 +249,19 @@ non-commercial use only.
 © 2025 Moritz Wesseler.
 ---
 
-**Note**: Weber DXR25 now supports multi-axial printing through Grasshopper script with automatic G-code to DXR conversion. Safety fence configuration and collision object setup are currently in development.
+**Note**: Weber DXR25 now supports multi-axial printing through Grasshopper script with automatic G-code to DXR conversion via the LARGERslicer plugin. The plugin provides DXR Generator and DXR GCode Postprocessor components for seamless conversion. Safety fence configuration and collision object setup are currently in development.
+
+## Plugin Development
+
+The LARGERslicer Grasshopper plugin source code is located in the `LARGERslicer/` directory. For plugin development, building, and component documentation, see:
+- [Plugin README](LARGERslicer/README.md) — Plugin overview and development guide
+- [Component Overview](LARGERslicer/COMPONENTS_OVERVIEW.md) — Complete component reference
+
+### Building the Plugin
+
+```bash
+cd LARGERslicer
+dotnet build
+```
+
+The build generates `.gha` files for all target frameworks in `bin/Debug/`.

@@ -22,28 +22,40 @@ namespace LARGERslicer.Types
 
         /// <summary>
         /// Generates start G-code for machine initialization
+        /// Uses sequential N-numbers starting from N10
         /// </summary>
         public string[] GetStartGCode()
         {
             var startCode = new System.Collections.Generic.List<string>();
+            int lineNum = 10; // Start at N10 after header
             
-            // Set temperatures if > 0
+            // Add G90 (absolute positioning) first
+            startCode.Add($"N{lineNum} G90");
+            lineNum += 10;
+            
+            // Set temperatures if > 0 (sequential numbering)
             if (BedTemperature > 0)
             {
-                startCode.Add($"N10 V.P.VAR_heatbedtemp = {BedTemperature:F0}");
-                startCode.Add("N20 L heatbedTemp_sub.nc");
+                startCode.Add($"N{lineNum} V.P.VAR_heatbedtemp = {BedTemperature:F0}");
+                lineNum += 10;
+                startCode.Add($"N{lineNum} L heatbedTemp_sub.nc");
+                lineNum += 10;
             }
             
             if (NozzleTemperature > 0)
             {
-                startCode.Add($"N30 V.P.VAR_extrudertemp = {NozzleTemperature:F0}");
-                startCode.Add("N40 L extruderTemp_sub.nc");
+                startCode.Add($"N{lineNum} V.P.VAR_extrudertemp = {NozzleTemperature:F0}");
+                lineNum += 10;
+                startCode.Add($"N{lineNum} L extruderTemp_sub.nc");
+                lineNum += 10;
             }
             
             if (CoolingPercentage > 0)
             {
-                startCode.Add($"N50 V.P.VAR_fan = {CoolingPercentage:F0}");
-                startCode.Add("N60 L fan_sub.nc");
+                startCode.Add($"N{lineNum} V.P.VAR_fan = {CoolingPercentage:F0}");
+                lineNum += 10;
+                startCode.Add($"N{lineNum} L fan_sub.nc");
+                lineNum += 10;
             }
 
             return startCode.ToArray();

@@ -27,7 +27,7 @@ namespace LARGERslicer.Utils
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
                 // Fallback: return a simple colored bitmap
                 var fallback = new Bitmap(24, 24);

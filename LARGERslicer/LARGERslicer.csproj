@@ -50,4 +50,9 @@
     <EmbeddedResource Include="Resources\*.png" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Reference Component.cs" />
+    <Compile Remove="DXR Postprocessor.cs" />
+  </ItemGroup>
+
 </Project> 

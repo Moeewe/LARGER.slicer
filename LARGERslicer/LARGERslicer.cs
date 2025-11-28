@@ -26,4 +26,18 @@ namespace LARGERslicer
     //Return a string representing the version.  This returns the same version as the assembly.
     public override string AssemblyVersion => GetType().Assembly.GetName().Version.ToString();
   }
+
+  public class LARGERslicerCategoryIcon : GH_AssemblyPriority
+  {
+    public override GH_LoadingInstruction PriorityLoad()
+    {
+      // Register the LARGERslicer category symbol and short name
+      // This is the ONLY category registration needed - subcategories are automatically
+      // created from component base() constructors
+      Grasshopper.Instances.ComponentServer.AddCategorySymbolName("LARGERslicer", 'L');
+      Grasshopper.Instances.ComponentServer.AddCategoryShortName("LARGERslicer", "LARGER");
+
+      return GH_LoadingInstruction.Proceed;
+    }
+  }
 } 

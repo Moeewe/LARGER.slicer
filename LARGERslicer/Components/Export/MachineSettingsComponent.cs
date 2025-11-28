@@ -3,16 +3,19 @@ using Grasshopper.Kernel;
 using LARGERslicer.Types;
 using LARGERslicer.Utils;
 
-namespace LARGERslicer.Components.Setup
+namespace LARGERslicer.Components.Export
 {
     public class MachineSettingsComponent : GH_Component
     {
         public MachineSettingsComponent()
           : base("Machine Settings", "Machine",
               "Configure printer settings: bed temperature, nozzle temperature, and cooling fan",
-              "LARGERslicer", "Setup")
+              "", "")
         {
         }
+
+        public override string Category => "LARGER";
+        public override string SubCategory => "DXR";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
