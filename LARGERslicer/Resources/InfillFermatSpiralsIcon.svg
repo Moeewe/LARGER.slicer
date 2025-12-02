@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <style>
+        .icon-main { stroke: #000000; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .icon-accent { stroke: #0066CC; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .icon-fill { fill: #000000; stroke: none; }
+    </style>
+    <filter id="shadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur"/>
+      <feOffset in="blur" dx="1" dy="1" result="offsetBlur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.33"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode in="offsetBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g class="icon-main" filter="url(#shadow)">
+    <path d="M 4 6 Q 6 4 8 6 Q 10 4 12 6 Q 14 4 16 6 Q 18 4 20 6"/>
+    <path d="L 20 10 Q 18 12 20 14 Q 18 16 20 18"/>
+    <path d="L 16 18 Q 14 20 12 18 Q 10 20 8 18 Q 6 20 4 18"/>
+    <path d="L 4 14 Q 6 12 4 10 Z"/>
+    <path d="M 12 8 Q 10 10 8 12 Q 10 14 12 16 Q 14 14 16 12 Q 14 10 12 8"/>
+    <path d="M 12 10 Q 11 11 10 12 Q 11 13 12 14 Q 13 13 14 12 Q 13 11 12 10"/>
+  </g>
+  <g class="icon-accent">
+    <path d="M 12 8 Q 10 10 8 12 Q 10 14 12 16"/>
+  </g>
+</svg>

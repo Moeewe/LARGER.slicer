@@ -26,7 +26,7 @@ LARGERslicer is a Grasshopper plugin for advanced slicing operations and 3D prin
 
 ---
 
-### DXR (3 components)
+### DXR (7 components)
 
 #### 1. DXR Generator
 - **Nickname:** DXR Gen
@@ -67,6 +67,108 @@ LARGERslicer is a Grasshopper plugin for advanced slicing operations and 3D prin
   - All settings automatically turn OFF after print completion
   - Sequential line numbering (N10, N20, N30...)
 - **Icon:** MachineSettingsIcon.png (gear/settings)
+
+#### 4. Bottom Layer Spiral
+- **Nickname:** BL Spiral
+- **Category:** LARGER > DXR
+- **Function:** Generates concentric spiral fill pattern for bottom layer. Starts from skirt/brim end point and ends at spiralized path start point. Pattern A: Spiral/Concentric.
+- **Key Features:**
+  - Concentric offset curves from outer boundary inward
+  - Clockwise/counterclockwise direction control
+  - Minimum radius threshold
+  - Continuous path with smooth transitions
+  - Automatic connection to skirt/brim and spiralized paths
+  - Path statistics output (length, fill percentage)
+- **Inputs:**
+  - Boundary curve (from skirt/brim)
+  - Layer area geometry
+  - Start point (skirt/brim end)
+  - End point (spiralized path start)
+  - Line spacing (extrusion width)
+  - Clockwise direction (boolean)
+  - Minimum radius (mm, 0 = fill to center)
+- **Outputs:**
+  - Complete path curve
+  - Path segments (for preview)
+  - Path points list
+  - Statistics
+- **Icon:** BottomLayerSpiralIcon.png (concentric circles/spiral)
+
+#### 5. Bottom Layer Grid
+- **Nickname:** BL Grid
+- **Category:** LARGER > DXR
+- **Function:** Generates rectangular grid/zigzag fill pattern for bottom layer. Similar to boustrophedon pattern. Pattern B: Rectangular Grid/Zigzag.
+- **Key Features:**
+  - Parallel lines with alternating direction (zigzag)
+  - Configurable X and Y spacing
+  - Grid rotation angle
+  - Start direction control (left/right)
+  - Optimized connection order
+  - Continuous extrusion path
+- **Inputs:**
+  - Boundary curve
+  - Layer area geometry
+  - Start point
+  - End point
+  - Line spacing (X direction)
+  - Spacing Y (perpendicular spacing)
+  - Angle (rotation in degrees)
+  - Start left (boolean)
+- **Outputs:**
+  - Complete path curve
+  - Path segments
+  - Path points list
+  - Statistics
+- **Icon:** BottomLayerGridIcon.png (rectangular grid/zigzag)
+
+#### 6. Bottom Layer Lines
+- **Nickname:** BL Lines
+- **Category:** LARGER > DXR
+- **Function:** Generates parallel lines fill pattern in a single direction for bottom layer. Pattern C: Lines (Unidirectional).
+- **Key Features:**
+  - Unidirectional parallel lines
+  - Configurable line direction (angle)
+  - Optional connection order optimization
+  - Minimal travel moves between lines
+  - Continuous path generation
+- **Inputs:**
+  - Boundary curve
+  - Layer area geometry
+  - Start point
+  - End point
+  - Line spacing
+  - Angle (direction in degrees)
+  - Optimize order (boolean)
+- **Outputs:**
+  - Complete path curve
+  - Path segments
+  - Path points list
+  - Statistics
+- **Icon:** BottomLayerLinesIcon.png (parallel lines)
+
+#### 7. Bottom Layer Hilbert
+- **Nickname:** BL Hilbert
+- **Category:** LARGER > DXR
+- **Function:** Generates space-filling Hilbert curve pattern for bottom layer. Pattern E: Hilbert Curve (space-filling).
+- **Key Features:**
+  - Space-filling Hilbert curve algorithm
+  - Configurable recursion order (typically 3-6)
+  - Automatic boundary fitting
+  - Continuous path through entire area
+  - Efficient coverage with minimal overlaps
+- **Inputs:**
+  - Boundary curve
+  - Layer area geometry
+  - Start point
+  - End point
+  - Line spacing
+  - Order (recursion depth, 1-8)
+- **Outputs:**
+  - Complete path curve
+  - Path segments
+  - Path points list
+  - Statistics
+- **Icon:** BottomLayerHilbertIcon.png (Hilbert curve pattern)
 
 ---
 

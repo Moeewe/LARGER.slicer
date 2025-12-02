@@ -97,7 +97,24 @@
 ### Loading the Definition
 - **Drag & drop** `UR5.slicer.gh` into the Grasshopper canvas  
 - Wait for all clusters to load—no red components should remain  
-- If prompted, unlock clusters with the provided password  
+- If prompted, unlock clusters with the provided password
+
+### ⚠️ First-Time Setup: Robot Library Installation
+
+**Important:** When you open the Grasshopper script for the first time, **no robot will be displayed**. This is because the UR5 robot library needs to be installed in the Robots plugin.
+
+**The Robot component will appear red/broken** – this makes it easy to find!
+
+**Steps to install the UR5 robot:**
+1. Locate the **red Robot component** in your Grasshopper canvas (it's broken/red because the library is missing)
+2. **Double-click** the **Libraries** button on the Robot component
+3. In the library browser window, navigate to **Universal Robots**
+4. **Double-click** on **UR5** to download and install the robot library
+5. **Save** your Grasshopper definition
+6. **Close** and **reopen** the Grasshopper file
+7. The UR5 robot should now be visible in the simulation and the component will turn green
+
+> **Tip:** The robot library only needs to be installed once per Rhino installation. After the first setup, the UR5 will be available for all future projects.
 
 ---
 

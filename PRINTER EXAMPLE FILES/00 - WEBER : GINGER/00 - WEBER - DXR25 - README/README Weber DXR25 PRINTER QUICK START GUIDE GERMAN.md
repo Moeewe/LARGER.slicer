@@ -247,6 +247,25 @@ Voraussetzungen für Rhino/Grasshopper‑Workflow:
     - Newtonsoft.Json.dll
     - Optional: LargerSlicer.pdb (Debug‑Symbole)
  - .gh‑Dateien je nach Anwendungsfall herunterladen/öffnen (LargerSlicer.gh bzw. LargerSlicerMultiaxial.gh). Wichtig: Diese Grasshopper‑Dateien benötigen das Plugin (GHA + DLL), sonst laufen sie nicht.
+
+### ⚠️ Erstmalige Einrichtung: Robot Library Installation (KUKA KR120)
+
+**Wichtig:** Wenn Sie das Weber Grasshopper-Skript zum ersten Mal öffnen, **wird kein Roboter angezeigt**. Das liegt daran, dass die KUKA KR120 Roboter-Bibliothek von der FH Münster MSA im Robots Plugin installiert werden muss.
+
+**Die Robot-Komponente erscheint rot/kaputt** – so ist sie leicht zu finden!
+
+**Schritte zur Installation des KUKA KR120:**
+1. Lokalisieren Sie die **rote Robot-Komponente** in Ihrer Grasshopper-Arbeitsfläche (sie ist rot/kaputt, weil die Bibliothek fehlt)
+2. **Doppelklicken** Sie auf den **Libraries** Button der Robot-Komponente
+3. Im Library-Browser-Fenster navigieren Sie zum **FH Münster MSA** Tab
+4. **Laden Sie den KUKA KR120** herunter und installieren Sie die Roboter-Bibliothek
+5. **Speichern** Sie Ihre Grasshopper-Definition
+6. **Schließen** und **öffnen** Sie die Grasshopper-Datei erneut
+7. Der KUKA KR120 Roboter sollte nun in der Simulation sichtbar sein und die Komponente wird grün
+
+> **Hinweis:** Die Roboter-Bibliothek muss nur einmal pro Rhino-Installation installiert werden. Nach der ersten Einrichtung ist der KUKA KR120 für alle zukünftigen Weber DXR25 Projekte verfügbar.
+
+**Weitere Einrichtungsschritte:**
  - In den Skripten Sicherheitszäune/Kollisionsobjekte korrekt setzen.
 
 DXR‑Kurzreferenz:

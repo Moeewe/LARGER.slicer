@@ -43,10 +43,14 @@ The plugin is organized into three main categories:
 ### CNC (1 component)
 - **CNC Program**: Generates boustrophedon (zigzag) toolpaths for CNC milling with Zünd PLT output
 
-### DXR (3 components)
+### DXR (7 components)
 - **DXR Generator**: Converts robot paths, extrusion, and speed data to DXR format
 - **DXR GCode Postprocessor**: Converts GCode files to DXR format with automatic parsing
 - **Machine Settings**: Configures printer settings (temperatures, cooling) for DXR output
+- **Bottom Layer Spiral**: Generates concentric spiral fill pattern for bottom layer (Pattern A)
+- **Bottom Layer Grid**: Generates rectangular grid/zigzag fill pattern for bottom layer (Pattern B)
+- **Bottom Layer Lines**: Generates unidirectional parallel lines fill pattern (Pattern C)
+- **Bottom Layer Hilbert**: Generates space-filling Hilbert curve pattern (Pattern E)
 
 ### Utilities (8 components)
 - **Safe Component**: Writes text lines to files with cross-platform path handling
@@ -72,6 +76,13 @@ The plugin is organized into three main categories:
 - Z-height sampling from mesh intersections
 - Zünd PLT file format output
 - SIMPLE and EXTENDED header modes
+
+### Bottom Layer Fill Patterns
+- Four pattern types: Spiral (concentric), Grid (zigzag), Lines (unidirectional), Hilbert (space-filling)
+- Seamless integration with skirt/brim paths and spiralized part paths
+- Continuous extrusion paths with no retractions
+- Configurable spacing, direction, and optimization options
+- Automatic path statistics (length, fill percentage)
 
 ## Version
 
