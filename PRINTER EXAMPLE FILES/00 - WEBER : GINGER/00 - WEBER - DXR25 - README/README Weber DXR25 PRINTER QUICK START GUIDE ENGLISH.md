@@ -76,7 +76,7 @@ The DXR25 is an industrial 6‑axis KUKA robot with a Weber pellet extruder for 
 
 ### System Layout Plan
 
-![Weber DXR25 System Layout](../../Documentation/DXR25_Stellplan.svg)
+![Weber DXR25 System Layout](../../../Documentation/DXR25_Stellplan.svg)
 
 *Figure: Weber DXR25 3D printing robot system layout with startup sequence (1→2→3)*
 

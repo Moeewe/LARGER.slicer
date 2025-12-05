@@ -21,10 +21,10 @@ namespace LARGERslicer.Components.Export
         {
             // Heated Bed: ONE global temperature + 4 zone ON/OFF controls
             pManager.AddNumberParameter("Bed Temperature", "Bed Temp", "Global bed temperature in °C for all zones (V.P.VAR_heatbedtemp). All 4 zones receive this same temperature.", GH_ParamAccess.item, 60.0);
-            pManager.AddBooleanParameter("Bed Zone 1", "BZ1", "Enable/disable bed zone 1 (V.E.GLOBAL_BOOL[72] = TRUE/FALSE)", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Bed Zone 2", "BZ2", "Enable/disable bed zone 2 (V.E.GLOBAL_BOOL[74] = TRUE/FALSE)", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Bed Zone 3", "BZ3", "Enable/disable bed zone 3 (V.E.GLOBAL_BOOL[76] = TRUE/FALSE)", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Bed Zone 4", "BZ4", "Enable/disable bed zone 4 (V.E.GLOBAL_BOOL[78] = TRUE/FALSE)", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Bed Zone 1", "BZ1", "Enable/disable bed zone 1 (V.E.GLOBAL_BOOL[72] = TRUE/FALSE)", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Bed Zone 2", "BZ2", "Enable/disable bed zone 2 (V.E.GLOBAL_BOOL[74] = TRUE/FALSE)", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Bed Zone 3", "BZ3", "Enable/disable bed zone 3 (V.E.GLOBAL_BOOL[76] = TRUE/FALSE)", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Bed Zone 4", "BZ4", "Enable/disable bed zone 4 (V.E.GLOBAL_BOOL[78] = TRUE/FALSE)", GH_ParamAccess.item, true);
             
             // Extruder Zones (4 zones: Filling always 45°C, Heating 1, Heating 2, Nozzle)
             // Filling Zone: Always 45°C (cooling), no input needed
@@ -52,10 +52,10 @@ namespace LARGERslicer.Components.Export
         {
             // Heated Bed: ONE global temperature + 4 zone ON/OFF controls
             double bedTemperature = 60.0;
-            bool bedZone1Enabled = false;
-            bool bedZone2Enabled = false;
-            bool bedZone3Enabled = false;
-            bool bedZone4Enabled = false;
+            bool bedZone1Enabled = true;
+            bool bedZone2Enabled = true;
+            bool bedZone3Enabled = true;
+            bool bedZone4Enabled = true;
             
             // Extruder Zones (4 zones)
             // Filling Zone: Always 45°C (cooling), always enabled
