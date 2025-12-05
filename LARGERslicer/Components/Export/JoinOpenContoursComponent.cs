@@ -82,8 +82,8 @@ namespace LARGERslicer.Components.Export
             if (optimizeOrder)
             {
                 Point3d startPt = validContours[0].PointAtStart;
-                Point3d endPt = validContours[validContours.Count - 1].PointAtEnd;
-                orderedContours = PathHelper.OptimizeCurveOrder(validContours, startPt, endPt);
+                List<Curve> optimizationConnections;
+                orderedContours = PathHelper.OptimizeCurveOrder(validContours, startPt, out optimizationConnections);
             }
             else
             {

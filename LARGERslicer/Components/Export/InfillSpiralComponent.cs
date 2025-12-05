@@ -15,10 +15,13 @@ namespace LARGERslicer.Components.Export
     public class InfillSpiralComponent : BottomLayerPatternBase
     {
         public InfillSpiralComponent()
-            : base("Infill Spiral", "Infill Spiral",
+            : base("Single Line Fill with Spiral", "SLF Spiral",
                   "Generates concentric spiral fill pattern. Automatically detects curve orientation to fill inward.")
         {
         }
+
+        public override string Category => "LARGER";
+        public override string SubCategory => "Spiral";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -27,16 +30,30 @@ namespace LARGERslicer.Components.Export
             pManager.AddNumberParameter("Min Radius", "MinR", "Minimum radius before stopping (mm). 0 = fill to center", GH_ParamAccess.item, 0.0);
         }
 
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            base.RegisterOutputParams(pManager);
+            // Only Single Line Fill output needed for Spiral
+        }
+
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Validate inputs using base class method
-            if (!ValidateInputs(DA, out Curve boundary, out Point3d seamPoint, out double spacing, out double boundaryOffset, out List<Curve> holes))
+            // Validate minimal common inputs
+            Curve boundary;
+            double printWidth;
+            List<Curve> holes;
+
+            if (!ValidateInputs(DA, out boundary, out printWidth, out holes))
                 return;
 
+            // Get pattern-specific parameters
             bool clockwise = true;
             double minRadius = 0.0;
-            DA.GetData(5, ref clockwise);
-            DA.GetData(6, ref minRadius);
+            DA.GetData(3, ref clockwise);  // Index 3 after base inputs (0-2)
+            DA.GetData(4, ref minRadius);
+
+            double spacing = printWidth;
+            double boundaryOffset = 0.0; // Will be calculated automatically in PrepareBoundary
 
             // Prepare boundary with offset (direction auto-detected)
             // For large-format: outer path should be ~half bead width from boundary
@@ -45,9 +62,8 @@ namespace LARGERslicer.Components.Export
             // Combine original holes with offset holes
             holes.AddRange(offsetHoles);
 
-            // Get seam position (auto-calculate if not provided)
-            Point3d? seamPointNullable = seamPoint.IsValid ? (Point3d?)seamPoint : null;
-            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, seamPointNullable);
+            // Get seam position (auto-calculate - farthest from center)
+            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, null);
 
             // Generate pattern-specific path
             var (pathPoints, segments) = GeneratePattern(closedBoundary, seamPosition, seamParam, spacing, clockwise, minRadius, holes);
@@ -67,13 +83,8 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            // Calculate statistics using base class method
-            string stats = CalculateStatistics(pathPoints, closedBoundary, spacing);
-
+            // Set output - only Single Line Fill for Spiral
             DA.SetData(0, pathCurve);
-            DA.SetDataList(1, segmentCurves);
-            DA.SetDataList(2, pathPoints);
-            DA.SetData(3, stats);
         }
 
         private (List<Point3d> pathPoints, List<List<Point3d>> segments) GeneratePattern(
@@ -194,7 +205,7 @@ namespace LARGERslicer.Components.Export
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Fallback: use seam position to find closest normalized length
                 double t;
@@ -241,10 +252,55 @@ namespace LARGERslicer.Components.Export
 
             // Sample points from each curve, starting from seam position
             var allCurvePoints = new List<List<Point3d>>();
-            foreach (var curve in allCurves)
+            var allCurveSeamParams = new List<double>(); // Track seam parameter for each curve
+            
+            for (int curveIdx = 0; curveIdx < allCurves.Count; curveIdx++)
             {
-                // Sample curve starting from seam position
-                var curvePoints = SampleCurveFromSeam(curve, spacing * 0.5, normalizedSeamT, clockwise);
+                var curve = allCurves[curveIdx];
+                double seamParam = normalizedSeamT;
+                
+                // CRITICAL: Align seam with previous curve's end for smooth transitions
+                if (curveIdx > 0 && allCurvePoints.Count > 0)
+                {
+                    var prevCurvePoints = allCurvePoints[allCurvePoints.Count - 1];
+                    if (prevCurvePoints.Count > 0)
+                    {
+                        Point3d prevEnd = prevCurvePoints[prevCurvePoints.Count - 1];
+                        
+                        // Find closest point on current curve to previous curve end
+                        double tClosest;
+                        curve.ClosestPoint(prevEnd, out tClosest);
+                        
+                        // Convert to normalized length parameter
+                        double curveLength = curve.GetLength();
+                        if (curveLength > 0.001)
+                        {
+                            try
+                            {
+                                Curve trimmed = curve.Trim(curve.Domain.T0, tClosest);
+                                if (trimmed != null && trimmed.IsValid)
+                                {
+                                    double lengthToClosest = trimmed.GetLength();
+                                    seamParam = lengthToClosest / curveLength;
+                                }
+                            }
+                            catch
+                            {
+                                // Fallback: use parameter-based approximation
+                                seamParam = (tClosest - curve.Domain.T0) / curve.Domain.Length;
+                            }
+                        }
+                        
+                        // Clamp to [0,1]
+                        if (seamParam < 0) seamParam = 0;
+                        if (seamParam > 1) seamParam = 1;
+                    }
+                }
+                
+                allCurveSeamParams.Add(seamParam);
+                
+                // Sample curve starting from aligned seam position
+                var curvePoints = SampleCurveFromSeam(curve, spacing * 0.5, seamParam, clockwise);
                 
                 // Filter points that are inside holes
                 if (holes != null && holes.Count > 0)
@@ -274,17 +330,27 @@ namespace LARGERslicer.Components.Export
                     Point3d prevEnd = allCurvePoints[i - 1][allCurvePoints[i - 1].Count - 1];
                     Point3d currStart = currentCurve[0];
 
-                    // Add connection
+                    // Add connection following boundary offset (geometric consistency)
                     if (prevEnd.DistanceTo(currStart) > spacing * 0.1)
                     {
-                        int connectionSteps = Math.Max(2, (int)Math.Ceiling(prevEnd.DistanceTo(currStart) / spacing));
-                        var connection = new List<Point3d>();
-                        for (int s = 1; s < connectionSteps; s++)
+                        // Use offset-following connection to maintain geometric consistency
+                        var connection = PathHelper.CreateOffsetFollowingConnection(
+                            prevEnd, currStart, boundary, allCurves[i - 1], allCurves[i], spacing);
+                        
+                        if (connection.Count > 0)
                         {
-                            double t = (double)s / connectionSteps;
-                            connection.Add(prevEnd + (currStart - prevEnd) * t);
+                            segments.Add(connection);
                         }
-                        segments.Add(connection);
+                        else
+                        {
+                            // Fallback: 90° connection if offset connection fails
+                            var fallbackConnection = Create90DegreeConnection(
+                                prevEnd, currStart, spacing, allCurves[i - 1], allCurves[i]);
+                            if (fallbackConnection.Count > 0)
+                            {
+                                segments.Add(fallbackConnection);
+                            }
+                        }
                     }
 
                     segments.Add(new List<Point3d>(currentCurve));
@@ -326,6 +392,143 @@ namespace LARGERslicer.Components.Export
             // This prevents unwanted retraction/travel moves across the geometry
 
             return (pathPoints, segments);
+        }
+
+        /// <summary>
+        /// Creates a 90° perpendicular connection between spiral loops.
+        /// CRITICAL: Connection must be perpendicular to origin curve to avoid chaotic crossing paths.
+        /// Uses tangent at exit point to determine perpendicular direction.
+        /// </summary>
+        private List<Point3d> Create90DegreeConnection(
+            Point3d startPt, Point3d endPt, double spacing, Curve prevCurve, Curve nextCurve)
+        {
+            var connection = new List<Point3d>();
+            
+            if (prevCurve == null || !prevCurve.IsValid)
+                return connection;
+
+            try
+            {
+                // Get tangent at exit point (prevCurve end)
+                double tStart;
+                prevCurve.ClosestPoint(startPt, out tStart);
+                Vector3d tangentAtExit = prevCurve.TangentAt(tStart);
+                
+                if (tangentAtExit.Length < 0.001)
+                    return connection;
+                    
+                tangentAtExit.Unitize();
+                
+                // Calculate perpendicular direction (90° to tangent)
+                // Cross with Z-axis to get perpendicular in XY plane
+                Vector3d perpendicular = Vector3d.CrossProduct(tangentAtExit, Vector3d.ZAxis);
+                if (perpendicular.Length < 0.001)
+                {
+                    // Tangent is vertical, use different perpendicular
+                    perpendicular = new Vector3d(-tangentAtExit.Y, tangentAtExit.X, 0);
+                }
+                perpendicular.Unitize();
+                
+                // Determine which perpendicular direction points toward endPt
+                Vector3d toEnd = endPt - startPt;
+                if (perpendicular * toEnd < 0)
+                {
+                    perpendicular = -perpendicular;
+                }
+                
+                // Create L-shaped connection: 90° turn then straight to endpoint
+                double radialDistance = startPt.DistanceTo(endPt);
+                
+                // First segment: move perpendicular to tangent (radial direction)
+                Point3d midPoint = startPt + perpendicular * radialDistance;
+                
+                // Sample first leg (perpendicular exit)
+                int steps1 = Math.Max(4, (int)Math.Ceiling(radialDistance / (spacing * 0.5)));
+                for (int i = 1; i < steps1; i++)
+                {
+                    double t = (double)i / steps1;
+                    connection.Add(startPt + perpendicular * radialDistance * t);
+                }
+                
+                // Add midpoint
+                connection.Add(midPoint);
+                
+                // Second segment: move toward endpoint (tangential to next curve)
+                double tangentialDistance = midPoint.DistanceTo(endPt);
+                int steps2 = Math.Max(4, (int)Math.Ceiling(tangentialDistance / (spacing * 0.5)));
+                for (int i = 1; i < steps2; i++)
+                {
+                    double t = (double)i / steps2;
+                    connection.Add(midPoint + (endPt - midPoint) * t);
+                }
+            }
+            catch
+            {
+                // Fallback: empty (will skip connection)
+            }
+            
+            return connection;
+        }
+
+        /// <summary>
+        /// Creates a smooth bridge between two spiral loops using tangent-aligned curve.
+        /// Critical for 5mm nozzle large-format printing to avoid sharp transitions.
+        /// DEPRECATED: Replaced by Create90DegreeConnection for cleaner paths.
+        /// </summary>
+        private List<Point3d> CreateSmoothSpiralBridge(
+            Point3d startPt, Point3d endPt, double spacing, Curve prevCurve, Curve nextCurve)
+        {
+            var bridge = new List<Point3d>();
+            
+            if (prevCurve == null || nextCurve == null || !prevCurve.IsValid || !nextCurve.IsValid)
+                return bridge;
+
+            try
+            {
+                // Get tangent directions at connection points
+                double tStart, tEnd;
+                prevCurve.ClosestPoint(startPt, out tStart);
+                nextCurve.ClosestPoint(endPt, out tEnd);
+                
+                Vector3d tangentStart = prevCurve.TangentAt(tStart);
+                Vector3d tangentEnd = nextCurve.TangentAt(tEnd);
+                
+                if (tangentStart.Length < 0.001 || tangentEnd.Length < 0.001)
+                    return bridge;
+                    
+                tangentStart.Unitize();
+                tangentEnd.Unitize();
+                
+                // Create smooth cubic bezier bridge aligned with tangents
+                // This ensures NO sharp corners at transition points
+                double bridgeLength = startPt.DistanceTo(endPt);
+                double controlDist = bridgeLength * 0.4; // Control point distance
+                
+                Point3d control1 = startPt + tangentStart * controlDist;
+                Point3d control2 = endPt - tangentEnd * controlDist;
+                
+                int steps = Math.Max(10, (int)Math.Ceiling(bridgeLength / (spacing * 0.3)));
+                steps = Math.Min(steps, 50); // Reasonable upper limit
+                
+                for (int i = 1; i < steps; i++)
+                {
+                    double t = (double)i / steps;
+                    
+                    // Cubic Bezier curve formula
+                    Point3d pt = Math.Pow(1 - t, 3) * startPt +
+                                 3 * Math.Pow(1 - t, 2) * t * control1 +
+                                 3 * (1 - t) * t * t * control2 +
+                                 Math.Pow(t, 3) * endPt;
+                    
+                    bridge.Add(pt);
+                }
+            }
+            catch
+            {
+                // Fallback: empty (caller will use default connection)
+            }
+            
+            return bridge;
         }
 
         /// <summary>

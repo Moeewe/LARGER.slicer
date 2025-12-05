@@ -28,37 +28,41 @@ namespace LARGERslicer.Components.Export
             pManager.AddBooleanParameter("Random Bridges", "Random", "Use random bridge placement between offset curves to prevent overfill.", GH_ParamAccess.item, true);
             pManager.AddNumberParameter("Bridge Density", "BridgeD", "Density of bridges between curves (0-1). Higher = more bridges.", GH_ParamAccess.item, 0.3);
             pManager.AddBooleanParameter("Handle Undercuts", "Undercuts", "Automatically handle self-intersections in offset curves (undercuts/hinterschneidungen).", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("Use ArcWelder", "ArcWeld", "Convert polyline to lines and arcs for optimized GCode.", GH_ParamAccess.item, false);
-            pManager.AddNumberParameter("Arc Tolerance", "ArcTol", "Tolerance for arc fitting when ArcWelder is enabled (mm).", GH_ParamAccess.item, 0.1);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Validate inputs using base class method
-            if (!ValidateInputs(DA, out Curve boundary, out Point3d seamPoint, out double spacing, out double boundaryOffset, out List<Curve> holes))
+            // Validate minimal common inputs
+            Curve boundary;
+            double printWidth;
+            List<Curve> holes;
+
+            if (!ValidateInputs(DA, out boundary, out printWidth, out holes))
                 return;
 
+            // Get additional pattern-specific parameters
             bool randomBridges = true;
             double bridgeDensity = 0.3;
             bool handleUndercuts = true;
-            bool useArcWelder = false;
-            double arcTolerance = 0.1;
-            DA.GetData(5, ref randomBridges);
-            DA.GetData(6, ref bridgeDensity);
-            DA.GetData(7, ref handleUndercuts);
-            DA.GetData(8, ref useArcWelder);
-            DA.GetData(9, ref arcTolerance);
+            DA.GetData(3, ref randomBridges);  // Index 3 after base inputs (0-2)
+            DA.GetData(4, ref bridgeDensity);
+            DA.GetData(5, ref handleUndercuts);
 
-            // IMPORTANT: Offset boundary by layer width (spacing) inward
-            double totalBoundaryOffset = spacing + boundaryOffset;
+            if (bridgeDensity < 0 || bridgeDensity > 1)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Bridge density should be between 0 and 1. Clamping.");
+                bridgeDensity = Math.Max(0, Math.Min(1, bridgeDensity));
+            }
 
-            // Prepare boundary with offset
-            Curve closedBoundary = PrepareBoundary(boundary, totalBoundaryOffset, out List<Curve> offsetHoles, holes);
+            double spacing = printWidth;
+            double boundaryOffset = 0.0;
+
+            // Prepare boundary with offset (direction auto-detected)
+            Curve closedBoundary = PrepareBoundary(boundary, boundaryOffset, out List<Curve> offsetHoles, holes, spacing);
             holes.AddRange(offsetHoles);
 
-            // Get seam position (auto-calculate if not provided)
-            Point3d? seamPointNullable = seamPoint.IsValid ? (Point3d?)seamPoint : null;
-            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, seamPointNullable);
+            // Get seam position (auto-calculate)
+            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, null);
 
             // Generate pattern-specific path
             var (pathPoints, segments) = GeneratePattern(closedBoundary, seamPosition, seamParam, spacing, randomBridges, bridgeDensity, handleUndercuts, holes);
@@ -69,40 +73,8 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            // Apply ArcWelder conversion if enabled
-            Curve pathCurve = null;
-            List<Curve> segmentCurves = new List<Curve>();
-
-            if (useArcWelder)
-            {
-                var optimizedCurves = ArcWelderHelper.ConvertToLinesAndArcs(pathPoints, arcTolerance, 0.1);
-                
-                if (optimizedCurves.Count > 0)
-                {
-                    var joined = Curve.JoinCurves(optimizedCurves, 0.01);
-                    if (joined != null && joined.Length > 0)
-                    {
-                        pathCurve = joined[0];
-                    }
-                    else
-                    {
-                        pathCurve = optimizedCurves[0];
-                    }
-                    segmentCurves = optimizedCurves;
-                }
-                else
-                {
-                    Polyline pathPolyline = new Polyline(pathPoints);
-                    if (pathPolyline.IsValid)
-                    {
-                        pathCurve = new PolylineCurve(pathPolyline);
-                    }
-                }
-            }
-            else
-            {
-                CreateOutputCurves(pathPoints, segments, out pathCurve, out segmentCurves);
-            }
+            // Create output curves using base class method
+            CreateOutputCurves(pathPoints, segments, out Curve pathCurve, out List<Curve> segmentCurves);
 
             if (pathCurve == null)
             {
@@ -110,22 +82,48 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            // Calculate statistics
-            string stats = CalculateStatistics(pathPoints, closedBoundary, spacing);
-            if (useArcWelder && segmentCurves.Count > 0)
+            // Separate closed and open patterns
+            var patternsClosed = new List<Curve>();
+            var patternsOpened = new List<Curve>();
+            var bridges = new List<Curve>();
+            var polylines = new List<Curve>();
+
+            // Add main path as polyline
+            if (pathCurve != null)
             {
-                string arcStats = ArcWelderHelper.GetConversionStats(pathPoints, segmentCurves);
-                stats += $" | {arcStats}";
-            }
-            if (handleUndercuts)
-            {
-                stats += " | Undercuts handled";
+                polylines.Add(pathCurve);
             }
 
-            DA.SetData(0, pathCurve);
-            DA.SetDataList(1, segmentCurves);
-            DA.SetDataList(2, pathPoints);
-            DA.SetData(3, stats);
+            // Categorize segments
+            foreach (var seg in segmentCurves)
+            {
+                if (seg != null && seg.IsValid)
+                {
+                    if (seg.IsClosed)
+                        patternsClosed.Add(seg);
+                    else
+                        patternsOpened.Add(seg);
+                }
+            }
+
+            // Create planes for each segment
+            var planes = new List<Plane>();
+            foreach (var seg in segmentCurves)
+            {
+                if (seg != null && seg.IsValid && seg.PointAtStart.IsValid)
+                {
+                    Point3d pt = seg.PointAtStart;
+                    planes.Add(new Plane(pt, Vector3d.ZAxis));
+                }
+            }
+
+            // Set outputs according to new structure
+            DA.SetDataList(0, polylines);  // Polylines
+            DA.SetDataList(1, planes);      // Planes
+            DA.SetDataList(2, patternsClosed);  // Patterns Closed
+            DA.SetDataList(3, patternsOpened);  // Patterns Opened
+            DA.SetDataList(4, bridges);     // Bridges
+            DA.SetData(5, pathCurve);      // Single Line Fill
         }
 
         private (List<Point3d> pathPoints, List<List<Point3d>> segments) GeneratePattern(
@@ -198,7 +196,8 @@ namespace LARGERslicer.Components.Export
             }
 
             // Step 4: Optimize curve order starting from seam position
-            var orderedCurves = PathHelper.OptimizeCurveOrder(validCurves, seamPosition, seamPosition);
+            List<Curve> connections;
+            var orderedCurves = PathHelper.OptimizeCurveOrder(validCurves, seamPosition, out connections);
 
             // Store ordered curves for connection generation
             // (We'll use this in CreateLayerSpacedConnection)
@@ -251,26 +250,50 @@ namespace LARGERslicer.Components.Export
                     
                     if (distance > spacing * 0.1)
                     {
-                        // Create connection along boundary with proper layer spacing
-                        // Find the corresponding curves for context
-                        Curve currentCurve = segIdx > 0 && segIdx - 1 < orderedCurves.Count ? orderedCurves[segIdx - 1] : null;
-                        Curve nextCurve = segIdx < orderedCurves.Count ? orderedCurves[segIdx] : null;
+                        // CRITICAL: Use direct connection for short distances to avoid crossing
+                        // Only use boundary-following for longer jumps between distant regions
+                        bool useDirectConnection = distance < spacing * 5.0;
                         
-                        var connectionPoints = CreateLayerSpacedConnection(
-                            lastPt, firstPt, boundary, currentCurve, nextCurve, spacing, segIdx);
-                        
-                        if (connectionPoints.Count > 0)
+                        if (useDirectConnection)
                         {
-                            pathPoints.AddRange(connectionPoints);
-                        }
-                        else
-                        {
-                            // Fallback: simple linear connection with proper spacing
-                            int steps = Math.Max(2, (int)Math.Ceiling(distance / spacing));
+                            // Direct linear connection (shortest path, no crossing)
+                            int steps = Math.Max(2, (int)Math.Ceiling(distance / (spacing * 0.5)));
                             for (int s = 1; s < steps; s++)
                             {
                                 double t = (double)s / steps;
                                 pathPoints.Add(lastPt + (firstPt - lastPt) * t);
+                            }
+                        }
+                        else
+                        {
+                            // Long jump: use offset-following connection (geometric consistency)
+                            Curve currentCurve = segIdx > 0 && segIdx - 1 < orderedCurves.Count ? orderedCurves[segIdx - 1] : null;
+                            Curve nextCurve = segIdx < orderedCurves.Count ? orderedCurves[segIdx] : null;
+                            
+                            // Use offset-following connection to maintain geometric consistency
+                            var connectionPoints = PathHelper.CreateOffsetFollowingConnection(
+                                lastPt, firstPt, boundary, currentCurve, nextCurve, spacing);
+                            
+                            // Fallback to layer-spaced connection if offset connection fails
+                            if (connectionPoints.Count == 0)
+                            {
+                                connectionPoints = CreateLayerSpacedConnection(
+                                    lastPt, firstPt, boundary, currentCurve, nextCurve, spacing, segIdx);
+                            }
+                            
+                            if (connectionPoints.Count > 0)
+                            {
+                                pathPoints.AddRange(connectionPoints);
+                            }
+                            else
+                            {
+                                // Fallback: simple linear connection
+                                int steps = Math.Max(2, (int)Math.Ceiling(distance / spacing));
+                                for (int s = 1; s < steps; s++)
+                                {
+                                    double t = (double)s / steps;
+                                    pathPoints.Add(lastPt + (firstPt - lastPt) * t);
+                                }
                             }
                         }
                     }
@@ -441,44 +464,91 @@ namespace LARGERslicer.Components.Export
         }
 
         /// <summary>
-        /// Adds random bridges between point lists (curves) to prevent overfill.
+        /// Adds optimized bridges between point lists using nearest-neighbor approach.
+        /// Improved from random bridges: uses greedy nearest-neighbor to minimize travel distance.
+        /// For true Eulerian path, would need full graph algorithm - this is a practical approximation.
         /// </summary>
         private List<List<Point3d>> AddRandomBridgesToPointLists(List<List<Point3d>> pointLists, double bridgeDensity, double spacing)
         {
             if (pointLists.Count < 2)
                 return pointLists;
 
-            var result = new List<List<Point3d>> { pointLists[0] };
-            Random random = new Random(42); // Fixed seed for reproducibility
-
-            for (int i = 1; i < pointLists.Count; i++)
+            // Improved approach: Use nearest-neighbor ordering instead of sequential
+            var result = new List<List<Point3d>>();
+            var remaining = new List<List<Point3d>>(pointLists);
+            
+            // Start with first list
+            result.Add(remaining[0]);
+            Point3d currentEnd = remaining[0][remaining[0].Count - 1];
+            remaining.RemoveAt(0);
+            
+            // Greedily connect to nearest remaining segment
+            while (remaining.Count > 0)
             {
-                List<Point3d> prevList = pointLists[i - 1];
-                List<Point3d> currList = pointLists[i];
-
-                if (prevList.Count > 0 && currList.Count > 0)
+                int nearestIdx = -1;
+                double minDist = double.MaxValue;
+                bool reverseNearest = false;
+                
+                for (int i = 0; i < remaining.Count; i++)
                 {
-                    Point3d prevEnd = prevList[prevList.Count - 1];
-                    Point3d currStart = currList[0];
-                    double distance = prevEnd.DistanceTo(currStart);
-
-                    if (distance > spacing * 0.1)
+                    if (remaining[i].Count == 0) continue;
+                    
+                    double distToStart = currentEnd.DistanceTo(remaining[i][0]);
+                    double distToEnd = currentEnd.DistanceTo(remaining[i][remaining[i].Count - 1]);
+                    
+                    if (distToStart < minDist)
                     {
-                        if (random.NextDouble() < bridgeDensity)
+                        minDist = distToStart;
+                        nearestIdx = i;
+                        reverseNearest = false;
+                    }
+                    if (distToEnd < minDist)
+                    {
+                        minDist = distToEnd;
+                        nearestIdx = i;
+                        reverseNearest = true;
+                    }
+                }
+                
+                if (nearestIdx >= 0)
+                {
+                    var nextList = remaining[nearestIdx];
+                    remaining.RemoveAt(nearestIdx);
+                    
+                    if (reverseNearest)
+                    {
+                        nextList.Reverse();
+                    }
+                    
+                    // Add bridge based on density threshold
+                    Point3d nextStart = nextList[0];
+                    if (minDist > spacing * 0.1)
+                    {
+                        // Use distance-based decision instead of random
+                        // Short gaps: always bridge, long gaps: use density parameter
+                        bool shouldBridge = (minDist < spacing * 3.0) || 
+                                           (minDist / spacing) * 0.1 < bridgeDensity;
+                        
+                        if (shouldBridge)
                         {
-                            int steps = Math.Max(2, (int)Math.Ceiling(distance / spacing));
+                            int steps = Math.Max(2, (int)Math.Ceiling(minDist / (spacing * 0.5)));
                             var bridge = new List<Point3d>();
                             for (int s = 1; s < steps; s++)
                             {
                                 double t = (double)s / steps;
-                                bridge.Add(prevEnd + (currStart - prevEnd) * t);
+                                bridge.Add(currentEnd + (nextStart - currentEnd) * t);
                             }
                             result.Add(bridge);
                         }
                     }
+                    
+                    result.Add(nextList);
+                    currentEnd = nextList[nextList.Count - 1];
                 }
-
-                result.Add(currList);
+                else
+                {
+                    break; // No more segments
+                }
             }
 
             return result;

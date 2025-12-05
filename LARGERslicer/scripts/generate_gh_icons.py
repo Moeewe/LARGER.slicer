@@ -53,6 +53,11 @@ ICONS = {
         'color': COLORS['turquoise'],
         'color_dark': COLORS['turquoise_dark'],
     },
+    'MachineSettingsExtendedIcon.png': {
+        'concept': 'settings_advanced',
+        'color': COLORS['turquoise'],
+        'color_dark': COLORS['turquoise_dark'],
+    },
     
     # Utilities
     'SafeIcon.png': {
@@ -184,6 +189,44 @@ def draw_settings_gear(draw, color, color_dark, offset=(0, 0)):
     draw.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], 
                  fill=color_dark, outline=color_dark, width=1)
 
+def draw_settings_advanced(draw, color, color_dark, offset=(0, 0)):
+    """Draw advanced settings icon (gear with multiple zones/layers)"""
+    cx, cy = 12 + offset[0], 12 + offset[1]
+    radius = 7
+    
+    # Outer gear (larger, more teeth for advanced)
+    for i in range(12):
+        angle = i * 30
+        import math
+        rad = math.radians(angle)
+        x1 = cx + (radius + 2) * math.cos(rad)
+        y1 = cy + (radius + 2) * math.sin(rad)
+        x2 = cx + radius * math.cos(rad)
+        y2 = cy + radius * math.sin(rad)
+        draw.line([(x1, y1), (x2, y2)], fill=color_dark, width=2)
+    
+    # Center circle
+    draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], 
+                 fill=color, outline=color_dark, width=2)
+    
+    # Inner gear (smaller, represents zones)
+    inner_radius = 4
+    for i in range(6):
+        angle = i * 60
+        import math
+        rad = math.radians(angle)
+        x1 = cx + (inner_radius + 1) * math.cos(rad)
+        y1 = cy + (inner_radius + 1) * math.sin(rad)
+        x2 = cx + inner_radius * math.cos(rad)
+        y2 = cy + inner_radius * math.sin(rad)
+        draw.line([(x1, y1), (x2, y2)], fill=color_dark, width=1)
+    
+    # Inner circle
+    draw.ellipse([cx - inner_radius, cy - inner_radius, cx + inner_radius, cy + inner_radius], 
+                 fill=color, outline=color_dark, width=1)
+    # Center dot
+    draw.ellipse([cx - 1, cy - 1, cx + 1, cy + 1], fill=color_dark)
+
 def draw_file_save(draw, color, color_dark, offset=(0, 0)):
     """Draw save icon (floppy disk)"""
     x, y = 2 + offset[0], 2 + offset[1]
@@ -300,6 +343,7 @@ def generate_icon(filename, config):
         'file_export': lambda d, off: draw_file_export(d, color, color_dark, off),
         'code_conversion': lambda d, off: draw_code_conversion(d, color, color_dark, off),
         'settings_gear': lambda d, off: draw_settings_gear(d, color, color_dark, off),
+        'settings_advanced': lambda d, off: draw_settings_advanced(d, color, color_dark, off),
         'file_save': lambda d, off: draw_file_save(d, color, color_dark, off),
         'clock_time': lambda d, off: draw_clock_time(d, color, color_dark, off),
         'folder_desktop': lambda d, off: draw_folder_desktop(d, color, color_dark, off),

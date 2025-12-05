@@ -24,64 +24,50 @@ namespace LARGERslicer.Components.Export
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
+            // Minimal common inputs - each component should override and add its specific inputs
             pManager.AddCurveParameter("Curve", "C", "Boundary curve to fill. Can be open or closed - will be closed automatically if needed.", GH_ParamAccess.item);
-            pManager.AddPointParameter("Seam Point", "Seam", "Seam point to determine connection position on boundary. If not provided, automatically calculated (farthest from center).", GH_ParamAccess.item);
-            pManager[1].Optional = true;
-            pManager.AddNumberParameter("Line Spacing", "Spacing", "Distance between pattern lines (bead width/extrusion width in mm). Center-to-center distance equals bead width. For 5mm nozzle, use 5mm spacing.", GH_ParamAccess.item, 2.0);
-            pManager.AddNumberParameter("Boundary Offset", "Offset", "Additional offset from boundary inward (mm). Outer path should be ~half bead width from boundary. Use 0 for automatic.", GH_ParamAccess.item, 0.0);
+            pManager.AddNumberParameter("Print Width", "PW", "Print width (bead width/extrusion width in mm). Center-to-center distance equals bead width. For 5mm nozzle, use 5mm.", GH_ParamAccess.item, 5.0);
             pManager.AddCurveParameter("Holes", "Holes", "Optional inner boundary curves (holes/islands) to exclude from fill", GH_ParamAccess.list);
-            pManager[4].Optional = true;
+            pManager[2].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("Path", "Path", "Complete continuous fill path as polyline curve", GH_ParamAccess.item);
-            pManager.AddCurveParameter("Segments", "Segments", "Individual path segments for preview", GH_ParamAccess.list);
-            pManager.AddPointParameter("Path Points", "Points", "All path points as ordered list", GH_ParamAccess.list);
-            pManager.AddTextParameter("Stats", "Stats", "Path statistics (length, fill percentage, etc.)", GH_ParamAccess.item);
+            // Minimal common output - each component should override and add its specific outputs
+            pManager.AddCurveParameter("Single Line Fill", "SLF", "Single continuous fill path", GH_ParamAccess.item);
         }
 
         /// <summary>
-        /// Validates common inputs and returns validated values.
+        /// Validates minimal common inputs (Curve, Print Width, Holes).
         /// </summary>
-        protected bool ValidateInputs(IGH_DataAccess DA, out Curve boundary, out Point3d seamPoint, out double spacing, out double boundaryOffset, out List<Curve> holes)
+        protected bool ValidateInputs(IGH_DataAccess DA, 
+            out Curve boundary, 
+            out double printWidth, 
+            out List<Curve> holes)
         {
             boundary = null;
-            seamPoint = Point3d.Unset;
-            spacing = 2.0;
-            boundaryOffset = 0.0;
+            printWidth = 5.0;
             holes = new List<Curve>();
 
-            if (!DA.GetData(0, ref boundary))
+            if (!DA.GetData(0, ref boundary) || boundary == null || !boundary.IsValid)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Curve is required.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Valid boundary curve is required.");
                 return false;
             }
 
-            DA.GetData(1, ref seamPoint);
-            if (!DA.GetData(2, ref spacing)) return false;
-            DA.GetData(3, ref boundaryOffset);
-            DA.GetDataList(4, holes);
-
-            // Validate boundary
-            if (boundary == null || !boundary.IsValid)
+            if (!DA.GetData(1, ref printWidth))
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Curve is invalid.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Print width is required.");
                 return false;
             }
 
-            // Validate spacing
-            if (spacing <= 0)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Line spacing must be greater than zero.");
-                return false;
-            }
+            DA.GetDataList(2, holes);
 
-            // Validate boundary offset
-            if (boundaryOffset < 0)
+            // Validate print width
+            if (printWidth <= 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Boundary offset should be >= 0. Using 0.");
-                boundaryOffset = 0;
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Print width must be greater than zero.");
+                return false;
             }
 
             // Validate holes
@@ -89,6 +75,8 @@ namespace LARGERslicer.Components.Export
 
             return true;
         }
+
+
 
         /// <summary>
         /// Ensures boundary is closed and applies offset if needed.
@@ -307,6 +295,110 @@ namespace LARGERslicer.Components.Export
 
             return stats;
         }
+
+        /// <summary>
+        /// Validates that a path is truly continuous without breaks.
+        /// CRITICAL for large-format printing - any break = start/stop point = visible seam.
+        /// Based on: CEAD Group guidelines - continuous motion essential for 5mm nozzle.
+        /// </summary>
+        /// <param name="path">Path points to validate</param>
+        /// <param name="tolerance">Maximum allowed gap between consecutive points (mm)</param>
+        /// <returns>Tuple of (isContinuous, list of break indices)</returns>
+        protected (bool isContinuous, List<int> breaks) ValidateContinuity(
+            List<Point3d> path,
+            double tolerance = 0.01)
+        {
+            var breaks = new List<int>();
+
+            if (path == null || path.Count < 2)
+                return (false, breaks);
+
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                double gap = path[i].DistanceTo(path[i + 1]);
+                if (gap > tolerance)
+                {
+                    breaks.Add(i); // Gap detected between i and i+1
+                }
+            }
+
+            bool isContinuous = (breaks.Count == 0);
+            return (isContinuous, breaks);
+        }
+
+        /// <summary>
+        /// Validates that connection points maintain minimum clearance from existing path.
+        /// Prevents spacing violations that cause nozzle collisions in large-format printing.
+        /// Based on: Ultimaker - bead width = minimum center-to-center spacing.
+        /// </summary>
+        /// <param name="connectionPoint">Point to check</param>
+        /// <param name="existingPath">Existing path points</param>
+        /// <param name="minClearance">Minimum required distance (typically = bead width)</param>
+        /// <returns>True if clearance is sufficient</returns>
+        protected bool ValidateConnectionClearance(
+            Point3d connectionPoint,
+            List<Point3d> existingPath,
+            double minClearance)
+        {
+            if (existingPath == null || existingPath.Count == 0)
+                return true;
+
+            // Check if connection point is too close to any existing point
+            foreach (var pt in existingPath)
+            {
+                double dist = connectionPoint.DistanceTo(pt);
+                if (dist < minClearance && dist > 0.001) // Not same point
+                {
+                    return false; // Too close!
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Validates minimum spacing between two curves (for offset spirals/contours).
+        /// CRITICAL: Prevents curves from touching which causes material overlap in large-format.
+        /// Ensures minimum spacing = bead width between adjacent toolpaths.
+        /// </summary>
+        /// <param name="curve1">First curve</param>
+        /// <param name="curve2">Second curve</param>
+        /// <param name="minSpacing">Minimum required spacing (bead width)</param>
+        /// <param name="tolerance">Sampling tolerance for distance check</param>
+        /// <returns>True if spacing is sufficient everywhere</returns>
+        protected bool ValidateCurveSpacing(
+            Curve curve1,
+            Curve curve2,
+            double minSpacing,
+            double tolerance = 0.1)
+        {
+            if (curve1 == null || curve2 == null || !curve1.IsValid || !curve2.IsValid)
+                return true;
+
+            // Sample both curves densely
+            int samples = Math.Max(20, (int)(Math.Max(curve1.GetLength(), curve2.GetLength()) / tolerance));
+            samples = Math.Min(samples, 200); // Cap for performance
+
+            for (int i = 0; i <= samples; i++)
+            {
+                double t1 = curve1.Domain.ParameterAt((double)i / samples);
+                Point3d pt1 = curve1.PointAt(t1);
+
+                // Find closest point on curve2
+                double t2;
+                curve2.ClosestPoint(pt1, out t2);
+                Point3d pt2 = curve2.PointAt(t2);
+
+                double dist = pt1.DistanceTo(pt2);
+                if (dist < minSpacing * 0.95) // 5% tolerance
+                {
+                    return false; // Curves too close!
+                }
+            }
+
+            return true;
+        }
     }
 }
+
 

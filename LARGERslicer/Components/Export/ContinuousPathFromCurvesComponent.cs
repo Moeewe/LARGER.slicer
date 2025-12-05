@@ -31,29 +31,37 @@ namespace LARGERslicer.Components.Export
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Validate inputs using base class method
-            if (!ValidateInputs(DA, out Curve boundary, out Point3d seamPoint, out double spacing, out double boundaryOffset, out List<Curve> holes))
+            // Validate minimal common inputs
+            Curve boundary;
+            double printWidth;
+            List<Curve> holes;
+
+            if (!ValidateInputs(DA, out boundary, out printWidth, out holes))
                 return;
 
+            // Get additional pattern-specific parameters
             double angle = 0.0;
             bool randomBridges = true;
             double bridgeDensity = 0.3;
-            DA.GetData(5, ref angle);
-            DA.GetData(6, ref randomBridges);
-            DA.GetData(7, ref bridgeDensity);
+            DA.GetData(3, ref angle);  // Index 3 after base inputs (0-2)
+            DA.GetData(4, ref randomBridges);
+            DA.GetData(5, ref bridgeDensity);
 
-            // IMPORTANT: Offset boundary by layer width (spacing) inward
-            // This accounts for the fact that the boundary itself has an extrusion width
-            // The boundaryOffset parameter is for additional offset (e.g., for first layer adhesion)
-            double totalBoundaryOffset = spacing + boundaryOffset;
+            double spacing = printWidth;
+            double boundaryOffset = 0.0;
 
-            // Prepare boundary with offset (boundary offset = layer width + additional offset, direction auto-detected)
-            Curve closedBoundary = PrepareBoundary(boundary, totalBoundaryOffset, out List<Curve> offsetHoles, holes);
+            if (bridgeDensity < 0 || bridgeDensity > 1)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Bridge density should be between 0 and 1. Clamping.");
+                bridgeDensity = Math.Max(0, Math.Min(1, bridgeDensity));
+            }
+
+            // Prepare boundary with offset (direction auto-detected)
+            Curve closedBoundary = PrepareBoundary(boundary, boundaryOffset, out List<Curve> offsetHoles, holes, spacing);
             holes.AddRange(offsetHoles);
 
-            // Get seam position (auto-calculate if not provided)
-            Point3d? seamPointNullable = seamPoint.IsValid ? (Point3d?)seamPoint : null;
-            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, seamPointNullable);
+            // Get seam position (auto-calculate)
+            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, null);
 
             // Convert angle to radians
             angle = angle * Math.PI / 180.0;
@@ -76,13 +84,48 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            // Calculate statistics using base class method
-            string stats = CalculateStatistics(pathPoints, closedBoundary, spacing, $"Angle={angle * 180.0 / Math.PI:F1}°");
+            // Separate closed and open patterns
+            var patternsClosed = new List<Curve>();
+            var patternsOpened = new List<Curve>();
+            var bridges = new List<Curve>();
+            var polylines = new List<Curve>();
 
-            DA.SetData(0, pathCurve);
-            DA.SetDataList(1, segmentCurves);
-            DA.SetDataList(2, pathPoints);
-            DA.SetData(3, stats);
+            // Add main path as polyline
+            if (pathCurve != null)
+            {
+                polylines.Add(pathCurve);
+            }
+
+            // Categorize segments
+            foreach (var seg in segmentCurves)
+            {
+                if (seg != null && seg.IsValid)
+                {
+                    if (seg.IsClosed)
+                        patternsClosed.Add(seg);
+                    else
+                        patternsOpened.Add(seg);
+                }
+            }
+
+            // Create planes for each segment
+            var planes = new List<Plane>();
+            foreach (var seg in segmentCurves)
+            {
+                if (seg != null && seg.IsValid && seg.PointAtStart.IsValid)
+                {
+                    Point3d pt = seg.PointAtStart;
+                    planes.Add(new Plane(pt, Vector3d.ZAxis));
+                }
+            }
+
+            // Set outputs according to new structure
+            DA.SetDataList(0, polylines);  // Polylines
+            DA.SetDataList(1, planes);      // Planes
+            DA.SetDataList(2, patternsClosed);  // Patterns Closed
+            DA.SetDataList(3, patternsOpened);  // Patterns Opened
+            DA.SetDataList(4, bridges);     // Bridges
+            DA.SetData(5, pathCurve);      // Single Line Fill
         }
 
         private (List<Point3d> pathPoints, List<List<Point3d>> segments) GeneratePattern(

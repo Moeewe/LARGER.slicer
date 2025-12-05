@@ -81,8 +81,8 @@ namespace LARGERslicer.Components.Export
 
             // Optimize curve order
             Point3d startPt = validCurves[0].PointAtStart;
-            Point3d endPt = validCurves[validCurves.Count - 1].PointAtEnd;
-            var orderedCurves = PathHelper.OptimizeCurveOrder(validCurves, startPt, endPt);
+            List<Curve> optimizationConnections;
+            var orderedCurves = PathHelper.OptimizeCurveOrder(validCurves, startPt, out optimizationConnections);
 
             // Generate bridges
             var bridges = new List<Curve>();

@@ -12,7 +12,7 @@ namespace LARGERslicer.Components.Export
     {
         public SafeComponent()
           : base("Safe Component", "Safe",
-              "Writes text lines to a file. Combines folder path, filename, and extension. Uses UTF-8 encoding.",
+              "Writes text lines to a file. Combines folder path, filename, and extension. Uses UTF-8 encoding WITHOUT BOM (required for robot controllers).",
               "", "")
         {
         }
@@ -155,8 +155,8 @@ namespace LARGERslicer.Components.Export
                     throw new DirectoryNotFoundException($"Directory does not exist and could not be created: {folder}");
                 }
 
-                // Write file with UTF-8 encoding
-                using (var writer = new StreamWriter(filePath, false, System.Text.Encoding.UTF8))
+                // Write file with UTF-8 encoding WITHOUT BOM (required for robot controllers)
+                using (var writer = new StreamWriter(filePath, false, new System.Text.UTF8Encoding(false)))
                 {
                     foreach (string line in lines)
                     {

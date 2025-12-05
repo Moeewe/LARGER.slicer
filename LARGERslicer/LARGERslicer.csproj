@@ -16,10 +16,15 @@
   
   <PropertyGroup>
     <!-- Specifies information for Assembly and Yak -->
-    <Version>1.0</Version>
+    <!-- Version follows Semantic Versioning: MAJOR.MINOR.PATCH -->
+    <Version>1.0.2</Version>
     <Title>LARGERslicer</Title>
     <Company>LARGERslicer Authors</Company>
-    <Description>Grasshopper plugin for advanced slicing operations and mesh processing</Description>
+    <Authors>Moritz Wesseler, FH Münster</Authors>
+    <Description>Advanced slicing operations and mesh processing tools for Grasshopper. Includes DXR postprocessing, continuous toolpath generation, and various infill patterns.</Description>
+    <Copyright>Copyright © 2024 Moritz Wesseler, FH Münster</Copyright>
+    <PackageLicenseExpression>CC-BY-NC-4.0</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/Moeewe/LARGER.slicer</RepositoryUrl>
   </PropertyGroup>
   
   <ItemGroup>
@@ -51,8 +56,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Reference Component.cs" />
-    <Compile Remove="DXR Postprocessor.cs" />
+    <!-- Exclude old/reference files from compilation -->
+    <Compile Remove="examples\Reference Component.cs" />
+    <Compile Remove="examples\DXR Postprocessor.cs" />
   </ItemGroup>
 
 </Project> 

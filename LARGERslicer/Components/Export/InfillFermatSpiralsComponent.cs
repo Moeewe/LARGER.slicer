@@ -16,10 +16,13 @@ namespace LARGERslicer.Components.Export
     public class InfillFermatSpiralsComponent : BottomLayerPatternBase
     {
         public InfillFermatSpiralsComponent()
-            : base("Infill Fermat Spirals", "Infill Fermat",
+            : base("Single Line Fill with Fermat Spirals", "SLF Fermat",
                   "Generates Connected Fermat Spirals (CFS) toolpath. Smooth, continuous curves ideal for large-format printing. Avoids sharp 90° turns of fractal patterns. Automatically detects curve orientation to fill inward.")
         {
         }
+
+        public override string Category => "LARGER";
+        public override string SubCategory => "Spiral";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -31,16 +34,21 @@ namespace LARGERslicer.Components.Export
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Validate inputs using base class method
-            if (!ValidateInputs(DA, out Curve boundary, out Point3d seamPoint, out double spacing, out double boundaryOffset, out List<Curve> holes))
+            // Validate minimal common inputs
+            Curve boundary;
+            double printWidth;
+            List<Curve> holes;
+
+            if (!ValidateInputs(DA, out boundary, out printWidth, out holes))
                 return;
 
+            // Get pattern-specific parameters
             double minRadius = 0.5;
             double maxRegionSize = 50.0;
             bool subdivideRegions = true;
-            DA.GetData(5, ref minRadius);
-            DA.GetData(6, ref maxRegionSize);
-            DA.GetData(7, ref subdivideRegions);
+            DA.GetData(3, ref minRadius);  // Index 3 after base inputs (0-2)
+            DA.GetData(4, ref maxRegionSize);
+            DA.GetData(5, ref subdivideRegions);
 
             if (minRadius < 0)
             {
@@ -48,14 +56,15 @@ namespace LARGERslicer.Components.Export
                 minRadius = 0;
             }
 
+            double spacing = printWidth;
+            double boundaryOffset = 0.0; // Will be calculated automatically
+
             // Prepare boundary with offset (direction auto-detected)
-            // For large-format: outer path should be ~half bead width from boundary
             Curve closedBoundary = PrepareBoundary(boundary, boundaryOffset, out List<Curve> offsetHoles, holes, spacing);
             holes.AddRange(offsetHoles);
 
-            // Get seam position (auto-calculate if not provided)
-            Point3d? seamPointNullable = seamPoint.IsValid ? (Point3d?)seamPoint : null;
-            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, seamPointNullable);
+            // Get seam position (auto-calculate)
+            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, null);
 
             // Generate pattern-specific path
             var (pathPoints, segments) = GeneratePattern(
@@ -76,14 +85,8 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            // Calculate statistics using base class method
-            string stats = CalculateStatistics(pathPoints, closedBoundary, spacing, 
-                $"Fermat Spirals | MinRadius={minRadius:F2}mm | Regions: {segments.Count}");
-
+            // Set output - only Single Line Fill for Fermat Spirals
             DA.SetData(0, pathCurve);
-            DA.SetDataList(1, segmentCurves);
-            DA.SetDataList(2, pathPoints);
-            DA.SetData(3, stats);
         }
 
         private (List<Point3d> pathPoints, List<List<Point3d>> segments) GeneratePattern(
@@ -168,16 +171,94 @@ namespace LARGERslicer.Components.Export
                 return (pathPoints, segments);
             }
 
-            // Step 3: Connect spirals into continuous path
-            pathPoints = FermatSpiralHelper.ConnectSpirals(spirals, boundary, spacing);
-
-            // If connection failed, use first spiral
-            if (pathPoints.Count == 0 && spirals.Count > 0)
+            // Step 3: Connect spirals with seam alignment and 90° transitions
+            // Align each spiral's start to be closest to previous spiral's end
+            if (spirals.Count > 1)
             {
-                pathPoints = spirals[0];
+                var alignedSpirals = new List<List<Point3d>>();
+                alignedSpirals.Add(spirals[0]);
+                
+                for (int i = 1; i < spirals.Count; i++)
+                {
+                    var prevSpiral = alignedSpirals[alignedSpirals.Count - 1];
+                    var currentSpiral = spirals[i];
+                    
+                    if (prevSpiral.Count > 0 && currentSpiral.Count > 0)
+                    {
+                        Point3d prevEnd = prevSpiral[prevSpiral.Count - 1];
+                        
+                        // Find closest point in current spiral to previous end
+                        int closestIdx = 0;
+                        double minDist = double.MaxValue;
+                        for (int j = 0; j < currentSpiral.Count; j++)
+                        {
+                            double dist = prevEnd.DistanceTo(currentSpiral[j]);
+                            if (dist < minDist)
+                            {
+                                minDist = dist;
+                                closestIdx = j;
+                            }
+                        }
+                        
+                        // Rotate spiral to start at closest point
+                        var rotated = new List<Point3d>();
+                        for (int j = closestIdx; j < currentSpiral.Count; j++)
+                            rotated.Add(currentSpiral[j]);
+                        for (int j = 0; j < closestIdx; j++)
+                            rotated.Add(currentSpiral[j]);
+                        
+                        alignedSpirals.Add(rotated);
+                    }
+                    else
+                    {
+                        alignedSpirals.Add(currentSpiral);
+                    }
+                }
+                
+                spirals = alignedSpirals;
+            }
+            
+            // Build continuous path with 90° connections
+            pathPoints.Add(seamPosition);
+            for (int i = 0; i < spirals.Count; i++)
+            {
+                var spiral = spirals[i];
+                if (spiral.Count > 0)
+                {
+                    Point3d spiralStart = spiral[0];
+                    
+                    // Connect with offset-following connection (geometric consistency)
+                    if (pathPoints.Count > 0)
+                    {
+                        Point3d lastPt = pathPoints[pathPoints.Count - 1];
+                        if (lastPt.DistanceTo(spiralStart) > spacing * 0.1)
+                        {
+                            // Try to find curves for offset estimation
+                            Curve prevCurve = i > 0 && i - 1 < regions.Count ? regions[i - 1] : null;
+                            Curve currCurve = i < regions.Count ? regions[i] : null;
+                            
+                            var connection = PathHelper.CreateOffsetFollowingConnection(
+                                lastPt, spiralStart, boundary, prevCurve, currCurve, spacing);
+                            
+                            if (connection.Count == 0)
+                            {
+                                // Fallback to 90° connection
+                                connection = PathHelper.Create90DegreeConnection(
+                                    lastPt, spiralStart, null, null, spacing);
+                            }
+                            
+                            if (connection.Count > 0)
+                            {
+                                pathPoints.AddRange(connection);
+                            }
+                        }
+                    }
+                    
+                    pathPoints.AddRange(spiral);
+                }
             }
 
-            // Step 4: Start from seam position if possible
+            // Step 4: Align path start to seam position
             if (pathPoints.Count > 0)
             {
                 // Find closest point to seam

@@ -88,14 +88,29 @@ namespace LARGERslicer.Components.Export
                     List<string> robotLines = parsedData.RobotLines;
                     List<double> P1_list = parsedData.ExtrusionAmounts;
                     List<double> F1_list = parsedData.PrintSpeeds;
+                    List<string> layerTypes = parsedData.LayerTypes;
+                    List<bool> isRetraction = parsedData.IsRetraction;
                     
                     processInfo.Add($"Parsed: {robotLines.Count} movements, {P1_list.Count} extrusions, {F1_list.Count} speeds");
+                    if (layerTypes.Count > 0)
+                    {
+                        var uniqueTypes = layerTypes.Where(t => !string.IsNullOrEmpty(t)).Distinct().ToList();
+                        if (uniqueTypes.Count > 0)
+                        {
+                            processInfo.Add($"Detected layer types: {string.Join(", ", uniqueTypes)}");
+                        }
+                    }
+                    int retractionCount = isRetraction.Count(r => r);
+                    if (retractionCount > 0)
+                    {
+                        processInfo.Add($"Detected {retractionCount} retraction commands");
+                    }
 
                     // Use extracted or provided machine settings
                     MachineSettings finalSettings = parsedData.ExtractedSettings ?? machineSettings;
 
                     // Process robot lines using the DXR conversion logic
-                    var dxrLines = DXRHelper.ProcessRobotLinesToDXR(robotLines, P1_list, F1_list, processInfo, finalSettings);
+                    var dxrLines = DXRHelper.ProcessRobotLinesToDXR(robotLines, P1_list, F1_list, processInfo, finalSettings, layerTypes, isRetraction);
                     result.AddRange(dxrLines);
 
                     // Add machine end settings (always turns everything off)
@@ -152,6 +167,8 @@ namespace LARGERslicer.Components.Export
             public List<string> RobotLines { get; set; }
             public List<double> ExtrusionAmounts { get; set; }
             public List<double> PrintSpeeds { get; set; }
+            public List<string> LayerTypes { get; set; } // Layer type for each movement (SKIRT, SKIN, WALL-OUTER, WALL-INNER, INFILL, etc.)
+            public List<bool> IsRetraction { get; set; } // True if this is a retraction without movement
             public MachineSettings ExtractedSettings { get; set; }
 
             public ParsedGCodeData()
@@ -159,6 +176,8 @@ namespace LARGERslicer.Components.Export
                 RobotLines = new List<string>();
                 ExtrusionAmounts = new List<double>();
                 PrintSpeeds = new List<double>();
+                LayerTypes = new List<string>();
+                IsRetraction = new List<bool>();
                 ExtractedSettings = null;
             }
         }
@@ -232,7 +251,43 @@ namespace LARGERslicer.Components.Export
                 double nozzleTemp = extractedNozzleTemp ?? (providedSettings?.NozzleTemperature ?? 200.0);
                 double fanSpeed = extractedFanSpeed ?? (providedSettings?.CoolingPercentage ?? 50.0);
                 
-                result.ExtractedSettings = new MachineSettings(bedTemp, nozzleTemp, fanSpeed);
+                // Check if provided settings are in advanced format
+                if (providedSettings != null && providedSettings.UseAdvancedFormat)
+                {
+                    // Preserve advanced format settings, but update temperatures if extracted
+                    result.ExtractedSettings = new MachineSettings(
+                        bedTemp: bedTemp,
+                        nozzleTemp: nozzleTemp,
+                        cooling: fanSpeed,
+                        useAdvancedFormat: true,
+                        bedZone1Enabled: providedSettings.BedZone1Enabled,
+                        bedZone1Temp: extractedBedTemp.HasValue ? bedTemp : providedSettings.BedZone1Temperature,
+                        bedZone2Enabled: providedSettings.BedZone2Enabled,
+                        bedZone2Temp: extractedBedTemp.HasValue ? bedTemp : providedSettings.BedZone2Temperature,
+                        bedZone3Enabled: providedSettings.BedZone3Enabled,
+                        bedZone3Temp: extractedBedTemp.HasValue ? bedTemp : providedSettings.BedZone3Temperature,
+                        bedZone4Enabled: providedSettings.BedZone4Enabled,
+                        bedZone4Temp: extractedBedTemp.HasValue ? bedTemp : providedSettings.BedZone4Temperature,
+                        fillingZoneEnabled: providedSettings.FillingZoneCoolingEnabled,
+                        fillingZoneTemp: providedSettings.FillingZoneTemperature,
+                        extruderZone1Enabled: providedSettings.ExtruderZone1Enabled,
+                        extruderZone1Temp: extractedNozzleTemp.HasValue ? (nozzleTemp - 10.0) : providedSettings.ExtruderZone1Temperature,
+                        extruderZone2Enabled: providedSettings.ExtruderZone2Enabled,
+                        extruderZone2Temp: extractedNozzleTemp.HasValue ? (nozzleTemp - 5.0) : providedSettings.ExtruderZone2Temperature,
+                        nozzleZoneEnabled: providedSettings.NozzleZoneEnabled,
+                        nozzleZoneTemp: extractedNozzleTemp.HasValue ? nozzleTemp : providedSettings.NozzleZoneTemperature,
+                        fanEnabled: providedSettings.FanEnabled,
+                        fanSpeed: extractedFanSpeed.HasValue ? fanSpeed : providedSettings.FanSpeed
+                    );
+                    processInfo.Add("Preserved Extended Format settings (V.E.GLOBAL_*)");
+                }
+                else
+                {
+                    // Simple format: create new simple settings
+                    double fanPercent = extractedFanSpeed.HasValue ? ((extractedFanSpeed.Value / 255.0) * 100.0) : fanSpeed;
+                    result.ExtractedSettings = new MachineSettings(bedTemp, nozzleTemp, fanPercent);
+                    processInfo.Add("Created Simple Format settings (V.P.VAR_*) from extracted GCode values");
+                }
                 
                 processInfo.Add("=== GCode Header Analysis ===");
                 if (extractedBedTemp.HasValue)
@@ -259,12 +314,19 @@ namespace LARGERslicer.Components.Export
                     {
                         processInfo.Add($"  → Changed from {providedSettings.CoolingPercentage}% to {(int)fanPercent}%");
                     }
-                    result.ExtractedSettings = new MachineSettings(bedTemp, nozzleTemp, fanPercent);
                 }
             }
             else if (providedSettings != null)
             {
                 processInfo.Add("No temperature settings found in GCode header - using provided Machine Settings");
+                if (providedSettings.UseAdvancedFormat)
+                {
+                    processInfo.Add("  → Using Extended Format (V.E.GLOBAL_*)");
+                }
+                else
+                {
+                    processInfo.Add("  → Using Simple Format (V.P.VAR_*)");
+                }
             }
             else
             {
@@ -276,17 +338,55 @@ namespace LARGERslicer.Components.Export
             double cumulativeE = 0; // Track cumulative extrusion for relative mode
             double lastF = 1000.0; // Default speed in mm/min
             bool extrusionModeRelative = false; // Track if M83 (relative) or M82 (absolute) is active
+            string currentLayerType = ""; // Current layer type from comments (TYPE:SKIRT, TYPE:SKIN, etc.)
 
             int movementCount = 0;
             int extrusionCount = 0;
             int speedCount = 0;
+            int retractionCount = 0;
 
             foreach (string rawLine in lines)
             {
                 string line = rawLine.Trim();
                 
-                // Skip comments and empty lines
-                if (string.IsNullOrEmpty(line) || line.StartsWith(";"))
+                // Check for layer type comments (e.g., ;TYPE:SKIRT, ;TYPE:SKIN, ;TYPE:WALL-OUTER)
+                if (line.StartsWith(";"))
+                {
+                    string commentUpper = line.ToUpper();
+                    if (commentUpper.Contains("TYPE:SKIRT") || commentUpper.Contains("TYPE:SUPPORT-INTERFACE"))
+                    {
+                        currentLayerType = "SKIRT";
+                        continue;
+                    }
+                    else if (commentUpper.Contains("TYPE:SKIN"))
+                    {
+                        currentLayerType = "SKIN";
+                        continue;
+                    }
+                    else if (commentUpper.Contains("TYPE:WALL-OUTER") || commentUpper.Contains("TYPE:WALL-INNER") || commentUpper.Contains("BRIDGE"))
+                    {
+                        currentLayerType = "WALL";
+                        continue;
+                    }
+                    else if (commentUpper.Contains("TYPE:INFILL"))
+                    {
+                        currentLayerType = "INFILL";
+                        continue;
+                    }
+                    else if (commentUpper.Contains("LAYER:"))
+                    {
+                        // Layer change comment - keep current layer type
+                        continue;
+                    }
+                    else
+                    {
+                        // Other comments - skip
+                        continue;
+                    }
+                }
+                
+                // Skip empty lines
+                if (string.IsNullOrEmpty(line))
                     continue;
 
                 // Check for M83 (relative extrusion) or M82 (absolute extrusion)
@@ -365,34 +465,55 @@ namespace LARGERslicer.Components.Export
                     }
                 }
 
-                // Only add movement if coordinates changed or extrusion occurred
+                // Check if this is retraction without movement (negative E, no X/Y/Z change)
                 bool hasMovement = (x.HasValue || y.HasValue || z.HasValue);
                 bool hasExtrusion = e.HasValue;
+                bool isRetraction = hasExtrusion && !hasMovement && deltaE < 0;
 
                 if (hasMovement || hasExtrusion)
                 {
-                    // Create robot path line in PTP format
-                    string robotLine = $"PTP X{currentX:F3} Y{currentY:F3} Z{currentZ:F3}";
-                    result.RobotLines.Add(robotLine);
-                    movementCount++;
+                    if (isRetraction)
+                    {
+                        // Retraction without movement: Create special retraction command
+                        // Format: PTP with last position, but mark as retraction
+                        string robotLine = $"PTP X{lastX:F3} Y{lastY:F3} Z{lastZ:F3}";
+                        result.RobotLines.Add(robotLine);
+                        result.ExtrusionAmounts.Add(deltaE);
+                        result.PrintSpeeds.Add(currentF);
+                        result.LayerTypes.Add(currentLayerType);
+                        result.IsRetraction.Add(true);
+                        retractionCount++;
+                    }
+                    else
+                    {
+                        // Normal movement (with or without extrusion)
+                        // Create robot path line in PTP format
+                        string robotLine = $"PTP X{currentX:F3} Y{currentY:F3} Z{currentZ:F3}";
+                        result.RobotLines.Add(robotLine);
+                        movementCount++;
 
-                    // Add relative extrusion amount (always relative for DXR output)
-                    result.ExtrusionAmounts.Add(deltaE);
-                    if (Math.Abs(deltaE) > 0.0001) extrusionCount++;
+                        // Add relative extrusion amount (always relative for DXR output)
+                        result.ExtrusionAmounts.Add(deltaE);
+                        if (Math.Abs(deltaE) > 0.0001) extrusionCount++;
 
-                    // Add speed value
-                    result.PrintSpeeds.Add(currentF);
-                    speedCount++;
+                        // Add speed value
+                        result.PrintSpeeds.Add(currentF);
+                        speedCount++;
+                        
+                        // Add layer type
+                        result.LayerTypes.Add(currentLayerType);
+                        result.IsRetraction.Add(false);
 
-                    // Update state
-                    lastX = currentX;
-                    lastY = currentY;
-                    lastZ = currentZ;
-                    lastF = currentF;
+                        // Update state
+                        lastX = currentX;
+                        lastY = currentY;
+                        lastZ = currentZ;
+                        lastF = currentF;
+                    }
                 }
             }
 
-            processInfo.Add($"Parsed GCode: {movementCount} movements, {extrusionCount} extrusions, {speedCount} speed values");
+            processInfo.Add($"Parsed GCode: {movementCount} movements, {extrusionCount} extrusions, {speedCount} speed values, {retractionCount} retractions");
             processInfo.Add($"Extrusion mode: {(extrusionModeRelative ? "Relative (M83)" : "Absolute (M82)")}");
             
             // Remove last values from extrusion and speed lists (matching original behavior)

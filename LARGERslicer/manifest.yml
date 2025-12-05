@@ -1,0 +1,21 @@
+---
+name: LARGERslicer
+version: 1.0.2
+authors:
+  - Moritz Wesseler, FH Münster
+description: >
+  Advanced slicing operations and mesh processing tools for Grasshopper. 
+  Includes DXR postprocessing, continuous toolpath generation, and various infill patterns.
+url: https://github.com/Moeewe/LARGER.slicer
+icon: icon.png
+keywords:
+  - grasshopper
+  - slicing
+  - 3d-printing
+  - toolpath
+  - dxr
+  - kuka
+  - cnc
+  - infill
+  - pattern
+

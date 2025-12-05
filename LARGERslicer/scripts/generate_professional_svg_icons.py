@@ -327,6 +327,70 @@ ICONS = {
   </g>
 </svg>'''
     },
+    
+    # Optimized Toolpath - Multiple curves connected into optimized path
+    'OptimizedToolpathIcon': {
+        'svg': f'''<svg xmlns="http://www.w3.org/2000/svg" width="{ICON_SIZE}" height="{ICON_SIZE}" viewBox="0 0 {ICON_SIZE} {ICON_SIZE}">
+  <defs>
+    <filter id="shadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur"/>
+      <feOffset in="blur" dx="1" dy="1" result="offsetBlur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.33"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode in="offsetBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <!-- Multiple separate curves (left side) -->
+    <path d="M 4 6 Q 6 4 8 6" stroke="{BLACK}" stroke-width="{STROKE_WIDTH}" fill="none" stroke-linecap="round"/>
+    <path d="M 4 10 Q 6 8 8 10" stroke="{BLACK}" stroke-width="{STROKE_WIDTH}" fill="none" stroke-linecap="round"/>
+    <path d="M 4 14 Q 6 12 8 14" stroke="{BLACK}" stroke-width="{STROKE_WIDTH}" fill="none" stroke-linecap="round"/>
+    <path d="M 4 18 Q 6 16 8 18" stroke="{BLACK}" stroke-width="{STROKE_WIDTH}" fill="none" stroke-linecap="round"/>
+    <!-- Optimized continuous path (right side) with connections -->
+    <path d="M 10 6 Q 12 4 14 6 Q 16 8 18 10 Q 16 12 14 14 Q 12 16 10 18" stroke="{BLUE_ACCENT}" stroke-width="{STROKE_WIDTH}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Connection lines showing optimization -->
+    <line x1="8" y1="6" x2="10" y2="6" stroke="{BLACK}" stroke-width="1" stroke-linecap="round" stroke-dasharray="1,1"/>
+    <line x1="8" y1="10" x2="10" y2="8" stroke="{BLACK}" stroke-width="1" stroke-linecap="round" stroke-dasharray="1,1"/>
+    <line x1="8" y1="14" x2="10" y2="12" stroke="{BLACK}" stroke-width="1" stroke-linecap="round" stroke-dasharray="1,1"/>
+    <line x1="8" y1="18" x2="10" y2="18" stroke="{BLACK}" stroke-width="1" stroke-linecap="round" stroke-dasharray="1,1"/>
+  </g>
+</svg>'''
+    },
+    
+    # Smart Slicer - Geometry slicing with layers
+    'SmartSlicerIcon': {
+        'svg': f'''<svg xmlns="http://www.w3.org/2000/svg" width="{ICON_SIZE}" height="{ICON_SIZE}" viewBox="0 0 {ICON_SIZE} {ICON_SIZE}">
+  <defs>
+    <filter id="shadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur"/>
+      <feOffset in="blur" dx="1" dy="1" result="offsetBlur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.33"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode in="offsetBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <!-- 3D shape outline (side view) -->
+    <path d="M 6 4 L 6 20 L 18 20 L 18 4 Z" stroke="{BLACK}" stroke-width="{STROKE_WIDTH}" fill="none" stroke-linejoin="round"/>
+    <!-- Horizontal slicing layers -->
+    <line x1="6" y1="8" x2="18" y2="8" stroke="{BLUE_ACCENT}" stroke-width="{STROKE_WIDTH}" stroke-linecap="round"/>
+    <line x1="6" y1="12" x2="18" y2="12" stroke="{BLUE_ACCENT}" stroke-width="{STROKE_WIDTH}" stroke-linecap="round"/>
+    <line x1="6" y1="16" x2="18" y2="16" stroke="{BLUE_ACCENT}" stroke-width="{STROKE_WIDTH}" stroke-linecap="round"/>
+    <!-- Contour curves on layers -->
+    <path d="M 8 8 Q 12 7 16 8" stroke="{BLACK}" stroke-width="1" fill="none" stroke-linecap="round"/>
+    <path d="M 7 12 Q 12 11 17 12" stroke="{BLACK}" stroke-width="1" fill="none" stroke-linecap="round"/>
+    <path d="M 8 16 Q 12 15 16 16" stroke="{BLACK}" stroke-width="1" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>'''
+    },
 }
 
 def main():

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <filter id="shadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur"/>
+      <feOffset in="blur" dx="1" dy="1" result="offsetBlur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.33"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode in="offsetBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <!-- 3D shape outline (side view) -->
+    <path d="M 6 4 L 6 20 L 18 20 L 18 4 Z" stroke="#000000" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+    <!-- Horizontal slicing layers -->
+    <line x1="6" y1="8" x2="18" y2="8" stroke="#0066CC" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="6" y1="12" x2="18" y2="12" stroke="#0066CC" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="6" y1="16" x2="18" y2="16" stroke="#0066CC" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- Contour curves on layers -->
+    <path d="M 8 8 Q 12 7 16 8" stroke="#000000" stroke-width="1" fill="none" stroke-linecap="round"/>
+    <path d="M 7 12 Q 12 11 17 12" stroke="#000000" stroke-width="1" fill="none" stroke-linecap="round"/>
+    <path d="M 8 16 Q 12 15 16 16" stroke="#000000" stroke-width="1" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

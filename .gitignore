@@ -1,0 +1,30 @@
+# Local files that should not be synced to GitHub
+
+# KUKA-CNC Syntax documentation (local only)
+LARGERslicer/examples/Syntax Gcode KUKA-CNC.pdf
+
+# Build outputs
+**/bin/
+**/obj/
+**/*.gha
+**/*.pdb
+**/*.dll
+
+# Visual Studio / Rider
+**/.vs/
+**/.idea/
+**/*.user
+**/*.suo
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Package files
+**/*.yak
+**/dist/
+
+# Temporary files
+**/*.tmp
+**/*.log
+

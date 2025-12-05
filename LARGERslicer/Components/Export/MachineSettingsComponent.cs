@@ -9,7 +9,7 @@ namespace LARGERslicer.Components.Export
     {
         public MachineSettingsComponent()
           : base("Machine Settings", "Machine",
-              "Configure printer settings: bed temperature, nozzle temperature, and cooling fan",
+              "Configure printer settings: bed temperature, nozzle temperature, and cooling fan (Simple Mode - V.P.VAR_* format)",
               "", "")
         {
         }
@@ -44,13 +44,30 @@ namespace LARGERslicer.Components.Export
             
             var info = new System.Collections.Generic.List<string>
             {
-                "=== Machine Settings ===",
+                "=== Machine Settings (Simple Mode) ===",
                 $"Bed Temperature: {settings.BedTemperature}°C {(settings.BedTemperature == 0 ? "(OFF)" : "")}",
-                $"Nozzle Temperature: {settings.NozzleTemperature}°C {(settings.NozzleTemperature == 0 ? "(OFF)" : "")}",
-                $"Cooling Fan: {settings.CoolingPercentage}% {(settings.CoolingPercentage == 0 ? "(OFF)" : "")}",
+                $"  → All 4 bed zones set to: {settings.BedTemperature}°C (global via V.P.VAR_heatbedtemp)",
+                $"  → All 4 zones will be activated (V.E.GLOBAL_BOOL[72/74/76/78] = TRUE)",
                 "",
-                "Note: All settings will automatically turn OFF after print completion"
+                $"Nozzle Temperature: {settings.NozzleTemperature}°C {(settings.NozzleTemperature == 0 ? "(OFF)" : "")}",
             };
+            
+            // Show auto-calculated extruder zone temperatures
+            if (settings.NozzleTemperature > 0)
+            {
+                info.Add("  → Auto-calculated extruder zones:");
+                info.Add($"     Filling Zone: {settings.FillingZoneTemperature}°C (cooling)");
+                info.Add($"     Zone 1: {settings.ExtruderZone1Temperature}°C (Nozzle - 10°C)");
+                info.Add($"     Zone 2: {settings.ExtruderZone2Temperature}°C (Nozzle - 5°C)");
+                info.Add($"     Nozzle Zone: {settings.NozzleZoneTemperature}°C (specified)");
+            }
+            
+            info.Add($"");
+            info.Add($"Cooling Fan: {settings.CoolingPercentage}% {(settings.CoolingPercentage == 0 ? "(OFF)" : "")}");
+            info.Add("");
+            info.Add("Format: V.P.VAR_* (Simple Mode)");
+            info.Add("Note: Zone temperatures are auto-calculated and used by subroutines");
+            info.Add("Note: All settings will automatically turn OFF after print completion");
 
             // Add start G-code preview
             var startGCode = settings.GetStartGCode();

@@ -223,6 +223,40 @@ PATTERN_ICONS = {
         'description': 'Connected Fermat Spirals - smooth continuous curves'
     },
     
+    'InfillContourZigzagHybridIcon': {
+        'paths': [
+            # Outer boundary (rounded rectangle)
+            'M 4 6 L 20 6 L 20 18 L 4 18 Z',
+            # Contour offsets (concentric)
+            'M 6 8 L 18 8 L 18 16 L 6 16 Z',
+            'M 8 10 L 16 10 L 16 14 L 8 14 Z',
+            # Zigzag pattern between contours (horizontal lines)
+            'M 6 9 L 18 9',
+            'M 18 11 L 6 11',
+            'M 6 13 L 18 13',
+            'M 18 15 L 6 15',
+        ],
+        'accent': 'M 6 9 L 18 9',
+        'description': 'Contour-Zigzag Hybrid - combines smooth contours with zigzag fills'
+    },
+    
+    'InfillEulerTransformationIcon': {
+        'paths': [
+            # Outer boundary
+            'M 4 6 L 20 6 L 20 18 L 4 18 Z',
+            # Euler-transformed edges (showing even-degree vertices)
+            'M 6 8 L 12 8 L 12 12 L 6 12 Z',
+            'M 12 8 L 18 8 L 18 12 L 12 12 Z',
+            'M 6 12 L 12 12 L 12 16 L 6 16 Z',
+            'M 12 12 L 18 12 L 18 16 L 12 16 Z',
+            # Additional edges showing Euler property (even degrees)
+            'M 12 8 L 12 12',
+            'M 12 12 L 12 16',
+        ],
+        'accent': 'M 12 8 L 12 12',
+        'description': 'Euler Transformation - guarantees Eulerian graph with even-degree vertices'
+    },
+    
     'EulerianPathIcon': {
         'paths': [
             # Closed boundary curve

@@ -12,12 +12,15 @@ using System.Reflection;
 
 [assembly: System.Reflection.AssemblyCompanyAttribute("LARGERslicer Authors")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
-[assembly: System.Reflection.AssemblyDescriptionAttribute("Grasshopper plugin for advanced slicing operations and mesh processing")]
-[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+4d6be2ac0461c324d60408da05b553dd27e32b05")]
+[assembly: System.Reflection.AssemblyCopyrightAttribute("Copyright © 2024 Moritz Wesseler, FH Münster")]
+[assembly: System.Reflection.AssemblyDescriptionAttribute(("Advanced slicing operations and mesh processing tools for Grasshopper. Includes D" +
+    "XR postprocessing, continuous toolpath generation, and various infill patterns."))]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.2.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.2+d956983944d94b9b13efcc19c7388425174e8320")]
 [assembly: System.Reflection.AssemblyProductAttribute("LARGERslicer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LARGERslicer")]
-[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.2.0")]
+[assembly: System.Reflection.AssemblyMetadataAttribute("RepositoryUrl", "https://github.com/Moeewe/LARGER.slicer")]
 
 // Von der MSBuild WriteCodeFragment-Klasse generiert.
 

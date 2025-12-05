@@ -15,10 +15,13 @@ namespace LARGERslicer.Components.Export
     public class InfillHilbertComponent : BottomLayerPatternBase
     {
         public InfillHilbertComponent()
-            : base("Infill Hilbert", "Infill Hilbert",
+            : base("Single Line Fill with Hilbert", "SLF Hilbert",
                   "Generates space-filling Hilbert curve pattern. Automatically detects curve orientation to fill inward.")
         {
         }
+
+        public override string Category => "LARGER";
+        public override string SubCategory => "Toolpaths";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -28,12 +31,17 @@ namespace LARGERslicer.Components.Export
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Validate inputs using base class method
-            if (!ValidateInputs(DA, out Curve boundary, out Point3d seamPoint, out double spacing, out double boundaryOffset, out List<Curve> holes))
+            // Validate minimal common inputs
+            Curve boundary;
+            double printWidth;
+            List<Curve> holes;
+
+            if (!ValidateInputs(DA, out boundary, out printWidth, out holes))
                 return;
 
+            // Get additional pattern-specific parameters
             int order = 4;
-            DA.GetData(5, ref order);
+            DA.GetData(3, ref order);  // Index 3 after base inputs (0-2)
 
             if (order < 1 || order > 8)
             {
@@ -41,14 +49,15 @@ namespace LARGERslicer.Components.Export
                 order = Math.Max(1, Math.Min(8, order));
             }
 
+            double spacing = printWidth;
+            double boundaryOffset = 0.0;
+
             // Prepare boundary with offset (direction auto-detected)
-            // For large-format: outer path should be ~half bead width from boundary
             Curve closedBoundary = PrepareBoundary(boundary, boundaryOffset, out List<Curve> offsetHoles, holes, spacing);
             holes.AddRange(offsetHoles);
 
-            // Get seam position (auto-calculate if not provided)
-            Point3d? seamPointNullable = seamPoint.IsValid ? (Point3d?)seamPoint : null;
-            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, seamPointNullable);
+            // Get seam position (auto-calculate)
+            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, null);
 
             // Generate pattern-specific path
             var (pathPoints, segments) = GeneratePattern(closedBoundary, seamPosition, seamParam, spacing, order, holes);
@@ -68,13 +77,48 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            // Calculate statistics using base class method
-            string stats = CalculateStatistics(pathPoints, closedBoundary, spacing, $"Order={order}");
+            // Separate closed and open patterns
+            var patternsClosed = new List<Curve>();
+            var patternsOpened = new List<Curve>();
+            var bridges = new List<Curve>();
+            var polylines = new List<Curve>();
 
-            DA.SetData(0, pathCurve);
-            DA.SetDataList(1, segmentCurves);
-            DA.SetDataList(2, pathPoints);
-            DA.SetData(3, stats);
+            // Add main path as polyline
+            if (pathCurve != null)
+            {
+                polylines.Add(pathCurve);
+            }
+
+            // Categorize segments
+            foreach (var seg in segmentCurves)
+            {
+                if (seg != null && seg.IsValid)
+                {
+                    if (seg.IsClosed)
+                        patternsClosed.Add(seg);
+                    else
+                        patternsOpened.Add(seg);
+                }
+            }
+
+            // Create planes for each segment
+            var planes = new List<Plane>();
+            foreach (var seg in segmentCurves)
+            {
+                if (seg != null && seg.IsValid && seg.PointAtStart.IsValid)
+                {
+                    Point3d pt = seg.PointAtStart;
+                    planes.Add(new Plane(pt, Vector3d.ZAxis));
+                }
+            }
+
+            // Set outputs according to new structure
+            DA.SetDataList(0, polylines);  // Polylines
+            DA.SetDataList(1, planes);      // Planes
+            DA.SetDataList(2, patternsClosed);  // Patterns Closed
+            DA.SetDataList(3, patternsOpened);  // Patterns Opened
+            DA.SetDataList(4, bridges);     // Bridges
+            DA.SetData(5, pathCurve);      // Single Line Fill
         }
 
         private (List<Point3d> pathPoints, List<List<Point3d>> segments) GeneratePattern(
@@ -222,15 +266,17 @@ namespace LARGERslicer.Components.Export
             
             if (sampledPoints.Count > 0)
             {
-                // Connect to first point
+                // Connect to first point with 90° transition
                 Point3d firstPt = sampledPoints[0];
                 if (seamPosition.DistanceTo(firstPt) > spacing * 0.1)
                 {
-                    int steps = Math.Max(2, (int)Math.Ceiling(seamPosition.DistanceTo(firstPt) / spacing));
-                    for (int s = 1; s < steps; s++)
+                    // Use null for curves since Hilbert is a generated pattern, not a curve
+                    var connection = PathHelper.Create90DegreeConnection(
+                        seamPosition, firstPt, null, null, spacing);
+                    
+                    if (connection.Count > 0)
                     {
-                        double t = (double)s / steps;
-                        pathPoints.Add(seamPosition + (firstPt - seamPosition) * t);
+                        pathPoints.AddRange(connection);
                     }
                 }
 
@@ -239,6 +285,16 @@ namespace LARGERslicer.Components.Export
                 // IMPORTANT: Do NOT add a final connection back to seam position
                 // The path should end at the last point of the Hilbert curve
                 // This prevents the unwanted crossing path through the entire component
+            }
+
+            // CRITICAL FIX: Apply corner smoothing for large-format printing
+            // Hilbert curves have many 90° corners - smooth them to prevent blobs
+            if (pathPoints.Count > 3)
+            {
+                pathPoints = PathHelper.SmoothSharpCorners(
+                    pathPoints, 
+                    spacing, 
+                    120.0); // Smooth corners sharper than 120°
             }
 
             return (pathPoints, segments);

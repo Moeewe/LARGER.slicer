@@ -20,52 +20,46 @@ namespace LARGERslicer.Components.Export
     public class InfillContourComponent : BottomLayerPatternBase
     {
         public InfillContourComponent()
-            : base("Infill Contour", "Infill Contour",
+            : base("Single Line Fill with Offsets", "SLF Offsets",
                   "Generates offset-based contour infill pattern for complex geometries with holes. Uses offset curves (Clipper-like) to create continuous paths. Supports ArcWelder conversion. Automatically detects curve orientation to fill inward.")
         {
         }
 
+        public override string Category => "LARGER";
+        public override string SubCategory => "Toolpaths";
+
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             base.RegisterInputParams(pManager);
-            pManager.AddBooleanParameter("Random Bridges", "Random", "Use random bridge placement between offset curves to prevent overfill.", GH_ParamAccess.item, true);
-            pManager.AddNumberParameter("Bridge Density", "BridgeD", "Density of bridges between curves (0-1). Higher = more bridges, lower = fewer bridges.", GH_ParamAccess.item, 0.3);
-            pManager.AddBooleanParameter("Use ArcWelder", "ArcWeld", "Convert polyline to lines and arcs for optimized GCode (reduces file size significantly).", GH_ParamAccess.item, false);
-            pManager.AddNumberParameter("Arc Tolerance", "ArcTol", "Tolerance for arc fitting when ArcWelder is enabled (mm).", GH_ParamAccess.item, 0.1);
-            pManager.AddNumberParameter("Min Arc Radius", "MinRadius", "Minimum radius for arcs (mm). Smaller arcs become lines.", GH_ParamAccess.item, 0.1);
+            pManager.AddBooleanParameter("Use ArcWelder", "ArcWelder", "Convert polylines to arcs and lines for optimized GCode", GH_ParamAccess.item, false);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Validate inputs using base class method
-            if (!ValidateInputs(DA, out Curve boundary, out Point3d seamPoint, out double spacing, out double boundaryOffset, out List<Curve> holes))
+            // Validate minimal common inputs
+            Curve boundary;
+            double printWidth;
+            List<Curve> holes;
+
+            if (!ValidateInputs(DA, out boundary, out printWidth, out holes))
                 return;
 
-            bool randomBridges = true;
-            double bridgeDensity = 0.3;
+            // Get pattern-specific parameters
             bool useArcWelder = false;
-            double arcTolerance = 0.1;
-            double minArcRadius = 0.1;
-            DA.GetData(5, ref randomBridges);
-            DA.GetData(6, ref bridgeDensity);
-            DA.GetData(7, ref useArcWelder);
-            DA.GetData(8, ref arcTolerance);
-            DA.GetData(9, ref minArcRadius);
+            DA.GetData(3, ref useArcWelder);  // Index 3 after base inputs (0-2)
 
-            // IMPORTANT: Offset boundary by layer width (spacing) inward
-            // This accounts for the fact that the boundary itself has an extrusion width
-            double totalBoundaryOffset = spacing + boundaryOffset;
+            double spacing = printWidth;
+            double boundaryOffset = 0.0; // Will be calculated automatically
 
-            // Prepare boundary with offset
-            Curve closedBoundary = PrepareBoundary(boundary, totalBoundaryOffset, out List<Curve> offsetHoles, holes);
+            // Prepare boundary with offset (direction auto-detected)
+            Curve closedBoundary = PrepareBoundary(boundary, boundaryOffset, out List<Curve> offsetHoles, holes, spacing);
             holes.AddRange(offsetHoles);
 
-            // Get seam position (auto-calculate if not provided)
-            Point3d? seamPointNullable = seamPoint.IsValid ? (Point3d?)seamPoint : null;
-            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, seamPointNullable);
+            // Get seam position (auto-calculate)
+            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, null);
 
             // Generate pattern-specific path
-            var (pathPoints, segments) = GeneratePattern(closedBoundary, seamPosition, seamParam, spacing, randomBridges, bridgeDensity, holes);
+            var (pathPoints, segments) = GeneratePattern(closedBoundary, seamPosition, seamParam, spacing, false, 0.0, holes);
 
             if (pathPoints == null || pathPoints.Count < 2)
             {
@@ -73,46 +67,8 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            // Apply ArcWelder conversion if enabled
-            Curve pathCurve = null;
-            List<Curve> segmentCurves = new List<Curve>();
-
-            if (useArcWelder)
-            {
-                // Convert path points to lines and arcs
-                var optimizedCurves = ArcWelderHelper.ConvertToLinesAndArcs(pathPoints, arcTolerance, minArcRadius);
-                
-                if (optimizedCurves.Count > 0)
-                {
-                    // Join curves into single path
-                    var joined = Curve.JoinCurves(optimizedCurves, 0.01);
-                    if (joined != null && joined.Length > 0)
-                    {
-                        pathCurve = joined[0];
-                    }
-                    else
-                    {
-                        // Fallback: use first curve
-                        pathCurve = optimizedCurves[0];
-                    }
-                    
-                    segmentCurves = optimizedCurves;
-                }
-                else
-                {
-                    // Fallback to standard polyline
-                    Polyline pathPolyline = new Polyline(pathPoints);
-                    if (pathPolyline.IsValid)
-                    {
-                        pathCurve = new PolylineCurve(pathPolyline);
-                    }
-                }
-            }
-            else
-            {
-                // Standard polyline output
-                CreateOutputCurves(pathPoints, segments, out pathCurve, out segmentCurves);
-            }
+            // Create output curves using base class method
+            CreateOutputCurves(pathPoints, segments, out Curve pathCurve, out List<Curve> segmentCurves);
 
             if (pathCurve == null)
             {
@@ -120,18 +76,8 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            // Calculate statistics
-            string stats = CalculateStatistics(pathPoints, closedBoundary, spacing);
-            if (useArcWelder && segmentCurves.Count > 0)
-            {
-                string arcStats = ArcWelderHelper.GetConversionStats(pathPoints, segmentCurves);
-                stats += $" | {arcStats}";
-            }
-
+            // Set output - only Single Line Fill for Contour
             DA.SetData(0, pathCurve);
-            DA.SetDataList(1, segmentCurves);
-            DA.SetDataList(2, pathPoints);
-            DA.SetData(3, stats);
         }
 
         private (List<Point3d> pathPoints, List<List<Point3d>> segments) GeneratePattern(
@@ -165,7 +111,8 @@ namespace LARGERslicer.Components.Export
             allCurves.AddRange(offsetCurves);
 
             // Step 3: Optimize curve order starting from seam position
-            var orderedCurves = PathHelper.OptimizeCurveOrder(allCurves, seamPosition, seamPosition);
+            List<Curve> connections;
+            var orderedCurves = PathHelper.OptimizeCurveOrder(allCurves, seamPosition, out connections);
 
             // Step 4: Sample points from each curve, starting from seam position
             var allCurvePoints = new List<List<Point3d>>();
@@ -217,27 +164,23 @@ namespace LARGERslicer.Components.Export
                     
                     if (distance > spacing * 0.1)
                     {
-                        // Create connection along boundary with proper layer spacing
-                        // Find the corresponding curves for context
+                        // Use offset-following connection to maintain geometric consistency
                         Curve currentCurve = segIdx > 0 && segIdx - 1 < orderedCurves.Count ? orderedCurves[segIdx - 1] : null;
                         Curve nextCurve = segIdx < orderedCurves.Count ? orderedCurves[segIdx] : null;
                         
-                        var connectionPoints = CreateLayerSpacedConnection(
-                            lastPt, firstPt, boundary, currentCurve, nextCurve, spacing, segIdx);
+                        var connectionPoints = PathHelper.CreateOffsetFollowingConnection(
+                            lastPt, firstPt, boundary, currentCurve, nextCurve, spacing);
+                        
+                        // Fallback to 90° connection if offset connection fails
+                        if (connectionPoints.Count == 0)
+                        {
+                            connectionPoints = PathHelper.Create90DegreeConnection(
+                                lastPt, firstPt, currentCurve, nextCurve, spacing);
+                        }
                         
                         if (connectionPoints.Count > 0)
                         {
                             pathPoints.AddRange(connectionPoints);
-                        }
-                        else
-                        {
-                            // Fallback: simple linear connection with proper spacing
-                            int steps = Math.Max(2, (int)Math.Ceiling(distance / spacing));
-                            for (int s = 1; s < steps; s++)
-                            {
-                                double t = (double)s / steps;
-                                pathPoints.Add(lastPt + (firstPt - lastPt) * t);
-                            }
                         }
                     }
                 }

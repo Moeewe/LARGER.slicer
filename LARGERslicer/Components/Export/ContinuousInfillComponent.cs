@@ -317,7 +317,8 @@ namespace LARGERslicer.Components.Export
             }
 
             // Step 3: Optimize curve order (nearest neighbor from seam)
-            var orderedCurves = OptimizeCurveOrder(validCurves, seamPosition);
+            List<Curve> connections;
+            var orderedCurves = PathHelper.OptimizeCurveOrder(validCurves, seamPosition, out connections);
 
             // Step 4: Sample curves and create continuous path
             pathPoints.Add(seamPosition);
@@ -343,9 +344,21 @@ namespace LARGERslicer.Components.Export
                         
                         if (dist > spacing * 0.1)
                         {
-                            // Create connection along boundary
-                            var connection = CreateBoundaryConnection(
-                                lastPt, curvePoints[0], boundary, spacing);
+                            // Create connection following boundary offset (geometric consistency)
+                            // Try to find curves for offset estimation
+                            int curveIdx = orderedCurves.IndexOf(curve);
+                            Curve prevCurve = curveIdx > 0 ? orderedCurves[curveIdx - 1] : null;
+                            
+                            var connection = PathHelper.CreateOffsetFollowingConnection(
+                                lastPt, curvePoints[0], boundary, prevCurve, curve, spacing);
+                            
+                            if (connection.Count == 0)
+                            {
+                                // Fallback to boundary connection
+                                connection = CreateBoundaryConnection(
+                                    lastPt, curvePoints[0], boundary, spacing);
+                            }
+                            
                             if (connection.Count > 0)
                             {
                                 pathPoints.AddRange(connection);
@@ -360,63 +373,6 @@ namespace LARGERslicer.Components.Export
             }
 
             return (pathPoints, segments);
-        }
-
-        /// <summary>
-        /// Optimizes curve order using nearest neighbor from start point.
-        /// </summary>
-        private List<Curve> OptimizeCurveOrder(List<Curve> curves, Point3d startPoint)
-        {
-            if (curves.Count <= 1)
-                return curves.Select(c => c.DuplicateCurve()).ToList();
-
-            var ordered = new List<Curve>();
-            var remaining = curves.Select(c => c.DuplicateCurve()).ToList();
-            Point3d currentPos = startPoint;
-
-            while (remaining.Count > 0)
-            {
-                // Find closest curve
-                double minDist = double.MaxValue;
-                Curve closest = null;
-                int closestIdx = -1;
-
-                for (int i = 0; i < remaining.Count; i++)
-                {
-                    if (remaining[i] == null || !remaining[i].IsValid)
-                        continue;
-
-                    // Check distance to start and end
-                    double distStart = currentPos.DistanceTo(remaining[i].PointAtStart);
-                    double distEnd = currentPos.DistanceTo(remaining[i].PointAtEnd);
-                    double minCurveDist = Math.Min(distStart, distEnd);
-
-                    if (minCurveDist < minDist)
-                    {
-                        minDist = minCurveDist;
-                        closest = remaining[i];
-                        closestIdx = i;
-                    }
-                }
-
-                if (closest != null)
-                {
-                    ordered.Add(closest);
-                    remaining.RemoveAt(closestIdx);
-                    // Update current position to end of added curve
-                    double distStart = currentPos.DistanceTo(closest.PointAtStart);
-                    double distEnd = currentPos.DistanceTo(closest.PointAtEnd);
-                    currentPos = distEnd < distStart ? closest.PointAtEnd : closest.PointAtStart;
-                }
-                else
-                {
-                    // Fallback: add remaining curves
-                    ordered.AddRange(remaining);
-                    break;
-                }
-            }
-
-            return ordered;
         }
 
         /// <summary>

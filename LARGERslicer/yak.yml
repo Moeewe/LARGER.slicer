@@ -1,0 +1,52 @@
+# Yak Package Configuration for LARGERslicer
+# Rhino Package Manager (Yak) configuration file
+
+name: LARGERslicer
+version: 1.0.0
+description: Advanced slicing operations and mesh processing tools for Grasshopper. Includes DXR postprocessing, continuous toolpath generation, and various infill patterns.
+
+authors:
+  - Moritz Wesseler, FH Münster
+
+license: CC-BY-NC-4.0
+
+# Package metadata
+tags:
+  - grasshopper
+  - slicing
+  - 3d-printing
+  - toolpath
+  - dxr
+  - kuka
+  - cnc
+  - infill
+  - pattern
+
+# Rhino version compatibility
+rhino_version: "8.0"
+minimum_rhino_version: "7.0"
+
+# Package icon (optional, 256x256 PNG recommended)
+# icon: Resources/package-icon.png
+
+# Homepage and repository
+homepage: https://github.com/Moeewe/LARGER.slicer
+repository: https://github.com/Moeewe/LARGER.slicer
+
+# Contact information
+contact: m.wesseler@fh-muenster.de
+
+# Package contents
+# The .gha file will be automatically included from the build output
+# Additional files can be specified here if needed
+
+# Dependencies (if any)
+# dependencies:
+#   - package-name: version
+
+# Build configuration
+# The build process will automatically:
+# 1. Build the .csproj for all target frameworks
+# 2. Include the .gha files from bin/Release/
+# 3. Package everything into a .yak file
+

@@ -15,10 +15,13 @@ namespace LARGERslicer.Components.Export
     public class InfillGridComponent : BottomLayerPatternBase
     {
         public InfillGridComponent()
-            : base("Infill Grid", "Infill Grid",
+            : base("Single Line Fill with Zigzags", "SLF Zigzags",
                   "Generates rectangular grid/zigzag fill pattern. Automatically detects curve orientation to fill inward.")
         {
         }
+
+        public override string Category => "LARGER";
+        public override string SubCategory => "Toolpaths";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -30,16 +33,21 @@ namespace LARGERslicer.Components.Export
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Validate inputs using base class method
-            if (!ValidateInputs(DA, out Curve boundary, out Point3d seamPoint, out double spacing, out double boundaryOffset, out List<Curve> holes))
+            // Validate minimal common inputs
+            Curve boundary;
+            double printWidth;
+            List<Curve> holes;
+
+            if (!ValidateInputs(DA, out boundary, out printWidth, out holes))
                 return;
 
+            // Get additional pattern-specific parameters
             double spacingY = 2.0;
             double angle = 0.0;
             bool startLeft = true;
-            DA.GetData(5, ref spacingY);
-            DA.GetData(6, ref angle);
-            DA.GetData(7, ref startLeft);
+            DA.GetData(3, ref spacingY);  // Index 3 after base inputs (0-2)
+            DA.GetData(4, ref angle);
+            DA.GetData(5, ref startLeft);
 
             if (spacingY <= 0)
             {
@@ -47,14 +55,15 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
+            double spacing = printWidth;
+            double boundaryOffset = 0.0;
+
             // Prepare boundary with offset (direction auto-detected)
-            // For large-format: outer path should be ~half bead width from boundary
             Curve closedBoundary = PrepareBoundary(boundary, boundaryOffset, out List<Curve> offsetHoles, holes, spacingY);
             holes.AddRange(offsetHoles);
 
-            // Get seam position (auto-calculate if not provided)
-            Point3d? seamPointNullable = seamPoint.IsValid ? (Point3d?)seamPoint : null;
-            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, seamPointNullable);
+            // Get seam position (auto-calculate)
+            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, null);
 
             // Convert angle to radians
             angle = angle * Math.PI / 180.0;
@@ -77,13 +86,48 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            // Calculate statistics using base class method
-            string stats = CalculateStatistics(pathPoints, closedBoundary, spacing);
+            // Separate closed and open patterns
+            var patternsClosed = new List<Curve>();
+            var patternsOpened = new List<Curve>();
+            var bridges = new List<Curve>();
+            var polylines = new List<Curve>();
 
-            DA.SetData(0, pathCurve);
-            DA.SetDataList(1, segmentCurves);
-            DA.SetDataList(2, pathPoints);
-            DA.SetData(3, stats);
+            // Add main path as polyline
+            if (pathCurve != null)
+            {
+                polylines.Add(pathCurve);
+            }
+
+            // Categorize segments
+            foreach (var seg in segmentCurves)
+            {
+                if (seg != null && seg.IsValid)
+                {
+                    if (seg.IsClosed)
+                        patternsClosed.Add(seg);
+                    else
+                        patternsOpened.Add(seg);
+                }
+            }
+
+            // Create planes for each segment
+            var planes = new List<Plane>();
+            foreach (var seg in segmentCurves)
+            {
+                if (seg != null && seg.IsValid && seg.PointAtStart.IsValid)
+                {
+                    Point3d pt = seg.PointAtStart;
+                    planes.Add(new Plane(pt, Vector3d.ZAxis));
+                }
+            }
+
+            // Set outputs according to new structure
+            DA.SetDataList(0, polylines);  // Polylines
+            DA.SetDataList(1, planes);      // Planes
+            DA.SetDataList(2, patternsClosed);  // Patterns Closed
+            DA.SetDataList(3, patternsOpened);  // Patterns Opened
+            DA.SetDataList(4, bridges);     // Bridges
+            DA.SetData(5, pathCurve);      // Single Line Fill
         }
 
         private (List<Point3d> pathPoints, List<List<Point3d>> segments) GeneratePattern(
@@ -244,27 +288,15 @@ namespace LARGERslicer.Components.Export
                         }
                     }
 
-                    // Add connection along boundary with proper layer spacing
+                    // Create 90° U-turn connection (critical for clean boustrophedon)
                     if (currentEnd.DistanceTo(closestNext) > spacing * 0.1)
                     {
-                        var connection = CreateLayerSpacedConnection(
-                            currentEnd, closestNext, boundary, spacing);
+                        var connection = PathHelper.Create90DegreeConnection(
+                            currentEnd, closestNext, line, nextLine, spacing);
                         
                         if (connection.Count > 0)
                         {
                             allSegments.Add(connection);
-                        }
-                        else
-                        {
-                            // Fallback: simple linear connection with proper spacing
-                            int steps = Math.Max(2, (int)Math.Ceiling(currentEnd.DistanceTo(closestNext) / spacing));
-                            var connectionFallback = new List<Point3d>();
-                            for (int s = 1; s < steps; s++)
-                        {
-                            double t = (double)s / steps;
-                                connectionFallback.Add(currentEnd + (closestNext - currentEnd) * t);
-                            }
-                            allSegments.Add(connectionFallback);
                         }
                     }
                 }
