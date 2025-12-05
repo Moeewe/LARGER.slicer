@@ -42,14 +42,9 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 
 - **Operating System**: Windows 11+ or macOS 11 Big Sur+
 - **Software**: Rhino 8+ with Grasshopper and Python 3
-- **LARGERslicer Plugin**: Install `LARGERslicer.gha` from `LARGERSlicer PLUGIN INSTALL FILES/` directory
-- **Required Grasshopper Plugins** (auto-load on first open):
-  - Pufferfish
-  - Clipper Components  
-  - Sasquatch
-  - LunchBox
-  - Heteroptera
-  - Wombat
+- **Required Grasshopper Plugins**:
+  - LARGERslicer (install from `LARGERSlicer PLUGIN INSTALL FILES/` or via PackageManager)
+  - Pufferfish (included in Rhino 8+)
 
 ### Get Started in 3 Steps
 
@@ -67,7 +62,15 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 
 ### Installation Steps
 
-1. **Install LARGERslicer Plugin** (if using DXR/CNC components):
+1. **Install LARGERslicer Plugin** (if using DXR/CNC components) - **Two Options**:
+   
+   **Option 1: Rhino Package Manager (recommended)**
+   - In Rhino, run the command `PackageManager`
+   - Search for "LARGERslicer"
+   - Click "Install"
+   - Restart Rhino/Grasshopper
+   
+   **Option 2: Manual Installation**
    - Copy `LARGERslicer.gha`, `LARGERslicer.pdb`, and `Newtonsoft.Json.dll` from `LARGERSlicer PLUGIN INSTALL FILES/` to your Grasshopper Libraries folder
    - Restart Rhino/Grasshopper
    - Plugin components will appear under the **LARGER** category
@@ -83,11 +86,9 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 
 5. **File → Open** → select your desired `.gh` file
 
-6. Allow plugins to load automatically (may take a moment on first open)
+6. Unlock custom clusters if needed: right-click any password-protected component and enter **Supersizedprinting**
 
-7. Unlock custom clusters if needed: right-click any password-protected component and enter **Supersizedprinting**
-
-**Note**: All required plugins should load automatically when opening the script for the first time. If you encounter missing components, install them via Rhino's PackageManager.
+**Note**: Pufferfish is included with Rhino 8+ and will load automatically. If you encounter missing components, install them via Rhino's PackageManager.
 
 ## Setup
 

@@ -242,10 +242,20 @@ Remote access:
 
 Requirements for the Rhino/Grasshopper workflow:
  - Rhino 8 or newer with robot plugin installed. Note: Runs only on Rhino 8+ due to Python‑2 scripts.
- - Install the plugin by copying the following files into the Grasshopper Components folder, then restart Rhino/Grasshopper:
-    - LargerSlicer.gha
-    - Newtonsoft.Json.dll
-    - Optional: LargerSlicer.pdb (debug symbols)
+ - **Install the plugin (two options):**
+   
+   **Option 1: Rhino Package Manager (recommended)**
+   1. In Rhino, run the command `PackageManager`
+   2. Search for "LARGERslicer"
+   3. Click "Install"
+   4. Restart Rhino/Grasshopper
+   
+   **Option 2: Manual Installation**
+   - Copy the following files into the Grasshopper Components folder, then restart Rhino/Grasshopper:
+     - LargerSlicer.gha
+     - Newtonsoft.Json.dll
+     - Optional: LargerSlicer.pdb (debug symbols)
+
  - Download/open the .gh files as needed (LargerSlicer.gh or LargerSlicerMultiaxial.gh). Important: These Grasshopper files require the plugin (GHA + DLL) installed to run.
 
 ### ⚠️ First-Time Setup: Robot Library Installation (KUKA KR120)
