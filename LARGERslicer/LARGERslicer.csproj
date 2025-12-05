@@ -17,7 +17,7 @@
   <PropertyGroup>
     <!-- Specifies information for Assembly and Yak -->
     <!-- Version follows Semantic Versioning: MAJOR.MINOR.PATCH -->
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
     <Title>LARGERslicer</Title>
     <Company>LARGERslicer Authors</Company>
     <Authors>Moritz Wesseler, FH Münster</Authors>
