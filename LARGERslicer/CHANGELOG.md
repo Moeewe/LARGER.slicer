@@ -12,9 +12,166 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.18] - 2025-01-XX
+
+### Fixed
+- **CRITICAL**: Fixed Rhino 7 compatibility issues
+  - Added separate Grasshopper package references for Rhino 7 (7.0.20314.3001) and Rhino 8 (8.0.23304.9001)
+  - Fixed `Intersection.MeshLine` API compatibility between Rhino 7 and Rhino 8 using conditional compilation
+  - Added `rhino_version` and `minimum_rhino_version` to manifest.yml for proper package compatibility detection
+- Fixed package installation and uninstallation issues in Rhino 7 and Rhino 8
+
 ### Changed
-- Optimized Toolpath component moved to correct category (LARGER → Toolpaths)
-- Project structure reorganized (documentations/, scripts/, examples/ folders)
+- Package now correctly builds separate .gha files for net48 (Rhino 7) and net7.0/net7.0-windows (Rhino 8)
+- manifest.yml now includes proper Rhino version compatibility information
+
+## [1.0.17] - 2025-01-XX
+
+### Added
+- CNC Program component: Direct Brep/NURBS support (no mesh conversion required)
+  - Breps and NURBS surfaces are now processed directly for higher precision
+  - Mesh support remains available as fallback
+- CNC Program component: Improved outline generation using actual geometry footprint
+  - Outline now uses the actual geometry footprint (projected onto XY plane) instead of bounding box
+  - Works correctly for circles and irregular geometries
+  - `GetGeometryFootprintFromBrep`: Extracts footprint from Breps using edge curves
+
+### Changed
+- CNC Program component: Z-sampling now uses Brep face intersections for higher precision
+  - `ZAtXYBrep`: Samples Z heights directly from Brep faces using curve-surface intersection
+  - `ZAtXY`: Generic function supporting both Mesh and Brep
+- CNC Program component: All geometry processing functions now support both Mesh and Brep
+  - `GenerateBoustrophedonPath`, `MovePointInward`, `FindBoundaryIntersection`, `FindConnectionPathToOutline` all support Brep
+
+### Fixed
+- CNC Program component: Outline generation for circular geometries now uses actual footprint instead of bounding box
+
+## [1.0.16] - 2025-01-XX
+
+### Fixed
+- CNC Program component: Corrected Z-axis coordinate system logic
+  - Geometry Z coordinates are now correctly interpreted as positive (material remaining, e.g., +5mm = 5mm remain)
+  - CNC Z coordinates: CNC_Z = -geometryZ (directly negative, relative to table surface at Z=0)
+  - ZP (Z-Position oben) is now correctly positive: Materialstärke * 100 + 100 (absolute position above table)
+  - Example: geometry Z=5mm → CNC_Z = -5mm = -500 increments; 30mm material → ZP = 3100 increments
+
+### Changed
+- CNC Program component: ZP calculation now uses only material thickness (independent of geometry)
+- CNC Program component: Improved validation for Z values (warns if geometry Z exceeds material thickness or would result in positive CNC Z)
+
+## [1.0.15] - 2025-01-XX
+
+### Added
+- CNC Program component: Underlay Thickness input parameter (default: 200 increments = 2mm) for XX308 command
+- CNC Program component: Added descriptive comments to all HPGL commands explaining their function
+
+### Changed
+- CNC Program component: XX308 now always enabled at start (XX308,1,{thickness};) and disabled at end (XX308,0;)
+- CNC Program component: Removed Underlay boolean input (now always active with configurable thickness)
+
+## [1.0.14] - 2025-01-XX
+
+### Fixed
+- CNC Program component: Vacuum strength now correctly integrated into PB2 command (PB2,1,{level};) instead of separate PB9 command
+- CNC Program component: PB2 now sets vacuum level directly: PB2,1,{strength}; for levels 1-10, PB2,0; for off
+
+## [1.0.13] - 2025-01-XX
+
+### Added
+- CNC Program component: Vacuum strength input (0-10) with PB9 command
+- CNC Program component: Extraction height (XX306) automatically calculated from material thickness + 3.3mm brush length
+
+### Changed
+- CNC Program component: Removed PU (Pen Up) commands between path segments - toolpath is now continuous (only MW commands)
+- CNC Program component: PU only used at start of first segment and after tool changes
+
+## [1.0.12] - 2025-01-XX
+
+### Added
+- CNC Program component: Tool change functionality
+  - Tool List input: Optional list of tools (11, 21, 31) for each path segment
+  - Tool Spindle Speeds input: Optional list of spindle speeds (RPM) for each tool
+  - Automatic tool change sequence: ZP → XX220 → SP → ZP → XX150
+  - Tool change validation: Ensures tool list matches segment count
+
+### Changed
+- CNC Program component: PLT generation now processes segments individually to support tool changes
+- CNC Program component: Tool change sequence follows HPGL Manual specifications (Index 220)
+
+## [1.0.11] - 2025-01-XX
+
+### Added
+- CNC Program component: New input parameters for advanced HPGL control
+  - Material Thickness (mm) - for ZP calculation and MW Z-value adjustment
+  - Tool selection (11, 21, 31) - for SP command (left, middle, right)
+  - Spindle Speed (RPM) - for XX150 command
+  - Acceleration Down/Up (1-4) - for AS command (cutting and rapid acceleration)
+  - Automatic vacuum zone calculation based on bounding box width in Y direction
+- CNC Program component: ZP command (Z-Position oben) - Materialstärke + 10mm safety distance
+- CNC Program component: SV command (Set Vacuum) - automatically calculated from object width
+- CNC Program component: AS command (Acceleration Select) - separate acceleration for cutting and rapid
+- CNC Program component: MW Z-values now relative to material surface (subtract material thickness)
+
+### Changed
+- CNC Program component: All HPGL commands (SP, XX150, SV, ZP, AS) now available in single unified mode
+- CNC Program component: Removed Header Mode parameter (SIMPLE/EXTENDED distinction)
+- CNC Program component: All commands validated against HPGL Manual (Generation 3)
+
+### Fixed
+- CNC Program component: AS command format corrected (AS,{down},{up} with comma after AS)
+- CNC Program component: All HPGL command syntax validated and corrected according to official manual
+
+## [1.0.10] - 2025-01-XX
+
+### Fixed
+- CNC Program component: Fixed bounding box expansion for rotation - now correctly calculates expanded bounding box based on rotation angle
+- CNC Program component: Fixed retract height - now uses absolute 50mm (max build space) instead of relative height
+- CNC Program component: Removed unused code and cleaned up function signatures
+
+### Changed
+- CNC Program component: Bounding box is now properly expanded when rotation angle is applied (trigonometric calculation)
+- CNC Program component: Retract height is clamped to maximum build space (50mm) to prevent exceeding machine limits
+
+## [1.0.9] - 2025-01-XX
+
+### Fixed
+- CNC Program component: Fixed path segments jumping back - improved connection logic with retract for distant segments
+- CNC Program component: Fixed outline contour issues - removed duplicate points and double rotation, now properly aligned
+
+### Changed
+- CNC Program component: Segment connections now use retract logic (50mm) when segments are far apart (> 2*max(dx,dy))
+- CNC Program component: Outline contour now has exactly 4 points (no duplicate closing point)
+- CNC Program component: Outline is properly axis-aligned in rotated coordinate system (no double rotation)
+
+## [1.0.8] - 2025-01-XX
+
+### Added
+- CNC Program component: Automatic outline contour generation - adds bottom outline to cut out parts from plate
+- CNC Program component: "Add Outline" parameter to enable/disable outline contour
+- CNC Program component: Angle rotation parameter for toolpath lines
+
+### Changed
+- CNC Program component: Removed Curve input parameter (simplified to Geometry-only input)
+- CNC Program component: Outline contour is automatically added after boustrophedon path (moves down to bottom, then cuts outline)
+
+## [1.0.7] - 2025-01-XX
+
+### Fixed
+- CNC Program component: Fixed issue where component failed when only Curves input was provided (without Geometry)
+- CNC Program component: Both Geometry and Curves inputs are now properly optional - component works with either one
+
+### Changed
+- CNC Program component: Improved input validation and fallback logic when Geometry cannot be converted
+
+## [1.0.6] - 2025-01-XX
+
+### Added
+- CNC Program component: Direct Curve input support - can now accept curves directly without geometry
+- CNC Program component: Retract logic for connecting multiple curves (50mm retract height)
+
+### Changed
+- CNC Program component: Geometry input now has priority over Curves input
+- CNC Program component: Improved path connection between multiple curves with proper retract movements
 
 ## [1.0.0] - 2024-12-05
 
@@ -86,4 +243,5 @@ Each version entry follows this structure:
 ### Security
 - Security fixes
 ```
+
 

@@ -16,7 +16,7 @@ namespace LARGERslicer.Components.Export
     {
         public DXRGeneratorComponent()
           : base("DXR Generator", "DXR Gen",
-              "Generate DXR files from robot path, extrusion amounts, and print speeds. Extracts branch {0;0;2} from robot path tree.",
+              "Generate DXR files from robot path, extrusion amounts, and print speeds. Accepts tree branches, lists, or single values.",
               "", "")
         {
         }
@@ -26,11 +26,13 @@ namespace LARGERslicer.Components.Export
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Robot Path", "Path", "Robot movement data (automatically extracts branch {0;0;2})", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Extrusion Amount", "Extrusion", "Material extrusion values (automatically flattened, last value auto-removed)", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Print Speed", "Speed", "Movement speed values in mm/min (automatically flattened, last value auto-removed)", GH_ParamAccess.tree);
+            pManager.AddTextParameter("Robot Path", "Path", "Robot movement data (tree branches, list, or single value)", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Extrusion Amount", "Extrusion", "Material extrusion values (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Print Speed", "Speed", "Movement speed values in mm/min (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.list);
             pManager.AddGenericParameter("Machine Settings", "Machine", "Printer configuration (connect Machine Settings component)", GH_ParamAccess.item);
             
+            pManager[1].Optional = true;
+            pManager[2].Optional = true;
             pManager[3].Optional = true;
         }
 
@@ -49,51 +51,24 @@ namespace LARGERslicer.Components.Export
 
             try
             {
-                // Get tree inputs
-                GH_Structure<GH_String> robotLinesTree = new GH_Structure<GH_String>();
-                GH_Structure<GH_Number> P1_tree = new GH_Structure<GH_Number>();
-                GH_Structure<GH_Number> F1_tree = new GH_Structure<GH_Number>();
-
-                if (!DA.GetDataTree(0, out robotLinesTree))
+                // Get inputs - support tree, list, or single value
+                List<string> robotLines = ExtractRobotPath(DA, 0, processInfo);
+                
+                if (robotLines == null || robotLines.Count == 0)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Robot Path input is required.");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Robot Path input is required and must contain at least one value.");
                     DA.SetDataList(0, result);
                     DA.SetDataList(1, processInfo);
                     return;
                 }
 
-                DA.GetDataTree(1, out P1_tree);
-                DA.GetDataTree(2, out F1_tree);
+                // Extract extrusion and speed values - support tree, list, or single value
+                List<double> P1_list = ExtractNumberValues(DA, 1, processInfo, "Extrusion");
+                List<double> F1_list = ExtractNumberValues(DA, 2, processInfo, "Speed");
+
                 DA.GetData(3, ref machineSettings);
 
-                // Extract branch {0;0;2} from robot path tree
-                var targetPath = new GH_Path(0, 0, 2);
-                List<string> robotLines = new List<string>();
-
-                if (robotLinesTree.PathExists(targetPath))
-                {
-                    var branch = robotLinesTree.get_Branch(targetPath);
-                    foreach (var item in branch)
-                    {
-                        if (item is GH_String ghString && !string.IsNullOrEmpty(ghString.Value))
-                            robotLines.Add(ghString.Value);
-                    }
-                    processInfo.Add($"Extracted {robotLines.Count} lines from branch {{0;0;2}}");
-                }
-                else
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Branch {0;0;2} not found in Robot Path tree.");
-                    processInfo.Add("ERROR: Required branch {0;0;2} not found in input data tree");
-                    DA.SetDataList(0, result);
-                    DA.SetDataList(1, processInfo);
-                    return;
-                }
-
-                // Flatten extrusion and speed trees
-                List<double> P1_list = FlattenNumberTree(P1_tree);
-                List<double> F1_list = FlattenNumberTree(F1_tree);
-
-                processInfo.Add($"Flattened: P1={P1_list.Count} values, F1={F1_list.Count} values");
+                processInfo.Add($"Processing: {robotLines.Count} robot path lines, P1={P1_list.Count} values, F1={F1_list.Count} values");
 
                 // Remove last values (matching original behavior)
                 if (P1_list.Count > 0)
@@ -152,6 +127,115 @@ namespace LARGERslicer.Components.Export
 
             DA.SetDataList(0, result);
             DA.SetDataList(1, processInfo);
+        }
+
+        /// <summary>
+        /// Extracts robot path from various input types: tree, list, or single value
+        /// </summary>
+        private List<string> ExtractRobotPath(IGH_DataAccess DA, int index, List<string> processInfo)
+        {
+            var robotLines = new List<string>();
+
+            // Try to get as tree first (trees can contain all data structures)
+            // Trees work with both tree and list inputs in Grasshopper
+            GH_Structure<GH_String> robotLinesTree = new GH_Structure<GH_String>();
+            if (DA.GetDataTree(index, out robotLinesTree))
+            {
+                if (robotLinesTree.PathCount > 0)
+                {
+                    // Process all branches in the tree
+                    foreach (var path in robotLinesTree.Paths)
+                    {
+                        var branch = robotLinesTree.get_Branch(path);
+                        foreach (var item in branch)
+                        {
+                            if (item is GH_String ghString && !string.IsNullOrEmpty(ghString.Value))
+                                robotLines.Add(ghString.Value);
+                        }
+                    }
+                    processInfo.Add($"Extracted {robotLines.Count} lines from tree structure ({robotLinesTree.PathCount} branches)");
+                    return robotLines;
+                }
+            }
+
+            // If tree extraction didn't work or returned empty, try as list
+            var list = new List<GH_String>();
+            if (DA.GetDataList(index, list) && list.Count > 0)
+            {
+                foreach (var item in list)
+                {
+                    if (item != null && !string.IsNullOrEmpty(item.Value))
+                        robotLines.Add(item.Value);
+                }
+                processInfo.Add($"Extracted {robotLines.Count} lines from list input");
+                return robotLines;
+            }
+
+            // Try to get as single value
+            GH_String singleValue = null;
+            if (DA.GetData(index, ref singleValue) && singleValue != null && !string.IsNullOrEmpty(singleValue.Value))
+            {
+                robotLines.Add(singleValue.Value);
+                processInfo.Add("Extracted 1 line from single value input");
+                return robotLines;
+            }
+
+            return robotLines;
+        }
+
+        /// <summary>
+        /// Extracts number values from various input types: tree, list, or single value
+        /// </summary>
+        private List<double> ExtractNumberValues(IGH_DataAccess DA, int index, List<string> processInfo, string valueName)
+        {
+            var values = new List<double>();
+
+            // Try to get as tree first (trees can contain all data structures)
+            // Trees work with both tree and list inputs in Grasshopper
+            GH_Structure<GH_Number> tree = new GH_Structure<GH_Number>();
+            if (DA.GetDataTree(index, out tree))
+            {
+                if (tree.PathCount > 0)
+                {
+                    // Process all branches in the tree
+                    foreach (var path in tree.Paths)
+                    {
+                        var branch = tree.get_Branch(path);
+                        foreach (var item in branch)
+                        {
+                            if (item is GH_Number ghNumber)
+                                values.Add(ghNumber.Value);
+                        }
+                    }
+                    processInfo.Add($"Extracted {values.Count} {valueName} values from tree structure ({tree.PathCount} branches)");
+                    return values;
+                }
+            }
+
+            // If tree extraction didn't work or returned empty, try as list
+            var list = new List<GH_Number>();
+            if (DA.GetDataList(index, list) && list.Count > 0)
+            {
+                foreach (var item in list)
+                {
+                    if (item != null)
+                        values.Add(item.Value);
+                }
+                processInfo.Add($"Extracted {values.Count} {valueName} values from list input");
+                return values;
+            }
+
+            // Try to get as single value
+            GH_Number singleValue = null;
+            if (DA.GetData(index, ref singleValue) && singleValue != null)
+            {
+                values.Add(singleValue.Value);
+                processInfo.Add($"Extracted 1 {valueName} value from single value input");
+                return values;
+            }
+
+            // Optional parameter - return empty list if not provided
+            return values;
         }
 
         private List<double> FlattenNumberTree(GH_Structure<GH_Number> tree)

@@ -12,12 +12,13 @@
     <TargetExt>.gha</TargetExt>
     <NoWarn>NU1701;NETSDK1086</NoWarn>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
   
   <PropertyGroup>
     <!-- Specifies information for Assembly and Yak -->
     <!-- Version follows Semantic Versioning: MAJOR.MINOR.PATCH -->
-    <Version>1.0.5</Version>
+    <Version>1.0.24</Version>
     <Title>LARGERslicer</Title>
     <Company>LARGERslicer Authors</Company>
     <Authors>Moritz Wesseler, FH Münster</Authors>
@@ -27,9 +28,19 @@
     <RepositoryUrl>https://github.com/Moeewe/LARGER.slicer</RepositoryUrl>
   </PropertyGroup>
   
-  <ItemGroup>
+  <!-- Grasshopper 8.0 for Rhino 8 (net7.0 and net7.0-windows) -->
+  <ItemGroup Condition="!$(TargetFramework.StartsWith('net4'))">
     <PackageReference Include="Grasshopper" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+  </ItemGroup>
+  
+  <!-- Grasshopper 7.0 for Rhino 7 (net48) -->
+  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+    <PackageReference Include="Grasshopper" Version="7.0.20314.3001" ExcludeAssets="runtime" />
+  </ItemGroup>
+  
+  <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="System.Resources.Extensions" Version="7.0.0" />
   </ItemGroup>
   
   <!-- For Windows only builds -->
@@ -53,6 +64,21 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

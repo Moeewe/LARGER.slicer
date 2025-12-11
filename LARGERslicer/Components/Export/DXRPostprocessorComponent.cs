@@ -487,28 +487,28 @@ namespace LARGERslicer.Components.Export
                     else
                     {
                         // Normal movement (with or without extrusion)
-                        // Create robot path line in PTP format
-                        string robotLine = $"PTP X{currentX:F3} Y{currentY:F3} Z{currentZ:F3}";
-                        result.RobotLines.Add(robotLine);
-                        movementCount++;
+                    // Create robot path line in PTP format
+                    string robotLine = $"PTP X{currentX:F3} Y{currentY:F3} Z{currentZ:F3}";
+                    result.RobotLines.Add(robotLine);
+                    movementCount++;
 
-                        // Add relative extrusion amount (always relative for DXR output)
-                        result.ExtrusionAmounts.Add(deltaE);
-                        if (Math.Abs(deltaE) > 0.0001) extrusionCount++;
+                    // Add relative extrusion amount (always relative for DXR output)
+                    result.ExtrusionAmounts.Add(deltaE);
+                    if (Math.Abs(deltaE) > 0.0001) extrusionCount++;
 
-                        // Add speed value
-                        result.PrintSpeeds.Add(currentF);
-                        speedCount++;
+                    // Add speed value
+                    result.PrintSpeeds.Add(currentF);
+                    speedCount++;
                         
                         // Add layer type
                         result.LayerTypes.Add(currentLayerType);
                         result.IsRetraction.Add(false);
 
-                        // Update state
-                        lastX = currentX;
-                        lastY = currentY;
-                        lastZ = currentZ;
-                        lastF = currentF;
+                    // Update state
+                    lastX = currentX;
+                    lastY = currentY;
+                    lastZ = currentZ;
+                    lastF = currentF;
                     }
                 }
             }

@@ -218,6 +218,11 @@ namespace LARGERslicer.Components.Export
             // Replace original lines with trimmed lines
             lines = trimmedLines;
 
+            // Normalize line directions: ensure all lines start at the edge perpendicular to line direction
+            // For horizontal lines (0°): start at bottom or top edge
+            // For vertical lines (90°): start at left or right edge
+            lines = NormalizeLineDirections(lines, angle, bbox);
+
             // Convert lines to point lists
             var lineSegments = new List<List<Point3d>>();
             foreach (var line in lines)
@@ -354,6 +359,90 @@ namespace LARGERslicer.Components.Export
             // This prevents the unwanted crossing path through the entire component
 
             return (pathPoints, segments);
+        }
+
+        /// <summary>
+        /// Normalizes line directions so all lines start at the edge perpendicular to line direction.
+        /// For horizontal lines (0°): start at bottom or top edge
+        /// For vertical lines (90°): start at left or right edge
+        /// Also sorts lines by their position along the perpendicular direction.
+        /// </summary>
+        private List<Curve> NormalizeLineDirections(List<Curve> lines, double angleRad, BoundingBox bbox)
+        {
+            if (lines == null || lines.Count == 0)
+                return lines;
+
+            // Normalize angle to 0-180 range
+            double normalizedAngle = angleRad % Math.PI;
+            if (normalizedAngle < 0) normalizedAngle += Math.PI;
+            
+            // Determine primary direction (closer to horizontal or vertical)
+            bool isHorizontal = normalizedAngle < Math.PI / 4 || normalizedAngle > 3 * Math.PI / 4;
+            
+            // Calculate perpendicular direction for sorting
+            Vector3d lineDirection = new Vector3d(Math.Cos(angleRad), Math.Sin(angleRad), 0);
+            Vector3d perpDirection = new Vector3d(-lineDirection.Y, lineDirection.X, 0);
+            Point3d centerPoint = bbox.Center;
+            
+            var lineData = new List<(Curve line, double position, Point3d start)>();
+            
+            foreach (var line in lines)
+            {
+                if (line == null || !line.IsValid)
+                    continue;
+
+                Point3d start = line.PointAtStart;
+                Point3d end = line.PointAtEnd;
+                
+                // Determine which end should be the start based on edge position
+                bool shouldReverse = false;
+                Point3d normalizedStart;
+                
+                if (isHorizontal)
+                {
+                    // For horizontal lines: start should be at bottom (minimum Y) or top (maximum Y)
+                    // Use bottom edge (minimum Y) for consistency
+                    if (end.Y < start.Y)
+                    {
+                        shouldReverse = true;
+                        normalizedStart = end;
+                    }
+                    else
+                    {
+                        normalizedStart = start;
+                    }
+                }
+                else
+                {
+                    // For vertical lines: start should be at left (minimum X) or right (maximum X)
+                    // Use left edge (minimum X) for consistency
+                    if (end.X < start.X)
+                    {
+                        shouldReverse = true;
+                        normalizedStart = end;
+                    }
+                    else
+                    {
+                        normalizedStart = start;
+                    }
+                }
+                
+                Curve normalizedLine = line.DuplicateCurve();
+                if (shouldReverse)
+                {
+                    normalizedLine.Reverse();
+                }
+                
+                // Calculate position along perpendicular direction for sorting
+                double position = Vector3d.Multiply(normalizedStart - centerPoint, perpDirection);
+                
+                lineData.Add((normalizedLine, position, normalizedStart));
+            }
+            
+            // Sort lines by position along perpendicular direction
+            lineData.Sort((a, b) => a.position.CompareTo(b.position));
+            
+            return lineData.Select(ld => ld.line).ToList();
         }
 
         /// <summary>

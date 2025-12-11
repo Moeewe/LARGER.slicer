@@ -1,0 +1,32 @@
+---
+name: LARGERslicer
+version: 1.0.23
+rhino_version: "7.0"
+authors:
+- Moritz Wesseler, FH Münster
+description: >
+  Professional toolpath generation and postprocessing for large-format additive manufacturing and CNC systems.
+
+  Designed for Weber Additive 3D printing systems, LARGERslicer provides complete workflow automation from geometry to machine-ready code. Features include:
+
+  • DXR Robot Codes: Generate .DXR files for robot control systems (KUKA robots) • DXR Postprocessor: Convert GCode to .DXR format automatically • Direct DXR Generator: Create .DXR files directly from toolpaths • Zünd CNC Fräse: Generate .HPGL code for Zünd flatbed cutters (3-axis simultaneous control) • Advanced Toolpath Tools: Continuous path generation, infill patterns, and optimization • Automation Tools: Helper components for workflow automation
+
+  Example files and documentation for FH Münster / MSA (Münster School of Architecture) systems available on GitHub.
+url: https://github.com/Moeewe/LARGER.slicer
+keywords:
+- grasshopper
+- slicing
+- 3d-printing
+- large-format
+- toolpath
+- dxr
+- kuka
+- weber
+- additive-manufacturing
+- cnc
+- hpgl
+- infill
+- pattern
+- automation
+- guid:2e6c19c9-5ab9-4fb9-bfc7-b56066ef39b1
+icon: icon.png

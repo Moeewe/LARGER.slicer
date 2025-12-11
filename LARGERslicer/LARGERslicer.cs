@@ -10,7 +10,7 @@ namespace LARGERslicer
     public override string Name => "LARGERslicer";
 
     //Return a 24x24 pixel bitmap to represent this GHA library.
-    public override Bitmap Icon => null;
+    public override Bitmap Icon => Properties.Resources.LARGERslicer_24x24;
 
     //Return a short string describing the purpose of this GHA library.
     public override string Description => "Advanced slicing operations and mesh processing tools for Grasshopper";
@@ -31,11 +31,11 @@ namespace LARGERslicer
   {
     public override GH_LoadingInstruction PriorityLoad()
     {
-      // Register the LARGERslicer category symbol and short name
-      // This is the ONLY category registration needed - subcategories are automatically
-      // created from component base() constructors
-      Grasshopper.Instances.ComponentServer.AddCategorySymbolName("LARGERslicer", 'L');
-      Grasshopper.Instances.ComponentServer.AddCategoryShortName("LARGERslicer", "LARGER");
+      // Register the LARGER category symbol
+      // Components use "LARGER" as Category, so we register that
+      // The category name "LARGER" will be displayed as-is (no short name needed)
+      // Subcategories are automatically created from component base() constructors
+      Grasshopper.Instances.ComponentServer.AddCategorySymbolName("LARGER", 'L');
 
       return GH_LoadingInstruction.Proceed;
     }
