@@ -209,6 +209,32 @@ M29
 
 ## Common Issues and Solutions
 
+### Issue: Robot does not perform brake test / start movement after startup
+
+**Symptoms:**
+- Robot does not perform required brake test / start movement after startup
+- Robot cannot move to home position
+- Drive button blinks continuously
+- Error message: "Druck abgebrochen bei XYZ jeweils 0"
+- Control cabinet display shows: "Neu Starten" or "Warnschwelle für Bremstest erreicht mit 0 Stunden Restlaufzeit"
+- KUKA Smartpad shows: "Quitt Fahrtfreigabe gesamt Verursacher KS" and "Active-Status erforderlich"
+- Status indicators not all green
+
+**Solution:**
+The CNC program on the robot controller needs to be manually reselected. See detailed troubleshooting steps in `KUKA_ROBOT_TROUBLESHOOTING.md`.
+
+**Quick Fix:**
+1. Switch key from Remote to Gear icon
+2. Enter T1 mode, then switch back to Remote
+3. Open navigation (blue gear icon → Open → orange X)
+4. Select "cnc" folder and click "Anwählen"
+5. Reset program (tap yellow "R" square → "Programm zurücksetzen")
+6. Switch to EXT mode, then back to Remote
+
+For complete step-by-step instructions in German and English, see: `documentations/KUKA_ROBOT_TROUBLESHOOTING.md`
+
+---
+
 ### Issue: Robot stops/hangs when reading machine settings
 
 **Possible causes:**

@@ -16,3 +16,5 @@ This directory contains all project documentation files.
 - `MACHINE_SETTINGS_DOCUMENTATION.md` - Complete Machine Settings guide
 - `COMPONENTS_OVERVIEW.md` - Overview of all components
 - `DXR_FORMAT_DOCUMENTATION.md` - DXR file format specification
+- `KUKA_ROBOT_TROUBLESHOOTING.md` - KUKA robot troubleshooting guide (German/English)
+- `CNC_PROGRAM_README.md` - CNC Program component user guide

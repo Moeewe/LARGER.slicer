@@ -339,6 +339,59 @@ KUKA‑Controller/Programm hängt (z. B. Singularität):
 - Prüfe Statusanzeigen am KUKA‑Pendant (alle LEDs oben rechts sollten grün sein). Falls nicht, den Bildschirmhinweisen folgen, bis grün.
 - CNC/Programm neu laden oder neu starten (nicht löschen). Bei Bedarf zwischen externer/interner Steuerung umschalten (Schlüsselschalter oben rechts) und erneut versuchen.
 
+### Problem: Roboter führt Bremstest / Startbewegung nach dem Start nicht aus
+
+**Symptome:**
+- Roboter führt den erforderlichen Bremstest / Die Startbewegung nach dem Start nicht aus
+- Roboter kann sich nicht in Grundstellung verfahren
+- Antriebe-Knopf blinkt die ganze Zeit
+- Fehlermeldung: "Druck abgebrochen bei XYZ jeweils 0"
+- Display des Schaltschrankes zeigt an: "Neu Starten" oder "Warnschwelle für Bremstest erreicht mit 0 Stunden Restlaufzeit"
+- Entsprechende Anzeigeleuchte leuchtet Rot
+
+**KUKA Smart Fernbedienung / Smartpad zeigt an:**
+- "Quitt Fahrtfreigabe gesamt Verursacher KS"
+- "Active-Status erforderlich"
+- Status-Anzeigen "S" "O" "R" "Ext" zeigen: Grün, Grau, Gelb, Grün (o.ä.)
+- **Erwartet:** Alle Anzeigen sollten auf dem Smartpad grün sein!
+
+**Ursache:**
+Das CNC Programm des Roboters muss manuell neu angewählt werden.
+
+**Lösung (Nur auf dem Smartpad arbeiten):**
+
+1. **Schlüssel umdrehen:**
+   - Schlüssel oben umdrehen von "Remote" auf "Zahnrad"
+
+2. **T1 Modus:**
+   - Auf T1 tippen
+   - Dann wieder zurück: Schlüssel drehen auf "Remote"
+
+3. **Navigation öffnen:**
+   - Links auf das blaue Zahnrad auf dem Touchbildschirm tippen
+   - "Öffnen" klicken
+   - Links auf das orangene "X" tippen
+   - Es öffnet sich die Übersicht mit Dateien
+
+4. **CNC Programm anwählen:**
+   - Mehrere Dateien und Ordner sind angezeigt
+   - "CNC" anklicken
+   - Unten auf dem Touch Display auf "Anwählen" klicken
+
+5. **Programm zurücksetzen:**
+   - Oben auf dem Touch Screen des Smartpads beim gelben Quadrat "R" drauftippen
+   - Es öffnet sich ein Fenster
+   - "Programm zurücksetzen" klicken
+
+6. **Zurück in externen Modus:**
+   - Schlüssel umdrehen auf das Zahnrad
+   - Externen Modus "EXT" auswählen wie beim Start auswählen
+   - Schlüssel wieder umdrehen auf "Fernbedienung"
+
+7. **Verifikation:**
+   - Roboter sollte sich jetzt wieder bewegen können
+   - Alle Status-Anzeigen auf dem Smartpad sollten grün sein
+
 Nach Not-Aus: Anlage neu initialisieren, Verriegelung prüfen, Bremstest erneut durchführen, Achswege und Offsets verifizieren.
 
 G‑Code/DXR lädt nicht:

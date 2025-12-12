@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyDescriptionAttribute(("Advanced slicing operations and mesh processing tools for Grasshopper. Includes D" +
     "XR postprocessing, continuous toolpath generation, and various infill patterns."))]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.24.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.24+38fa7d66ef80e8deeef03a83d4a48db13af6a019")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.24+060c4355eb228682130466b3dea0522db56489d1")]
 [assembly: System.Reflection.AssemblyProductAttribute("LARGERslicer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LARGERslicer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.24.0")]

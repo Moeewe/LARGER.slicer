@@ -339,6 +339,59 @@ KUKA controller/program stuck (e.g., singularity):
 - Check status LEDs on the KUKA pendant (all top‑right LEDs should be green). If not, follow the on‑screen instructions until green.
 - Reload or restart the CNC/program (do not delete). If needed, toggle between external/internal control (key switch top right) and try again.
 
+### Issue: Robot does not perform brake test / start movement after startup
+
+**Symptoms:**
+- Robot does not perform required brake test / start movement after startup
+- Robot cannot move to home position
+- Drive button blinks continuously
+- Error message: "Druck abgebrochen bei XYZ jeweils 0" (Pressure aborted at XYZ all 0)
+- Control cabinet display shows: "Neu Starten" (Restart) or "Warnschwelle für Bremstest erreicht mit 0 Stunden Restlaufzeit" (Brake test warning threshold reached with 0 hours remaining runtime)
+- Corresponding indicator light is red
+
+**KUKA Smart Remote / Smartpad Display Shows:**
+- "Quitt Fahrtfreigabe gesamt Verursacher KS" (Acknowledge overall drive enable cause KS)
+- "Active-Status erforderlich" (Active status required)
+- Status indicators "S" "O" "R" "Ext" show: Green, Gray, Yellow, Green (or similar)
+- **Expected:** All indicators should be green on the Smartpad
+
+**Root Cause:**
+The CNC program on the robot controller needs to be manually reselected.
+
+**Solution (Work on Smartpad Only):**
+
+1. **Switch Key Position:**
+   - Turn the key from "Remote" to "Zahnrad" (Gear icon) position
+
+2. **Enter T1 Mode:**
+   - Navigate to T1 mode
+   - Then switch back: Turn key from "Zahnrad" to "Remote"
+
+3. **Open Navigation:**
+   - Tap the blue gear icon on the left side of the touchscreen
+   - Click "Öffnen" (Open)
+   - Tap the orange "X" on the left side
+   - This opens the navigation overview
+
+4. **Select CNC Program:**
+   - Multiple files and folders are displayed
+   - Click on "cnc"
+   - Tap "Anwählen" (Select) at the bottom of the touch display
+
+5. **Reset Program:**
+   - At the top of the Smartpad touchscreen, tap the yellow square "R"
+   - A window opens
+   - Click: "Programm zurücksetzen" (Reset program)
+
+6. **Return to External Mode:**
+   - Turn key to "Zahnrad" (Gear icon) position
+   - Select external mode "EXT"
+   - Turn key back to "Remote" (Fernbedienung)
+
+7. **Verification:**
+   - Robot should now be able to move again
+   - All status indicators on Smartpad should be green
+
 After E‑Stop: re‑initialize the system, check interlock, repeat brake test, verify axis limits and offsets.
 
 G‑code/DXR won’t load:

@@ -235,6 +235,7 @@ LARGER.slicer/
 | G-Code file not appearing | Write command not triggered | Click **Export G-Code** and confirm save path |
 | Preview slider inactive | Path Preview not connected | Check **Path Preview** input wiring |
 | Password-protected clusters | Components locked | Right-click component, enter **Supersizedprinting** |
+| KUKA Robot brake test / start movement problems | CNC program not selected on robot controller | See [KUKA Robot Troubleshooting Guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) or [Weber DXR25 Quick Start Guide](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) Section 13 |
 
 ### Getting Help
 

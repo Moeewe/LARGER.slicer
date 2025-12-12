@@ -90,3 +90,4 @@ Yak entfernt das `secret.id` Feld beim Build, obwohl es im manifest.yml steht. D
 ---
 
 *Last updated: 2025-12-11*
+

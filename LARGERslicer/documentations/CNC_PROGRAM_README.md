@@ -424,6 +424,11 @@ Output:
 - **Check:** File writing component is properly connected
 - **Check:** File path and permissions are correct
 
+### Issue: KUKA Robot brake test / start movement problems
+- **Symptoms:** Robot does not perform brake test, drive button blinks, error "Druck abgebrochen bei XYZ jeweils 0"
+- **Solution:** See detailed troubleshooting guide in `documentations/KUKA_ROBOT_TROUBLESHOOTING.md`
+- **Quick Fix:** Reselect CNC program on robot controller via Smartpad (see troubleshooting guide for step-by-step instructions)
+
 ---
 
 ## Version History
@@ -458,6 +463,7 @@ For issues, questions, or feature requests, please visit:
 ---
 
 *Last updated: Version 1.0.16*
+
 
 
 
