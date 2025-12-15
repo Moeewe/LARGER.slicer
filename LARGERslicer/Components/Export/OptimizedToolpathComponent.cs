@@ -10,15 +10,30 @@ namespace LARGERslicer.Components.Export
 {
     /// <summary>
     /// Optimized Toolpath - Combines multiple curves into an optimized continuous path.
-    /// Automatically handles: self-intersections, path ordering, and connection simplification.
-    /// Ideal for combining output from multiple pattern components.
+    /// 
+    /// WHAT IT DOES:
+    /// This component takes multiple input curves (e.g., from different pattern components) and:
+    /// 1. Removes self-intersections: Automatically splits curves at self-intersection points
+    /// 2. Optimizes curve order: Reorders curves using nearest-neighbor algorithm to minimize travel distance
+    /// 3. Adds connections: Creates connection curves between gaps (up to max gap distance)
+    /// 4. Simplifies connections: Removes unnecessary connection points for cleaner paths
+    /// 
+    /// USE CASES:
+    /// - Combine output from multiple pattern components (e.g., InfillLines + InfillContour)
+    /// - Optimize toolpaths that have self-intersections or poor ordering
+    /// - Create continuous paths from disconnected curve segments
+    /// 
+    /// OUTPUT:
+    /// - Optimized Path: Reordered and connected curves ready for printing
+    /// - Connections: Generated connection curves between gaps (for preview/debugging)
+    /// - Info: Statistics about optimization (path length, travel moves, etc.)
     /// </summary>
     public class OptimizedToolpathComponent : GH_Component
     {
         public OptimizedToolpathComponent()
             : base("Optimized Toolpath", "OptPath",
-                  "Combines multiple curves into an optimized continuous path. Removes self-intersections, optimizes curve order, and simplifies connections.",
-                  "", "")
+                  "Combines multiple curves into an optimized continuous path. Removes self-intersections, optimizes curve order using nearest-neighbor algorithm, and adds connections between gaps. Ideal for combining output from multiple pattern components.",
+                  "LARGER", "Toolpaths")
         {
         }
 

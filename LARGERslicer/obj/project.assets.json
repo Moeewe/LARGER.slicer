@@ -1112,7 +1112,7 @@
     "/Users/moritz/.nuget/packages/": {}
   },
   "project": {
-    "version": "1.0.24",
+    "version": "1.0.35",
     "restore": {
       "projectUniqueName": "/Users/moritz/Documents/LARGER.slicer/LARGERslicer/LARGERslicer.csproj",
       "projectName": "LARGERslicer",

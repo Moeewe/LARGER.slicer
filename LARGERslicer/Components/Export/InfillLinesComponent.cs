@@ -150,6 +150,7 @@ namespace LARGERslicer.Components.Export
             }
 
             // Handle undercuts: Trim lines at boundary and check for self-intersections
+            // IMPORTANT: Start point must be at the first intersection point where line meets geometry
             var trimmedLines = new List<Curve>();
             foreach (var line in lines)
             {
@@ -161,7 +162,7 @@ namespace LARGERslicer.Components.Export
                 
                 if (intersections != null && intersections.Count > 0)
                 {
-                    // Sort intersection parameters
+                    // Sort intersection parameters to find first and last intersection
                     var intersectionParams = intersections.Select(ix => ix.ParameterA).OrderBy(t => t).ToList();
                     
                     // Create segments between intersections (inside boundary)
@@ -174,9 +175,28 @@ namespace LARGERslicer.Components.Export
                             
                             if (Math.Abs(t2 - t1) > 0.01)
                             {
+                                // CRITICAL: Start point must be at first intersection (t1) where line meets geometry
                                 Curve trimmed = line.Trim(t1, t2);
                                 if (trimmed != null && trimmed.IsValid && trimmed.GetLength() > spacing * 0.1)
                                 {
+                                    // Ensure start point is exactly at first intersection
+                                    Point3d firstIntersection = line.PointAt(t1);
+                                    Point3d trimmedStart = trimmed.PointAtStart;
+                                    
+                                    // If start point doesn't match intersection, reverse or adjust
+                                    if (firstIntersection.DistanceTo(trimmedStart) > 0.01)
+                                    {
+                                        // Check if we need to reverse
+                                        Point3d trimmedEnd = trimmed.PointAtEnd;
+                                        if (firstIntersection.DistanceTo(trimmedEnd) < firstIntersection.DistanceTo(trimmedStart))
+                                        {
+                                            trimmed.Reverse();
+                                        }
+                                        
+                                        // Force start point to intersection
+                                        trimmed.SetStartPoint(firstIntersection);
+                                    }
+                                    
                                     // Check for self-intersections (undercuts)
                                     var selfIntersections = Rhino.Geometry.Intersect.Intersection.CurveSelf(trimmed, 0.01);
                                     if (selfIntersections == null || selfIntersections.Count == 0)
@@ -200,15 +220,31 @@ namespace LARGERslicer.Components.Export
                     Point3d midPt = line.PointAt(0.5);
                     if (boundary.Contains(midPt, Plane.WorldXY, 0.01) == PointContainment.Inside)
                     {
+                        // For lines completely inside, find closest point to boundary as start
+                        // This ensures consistent start point behavior
+                        double t;
+                        boundary.ClosestPoint(line.PointAtStart, out t);
+                        Point3d closestOnBoundary = boundary.PointAt(t);
+                        
+                        // Determine which end is closer to boundary intersection
+                        double distStart = line.PointAtStart.DistanceTo(closestOnBoundary);
+                        double distEnd = line.PointAtEnd.DistanceTo(closestOnBoundary);
+                        
+                        Curve lineCopy = line.DuplicateCurve();
+                        if (distEnd < distStart)
+                        {
+                            lineCopy.Reverse();
+                        }
+                        
                         // Check for self-intersections
-                        var selfIntersections = Rhino.Geometry.Intersect.Intersection.CurveSelf(line, 0.01);
+                        var selfIntersections = Rhino.Geometry.Intersect.Intersection.CurveSelf(lineCopy, 0.01);
                         if (selfIntersections == null || selfIntersections.Count == 0)
                         {
-                            trimmedLines.Add(line.DuplicateCurve());
+                            trimmedLines.Add(lineCopy);
                         }
                         else
                         {
-                            var healed = SelfIntersectionHelper.SuppressSelfIntersections(line, 0.01, false);
+                            var healed = SelfIntersectionHelper.SuppressSelfIntersections(lineCopy, 0.01, false);
                             trimmedLines.AddRange(healed);
                         }
                     }
@@ -218,10 +254,9 @@ namespace LARGERslicer.Components.Export
             // Replace original lines with trimmed lines
             lines = trimmedLines;
 
-            // Normalize line directions: ensure all lines start at the edge perpendicular to line direction
-            // For horizontal lines (0°): start at bottom or top edge
-            // For vertical lines (90°): start at left or right edge
-            lines = NormalizeLineDirections(lines, angle, bbox);
+            // Sort lines by position along perpendicular direction (for consistent ordering)
+            // Start points are already set correctly at first intersection
+            lines = SortLinesByPosition(lines, angle, bbox);
 
             // Convert lines to point lists
             var lineSegments = new List<List<Point3d>>();
@@ -362,81 +397,33 @@ namespace LARGERslicer.Components.Export
         }
 
         /// <summary>
-        /// Normalizes line directions so all lines start at the edge perpendicular to line direction.
-        /// For horizontal lines (0°): start at bottom or top edge
-        /// For vertical lines (90°): start at left or right edge
-        /// Also sorts lines by their position along the perpendicular direction.
+        /// Sorts lines by their position along the perpendicular direction.
+        /// Start points are already set correctly at first intersection with boundary.
         /// </summary>
-        private List<Curve> NormalizeLineDirections(List<Curve> lines, double angleRad, BoundingBox bbox)
+        private List<Curve> SortLinesByPosition(List<Curve> lines, double angleRad, BoundingBox bbox)
         {
             if (lines == null || lines.Count == 0)
                 return lines;
 
-            // Normalize angle to 0-180 range
-            double normalizedAngle = angleRad % Math.PI;
-            if (normalizedAngle < 0) normalizedAngle += Math.PI;
-            
-            // Determine primary direction (closer to horizontal or vertical)
-            bool isHorizontal = normalizedAngle < Math.PI / 4 || normalizedAngle > 3 * Math.PI / 4;
-            
             // Calculate perpendicular direction for sorting
             Vector3d lineDirection = new Vector3d(Math.Cos(angleRad), Math.Sin(angleRad), 0);
             Vector3d perpDirection = new Vector3d(-lineDirection.Y, lineDirection.X, 0);
             Point3d centerPoint = bbox.Center;
             
-            var lineData = new List<(Curve line, double position, Point3d start)>();
+            var lineData = new List<(Curve line, double position)>();
             
             foreach (var line in lines)
             {
                 if (line == null || !line.IsValid)
                     continue;
 
+                // Start point is already set correctly at first intersection with boundary
                 Point3d start = line.PointAtStart;
-                Point3d end = line.PointAtEnd;
-                
-                // Determine which end should be the start based on edge position
-                bool shouldReverse = false;
-                Point3d normalizedStart;
-                
-                if (isHorizontal)
-                {
-                    // For horizontal lines: start should be at bottom (minimum Y) or top (maximum Y)
-                    // Use bottom edge (minimum Y) for consistency
-                    if (end.Y < start.Y)
-                    {
-                        shouldReverse = true;
-                        normalizedStart = end;
-                    }
-                    else
-                    {
-                        normalizedStart = start;
-                    }
-                }
-                else
-                {
-                    // For vertical lines: start should be at left (minimum X) or right (maximum X)
-                    // Use left edge (minimum X) for consistency
-                    if (end.X < start.X)
-                    {
-                        shouldReverse = true;
-                        normalizedStart = end;
-                    }
-                    else
-                    {
-                        normalizedStart = start;
-                    }
-                }
-                
-                Curve normalizedLine = line.DuplicateCurve();
-                if (shouldReverse)
-                {
-                    normalizedLine.Reverse();
-                }
                 
                 // Calculate position along perpendicular direction for sorting
-                double position = Vector3d.Multiply(normalizedStart - centerPoint, perpDirection);
+                double position = Vector3d.Multiply(start - centerPoint, perpDirection);
                 
-                lineData.Add((normalizedLine, position, normalizedStart));
+                lineData.Add((line, position));
             }
             
             // Sort lines by position along perpendicular direction

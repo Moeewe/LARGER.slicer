@@ -26,9 +26,9 @@ namespace LARGERslicer.Components.Export
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Robot Path", "Path", "Robot movement data (tree branches, list, or single value)", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Extrusion Amount", "Extrusion", "Material extrusion values (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Print Speed", "Speed", "Movement speed values in mm/min (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Robot Path", "Path", "Robot movement data (tree branches, list, or single value)", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Extrusion Amount", "Extrusion", "Material extrusion values (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Print Speed", "Speed", "Movement speed values in mm/min (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Machine Settings", "Machine", "Printer configuration (connect Machine Settings component)", GH_ParamAccess.item);
             
             pManager[1].Optional = true;
@@ -83,6 +83,20 @@ namespace LARGERslicer.Components.Export
                     processInfo.Add($"Removed last F1 value. Count: {F1_list.Count}");
                 }
 
+                // Validate counts BEFORE processing (will be validated again in DXRHelper, but early warning is helpful)
+                // Note: Exact count matching will be checked after parsing robot lines (some lines might be invalid)
+                if (P1_list.Count == 0)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No Extrusion values provided. All movements will use P1=0.0 (no extrusion).");
+                    processInfo.Add("WARNING: No Extrusion values provided - all movements will have P1=0.0");
+                }
+
+                if (F1_list.Count == 0)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No Print Speed values provided. All movements will use F1=1000.0 mm/min (default speed).");
+                    processInfo.Add("WARNING: No Print Speed values provided - all movements will have F1=1000.0 mm/min");
+                }
+
                 // Process robot lines using the DXR conversion logic
                 var dxrLines = DXRHelper.ProcessRobotLinesToDXR(robotLines, P1_list, F1_list, processInfo, machineSettings);
                 result.AddRange(dxrLines);
@@ -130,35 +144,60 @@ namespace LARGERslicer.Components.Export
         }
 
         /// <summary>
-        /// Extracts robot path from various input types: tree, list, or single value
+        /// Extracts robot path from tree input (trees can contain branches, lists, or single values)
+        /// Handles tree, list, and single value inputs gracefully with exception handling
         /// </summary>
         private List<string> ExtractRobotPath(IGH_DataAccess DA, int index, List<string> processInfo)
         {
             var robotLines = new List<string>();
 
-            // Try to get as tree first (trees can contain all data structures)
-            // Trees work with both tree and list inputs in Grasshopper
-            GH_Structure<GH_String> robotLinesTree = new GH_Structure<GH_String>();
-            if (DA.GetDataTree(index, out robotLinesTree))
+            // Check parameter access type first to avoid exceptions
+            bool canUseTree = false;
+            try
             {
-                if (robotLinesTree.PathCount > 0)
+                if (Params.Input != null && index < Params.Input.Count)
                 {
-                    // Process all branches in the tree
-                    foreach (var path in robotLinesTree.Paths)
+                    var param = Params.Input[index];
+                    canUseTree = (param.Access == GH_ParamAccess.tree);
+                }
+            }
+            catch
+            {
+                // If we can't check, try tree first anyway
+                canUseTree = true;
+            }
+
+            // Try GetDataTree() first if parameter supports it - wrap in try-catch because it throws if access mode doesn't match
+            if (canUseTree)
+            {
+                try
+                {
+            GH_Structure<GH_String> robotLinesTree = null;
+            if (DA.GetDataTree(index, out robotLinesTree) && robotLinesTree != null && robotLinesTree.PathCount > 0)
+            {
+                // Process all branches in the tree
+                foreach (var branch in robotLinesTree.Branches)
+                {
+                    foreach (var item in branch)
                     {
-                        var branch = robotLinesTree.get_Branch(path);
-                        foreach (var item in branch)
-                        {
-                            if (item is GH_String ghString && !string.IsNullOrEmpty(ghString.Value))
-                                robotLines.Add(ghString.Value);
-                        }
+                        if (item != null && !string.IsNullOrEmpty(item.Value))
+                            robotLines.Add(item.Value);
                     }
-                    processInfo.Add($"Extracted {robotLines.Count} lines from tree structure ({robotLinesTree.PathCount} branches)");
-                    return robotLines;
+                }
+                processInfo.Add($"Extracted {robotLines.Count} lines from tree structure ({robotLinesTree.PathCount} branches)");
+                return robotLines;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // GetDataTree() failed - parameter might not be in tree mode at runtime, try list fallback
+                    processInfo.Add($"Tree access failed: {ex.GetType().Name}, trying list fallback...");
                 }
             }
 
-            // If tree extraction didn't work or returned empty, try as list
+            // Fallback: Try as list (for compatibility)
+            try
+            {
             var list = new List<GH_String>();
             if (DA.GetDataList(index, list) && list.Count > 0)
             {
@@ -169,50 +208,89 @@ namespace LARGERslicer.Components.Export
                 }
                 processInfo.Add($"Extracted {robotLines.Count} lines from list input");
                 return robotLines;
+                }
+            }
+            catch (Exception ex)
+            {
+                // List access failed, try single value
+                processInfo.Add($"List access failed: {ex.GetType().Name}, trying single value...");
             }
 
-            // Try to get as single value
-            GH_String singleValue = null;
-            if (DA.GetData(index, ref singleValue) && singleValue != null && !string.IsNullOrEmpty(singleValue.Value))
+            // Final fallback: Try as single value
+            try
             {
-                robotLines.Add(singleValue.Value);
-                processInfo.Add("Extracted 1 line from single value input");
-                return robotLines;
+                GH_String singleValue = null;
+                if (DA.GetData(index, ref singleValue) && singleValue != null && !string.IsNullOrEmpty(singleValue.Value))
+                {
+                    robotLines.Add(singleValue.Value);
+                    processInfo.Add($"Extracted 1 line from single value input");
+                    return robotLines;
+                }
+            }
+            catch (Exception ex)
+            {
+                // All access methods failed
+                processInfo.Add($"Single value access failed: {ex.GetType().Name}");
             }
 
             return robotLines;
         }
 
         /// <summary>
-        /// Extracts number values from various input types: tree, list, or single value
+        /// Extracts number values from tree input (trees can contain branches, lists, or single values)
+        /// Handles tree, list, and single value inputs gracefully with exception handling
         /// </summary>
         private List<double> ExtractNumberValues(IGH_DataAccess DA, int index, List<string> processInfo, string valueName)
         {
             var values = new List<double>();
 
-            // Try to get as tree first (trees can contain all data structures)
-            // Trees work with both tree and list inputs in Grasshopper
-            GH_Structure<GH_Number> tree = new GH_Structure<GH_Number>();
-            if (DA.GetDataTree(index, out tree))
+            // Check parameter access type first to avoid exceptions
+            bool canUseTree = false;
+            try
             {
-                if (tree.PathCount > 0)
+                if (Params.Input != null && index < Params.Input.Count)
                 {
-                    // Process all branches in the tree
-                    foreach (var path in tree.Paths)
+                    var param = Params.Input[index];
+                    canUseTree = (param.Access == GH_ParamAccess.tree);
+                }
+            }
+            catch
+            {
+                // If we can't check, try tree first anyway
+                canUseTree = true;
+            }
+
+            // Try GetDataTree() first if parameter supports it - wrap in try-catch because it throws if access mode doesn't match
+            if (canUseTree)
+            {
+                try
+                {
+            GH_Structure<GH_Number> tree = null;
+            if (DA.GetDataTree(index, out tree) && tree != null && tree.PathCount > 0)
+            {
+                // Process all branches in the tree
+                foreach (var branch in tree.Branches)
+                {
+                    foreach (var item in branch)
                     {
-                        var branch = tree.get_Branch(path);
-                        foreach (var item in branch)
-                        {
-                            if (item is GH_Number ghNumber)
-                                values.Add(ghNumber.Value);
-                        }
+                        if (item is GH_Number ghNumber)
+                            values.Add(ghNumber.Value);
                     }
-                    processInfo.Add($"Extracted {values.Count} {valueName} values from tree structure ({tree.PathCount} branches)");
-                    return values;
+                }
+                processInfo.Add($"Extracted {values.Count} {valueName} values from tree structure ({tree.PathCount} branches)");
+                return values;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // GetDataTree() failed - parameter might not be in tree mode at runtime, try list fallback
+                    processInfo.Add($"Tree access failed for {valueName}: {ex.GetType().Name}, trying list fallback...");
                 }
             }
 
-            // If tree extraction didn't work or returned empty, try as list
+            // Fallback: Try as list (for compatibility)
+            try
+            {
             var list = new List<GH_Number>();
             if (DA.GetDataList(index, list) && list.Count > 0)
             {
@@ -223,15 +301,29 @@ namespace LARGERslicer.Components.Export
                 }
                 processInfo.Add($"Extracted {values.Count} {valueName} values from list input");
                 return values;
+                }
+            }
+            catch (Exception ex)
+            {
+                // List access failed, try single value
+                processInfo.Add($"List access failed for {valueName}: {ex.GetType().Name}, trying single value...");
             }
 
-            // Try to get as single value
-            GH_Number singleValue = null;
-            if (DA.GetData(index, ref singleValue) && singleValue != null)
+            // Final fallback: Try as single value
+            try
             {
-                values.Add(singleValue.Value);
-                processInfo.Add($"Extracted 1 {valueName} value from single value input");
-                return values;
+                GH_Number singleValue = null;
+                if (DA.GetData(index, ref singleValue) && singleValue != null)
+                {
+                    values.Add(singleValue.Value);
+                    processInfo.Add($"Extracted 1 {valueName} value from single value input");
+                    return values;
+                }
+            }
+            catch (Exception ex)
+            {
+                // All access methods failed
+                processInfo.Add($"Single value access failed for {valueName}: {ex.GetType().Name}");
             }
 
             // Optional parameter - return empty list if not provided
@@ -260,4 +352,3 @@ namespace LARGERslicer.Components.Export
         public override Guid ComponentGuid => new Guid("A1B2C3D4-E5F6-7890-ABCD-123456789012");
     }
 }
-

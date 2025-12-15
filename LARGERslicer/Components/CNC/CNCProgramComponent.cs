@@ -5,6 +5,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using LARGERslicer.Utils;
+using LARGERslicer.Types;
 
 namespace LARGERslicer.Components.CNC
 {
@@ -35,18 +36,21 @@ namespace LARGERslicer.Components.CNC
             pManager.AddNumberParameter("Z Up", "Zup", "Z retract height (mm)", GH_ParamAccess.item, 5.0);
             pManager.AddNumberParameter("Material Thickness", "MatThick", "Material thickness in mm. Used for: ZP top position calculation, XX306 extraction height (material thickness + 3.3mm), and validation. Geometry Z coordinates are POSITIVE (material remaining, e.g., +5mm = 5mm remain). CNC coordinates: Z=0 = table surface, material top = -material thickness, CNC_Z = -geometry Z (directly negative). Example: geometry Z=5mm → CNC_Z = -5mm = -500 increments. Positive CNC Z values are NOT allowed (would cut into table).", GH_ParamAccess.item, 10.0);
             pManager.AddIntegerParameter("ZP Offset", "ZPOffset", "ZP offset for through-cutting (0 = cut to 0, +1 etc = offset for through-cutting)", GH_ParamAccess.item, 0);
-            pManager.AddIntegerParameter("Tool", "Tool", "Tool selection: 11 (left), 21 (middle), 31 (right) for SP command", GH_ParamAccess.item, 31);
+            pManager.AddGenericParameter("Cutter", "Cutter", "Cutter object from Cutter Selector component. Contains all cutter specifications for validation and tool selection. If not provided, uses Tool parameter.", GH_ParamAccess.item);
+            pManager[13].Optional = true;
+            pManager.AddIntegerParameter("Tool", "Tool", "Tool selection: 11 (left), 21 (middle), 31 (right) for SP command. Used if Cutter is not provided.", GH_ParamAccess.item, 31);
+            pManager.AddNumberParameter("Max Cutting Depth", "MaxDepth", "Maximum possible cutting depth of the cutter in mm (cutter capability, NOT the actual cutting depth). This is the maximum depth the cutter can cut through material, limited by Saugglocke position (3.3mm above material surface). Used for validation only. The actual cutting depth comes from geometry Z coordinates. Example: 22.5mm for 6mm Fräser (max material thickness that can be cut through). Default: 22.5mm.", GH_ParamAccess.item, 22.5);
             pManager.AddNumberParameter("Spindle Speed", "RPM", "Spindle speed (RPM) for XX150 command", GH_ParamAccess.item, 10000.0);
             pManager.AddIntegerParameter("Accel Down", "AccDown", "Acceleration for cutting (1-4, default: 2)", GH_ParamAccess.item, 2);
             pManager.AddIntegerParameter("Accel Up", "AccUp", "Acceleration for rapid (1-4, default: 4)", GH_ParamAccess.item, 4);
             pManager.AddIntegerParameter("Vacuum Strength", "VacStr", "Vacuum strength level (0-10, 0 = off, 10 = max)", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Material Width", "MatWidth", "Material width in mm (Y-dimension). Used for vacuum zone calculation (SV command). If 0 or not provided, uses bounding box Y-dimension. For plates >= 430mm, vacuum zones are 80mm wide sections.", GH_ParamAccess.item, 0.0);
-            pManager[18].Optional = true;
+            pManager[20].Optional = true;
             pManager.AddIntegerParameter("Underlay Thickness", "Underlay", "Underlay thickness in increments (100 increments = 1mm, default: 200 = 2mm) for XX308 command", GH_ParamAccess.item, 200);
             
             // Tool Change Parameters (optional - for next version)
             pManager.AddIntegerParameter("Tool List", "Tools", "Optional: List of tools (11, 21, 31) for each path segment. If empty, uses single Tool parameter for all segments.", GH_ParamAccess.list);
-            pManager[19].Optional = true;
+            pManager[22].Optional = true;
             pManager.AddNumberParameter("Tool Spindle Speeds", "ToolRPM", "Optional: List of spindle speeds (RPM) for each tool. If empty, uses single Spindle Speed for all tools.", GH_ParamAccess.list);
             pManager[20].Optional = true;
         }
@@ -74,7 +78,9 @@ namespace LARGERslicer.Components.CNC
             double zUp = 5.0;
             double materialThickness = 10.0;
             int zpOffset = 0;
+            Cutter selectedCutter = null;
             int tool = 31;
+            double maxCuttingDepth = 22.5; // Default: 22.5mm for 6mm Fräser
             double spindleSpeed = 10000.0;
             int accelDown = 2;
             int accelUp = 4;
@@ -100,17 +106,43 @@ namespace LARGERslicer.Components.CNC
             DA.GetData(10, ref zUp);
             DA.GetData(11, ref materialThickness);
             DA.GetData(12, ref zpOffset);
-            DA.GetData(13, ref tool);
-            DA.GetData(14, ref spindleSpeed);
-            DA.GetData(15, ref accelDown);
-            DA.GetData(16, ref accelUp);
-            DA.GetData(17, ref vacuumStrength);
-            DA.GetData(18, ref materialWidth);
-            DA.GetData(19, ref underlayThickness);
+            
+            // Get Cutter object (optional)
+            object cutterObj = null;
+            if (DA.GetData(13, ref cutterObj))
+            {
+                if (cutterObj is GH_Cutter ghCutter && ghCutter.IsValid)
+                {
+                    selectedCutter = ghCutter.Value;
+                    if (selectedCutter != null)
+                    {
+                        // Use cutter's tool position
+                        tool = selectedCutter.ToolPosition;
+                    }
+                }
+                else if (cutterObj is Cutter directCutter)
+                {
+                    selectedCutter = directCutter;
+                    tool = selectedCutter.ToolPosition;
+                }
+            }
+            
+            DA.GetData(14, ref tool);
+            if (!DA.GetData(15, ref maxCuttingDepth))
+            {
+                // If parameter not provided, use default value
+                maxCuttingDepth = 22.5;
+            }
+            DA.GetData(16, ref spindleSpeed);
+            DA.GetData(17, ref accelDown);
+            DA.GetData(18, ref accelUp);
+            DA.GetData(19, ref vacuumStrength);
+            DA.GetData(20, ref materialWidth);
+            DA.GetData(21, ref underlayThickness);
             
             // Get optional tool change inputs
             var toolListData = new List<GH_Integer>();
-            DA.GetDataList(20, toolListData);
+            DA.GetDataList(22, toolListData);
             foreach (var toolVal in toolListData)
             {
                 if (toolVal != null && toolVal.IsValid)
@@ -122,7 +154,7 @@ namespace LARGERslicer.Components.CNC
             }
             
             var toolRpmData = new List<GH_Number>();
-            DA.GetDataList(21, toolRpmData);
+            DA.GetDataList(23, toolRpmData);
             foreach (var rpmVal in toolRpmData)
             {
                 if (rpmVal != null && rpmVal.IsValid)
@@ -131,6 +163,31 @@ namespace LARGERslicer.Components.CNC
                 }
             }
 
+            // If Cutter is provided, use its MaxCuttingDepth; otherwise use parameter value
+            // IMPORTANT: Never automatically correct maxCuttingDepth - always use the input value as-is
+            // Only validate and warn, but never change the value (could lead to dangerous situations)
+            if (selectedCutter != null)
+            {
+                maxCuttingDepth = selectedCutter.MaxCuttingDepth;
+            }
+            
+            // Validate maxCuttingDepth - warn if invalid, but NEVER change the value
+            if (maxCuttingDepth <= 0.0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
+                    $"Max Cutting Depth must be greater than 0. Current value: {maxCuttingDepth:F2} mm. " +
+                    $"This will cause calculation errors. Please correct the input value. " +
+                    $"The value will NOT be automatically corrected to prevent dangerous situations.");
+            }
+            
+            // Warn if value is very small, but do NOT change it
+            if (maxCuttingDepth > 0.0 && maxCuttingDepth < 1.0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, 
+                    $"Max Cutting Depth ({maxCuttingDepth:F2} mm) is very small. Minimum recommended: 1.0 mm. " +
+                    $"Please verify this is correct for your cutter.");
+            }
+            
             // Validate inputs
             // Check for zero or negative step sizes (would cause infinite loops or crashes)
             if (dx <= 0.0)
@@ -407,6 +464,135 @@ namespace LARGERslicer.Components.CNC
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Maximum geometry Z ({maxGeometryZ:F2} mm) exceeds material thickness ({materialThickness:F2} mm). This would try to leave more material than available. Adjust geometry Z coordinates or material thickness.");
             }
             
+            // Cutting depth validation: Check if cutter/tool can handle material thickness and cutting depth
+            // Calculate actual cutting depth (material removed)
+            // minGeometryZ = least material remaining (e.g., 0mm = through-cut)
+            // Cutting depth = materialThickness - minGeometryZ
+            double cuttingDepth = materialThickness - minGeometryZ;
+            
+            if (selectedCutter != null)
+            {
+                // Use Cutter object specifications
+                // Check 1: Material thickness vs. max cutting depth (for through-cutting)
+                if (materialThickness > selectedCutter.MaxCuttingDepth)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
+                        $"Cutter '{selectedCutter.Name}' cannot cut through material thickness of {materialThickness:F2} mm. " +
+                        $"Maximum cutting depth: {selectedCutter.MaxCuttingDepth:F2} mm. " +
+                        $"Material thickness exceeds limit by {materialThickness - selectedCutter.MaxCuttingDepth:F2} mm. " +
+                        $"Please use a different cutter or reduce material thickness.");
+                }
+                
+                // Check 2: Actual cutting depth vs. max cutting depth (for through-cutting)
+                if (cuttingDepth > selectedCutter.MaxCuttingDepth)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        $"Cutter '{selectedCutter.Name}' cannot cut to depth of {cuttingDepth:F2} mm. " +
+                        $"Maximum cutting depth: {selectedCutter.MaxCuttingDepth:F2} mm. " +
+                        $"Cutting depth exceeds limit by {cuttingDepth - selectedCutter.MaxCuttingDepth:F2} mm. " +
+                        $"Please use a different cutter or adjust geometry Z coordinates.");
+                }
+                
+                // Check 3: Actual cutting depth vs. max surface depth (for surface cutting)
+                // If cutting depth is within MaxCuttingDepth but exceeds MaxSurfaceDepth, it's still a warning
+                // (surface cutting is possible but may not be ideal)
+                if (cuttingDepth > selectedCutter.MaxCuttingDepth && cuttingDepth <= selectedCutter.MaxSurfaceDepth)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                        $"Cutter '{selectedCutter.Name}' cutting depth ({cuttingDepth:F2} mm) exceeds through-cutting limit ({selectedCutter.MaxCuttingDepth:F2} mm) " +
+                        $"but is within surface cutting limit ({selectedCutter.MaxSurfaceDepth:F2} mm). " +
+                        $"This is a surface cut, not a through-cut. Ensure material is not fully cut through.");
+                }
+                
+                // Check 4: Cutting depth exceeds even surface cutting limit
+                if (cuttingDepth > selectedCutter.MaxSurfaceDepth)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        $"Cutter '{selectedCutter.Name}' cannot cut to depth of {cuttingDepth:F2} mm. " +
+                        $"Maximum surface cutting depth: {selectedCutter.MaxSurfaceDepth:F2} mm. " +
+                        $"Cutting depth exceeds limit by {cuttingDepth - selectedCutter.MaxSurfaceDepth:F2} mm. " +
+                        $"Please use a different cutter or adjust geometry Z coordinates.");
+                }
+                
+                // Check 5: Through-cutting validation (when minGeometryZ ≈ 0)
+                // For through-cutting, material thickness must not exceed MaxCuttingDepth
+                // The Saugglocke has 3.3mm distance to material surface, limiting through-cutting depth
+                double tolerance = 0.1; // 0.1mm tolerance for "through-cut" detection
+                bool isThroughCut = minGeometryZ < tolerance;
+                if (isThroughCut && materialThickness > selectedCutter.MaxCuttingDepth)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        $"Through-cutting detected (minGeometryZ = {minGeometryZ:F2} mm). " +
+                        $"Cutter '{selectedCutter.Name}' cannot cut through material thickness of {materialThickness:F2} mm. " +
+                        $"Maximum through-cutting depth: {selectedCutter.MaxCuttingDepth:F2} mm (limited by Saugglocke position: 3.3mm above material surface). " +
+                        $"Material thickness exceeds limit by {materialThickness - selectedCutter.MaxCuttingDepth:F2} mm. " +
+                        $"Please use a different cutter or reduce material thickness.");
+                }
+            }
+            else
+            {
+                // No Cutter object provided - use Max Cutting Depth parameter
+                string toolInfo = $"Tool {tool}";
+                
+                // Check 1: Material thickness vs. max cutting depth (for through-cutting)
+                if (materialThickness > maxCuttingDepth)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
+                        $"{toolInfo} cannot cut through material thickness of {materialThickness:F2} mm. " +
+                        $"Maximum cutting depth: {maxCuttingDepth:F2} mm. " +
+                        $"Material thickness exceeds limit by {materialThickness - maxCuttingDepth:F2} mm. " +
+                        $"Please adjust Max Cutting Depth parameter or reduce material thickness.");
+                }
+                
+                // Check 2: Actual cutting depth vs. max cutting depth (for through-cutting)
+                if (cuttingDepth > maxCuttingDepth)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        $"{toolInfo} cannot cut to depth of {cuttingDepth:F2} mm. " +
+                        $"Maximum cutting depth: {maxCuttingDepth:F2} mm. " +
+                        $"Cutting depth exceeds limit by {cuttingDepth - maxCuttingDepth:F2} mm. " +
+                        $"Please adjust Max Cutting Depth parameter or adjust geometry Z coordinates.");
+                }
+                
+                // Check 3: Through-cutting validation (when minGeometryZ ≈ 0)
+                // For through-cutting, material thickness must not exceed maxCuttingDepth
+                // The Saugglocke has 3.3mm distance to material surface, limiting through-cutting depth
+                double tolerance = 0.1; // 0.1mm tolerance for "through-cut" detection
+                bool isThroughCut = minGeometryZ < tolerance;
+                if (isThroughCut && materialThickness > maxCuttingDepth)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        $"Through-cutting detected (minGeometryZ = {minGeometryZ:F2} mm). " +
+                        $"{toolInfo} cannot cut through material thickness of {materialThickness:F2} mm. " +
+                        $"Maximum through-cutting depth: {maxCuttingDepth:F2} mm (limited by Saugglocke position: 3.3mm above material surface). " +
+                        $"Material thickness exceeds limit by {materialThickness - maxCuttingDepth:F2} mm. " +
+                        $"Please adjust Max Cutting Depth parameter or reduce material thickness.");
+                }
+            }
+            
+            // Extraction height validation (independent of cutter, based on actual cutting depth)
+            // Calculate cutting depth and extraction height
+            double cuttingDepthForExtraction = materialThickness - minGeometryZ;
+            double extractionHeightMm = cuttingDepthForExtraction + 3.3; // Cutting depth + 3.3mm Saugglocke Abstand
+            
+            // Warn if extraction height would be very large (indicates very deep cuts)
+            if (extractionHeightMm > 50.0) // 50mm threshold
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    $"Extraction height ({extractionHeightMm:F2} mm) is very large. " +
+                    $"This indicates a very deep cut (cutting depth: {cuttingDepthForExtraction:F2} mm). " +
+                    $"Ensure the Saugglocke can be positioned correctly at this height.");
+            }
+            
+            // Warn if cutting depth is very close to or exceeds configured max cutting depth
+            if (cuttingDepthForExtraction > maxCuttingDepth)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    $"Cutting depth ({cuttingDepthForExtraction:F2} mm) exceeds configured maximum cutting depth ({maxCuttingDepth:F2} mm). " +
+                    $"For through-cutting, maximum material thickness is {maxCuttingDepth:F2} mm due to Saugglocke position (3.3mm above material surface). " +
+                    $"If this is a surface cut, ensure material is not fully cut through.");
+            }
+            
             // Validate tool list if provided (after segments are generated)
             if (toolList.Count > 0)
             {
@@ -513,7 +699,25 @@ namespace LARGERslicer.Components.CNC
                 if (!toolSpeedMap.ContainsKey(21)) toolSpeedMap[21] = spindleSpeed;
                 if (!toolSpeedMap.ContainsKey(31)) toolSpeedMap[31] = spindleSpeed;
                 
-                plt = BuildPLTFromPath(segments, pathPoints, feedSpeed, rapidSpeed, zUp, materialThickness, zpOffset, tool, toolAssignments, toolSpeedMap, spindleSpeed, accelDown, accelUp, vacuumZone, vacuumStrength, underlayThickness, parkXY);
+                // Calculate minimum geometry Z (deepest cut) for extraction height calculation
+                double minGeometryZForExtraction = double.MaxValue;
+                foreach (var seg in segments)
+                {
+                    foreach (var pt in seg)
+                    {
+                        if (pt.Z < minGeometryZForExtraction) minGeometryZForExtraction = pt.Z;
+                    }
+                }
+                if (pathPoints != null && pathPoints.Count > 0)
+                {
+                    foreach (var pt in pathPoints)
+                    {
+                        if (pt.Z < minGeometryZForExtraction) minGeometryZForExtraction = pt.Z;
+                    }
+                }
+                if (minGeometryZForExtraction == double.MaxValue) minGeometryZForExtraction = materialThickness; // Fallback
+                
+                plt = BuildPLTFromPath(segments, pathPoints, feedSpeed, rapidSpeed, zUp, materialThickness, minGeometryZForExtraction, zpOffset, tool, toolAssignments, toolSpeedMap, spindleSpeed, accelDown, accelUp, vacuumZone, vacuumStrength, underlayThickness, parkXY);
             }
 
             DA.SetData(0, pathCurve);
@@ -1764,6 +1968,7 @@ namespace LARGERslicer.Components.CNC
             double rapidSpeed,     // VU (mm/s)
             double zUp,
             double materialThickness, // Material thickness in mm
+            double minGeometryZ,   // Minimum geometry Z (least material remaining, deepest cut)
             int zpOffset,          // ZP offset for through-cutting (0 = cut to 0, +1 etc = offset)
             int defaultTool,       // Default tool: 11, 21, or 31
             List<int> toolAssignments, // Tool for each segment
@@ -1802,9 +2007,16 @@ namespace LARGERslicer.Components.CNC
                 lines.Add($"SV,{vacuumIncrements};"); // SV: Set vacuum zone width (in increments, 1cm = 1000 increments)
             }
             
-            // Extraction height (XX306 command) - Materialstärke + 3.3mm (brush length)
-            // 100 Inkremente = 1mm, so Materialstärke * 100 + 330 (3.3mm = 330 Inkremente)
-            int extractionHeight = (int)Math.Round(materialThickness * 100.0) + 330;
+            // Extraction height (XX306 command) - Based on deepest cutting depth + 3.3mm (Saugglocke Abstand)
+            // minGeometryZ = least material remaining (e.g., 0mm = through-cut)
+            // Cutting depth = materialThickness - minGeometryZ (e.g., 30mm - 0mm = 30mm cut)
+            // Extraction height = cutting depth + 3.3mm (Saugglocke Abstand zur Materialoberfläche)
+            // 100 Inkremente = 1mm, so (cutting depth * 100) + 330 (3.3mm = 330 Inkremente)
+            // IMPORTANT: Extraction height must be based on actual cutting depth, not just material thickness
+            // This ensures the Saugglocke is always positioned correctly above the deepest cut
+            double cuttingDepth = materialThickness - minGeometryZ;
+            double extractionHeightMm = cuttingDepth + 3.3; // Cutting depth + 3.3mm Saugglocke Abstand
+            int extractionHeight = (int)Math.Round(extractionHeightMm * 100.0);
             lines.Add($"XX306,{extractionHeight};"); // XX306: Set extraction position height (distance between router bit and extraction, in increments)
             
             lines.Add($"XX308,1,{underlayThickness};"); // XX308: Enable additional underlay support with thickness (standard: always on at start, thickness in increments)

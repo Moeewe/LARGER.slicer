@@ -218,3 +218,7 @@ Bei weiteren Problemen:
 *Last updated: 2025-01-XX*
 *Fixed issues: Duplicate ComponentGuids, Category mismatch*
 
+
+
+
+

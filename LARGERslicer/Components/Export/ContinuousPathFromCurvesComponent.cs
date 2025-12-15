@@ -141,7 +141,12 @@ namespace LARGERslicer.Components.Export
             var pathPoints = new List<Point3d>();
             var segments = new List<List<Point3d>>();
 
-            // Step 1: Generate infill lines that cover the entire bounding box
+            // Step 1: Generate offset curves inward (like ContinuousToolpathComponent)
+            // FIXED: Generate offset curves first, not just infill lines
+            // User feedback: "nur eine Offset-Linie sichtbar" - need to generate all offset curves
+            List<Curve> offsetCurves = PathHelper.GenerateOffsetCurves(boundary, spacing, 50, holes);
+            
+            // Step 2: Generate infill lines that cover the entire bounding box
             BoundingBox bbox = boundary.GetBoundingBox(true);
             Point3d centerPoint = bbox.Center;
 
@@ -149,7 +154,7 @@ namespace LARGERslicer.Components.Export
             // These lines extend beyond the boundary
             var infillLines = PathHelper.GenerateParallelLines(boundary, spacing, angle, centerPoint, bbox);
 
-            if (infillLines.Count == 0)
+            if (infillLines.Count == 0 && offsetCurves.Count == 0)
             {
                 // Fallback: just return seam position
                 pathPoints.Add(seamPosition);
@@ -157,17 +162,34 @@ namespace LARGERslicer.Components.Export
                 return (pathPoints, segments);
             }
 
-            // Step 2: Trim infill lines at boundary and find intersection points
-            // Also segment the boundary at intersection points
+            // Step 3: Trim infill lines at boundary AND offset curves, find intersection points
+            // FIXED: Also trim at offset curves, not just boundary
+            // This ensures all offset curves are visible and used
             var trimmedInfillSegments = new List<Curve>();
             var boundarySegments = new List<Curve>();
             var allIntersectionPoints = new List<Point3d>();
 
-            // Find all intersections between infill lines and boundary
+            // Combine boundary and offset curves for intersection testing
+            var allBoundaries = new List<Curve> { boundary };
+            allBoundaries.AddRange(offsetCurves);
+
+            // Find all intersections between infill lines and all boundaries (boundary + offset curves)
             foreach (var infillLine in infillLines)
             {
-                var intersections = Rhino.Geometry.Intersect.Intersection.CurveCurve(
-                    infillLine, boundary, 0.01, 0.01);
+                // Find intersections with all boundaries (boundary + offset curves)
+                var allIntersections = new List<Rhino.Geometry.Intersect.IntersectionEvent>();
+                foreach (var boundaryCurve in allBoundaries)
+                {
+                    var curveIntersections = Rhino.Geometry.Intersect.Intersection.CurveCurve(
+                        infillLine, boundaryCurve, 0.01, 0.01);
+                    if (curveIntersections != null)
+                    {
+                        allIntersections.AddRange(curveIntersections);
+                    }
+                }
+                
+                // Use all intersections for trimming
+                var intersections = allIntersections;
 
                 if (intersections != null && intersections.Count > 0)
                 {
@@ -191,7 +213,17 @@ namespace LARGERslicer.Components.Export
                             {
                                 // Filter points that are inside holes
                                 Point3d midPt = trimmed.PointAt(0.5);
-                                if (IsPointValid(midPt, boundary, holes))
+                                // Check against all boundaries (boundary + offset curves)
+                                bool isValid = false;
+                                foreach (var boundaryCurve in allBoundaries)
+                                {
+                                    if (boundaryCurve.Contains(midPt, Plane.WorldXY, 0.01) == PointContainment.Inside)
+                                    {
+                                        isValid = true;
+                                        break;
+                                    }
+                                }
+                                if (isValid && IsPointValid(midPt, boundary, holes))
                                 {
                                     trimmedInfillSegments.Add(trimmed);
                                 }
@@ -208,7 +240,22 @@ namespace LARGERslicer.Components.Export
                 }
             }
 
-            // Step 3: Segment boundary at intersection points
+            // Step 4: Add offset curves as segments (so they're visible in output)
+            // FIXED: Add offset curves directly so they appear in the path
+            foreach (var offsetCurve in offsetCurves)
+            {
+                if (offsetCurve != null && offsetCurve.IsValid)
+                {
+                    // Sample offset curve as segment
+                    var offsetPoints = PathHelper.SampleCurve(offsetCurve, spacing * 0.5, true);
+                    if (offsetPoints.Count >= 2)
+                    {
+                        trimmedInfillSegments.Add(offsetCurve);
+                    }
+                }
+            }
+
+            // Step 5: Segment boundary at intersection points
             if (allIntersectionPoints.Count > 0)
             {
                 // Find intersection parameters on boundary
@@ -270,7 +317,7 @@ namespace LARGERslicer.Components.Export
                 boundarySegments.Add(boundary.DuplicateCurve());
             }
 
-            // Step 4: Combine all segments (infill + boundary) into one list
+            // Step 6: Combine all segments (infill + boundary + offset curves) into one list
             var allSegments = new List<Curve>();
             allSegments.AddRange(trimmedInfillSegments);
             allSegments.AddRange(boundarySegments);
@@ -282,16 +329,16 @@ namespace LARGERslicer.Components.Export
                 return (pathPoints, segments);
             }
 
-            // Step 5: Optimize segment order for minimal travel (greedy nearest-neighbor)
+            // Step 7: Optimize segment order for minimal travel (greedy nearest-neighbor)
             var orderedSegments = OptimizeSegmentOrder(allSegments, seamPosition);
 
-            // Step 6: Add random bridges between disconnected segments (if enabled)
+            // Step 8: Add random bridges between disconnected segments (if enabled)
             if (randomBridges)
             {
                 orderedSegments = AddRandomBridges(orderedSegments, bridgeDensity, spacing);
             }
 
-            // Step 7: Convert segments to point lists and create continuous path
+            // Step 9: Convert segments to point lists and create continuous path
             var segmentPointLists = new List<List<Point3d>>();
             foreach (var seg in orderedSegments)
             {
@@ -304,7 +351,7 @@ namespace LARGERslicer.Components.Export
 
             segments = segmentPointLists;
 
-            // Step 8: Build continuous path starting from seam position
+            // Step 10: Build continuous path starting from seam position
             pathPoints.Add(seamPosition);
             
             if (segments.Count == 0)

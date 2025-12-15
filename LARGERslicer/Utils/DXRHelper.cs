@@ -76,54 +76,90 @@ namespace LARGERslicer.Utils
             var movementLines = new List<string>();
 
             // Regex for coordinates and angles
-            var rx = new Regex(@"X\s*([-+]?[0-9]*\.?[0-9]+)");
-            var ry = new Regex(@"Y\s*([-+]?[0-9]*\.?[0-9]+)");
-            var rz = new Regex(@"Z\s*([-+]?[0-9]*\.?[0-9]+)");
-            var ra = new Regex(@"A\s*([-+]?[0-9]*\.?[0-9]+)");
-            var rb = new Regex(@"B\s*([-+]?[0-9]*\.?[0-9]+)");
-            var rc = new Regex(@"C\s*([-+]?[0-9]*\.?[0-9]+)");
+            // Support both formats: "X 100.5" and "X 100.5," (with comma)
+            // Also handle negative values like "B -0" (which should be parsed as 0.0)
+            var rx = new Regex(@"X\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
+            var ry = new Regex(@"Y\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
+            var rz = new Regex(@"Z\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
+            var ra = new Regex(@"A\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
+            var rb = new Regex(@"B\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
+            var rc = new Regex(@"C\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
 
             // Collect valid movement lines with error handling
+            int skippedLines = 0;
             foreach (string rawLine in robotLines)
             {
                 if (string.IsNullOrEmpty(rawLine))
+                {
+                    skippedLines++;
                     continue;
+                }
                     
                 try
                 {
                     string line = rawLine.Trim();
-                    if (!line.Contains("PTP"))
+                    
+                    // Skip non-PTP lines (but log them for debugging)
+                    if (!line.Contains("PTP") && !line.StartsWith("PTP", StringComparison.OrdinalIgnoreCase))
+                    {
+                        skippedLines++;
                         continue;
+                    }
 
                     Match mx = rx.Match(line);
                     Match my = ry.Match(line);
                     Match mz = rz.Match(line);
 
                     // Safe parsing with error handling
+                    bool hasX = false, hasY = false, hasZ = false;
+                    
                     if (mx.Success)
                     {
                         if (double.TryParse(mx.Groups[1].Value, out double xVal))
+                        {
                             X_vals.Add(xVal);
+                            hasX = true;
+                        }
                     }
                     if (my.Success)
                     {
                         if (double.TryParse(my.Groups[1].Value, out double yVal))
+                        {
                             Y_vals.Add(yVal);
+                            hasY = true;
+                        }
                     }
                     if (mz.Success)
                     {
                         if (double.TryParse(mz.Groups[1].Value, out double zVal))
+                        {
                             Z_vals.Add(zVal);
+                            hasZ = true;
+                        }
                     }
 
-                    if (mx.Success || my.Success || mz.Success)
+                    // Add line if it has at least one coordinate (X, Y, or Z)
+                    if (hasX || hasY || hasZ)
+                    {
                         movementLines.Add(line);
+                    }
+                    else
+                    {
+                        skippedLines++;
+                        processInfo?.Add($"WARNING: PTP line found but no coordinates extracted: '{line}'");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    processInfo.Add($"WARNING: Failed to parse line '{rawLine}': {ex.Message}");
+                    skippedLines++;
+                    processInfo?.Add($"WARNING: Failed to parse line '{rawLine}': {ex.Message}");
                     continue;
                 }
+            }
+            
+            if (skippedLines > 0)
+            {
+                processInfo?.Add($"Skipped {skippedLines} non-PTP or invalid lines out of {robotLines.Count} total lines");
             }
 
             // Clip P1 and F1 to match movement count (with safety checks)
@@ -137,6 +173,39 @@ namespace LARGERslicer.Utils
             // Safe GetRange with bounds checking
             int p1Count = Math.Min(P1_list.Count, movement_count);
             int f1Count = Math.Min(F1_list.Count, movement_count);
+            
+            // Validate and warn about mismatches
+            if (P1_list.Count != movement_count)
+            {
+                if (P1_list.Count == 0)
+                {
+                    processInfo.Add($"WARNING: No Extrusion (P1) values provided. {movement_count} movements will use default P1=0.0 (no extrusion).");
+                }
+                else if (P1_list.Count < movement_count)
+                {
+                    processInfo.Add($"WARNING: Extrusion (P1) count mismatch: {P1_list.Count} values for {movement_count} movements. Last {movement_count - P1_list.Count} movements will use P1=0.0 (no extrusion).");
+                }
+                else
+                {
+                    processInfo.Add($"WARNING: Extrusion (P1) count mismatch: {P1_list.Count} values for {movement_count} movements. Excess {P1_list.Count - movement_count} values will be ignored.");
+                }
+            }
+            
+            if (F1_list.Count != movement_count)
+            {
+                if (F1_list.Count == 0)
+                {
+                    processInfo.Add($"WARNING: No Print Speed (F1) values provided. {movement_count} movements will use default F1=1000.0 mm/min.");
+                }
+                else if (F1_list.Count < movement_count)
+                {
+                    processInfo.Add($"WARNING: Print Speed (F1) count mismatch: {F1_list.Count} values for {movement_count} movements. Last {movement_count - F1_list.Count} movements will use F1=1000.0 mm/min (default speed).");
+                }
+                else
+                {
+                    processInfo.Add($"WARNING: Print Speed (F1) count mismatch: {F1_list.Count} values for {movement_count} movements. Excess {F1_list.Count - movement_count} values will be ignored.");
+                }
+            }
             
             if (p1Count > 0)
             {
@@ -157,8 +226,13 @@ namespace LARGERslicer.Utils
             }
 
             processInfo.Add($"Found {movement_count} valid movement lines");
-            processInfo.Add($"P1 values used: {P1_list.Count}");
-            processInfo.Add($"F1 values used: {F1_list.Count}");
+            processInfo.Add($"P1 values used: {P1_list.Count} (matched: {P1_list.Count == movement_count})");
+            processInfo.Add($"F1 values used: {F1_list.Count} (matched: {F1_list.Count == movement_count})");
+            
+            if (P1_list.Count == movement_count && F1_list.Count == movement_count)
+            {
+                processInfo.Add("✓ All counts match perfectly - each movement has corresponding P1 and F1 values");
+            }
 
             // Calculate bounds
             double xmin = X_vals.Count > 0 ? X_vals.Min() : 0;

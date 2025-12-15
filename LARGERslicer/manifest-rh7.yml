@@ -1,7 +1,6 @@
 ---
 name: LARGERslicer
-version: 1.0.23
-rhino_version: "7.0"
+version: 1.0.25
 authors:
 - Moritz Wesseler, FH Münster
 description: >
@@ -30,4 +29,6 @@ keywords:
 - automation
 - guid:2e6c19c9-5ab9-4fb9-bfc7-b56066ef39b1
 icon: icon.png
+
+
 

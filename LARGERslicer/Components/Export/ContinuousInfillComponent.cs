@@ -251,15 +251,18 @@ namespace LARGERslicer.Components.Export
             var segments = new List<List<Point3d>>();
 
             // Step 1: Generate offset curves with proper handling
+            // PERFORMANCE FIX: Limit max offsets to prevent super long calculation times
+            // User feedback: "berechnet super lange" - limit to reasonable number
+            int maxOffsets = 50; // Reduced from 1000 to prevent long calculations
             List<Curve> offsetCurves;
             if (handleUndercuts)
             {
                 offsetCurves = SelfIntersectionHelper.GenerateOffsetCurvesWithUndercutHandling(
-                    boundary, spacing, 1000, 0.01, holes);
+                    boundary, spacing, maxOffsets, 0.01, holes);
             }
             else
             {
-                offsetCurves = PathHelper.GenerateOffsetCurves(boundary, spacing, 1000, holes);
+                offsetCurves = PathHelper.GenerateOffsetCurves(boundary, spacing, maxOffsets, holes);
             }
 
             if (offsetCurves.Count == 0)

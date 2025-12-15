@@ -148,6 +148,7 @@ namespace LARGERslicer.Components.Export
             }
 
             // Step 6: Build continuous path with proper layer-spaced connections
+            // FIXED: Ensure all segments are connected to create continuous print area with proper spacing
             segments = allCurvePoints;
 
             // Start from seam position
@@ -156,7 +157,10 @@ namespace LARGERslicer.Components.Export
             for (int segIdx = 0; segIdx < segments.Count; segIdx++)
             {
                 var seg = segments[segIdx];
-                if (pathPoints.Count > 0 && seg.Count > 0)
+                if (seg.Count == 0)
+                    continue;
+                    
+                if (pathPoints.Count > 0)
                 {
                     Point3d lastPt = pathPoints[pathPoints.Count - 1];
                     Point3d firstPt = seg[0];
@@ -164,26 +168,54 @@ namespace LARGERslicer.Components.Export
                     
                     if (distance > spacing * 0.1)
                     {
-                        // Use offset-following connection to maintain geometric consistency
-                        Curve currentCurve = segIdx > 0 && segIdx - 1 < orderedCurves.Count ? orderedCurves[segIdx - 1] : null;
-                        Curve nextCurve = segIdx < orderedCurves.Count ? orderedCurves[segIdx] : null;
+                        // CRITICAL FIX: Use direct connection for short distances, boundary-following for long distances
+                        // This ensures continuous print area with proper spacing between layers
+                        bool useDirectConnection = distance < spacing * 5.0;
                         
-                        var connectionPoints = PathHelper.CreateOffsetFollowingConnection(
-                            lastPt, firstPt, boundary, currentCurve, nextCurve, spacing);
-                        
-                        // Fallback to 90° connection if offset connection fails
-                        if (connectionPoints.Count == 0)
+                        if (useDirectConnection)
                         {
-                            connectionPoints = PathHelper.Create90DegreeConnection(
-                                lastPt, firstPt, currentCurve, nextCurve, spacing);
+                            // Direct linear connection (shortest path, maintains spacing)
+                            int steps = Math.Max(2, (int)Math.Ceiling(distance / (spacing * 0.5)));
+                            for (int s = 1; s < steps; s++)
+                            {
+                                double t = (double)s / steps;
+                                pathPoints.Add(lastPt + (firstPt - lastPt) * t);
+                            }
                         }
-                        
-                        if (connectionPoints.Count > 0)
+                        else
                         {
-                            pathPoints.AddRange(connectionPoints);
+                            // Long jump: use offset-following connection to maintain geometric consistency
+                            Curve currentCurve = segIdx > 0 && segIdx - 1 < orderedCurves.Count ? orderedCurves[segIdx - 1] : null;
+                            Curve nextCurve = segIdx < orderedCurves.Count ? orderedCurves[segIdx] : null;
+                            
+                            var connectionPoints = PathHelper.CreateOffsetFollowingConnection(
+                                lastPt, firstPt, boundary, currentCurve, nextCurve, spacing);
+                            
+                            // Fallback to 90° connection if offset connection fails
+                            if (connectionPoints.Count == 0)
+                            {
+                                connectionPoints = PathHelper.Create90DegreeConnection(
+                                    lastPt, firstPt, currentCurve, nextCurve, spacing);
+                            }
+                            
+                            // Final fallback: direct connection
+                            if (connectionPoints.Count == 0)
+                            {
+                                int steps = Math.Max(2, (int)Math.Ceiling(distance / (spacing * 0.5)));
+                                for (int s = 1; s < steps; s++)
+                                {
+                                    double t = (double)s / steps;
+                                    pathPoints.Add(lastPt + (firstPt - lastPt) * t);
+                                }
+                            }
+                            else
+                            {
+                                pathPoints.AddRange(connectionPoints);
+                            }
                         }
                     }
                 }
+                
                 pathPoints.AddRange(seg);
             }
 

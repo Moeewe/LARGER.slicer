@@ -148,7 +148,8 @@ namespace LARGERslicer.Components.Export
             }
 
             // Step 4: Create boustrophedon path with cross-lines (similar to CNC program)
-            var (pathPoints, segments) = CreateBoustrophedonPath(offsetCurvesList, boundary, layerWidth, angle, startLeft, zHeight);
+            // FIXED: Simplified approach - generate lines across all offset curves, then connect them
+            var (pathPoints, segments) = CreateBoustrophedonPathFixed(offsetCurvesList, boundary, layerWidth, angle, startLeft, zHeight);
 
             // Step 5: Create output curves
             Curve infillPath = null;
@@ -235,15 +236,17 @@ namespace LARGERslicer.Components.Export
 
         /// <summary>
         /// Creates boustrophedon (zigzag) path with cross-lines connecting offset curves.
-        /// Similar to CNC program approach: offsets curves inward, then connects them with angled cross-lines.
+        /// FIXED VERSION: Simplified approach - generates parallel lines across entire boundary,
+        /// trims them at all offset curves, then connects in zigzag pattern.
+        /// Similar to InfillLinesComponent but works with multiple offset curves.
         /// </summary>
-        private (List<Point3d> pathPoints, List<List<Point3d>> segments) CreateBoustrophedonPath(
+        private (List<Point3d> pathPoints, List<List<Point3d>> segments) CreateBoustrophedonPathFixed(
             List<Curve> offsetCurves, Curve boundary, double layerWidth, double angle, bool startLeft, double zHeight)
         {
             var pathPoints = new List<Point3d>();
             var segments = new List<List<Point3d>>();
 
-            if (offsetCurves == null || offsetCurves.Count == 0)
+            if (offsetCurves == null || offsetCurves.Count == 0 || boundary == null || !boundary.IsValid)
                 return (pathPoints, segments);
 
             // Convert angle to radians
@@ -253,73 +256,54 @@ namespace LARGERslicer.Components.Export
             BoundingBox bbox = boundary.GetBoundingBox(true);
             Point3d center = bbox.Center;
 
-            // Calculate rotation matrix components
-            double cosAngle = Math.Cos(angleRad);
-            double sinAngle = Math.Sin(angleRad);
+            // Generate parallel lines across entire boundary (similar to InfillLinesComponent)
+            var allLines = PathHelper.GenerateParallelLines(boundary, layerWidth, angleRad, center, bbox);
 
-            // For each offset curve, generate cross-lines at layer width spacing
-            foreach (var offsetCurve in offsetCurves)
+            if (allLines.Count == 0)
+                return (pathPoints, segments);
+
+            // For each line, find intersections with all offset curves and create segments
+            bool forward = startLeft;
+            foreach (var line in allLines)
             {
-                if (offsetCurve == null || !offsetCurve.IsValid)
+                if (line == null || !line.IsValid)
                     continue;
 
-                // Get bounding box of this offset curve
-                BoundingBox curveBbox = offsetCurve.GetBoundingBox(true);
-
-                // Calculate line direction (perpendicular to cross-line direction)
-                Vector3d lineDirection = new Vector3d(cosAngle, sinAngle, 0);
-                Vector3d perpDirection = new Vector3d(-sinAngle, cosAngle, 0);
-
-                // Calculate bounds perpendicular to line direction
-                double minDist = double.MaxValue;
-                double maxDist = double.MinValue;
-
-                // Sample curve to find bounds
-                double curveLength = offsetCurve.GetLength();
-                int numSamples = Math.Max(20, (int)Math.Ceiling(curveLength / layerWidth));
-                for (int i = 0; i <= numSamples; i++)
+                // Find all intersections with all offset curves
+                var allIntersections = new List<(double param, Point3d point, int curveIdx)>();
+                
+                for (int curveIdx = 0; curveIdx < offsetCurves.Count; curveIdx++)
                 {
-                    double t = offsetCurve.Domain.ParameterAt((double)i / numSamples);
-                    Point3d pt = offsetCurve.PointAt(t);
-                    pt.Z = zHeight;
+                    var offsetCurve = offsetCurves[curveIdx];
+                    if (offsetCurve == null || !offsetCurve.IsValid)
+                        continue;
 
-                    // Distance from center along perpendicular direction
-                    double dist = Vector3d.Multiply(pt - center, perpDirection);
-                    minDist = Math.Min(minDist, dist);
-                    maxDist = Math.Max(maxDist, dist);
+                    var intersections = Rhino.Geometry.Intersect.Intersection.CurveCurve(line, offsetCurve, 0.01, 0.01);
+                    if (intersections != null)
+                    {
+                        foreach (var ix in intersections)
+                        {
+                            Point3d pt = line.PointAt(ix.ParameterA);
+                            pt.Z = zHeight;
+                            allIntersections.Add((ix.ParameterA, pt, curveIdx));
+                        }
+                    }
                 }
 
-                // Generate cross-lines at layer width spacing
-                int numLines = (int)Math.Ceiling((maxDist - minDist) / layerWidth) + 1;
-                bool forward = startLeft;
+                // Sort intersections by parameter along line
+                allIntersections.Sort((a, b) => a.param.CompareTo(b.param));
 
-                for (int lineIdx = 0; lineIdx < numLines; lineIdx++)
+                // Create segments between pairs of intersections (inside offset curves)
+                for (int i = 0; i < allIntersections.Count - 1; i += 2)
                 {
-                    double dist = minDist + lineIdx * layerWidth;
-                    Point3d lineCenter = center + perpDirection * dist;
-
-                    // Create line through lineCenter in lineDirection
-                    double lineLength = curveBbox.Diagonal.Length * 1.5;
-                    Point3d lineStart = lineCenter - lineDirection * lineLength;
-                    Point3d lineEnd = lineCenter + lineDirection * lineLength;
-
-                    Line line = new Line(lineStart, lineEnd);
-                    Curve lineCurve = new LineCurve(line);
-
-                    // Intersect line with offset curve
-                    var intersections = Rhino.Geometry.Intersect.Intersection.CurveCurve(lineCurve, offsetCurve, 0.01, 0.01);
-                    
-                    if (intersections != null && intersections.Count >= 2)
+                    if (i + 1 < allIntersections.Count)
                     {
-                        // Get intersection parameters and create trimmed curve
-                        var intersectionParams = intersections.Select(ix => ix.ParameterA).OrderBy(t => t).ToList();
-                        
-                        if (intersectionParams.Count >= 2)
+                        double t1 = allIntersections[i].param;
+                        double t2 = allIntersections[i + 1].param;
+
+                        if (Math.Abs(t2 - t1) > 0.01)
                         {
-                            double t1 = intersectionParams[0];
-                            double t2 = intersectionParams[intersectionParams.Count - 1];
-                            
-                            // Reverse direction for alternating rows
+                            // Reverse direction for alternating rows (zigzag)
                             if (!forward)
                             {
                                 double temp = t1;
@@ -327,14 +311,14 @@ namespace LARGERslicer.Components.Export
                                 t2 = temp;
                             }
 
-                            Curve trimmed = lineCurve.Trim(t1, t2);
-                            if (trimmed != null && trimmed.IsValid)
+                            Curve trimmed = line.Trim(t1, t2);
+                            if (trimmed != null && trimmed.IsValid && trimmed.GetLength() > layerWidth * 0.1)
                             {
                                 // Sample points along trimmed line
                                 var linePoints = new List<Point3d>();
                                 double trimmedLength = trimmed.GetLength();
                                 int numPoints = Math.Max(2, (int)Math.Ceiling(trimmedLength / (layerWidth * 0.5)));
-                                
+
                                 for (int p = 0; p <= numPoints; p++)
                                 {
                                     double t = trimmed.Domain.ParameterAt((double)p / numPoints);
@@ -350,18 +334,10 @@ namespace LARGERslicer.Components.Export
                             }
                         }
                     }
-                    else if (intersections != null && intersections.Count == 1)
-                    {
-                        // Single intersection - tangent or endpoint
-                        double t = intersections[0].ParameterA;
-                        Point3d pt = lineCurve.PointAt(t);
-                        pt.Z = zHeight;
-                        segments.Add(new List<Point3d> { pt });
-                    }
-
-                    // Alternate direction for next line
-                    forward = !forward;
                 }
+
+                // Alternate direction for next line (zigzag pattern)
+                forward = !forward;
             }
 
             // Connect segments into continuous path
@@ -369,7 +345,10 @@ namespace LARGERslicer.Components.Export
                 return (pathPoints, segments);
 
             // Start from first segment
-            pathPoints.AddRange(segments[0]);
+            if (segments[0].Count > 0)
+            {
+                pathPoints.AddRange(segments[0]);
+            }
 
             // Connect remaining segments
             for (int i = 1; i < segments.Count; i++)
@@ -487,4 +466,8 @@ namespace LARGERslicer.Components.Export
         public override Guid ComponentGuid => new Guid("C1B2A3D4-E5F6-7890-ABCD-EF1234567890");
     }
 }
+
+
+
+
 

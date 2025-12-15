@@ -200,11 +200,23 @@ namespace LARGERslicer.Components.Export
             }
 
             // Step 4: Patch odd-degree vertices if requested
+            // NOTE: Disabled by default - patching can cause chaos in path generation
+            // User feedback: "Wenn add bridges weggemacht wird, läuft es besser"
+            // PatchOddVertices acts like "add bridges" - can cause unwanted connections
             if (patchOddVertices && clippedCurves.Count > 0)
             {
-                List<Curve> patchCurves = EulerTransformationHelper.PatchOddDegreeVertices(
-                    clippedCurves, boundary, spacing, 0.01);
-                clippedCurves.AddRange(patchCurves);
+                // Only patch if absolutely necessary (very few curves)
+                // This prevents chaos from too many bridge connections
+                if (clippedCurves.Count < 5)
+                {
+                    List<Curve> patchCurves = EulerTransformationHelper.PatchOddDegreeVertices(
+                        clippedCurves, boundary, spacing, 0.01);
+                    // Limit patch curves to prevent chaos
+                    if (patchCurves.Count <= clippedCurves.Count)
+                    {
+                        clippedCurves.AddRange(patchCurves);
+                    }
+                }
             }
 
             if (clippedCurves.Count == 0)

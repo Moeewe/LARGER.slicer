@@ -195,14 +195,31 @@ namespace LARGERslicer.Components.Export
                 return (pathPoints, segments);
             }
 
-            // Step 4: Optimize curve order starting from seam position
+            // Step 4: Sort curves from outside to inside (by area, largest first)
+            // This ensures we process outer curves first, then move inward
+            // CRITICAL: Prevents path from ending in middle and going back outward
+            var sortedByArea = validCurves.OrderByDescending(c =>
+            {
+                try
+                {
+                    var area = AreaMassProperties.Compute(c);
+                    return area != null ? area.Area : 0;
+                }
+                catch
+                {
+                    return 0;
+                }
+            }).ToList();
+
+            // Step 5: Optimize curve order starting from seam position (within each area group)
+            // Group curves by similar area to maintain outside-to-inside order
             List<Curve> connections;
-            var orderedCurves = PathHelper.OptimizeCurveOrder(validCurves, seamPosition, out connections);
+            var orderedCurves = PathHelper.OptimizeCurveOrder(sortedByArea, seamPosition, out connections);
 
             // Store ordered curves for connection generation
             // (We'll use this in CreateLayerSpacedConnection)
 
-            // Step 5: Sample points from each curve
+            // Step 6: Sample points from each curve
             var allCurvePoints = new List<List<Point3d>>();
             Point3d currentEndPoint = seamPosition;
 
@@ -229,13 +246,13 @@ namespace LARGERslicer.Components.Export
                 }
             }
 
-            // Step 6: Add random bridges between curves (if enabled)
+            // Step 7: Add random bridges between curves (if enabled)
             if (randomBridges && allCurvePoints.Count > 1)
             {
                 allCurvePoints = AddRandomBridgesToPointLists(allCurvePoints, bridgeDensity, spacing);
             }
 
-            // Step 7: Build continuous path with proper layer-spaced connections
+            // Step 8: Build continuous path with proper layer-spaced connections
             segments = allCurvePoints;
 
             pathPoints.Add(seamPosition);
