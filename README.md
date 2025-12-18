@@ -25,14 +25,14 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 
 | Platform | Status | Control Script | Documentation |
 |----------|--------|----------------|---------------|
-| **Ginger One Printer** | Production Ready | `LARGERslicer Weber Robot and Ginger.gh` | [Ginger Quick Start Guide](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/00%20-%20GINGER%20-%20ONE%20-%20README/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
-| **Universal Robots UR5** | Production Ready | `UR5slicer.gh` | [UR5 Quick Start Guide](PRINTER%20EXAMPLE%20FILES/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/README%20UR5%2000%20QUICK%20START%20GUIDE.md) |
-| **Weber DXR25 Robot** | Multi-Axial Ready | `LARGERslicer Weber Robot and Ginger.gh` + `LARGERSlicerMultiaxial Weber Robot.gh` | [Weber DXR25 German Guide](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20GERMAN.md) \| [English Guide](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) |
+| **Ginger One Printer** | Production Ready | `LARGERslicer Weber Robot and Ginger.gh` | [Ginger Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/00%20-%20GINGER%20-%20ONE%20-%20README/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
+| **Universal Robots UR5** | Production Ready | `UR5slicer.gh` | [UR5 Quick Start Guide](EXAMPLE%20FILES/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/README%20UR5%2000%20QUICK%20START%20GUIDE.md) |
+| **Weber DXR25 Robot** | Multi-Axial Ready | `LARGERslicer Weber Robot and Ginger.gh` + `LARGERslicer Multiaxial Weber Robot.gh` | [Weber DXR25 German Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20GERMAN.md) \| [English Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) |
 
 ### Recommended Workflow
 
 1. **Toolpath Generation**: Use `LARGERslicer Weber Robot and Ginger.gh` for standard toolpath generation (see folder path below)
-2. **Multi-Axial Printing**: Use `LARGERSlicerMultiaxial Weber Robot.gh` for advanced multi-axial workflows  
+2. **Multi-Axial Printing**: Use `LARGERslicer Multiaxial Weber Robot.gh` for advanced multi-axial workflows  
 3. **Machine Setup**: Follow the appropriate Quick Start Guide above
 4. **Advanced Control**: For UR5, use dedicated `UR5slicer.gh` for robotic workflows
 
@@ -43,12 +43,13 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 - **Operating System**: Windows 11+ or macOS 11 Big Sur+
 - **Software**: Rhino 8+ with Grasshopper and Python 3
 - **Required Grasshopper Plugins**:
-  - LARGERslicer (install from `LARGERSlicer PLUGIN INSTALL FILES/` or via PackageManager)
+  - LARGERslicer (install from `LARGERslicer/Plugin Installation Files/` or via PackageManager)
   - Pufferfish (included in Rhino 8+)
 
 ### Get Started in 3 Steps
 
-1. **Download**: Get [LARGERslicer Weber Robot and Ginger.gh](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) (standard) or [LARGERSlicerMultiaxial Weber Robot.gh](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERSlicerMultiaxial%20Weber%20Robot.gh) (multi-axial) from this repository
+1. **Download**: Get [LARGERslicer Weber Robot and Ginger.gh](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) (standard) or [LARGERslicer Multiaxial Weber Robot.gh](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERslicer%20Multiaxial%20Weber%20Robot.gh) (multi-axial) from this repository
+1. **Download**: Get [LARGERslicer Weber Robot and Ginger.gh](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) (standard) or [LARGERslicer Multiaxial Weber Robot.gh](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERslicer%20Multiaxial%20Weber%20Robot.gh) (multi-axial) from this repository
 2. **Open**: Launch Rhino (set to mm), open Grasshopper, drag and drop the .gh file
 3. **Start**: Follow the [Usage Guide](#usage-guide) below
 
@@ -71,7 +72,7 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
    - Restart Rhino/Grasshopper
    
    ~~**Option 2: Manual Installation**~~ *(Deprecated - No longer supported)*
-   - ~~Copy `LARGERslicer.gha`, `LARGERslicer.pdb`, and `Newtonsoft.Json.dll` from `LARGERSlicer PLUGIN INSTALL FILES/` to your Grasshopper Libraries folder~~
+   - ~~Copy `LARGERslicer.gha`, `LARGERslicer.pdb`, and `Newtonsoft.Json.dll` from `LARGERslicer/Plugin Installation Files/LARGERSlicer/` to your Grasshopper Libraries folder~~
    - ~~Restart Rhino/Grasshopper~~
    - ~~Plugin components will appear under the **LARGER** category~~
    - **Note**: Manual installation is no longer supported. Please use the Package Manager for automatic updates and compatibility.
@@ -92,9 +93,9 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
    **Note**: The Package Manager version enables automatic updates, so you'll always have the latest features and bug fixes without manual file management.
 
 2. **Download or clone the `.gh` files** from this repository:
-   - [LARGERslicer Weber Robot and Ginger.gh](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) — Standard toolpath generation
-   - [LARGERSlicerMultiaxial Weber Robot.gh](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERSlicerMultiaxial%20Weber%20Robot.gh) — Multi-axial printing capabilities
-   - [UR5slicer.gh](PRINTER%20EXAMPLE%20FILES/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/UR5slicer.gh) — Dedicated UR5 robotic workflow
+   - [LARGERslicer Weber Robot and Ginger.gh](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) — Standard toolpath generation
+   - [LARGERslicer Multiaxial Weber Robot.gh](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/LARGERslicer%20Multiaxial%20Weber%20Robot.gh) — Multi-axial printing capabilities
+   - [UR5slicer.gh](EXAMPLE%20FILES/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/UR5slicer.gh) — Dedicated UR5 robotic workflow
 
 3. **Open Rhino** and create a new file in **millimeter** measurement units
 
@@ -168,49 +169,38 @@ LARGER.slicer/
 ├── README.md                                         # This documentation
 ├── LARGERslicer/                                     # Grasshopper plugin source code
 │   ├── README.md                                     # Plugin documentation
-│   ├── COMPONENTS_OVERVIEW.md                        # Component reference
-│   ├── LARGERslicer.csproj                          # .NET project file
+│   ├── LARGERslicer.csproj                           # .NET project file
 │   ├── Components/                                   # Plugin components
-│   │   ├── CNC/                                     # CNC toolpath components
-│   │   ├── Export/                                  # DXR export components
-│   │   └── Utils/                                   # Utility components
-│   ├── Types/                                       # Custom data types
-│   ├── Utils/                                       # Helper classes
-│   └── Resources/                                   # Icons and assets
-├── LARGERSlicer PLUGIN INSTALL FILES/               # Pre-built plugin files
-│   ├── LARGERslicer.gha                             # Grasshopper assembly
-│   ├── LARGERslicer.pdb                             # Debug symbols
-│   └── Newtonsoft.Json.dll                          # Dependency
-└── PRINTER EXAMPLE FILES/                           # Machine-specific scripts and docs
-   ├── 00 - UNIVERSAL ROBOTS - UR5/                  # UR5 Robot control system
-   │   ├── README UR5 00 QUICK START GUIDE.md        # Setup and operation guide
-   │   └── UR5slicer.gh                              # Dedicated UR5 control script
-   └── 00 - WEBER : GINGER/                          # Ginger One + Weber DXR25
-      ├── LARGERslicer Weber Robot and Ginger.gh    # Main LARGER Slicer algorithm
-      ├── LARGERSlicerMultiaxial Weber Robot.gh     # Multi-axial printing algorithm
-      ├── 00 - GINGER - ONE - README/
-      │   └── README GINGER 00 QUICK START GUIDE.md # Ginger setup and operation
-      ├── 00 - WEBER - DXR25 - README/
-      │   ├── README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md
-      │   ├── README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md
-      │   └── WIP Grasshopper Simulation/
-      │       ├── README_How_to_open.md
-      │       ├── Weber DXR20 FH Münster Robot System.3dm
-      │       └── Weber DXR20 FH Münster Robot System.gh
-      └── 01 - WIP - PRINTER GH SCRIPTS : NEW FEATURES/
-         └── LARGERslicer/
-            ├── LARGERslicer - Easy Spirals.gh
-            ├── LARGERslicer - Non Planar.gh
-            └── LARGERslicer - Paper Walls.gh
+│   │   ├── CNC/                                      # CNC toolpath components
+│   │   ├── Export/                                   # DXR export components
+│   │   └── Utils/                                    # Utility components
+│   ├── Types/                                        # Custom data types
+│   ├── Utils/                                        # Helper classes
+│   ├── Resources/                                    # Icons and assets
+│   ├── documentations/                               # Documentation (Markdown)
+│   └── Plugin Installation Files/                    # Pre-built plugin files for manual install (deprecated)
+│       └── LARGERSlicer/                             # Contains .gha/.pdb + Newtonsoft.Json.dll
+└── EXAMPLE FILES/                                    # Machine-specific scripts and docs
+   ├── 00 - UNIVERSAL ROBOTS - UR5/
+   │   ├── README UR5 00 QUICK START GUIDE.md
+   │   └── UR5slicer.gh
+   ├── 00 - WEBER : GINGER/
+   │   ├── LARGERslicer Weber Robot and Ginger.gh
+   │   ├── LARGERslicer Multiaxial Weber Robot.gh
+   │   ├── 00 - GINGER - ONE - README/
+   │   └── 00 - WEBER - DXR25 - README/
+   └── 00 - ZUENDT - 3D CNC MILLING/
+      ├── README Zünd G3 L-2500 CNC MILLING QUICK START GUIDE.md
+      └── ZündHGPL PLT MSA.gh
 ```
 
 ### Key Components
 
 - **Grasshopper Plugin**: `LARGERslicer.gha` — Custom Grasshopper components for DXR generation, CNC toolpaths, and utilities (see `LARGERslicer/` directory)
-- **Primary Slicer**: `LARGERslicer Weber Robot and Ginger.gh` — Main toolpath generation algorithm (see `PRINTER EXAMPLE FILES/00 - WEBER : GINGER/`)
-- **Multi-Axial Slicer**: `LARGERSlicerMultiaxial Weber Robot.gh` — Advanced multi-axial printing capabilities
-- **Machine Documentation**: Complete setup and operation guides for each platform (German & English) under `PRINTER EXAMPLE FILES/`
-- **UR5 Dedicated Script**: `UR5slicer.gh` — Specialized control for Universal Robots UR5 (`PRINTER EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/`)
+- **Primary Slicer**: `LARGERslicer Weber Robot and Ginger.gh` — Main toolpath generation algorithm (see `EXAMPLE FILES/00 - WEBER : GINGER/`)
+- **Multi-Axial Slicer**: `LARGERslicer Multiaxial Weber Robot.gh` — Advanced multi-axial printing capabilities
+- **Machine Documentation**: Complete setup and operation guides for each platform (German & English) under `EXAMPLE FILES/`
+- **UR5 Dedicated Script**: `UR5slicer.gh` — Specialized control for Universal Robots UR5 (`EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/`)
 - **Development Area**: WIP folder contains experimental features and new developments
 
 ## System Overview
@@ -251,7 +241,7 @@ LARGER.slicer/
 | G-Code file not appearing | Write command not triggered | Click **Export G-Code** and confirm save path |
 | Preview slider inactive | Path Preview not connected | Check **Path Preview** input wiring |
 | Password-protected clusters | Components locked | Right-click component, enter **Supersizedprinting** |
-| KUKA Robot brake test / start movement problems | CNC program not selected on robot controller | See [KUKA Robot Troubleshooting Guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) or [Weber DXR25 Quick Start Guide](PRINTER%20EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) Section 13 |
+| KUKA Robot brake test / start movement problems | CNC program not selected on robot controller | See [KUKA Robot Troubleshooting Guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) or [Weber DXR25 Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) Section 13 |
 
 ### Getting Help
 
@@ -273,7 +263,7 @@ non-commercial use only.
 
 The LARGERslicer Grasshopper plugin source code is located in the `LARGERslicer/` directory. For plugin development, building, and component documentation, see:
 - [Plugin README](LARGERslicer/README.md) — Plugin overview and development guide
-- [Component Overview](LARGERslicer/COMPONENTS_OVERVIEW.md) — Complete component reference
+- [Component Overview](LARGERslicer/documentations/COMPONENTS_OVERVIEW.md) — Complete component reference
 
 ### Building the Plugin
 

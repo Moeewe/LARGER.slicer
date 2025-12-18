@@ -1,20 +1,39 @@
-# Documentation
+# LARGERslicer (Grasshopper plugin)
 
-This directory contains all project documentation files.
+This folder (`LARGERslicer/`) contains the **C#/.NET Grasshopper plugin** used by the LARGER Slicer ecosystem.
 
-## Structure
+If you’re looking for the machine-specific Grasshopper definitions (`.gh`) and quick-start guides, see `EXAMPLE FILES/` in the repository root.
 
-- **Component Documentation**: Overview and details about Grasshopper components
-- **DXR Documentation**: DXR file format specifications and compliance checks
-- **Machine Settings**: Complete documentation for Machine Settings components
-- **Toolpath Documentation**: Analysis and strategy documents for toolpath generation
-- **Pattern Documentation**: Bottom layer pattern research and analysis
+## Documentation
 
-## Main Documentation Files
+Project documentation lives in `documentations/`:
 
-- `README.md` - Project overview
-- `MACHINE_SETTINGS_DOCUMENTATION.md` - Complete Machine Settings guide
-- `COMPONENTS_OVERVIEW.md` - Overview of all components
-- `DXR_FORMAT_DOCUMENTATION.md` - DXR file format specification
-- `KUKA_ROBOT_TROUBLESHOOTING.md` - KUKA robot troubleshooting guide (German/English)
-- `CNC_PROGRAM_README.md` - CNC Program component user guide
+- [Components Overview](documentations/COMPONENTS_OVERVIEW.md)
+- [Component Inputs/Outputs](documentations/COMPONENT_INPUTS_OUTPUTS.md)
+- [DXR Format Documentation](documentations/DXR_FORMAT_DOCUMENTATION.md)
+- [Machine Settings Documentation](documentations/MACHINE_SETTINGS_DOCUMENTATION.md)
+- [KUKA Robot Troubleshooting](documentations/KUKA_ROBOT_TROUBLESHOOTING.md)
+- [CNC Program README](documentations/CNC_PROGRAM_README.md)
+
+## Build
+
+Build the plugin from this folder:
+
+```bash
+dotnet build
+```
+
+The build outputs `.gha` files under `bin/Debug/` for the supported target frameworks.
+
+## Packaging
+
+- `build-package.sh` / `build-package.bat`: package build scripts
+- `dist/`: packaged `.yak` releases and built `.gha` artifacts
+
+## Manual install files (deprecated)
+
+Prebuilt files for old/manual installation are in:
+
+- `Plugin Installation Files/LARGERSlicer/`
+
+Note: the recommended installation method is Rhino’s `PackageManager` (see the repository root `README.md`).
