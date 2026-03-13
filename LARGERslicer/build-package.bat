@@ -58,6 +58,22 @@ if %errorlevel% neq 0 (
 
 echo Build successful
 
+echo.
+echo Syncing packaged runtime folders...
+if exist net48 rmdir /S /Q net48
+if exist net7.0 rmdir /S /Q net7.0
+if exist net7.0-windows rmdir /S /Q net7.0-windows
+mkdir net48
+mkdir net7.0
+mkdir net7.0-windows
+xcopy /E /I /Y bin\Release\net48\* net48\ >nul
+xcopy /E /I /Y bin\Release\net7.0\* net7.0\ >nul
+xcopy /E /I /Y bin\Release\net7.0-windows\* net7.0-windows\ >nul
+copy /Y bin\Release\net48\LARGERslicer.gha dist\LARGERslicer.gha >nul
+copy /Y bin\Release\net7.0\LARGERslicer.gha dist\LARGERslicer-mac.gha >nul
+copy /Y bin\Release\net7.0-windows\LARGERslicer.gha dist\LARGERslicer-win.gha >nul
+echo Packaged binaries synced
+
 REM Create Yak package
 echo.
 echo Creating Yak package...

@@ -72,6 +72,20 @@ fi
 
 echo -e "${GREEN}✓ Build successful${NC}"
 
+# Sync packaged runtime folders from fresh release outputs.
+echo ""
+echo "Syncing packaged runtime folders..."
+rm -rf net48 net7.0 net7.0-windows
+mkdir -p net48 net7.0 net7.0-windows
+cp -R bin/Release/net48/. net48/
+cp -R bin/Release/net7.0/. net7.0/
+cp -R bin/Release/net7.0-windows/. net7.0-windows/
+cp -f bin/Release/net48/LARGERslicer.gha dist/LARGERslicer.gha
+cp -f bin/Release/net7.0/LARGERslicer.gha dist/LARGERslicer-mac.gha
+cp -f bin/Release/net7.0-windows/LARGERslicer.gha dist/LARGERslicer-win.gha
+
+echo -e "${GREEN}✓ Packaged binaries synced${NC}"
+
 # Create Yak package
 echo ""
 echo "Creating Yak package..."

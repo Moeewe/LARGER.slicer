@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.38] - 2026-03-14
+
+### Fixed
+- Fixed Yak packaging so Rhino Package Manager receives the current integrated LARGERslicer binaries for net48, net7.0, and net7.0-windows
+- Fixed missing Thekenfront components in Rhino after package installation caused by stale packaged runtime folders
+
+### Changed
+- Package build scripts now sync root runtime folders and dist artifacts from bin/Release before yak build
+
 ## [1.0.37] - 2026-03-13
 
 ### Added
