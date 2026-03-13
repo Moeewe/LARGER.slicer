@@ -12,6 +12,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.37] - 2026-03-13
+
+### Added
+- Integrated Thekenfront Fräsvorbereitung toolset directly into existing LARGERslicer plugin (no separate plugin)
+- New Thekenfront components in LARGER category:
+  - TH_01 Orient
+  - TH_02 BBox
+  - TH_03 Slice
+  - TH_03b Fuge Split
+  - TH_04 Depth
+  - TH_05 Block
+  - TH_06 Saug
+  - TH_07 BOM
+  - TH_08 Export
+- Shared Thekenfront board data models for cross-component pipeline
+
+### Changed
+- Thekenfront slicing logic now preserves residual height in fuge width distribution and supports automatic/manual fuge centers
+- Thekenfront split logic now operates on per-board fuge metadata from slicing stage
+- Thekenfront depth logic now computes stepped depth per board over local Z ranges
+- Thekenfront suction logic now outputs left/right simplified stair outlines alongside suction bodies
+
 ## [1.0.18] - 2025-01-XX
 
 ### Fixed
