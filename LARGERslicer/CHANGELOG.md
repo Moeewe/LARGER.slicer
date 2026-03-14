@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.46] - 2026-03-14
+
+### Fixed
+- TH_01 Orient: Korrektes Achsen-Mapping fuer die gesamte Pipeline.
+  Kreuzprodukt-Reihenfolge korrigiert (nFront x nTopPerp statt nTopPerp x nFront)
+  und Source-Plane auf (nRight, nFront) gesetzt.
+  Ergebnis: X=Brettlaenge, Y=Fraestiefe (variabel), Z=Stapelhoehe.
+  Bretter liegen jetzt parallel zur Ober-/Unterseite und passend auf dem Solid.
+
 ## [1.0.45] - 2026-03-14
 
 ### Fixed

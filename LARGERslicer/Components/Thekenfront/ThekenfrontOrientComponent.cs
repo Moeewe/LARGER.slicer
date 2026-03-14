@@ -77,17 +77,18 @@ namespace LARGERslicer.Components.Thekenfront
             }
             nTopPerp.Unitize();
 
-            // Dritte Achse = Kreuzprodukt
-            Vector3d nRight = Vector3d.CrossProduct(nTopPerp, nFront);
+            // Dritte Achse = Kreuzprodukt (Reihenfolge wichtig fuer korrekte Orientierung!)
+            Vector3d nRight = Vector3d.CrossProduct(nFront, nTopPerp);
             nRight.Unitize();
 
-            // Quell-Frame: X=Laengsrichtung, Y=Ober/Unterseite, Normal=Front
-            // Bretter werden von vorne nach hinten gestapelt (Front → Z)
-            // Jedes Brett ist ein vollhohes, vollbreites Schichtbrett
-            Plane source = new Plane(center, nRight, nTopPerp);
+            // Quell-Frame: X=Laengsrichtung, Y=Front/Tiefe, Normal=Hoehe (Ober-/Unterseite)
+            // PlaneToPlane mappt source→target achsenweise:
+            //   source.X (nRight)    → target.X (WorldX) = Brettlaenge
+            //   source.Y (nFront)    → target.Y (WorldY) = Fraestiefe (variabel pro Brett)
+            //   source.Normal (nTop) → target.Z (WorldZ) = Stapelhoehe (30/35mm Schichten)
+            Plane source = new Plane(center, nRight, nFront);
 
-            // Ziel-Frame: X=WorldX, Y=WorldY, Normal=WorldZ
-            // Ergebnis: Breite → +X, Hoehe → +Y, Tiefe/Front → +Z (Stapelrichtung)
+            // Ziel-Frame: Standard WorldXY, Normal = WorldZ
             Plane target = new Plane(center, Vector3d.XAxis, Vector3d.YAxis);
 
             Transform orient = Transform.PlaneToPlane(source, target);
