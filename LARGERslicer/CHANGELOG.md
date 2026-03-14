@@ -12,12 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
-## [1.0.44] - 2026-03-14
+## [1.0.45] - 2026-03-14
 
 ### Fixed
-- TH_01 Orient: Achsen-Mapping korrigiert. Hoehe (Stapelrichtung) geht jetzt
-  korrekt auf Z-Achse und Fraesetiefe auf Y-Achse, sodass die Bretter entlang
-  des rotierten Teils ausgerichtet sind und die Schnittkonturen stimmen.
+- TH_01 Orient: Achsen-Mapping zurueck auf v1.0.42-Stand (Front→Z, Hoehe→Y).
+  Bretter werden von vorne nach hinten gestapelt (Tiefe = Stapelrichtung).
+  Jedes Brett ist ein vollhohes, vollbreites Schichtbrett.
+
+## [1.0.44] - 2026-03-14
+
+### Fixed (fehlerhaft – korrigiert in 1.0.45)
+- TH_01 Orient: Falscher Achsentausch, Stapelrichtung und Hoehe vertauscht.
 
 ## [1.0.43] - 2026-03-14
 
