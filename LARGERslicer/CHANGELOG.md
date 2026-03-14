@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.47] - 2026-03-14
+
+### Changed
+- TH_01 Orient komplett ueberarbeitet: Neue optionale Referenzflaechen-Inputs.
+  - 'Oberseite' (Surface): Definiert die Stapelrichtung (Z). Bretter liegen parallel dazu.
+  - 'Frontflaeche' (Surface): Definiert die Tiefenrichtung (Y).
+  - Ohne Referenzflaechen: Automatische Erkennung ueber BBox-Dimensionen
+    (duennste Achse = Front, Z-Ausrichtung = Top).
+  - Neuer Output 'Quell-Frame' zur visuellen Kontrolle der erkannten Orientierung.
+  - Alte Inputs (Index, Auto) entfernt.
+
 ## [1.0.46] - 2026-03-14
 
 ### Fixed

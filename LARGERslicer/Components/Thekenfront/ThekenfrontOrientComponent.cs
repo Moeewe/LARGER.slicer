@@ -8,7 +8,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
                 public ThekenfrontOrientComponent()
                     : base("Thekenfront 01 Ausrichten", "TH_01",
-                                                        "Richtet den Thekenabschnitt so aus, dass die Frontflaeche nach oben zeigt.",
+                            "Richtet den Thekenabschnitt aus: Bretter parallel zur Oberseite, Tiefe in Y, Hoehe in Z.",
                             "", "")
         {
         }
@@ -19,27 +19,29 @@ namespace LARGERslicer.Components.Thekenfront
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddBrepParameter("Thekenabschnitt", "Geo", "Geschlossenes Solid des Thekenabschnitts", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Frontflaechen-Index", "Index", "Manuelle Auswahl der Frontflaeche", GH_ParamAccess.item, 0);
-            pManager.AddBooleanParameter("Auto-Erkennung", "Auto", "True = Frontflaeche automatisch erkennen", GH_ParamAccess.item, true);
+            pManager.AddSurfaceParameter("Oberseite", "Top", "Referenzflaeche fuer die Oberseite (definiert Stapelrichtung Z)", GH_ParamAccess.item);
+            pManager[1].Optional = true;
+            pManager.AddSurfaceParameter("Frontflaeche", "Front", "Referenzflaeche fuer die Front (definiert Tiefenrichtung Y)", GH_ParamAccess.item);
+            pManager[2].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientiertes Solid", "Solid", "Ausrichtetes Solid mit Front nach oben", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Orientiertes Solid", "Solid", "Ausgerichtetes Solid (X=Laenge, Y=Tiefe, Z=Hoehe)", GH_ParamAccess.item);
             pManager.AddTransformParameter("Ausrichtungs-Transform", "XForm", "Verwendete Transformationsmatrix", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Verwendeter Flaechenindex", "Index", "Tatsaechlich verwendeter Frontflaechen-Index", GH_ParamAccess.item);
+            pManager.AddPlaneParameter("Quell-Frame", "Frame", "Erkannter/berechneter Quell-Frame zur Kontrolle", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Brep solid = null;
-            int idx = 0;
-            bool auto = true;
+            Surface topSrf = null;
+            Surface frontSrf = null;
 
             if (!DA.GetData(0, ref solid))
                 return;
-            DA.GetData(1, ref idx);
-            DA.GetData(2, ref auto);
+            DA.GetData(1, ref topSrf);
+            DA.GetData(2, ref frontSrf);
 
             if (solid == null || !solid.IsValid || !solid.IsSolid)
             {
@@ -47,49 +49,69 @@ namespace LARGERslicer.Components.Thekenfront
                 return;
             }
 
-            int useIndex = auto ? DetectFrontFaceIndex(solid) : idx;
-            if (useIndex < 0 || useIndex >= solid.Faces.Count)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Der angegebene Frontflaechen-Index ist ungueltig.");
-                return;
-            }
+            // --- Schritt 1: Achsenrichtungen bestimmen ---
+            Vector3d nTop;    // Normale der Oberseite → wird zu +Z
+            Vector3d nFront;  // Normale der Front    → wird zu +Y
 
-            BrepFace face = solid.Faces[useIndex];
-            if (!TryGetFaceNormal(face, out Point3d center, out Vector3d nFront))
+            // Oberseiten-Richtung bestimmen
+            if (topSrf != null)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Frontflaeche konnte nicht ausgewertet werden.");
-                return;
+                nTop = GetSurfaceNormal(topSrf);
+                if (!nTop.IsValid)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Oberflaeche 'Oberseite' konnte nicht ausgewertet werden.");
+                    return;
+                }
             }
+            else
+            {
+                // Fallback: Groesste planare Flaeche des Solids,
+                // die ungefaehr in Welt-Z zeigt → Ober- oder Unterseite
+                nTop = DetectTopNormal(solid);
+            }
+            nTop.Unitize();
 
+            // Front-Richtung bestimmen
+            if (frontSrf != null)
+            {
+                nFront = GetSurfaceNormal(frontSrf);
+                if (!nFront.IsValid)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Oberflaeche 'Frontflaeche' konnte nicht ausgewertet werden.");
+                    return;
+                }
+            }
+            else
+            {
+                // Fallback: Duennste BBox-Achse senkrecht zu nTop
+                nFront = DetectFrontNormal(solid, nTop);
+            }
             nFront.Unitize();
 
-            // Ober-/Unterseite des Originals finden (groesste Flaeche senkrecht zur Front)
-            Vector3d nTop = FindPerpendicularFaceNormal(solid, useIndex, nFront);
-
-            // Orthogonalisieren: Anteil von nTop parallel zu nFront entfernen
-            Vector3d nTopPerp = nTop - (nTop * nFront) * nFront;
-            if (nTopPerp.Length < Rhino.RhinoMath.ZeroTolerance)
+            // --- Schritt 2: Orthonormales Frame bauen ---
+            // nFront senkrecht zu nTop machen (Gram-Schmidt)
+            nFront = nFront - (nFront * nTop) * nTop;
+            if (nFront.Length < Rhino.RhinoMath.ZeroTolerance)
             {
-                // Fallback: Welt-Z senkrecht zu nFront projizieren
-                nTopPerp = Vector3d.ZAxis - (Vector3d.ZAxis * nFront) * nFront;
-                if (nTopPerp.Length < Rhino.RhinoMath.ZeroTolerance)
-                    nTopPerp = Vector3d.YAxis - (Vector3d.YAxis * nFront) * nFront;
+                // nFront war parallel zu nTop → Fallback BBox-Methode
+                nFront = DetectFrontNormal(solid, nTop);
+                nFront = nFront - (nFront * nTop) * nTop;
             }
-            nTopPerp.Unitize();
+            nFront.Unitize();
 
-            // Dritte Achse = Kreuzprodukt (Reihenfolge wichtig fuer korrekte Orientierung!)
-            Vector3d nRight = Vector3d.CrossProduct(nFront, nTopPerp);
+            // Laengsrichtung = Kreuzprodukt
+            Vector3d nRight = Vector3d.CrossProduct(nFront, nTop);
             nRight.Unitize();
 
-            // Quell-Frame: X=Laengsrichtung, Y=Front/Tiefe, Normal=Hoehe (Ober-/Unterseite)
-            // PlaneToPlane mappt source→target achsenweise:
-            //   source.X (nRight)    → target.X (WorldX) = Brettlaenge
-            //   source.Y (nFront)    → target.Y (WorldY) = Fraestiefe (variabel pro Brett)
-            //   source.Normal (nTop) → target.Z (WorldZ) = Stapelhoehe (30/35mm Schichten)
-            Plane source = new Plane(center, nRight, nFront);
+            // Zentrum des Solids als Frame-Ursprung
+            var amp = AreaMassProperties.Compute(solid);
+            Point3d origin = amp != null ? amp.Centroid : solid.GetBoundingBox(true).Center;
 
-            // Ziel-Frame: Standard WorldXY, Normal = WorldZ
-            Plane target = new Plane(center, Vector3d.XAxis, Vector3d.YAxis);
+            // Quell-Frame: X=nRight (Laenge), Y=nFront (Tiefe), Normal=nTop (Hoehe)
+            Plane source = new Plane(origin, nRight, nFront);
+
+            // Ziel-Frame: WorldXY
+            Plane target = new Plane(origin, Vector3d.XAxis, Vector3d.YAxis);
 
             Transform orient = Transform.PlaneToPlane(source, target);
 
@@ -102,92 +124,127 @@ namespace LARGERslicer.Components.Thekenfront
             result.Transform(move);
 
             Transform total = move * orient;
+
             DA.SetData(0, result);
             DA.SetData(1, total);
-            DA.SetData(2, useIndex);
-        }
-
-        private static bool TryGetFaceNormal(BrepFace face, out Point3d center, out Vector3d normal)
-        {
-            center = Point3d.Origin;
-            normal = Vector3d.Unset;
-
-            var amp = AreaMassProperties.Compute(face);
-            if (amp == null)
-                return false;
-
-            center = amp.Centroid;
-            if (!face.ClosestPoint(center, out double u, out double v))
-                return false;
-
-            normal = face.NormalAt(u, v);
-            return normal.IsValid && normal.Length > Rhino.RhinoMath.ZeroTolerance;
-        }
-
-        private static int DetectFrontFaceIndex(Brep solid)
-        {
-            int best = 0;
-            double bestY = double.MinValue;
-
-            for (int i = 0; i < solid.Faces.Count; i++)
-            {
-                if (!TryGetFaceNormal(solid.Faces[i], out _, out Vector3d n))
-                    continue;
-
-                if (n.Y > bestY)
-                {
-                    bestY = n.Y;
-                    best = i;
-                }
-            }
-
-            return best;
+            DA.SetData(2, source);
         }
 
         /// <summary>
-        /// Sucht im Original-Solid die groesste Flaeche, deren Normale
-        /// moeglichst senkrecht zur Frontnormalen steht (= Ober-/Unterseite).
+        /// Berechnet die Flaechennormale am Schwerpunkt einer Surface.
         /// </summary>
-        private static Vector3d FindPerpendicularFaceNormal(Brep solid, int frontIndex, Vector3d frontNormal)
+        private static Vector3d GetSurfaceNormal(Surface srf)
         {
-            frontNormal.Unitize();
+            double midU = srf.Domain(0).Mid;
+            double midV = srf.Domain(1).Mid;
+            Vector3d n = srf.NormalAt(midU, midV);
+            return n.IsValid ? n : Vector3d.Unset;
+        }
+
+        /// <summary>
+        /// Sucht die Flache mit der groessten Flaecheninhalt, deren Normale
+        /// am staerksten in Welt-Z zeigt. Fuer Thekenfronten ist das typischerweise
+        /// die Ober- oder Unterseite.
+        /// </summary>
+        private static Vector3d DetectTopNormal(Brep solid)
+        {
             double bestScore = 0;
-            Vector3d bestNormal = Vector3d.Unset;
+            Vector3d bestN = Vector3d.ZAxis;
 
             for (int i = 0; i < solid.Faces.Count; i++)
             {
-                if (i == frontIndex)
-                    continue;
+                var face = solid.Faces[i];
+                var famp = AreaMassProperties.Compute(face);
+                if (famp == null) continue;
 
-                if (!TryGetFaceNormal(solid.Faces[i], out _, out Vector3d n))
-                    continue;
-
+                Point3d c = famp.Centroid;
+                if (!face.ClosestPoint(c, out double u, out double v)) continue;
+                Vector3d n = face.NormalAt(u, v);
+                if (!n.IsValid) continue;
                 n.Unitize();
 
-                // Flaechen ueberspringen, deren Normale zu parallel zur Front steht
-                double parallelism = Math.Abs(n * frontNormal);
-                if (parallelism > 0.7)
-                    continue;
-
-                double perpendicularity = 1.0 - parallelism;
-
-                var amp = AreaMassProperties.Compute(solid.Faces[i]);
-                if (amp == null)
-                    continue;
-
-                double score = amp.Area * perpendicularity;
+                // Wie stark zeigt diese Flaechennormale in Z-Richtung?
+                double zAlignment = Math.Abs(n.Z);
+                double score = famp.Area * zAlignment;
                 if (score > bestScore)
                 {
                     bestScore = score;
-                    bestNormal = n;
+                    bestN = n;
                 }
             }
 
-            // Fallback: Welt-Z wenn nichts passendes gefunden
-            if (!bestNormal.IsValid)
-                return Vector3d.ZAxis;
+            // Sicherstellen, dass nTop nach "oben" (+Z) zeigt
+            if (bestN.Z < 0) bestN = -bestN;
+            return bestN;
+        }
 
-            return bestNormal;
+        /// <summary>
+        /// Bestimmt die Front-Richtung als die duennste Ausdehnung des Solids
+        /// senkrecht zur gegebenen Top-Normalen.
+        /// </summary>
+        private static Vector3d DetectFrontNormal(Brep solid, Vector3d nTop)
+        {
+            nTop.Unitize();
+            BoundingBox bb = solid.GetBoundingBox(true);
+            Vector3d diag = bb.Max - bb.Min;
+
+            // Die drei Welt-Achsen und ihre BBox-Ausdehnung
+            var axes = new[] {
+                (dir: Vector3d.XAxis, size: diag.X),
+                (dir: Vector3d.YAxis, size: diag.Y),
+                (dir: Vector3d.ZAxis, size: diag.Z)
+            };
+
+            // Suche die duennste Achse, die moeglichst senkrecht zu nTop steht
+            double bestScore = double.MaxValue;
+            Vector3d bestDir = Vector3d.YAxis;
+
+            foreach (var ax in axes)
+            {
+                double parallel = Math.Abs(ax.dir * nTop);
+                if (parallel > 0.7) continue; // zu parallel zur Top-Richtung → ueberspringen
+
+                // Score: duennste Achse bevorzugen (kleinste BBox-Ausdehnung)
+                if (ax.size < bestScore)
+                {
+                    bestScore = ax.size;
+                    bestDir = ax.dir;
+                }
+            }
+
+            // Versuche auch die Flaechenerkennung: groesste Flaeche senkrecht zu nTop
+            double bestFaceScore = 0;
+            Vector3d bestFaceN = Vector3d.Unset;
+
+            for (int i = 0; i < solid.Faces.Count; i++)
+            {
+                var face = solid.Faces[i];
+                var famp = AreaMassProperties.Compute(face);
+                if (famp == null) continue;
+
+                Point3d c = famp.Centroid;
+                if (!face.ClosestPoint(c, out double u, out double v)) continue;
+                Vector3d n = face.NormalAt(u, v);
+                if (!n.IsValid) continue;
+                n.Unitize();
+
+                // Muss senkrecht zu nTop stehen
+                double topParallel = Math.Abs(n * nTop);
+                if (topParallel > 0.5) continue;
+
+                double score = famp.Area * (1.0 - topParallel);
+                if (score > bestFaceScore)
+                {
+                    bestFaceScore = score;
+                    bestFaceN = n;
+                }
+            }
+
+            // Wenn die Flaechenerkennung ein gutes Ergebnis liefert, nutze es
+            if (bestFaceN.IsValid)
+                return bestFaceN;
+
+            return bestDir;
         }
 
         protected override System.Drawing.Bitmap Icon => null;
