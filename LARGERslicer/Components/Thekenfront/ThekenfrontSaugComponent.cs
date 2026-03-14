@@ -7,10 +7,10 @@ namespace LARGERslicer.Components.Thekenfront
 {
     public class ThekenfrontSaugComponent : GH_Component
     {
-        public ThekenfrontSaugComponent()
-          : base("TH Saug", "TH_06",
-                            "Erzeugt linke und rechte Saugelemente inklusive vereinfachter Treppenkonturen.",
-              "", "")
+                public ThekenfrontSaugComponent()
+                    : base("Thekenfront 06 Saugelemente", "TH_06",
+                                                        "Erzeugt linkes und rechtes Saugelement mit passender Treppenkontur.",
+                            "", "")
         {
         }
 
@@ -19,18 +19,18 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Bretter", "B", "Bretter/Bretthaelften aus TH_05 Block", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Outline Tiefe", "OT", "Rueckversatz der Outline in mm", GH_ParamAccess.item, 5.0);
-            pManager.AddNumberParameter("Vereinfachung", "Tol", "Vereinfachungstoleranz fuer die Treppenkontur in mm", GH_ParamAccess.item, 2.0);
-            pManager.AddNumberParameter("Saugbreite", "SB", "Breite des Saugelements in mm", GH_ParamAccess.item, 200.0);
+            pManager.AddBrepParameter("Bretter", "Bretter", "Bretter aus Thekenfront 05 Verleimblock", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Outline-Versatz", "Versatz", "Rueckversatz der Kontur in mm", GH_ParamAccess.item, 5.0);
+            pManager.AddNumberParameter("Vereinfachung", "Toleranz", "Vereinfachungstoleranz der Treppenkontur in mm", GH_ParamAccess.item, 2.0);
+            pManager.AddNumberParameter("Saugelement-Breite", "Breite", "Breite des Saugelements in mm", GH_ParamAccess.item, 200.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBrepParameter("Saug links", "SL", "Linkes Saugelement", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Saug rechts", "SR", "Rechtes Saugelement", GH_ParamAccess.item);
-            pManager.AddCurveParameter("Outline links", "OL", "Vereinfachte Treppenkontur links", GH_ParamAccess.item);
-            pManager.AddCurveParameter("Outline rechts", "OR", "Vereinfachte Treppenkontur rechts", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Saugelement links", "Links", "Linkes Saugelement", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Saugelement rechts", "Rechts", "Rechtes Saugelement", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Kontur links", "Kontur L", "Vereinfachte Treppenkontur links", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Kontur rechts", "Kontur R", "Vereinfachte Treppenkontur rechts", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -48,7 +48,7 @@ namespace LARGERslicer.Components.Thekenfront
 
             if (boards.Count == 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Keine Boards vorhanden.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Keine Bretter vorhanden.");
                 return;
             }
 

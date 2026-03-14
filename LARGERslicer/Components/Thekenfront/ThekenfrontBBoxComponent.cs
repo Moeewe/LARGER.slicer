@@ -6,10 +6,10 @@ namespace LARGERslicer.Components.Thekenfront
 {
     public class ThekenfrontBBoxComponent : GH_Component
     {
-        public ThekenfrontBBoxComponent()
-          : base("TH BBox", "TH_02",
-                            "Ermittelt Bounding Box und Grundmasse des orientierten Solids.",
-              "", "")
+                public ThekenfrontBBoxComponent()
+                    : base("Thekenfront 02 Blockmasse", "TH_02",
+                                                        "Ermittelt die Blockmasse und Bounding Box des ausgerichteten Solids.",
+                            "", "")
         {
         }
 
@@ -18,15 +18,15 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientiertes Solid", "OS", "Solid aus TH_01 Orient", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Orientiertes Solid", "Solid", "Solid aus Thekenfront 01 Ausrichten", GH_ParamAccess.item);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBoxParameter("Bounding Box", "BB", "Axis-aligned Bounding Box des orientierten Solids", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Breite X", "X", "Breite bzw. Laenge des Blocks in X", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Tiefe Y", "Y", "Tiefe des Blocks in Y", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Hoehe Z", "Z", "Hoehe des Blocks in Z", GH_ParamAccess.item);
+            pManager.AddBoxParameter("Bounding Box", "BBox", "Bounding Box des orientierten Solids", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Breite X", "Breite", "Blockbreite in X", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Tiefe Y", "Tiefe", "Blocktiefe in Y", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Hoehe Z", "Hoehe", "Blockhoehe in Z", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -37,14 +37,14 @@ namespace LARGERslicer.Components.Thekenfront
 
             if (solid == null || !solid.IsValid)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ungueltiges Solid.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Das orientierte Solid ist ungueltig.");
                 return;
             }
 
             BoundingBox bb = solid.GetBoundingBox(true);
             if (!bb.IsValid)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Bounding Box ungueltig.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Bounding Box konnte nicht berechnet werden.");
                 return;
             }
 

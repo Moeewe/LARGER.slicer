@@ -11,10 +11,10 @@ namespace LARGERslicer.Components.Thekenfront
 {
     public class ThekenfrontExportComponent : GH_Component
     {
-        public ThekenfrontExportComponent()
-          : base("TH Export", "TH_08",
-                            "Exportiert Bretter, Containerbox und Stueckliste als 3DM bzw. CSV.",
-              "", "")
+                public ThekenfrontExportComponent()
+                    : base("Thekenfront 08 Export", "TH_08",
+                                                        "Exportiert Bretter und Stueckliste als 3DM und CSV.",
+                            "", "")
         {
         }
 
@@ -23,22 +23,22 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Bretter", "B", "Bretter aus TH_05 Block", GH_ParamAccess.list);
-            pManager.AddBrepParameter("Containerbox", "C", "Containerbox aus TH_05 Block", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Referenz-Solid", "R", "Orientiertes Referenz-Solid aus TH_05 Block", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV Header", "H", "CSV-Headerzeile aus TH_07 BOM", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV Zeilen", "L", "CSV-Datenzeilen aus TH_07 BOM", GH_ParamAccess.list);
-            pManager.AddTextParameter("Export Ordner", "P", "Exportpfad", GH_ParamAccess.item, "");
-            pManager.AddTextParameter("Dateiname Basis", "N", "Basisname der Exportdateien", GH_ParamAccess.item, "Thekenfront");
+            pManager.AddBrepParameter("Bretter", "Bretter", "Bretter aus Thekenfront 05 Verleimblock", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Containerbox", "Box", "Containerbox aus Thekenfront 05 Verleimblock", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Referenzkoerper", "Referenz", "Referenzkoerper aus Thekenfront 05 Verleimblock", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV-Kopf", "Header", "CSV-Headerzeile aus Thekenfront 07 Stueckliste", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV-Zeilen", "CSV", "CSV-Datenzeilen aus Thekenfront 07 Stueckliste", GH_ParamAccess.list);
+            pManager.AddTextParameter("Exportordner", "Ordner", "Zielordner fuer den Export", GH_ParamAccess.item, "");
+            pManager.AddTextParameter("Dateiname", "Name", "Basisname der Exportdateien", GH_ParamAccess.item, "Thekenfront");
             pManager.AddBooleanParameter("3DM schreiben", "3DM", "3DM-Datei exportieren", GH_ParamAccess.item, true);
             pManager.AddBooleanParameter("CSV schreiben", "CSV", "CSV-Datei exportieren", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("Export starten", "!", "True = Export ausfuehren", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Export starten", "Start", "True = Export ausfuehren", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Dateien", "F", "Geschriebene Dateipfade", GH_ParamAccess.list);
-            pManager.AddTextParameter("Log", "Log", "Export-Protokoll", GH_ParamAccess.list);
+            pManager.AddTextParameter("Dateien", "Dateien", "Geschriebene Dateipfade", GH_ParamAccess.list);
+            pManager.AddTextParameter("Protokoll", "Log", "Export-Protokoll", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -70,7 +70,7 @@ namespace LARGERslicer.Components.Thekenfront
 
             if (!run)
             {
-                log.Add("Run=false: Export bereit.");
+                log.Add("Export ist bereit. Setze 'Export starten' auf True.");
                 DA.SetDataList(0, files);
                 DA.SetDataList(1, log);
                 return;
@@ -101,11 +101,11 @@ namespace LARGERslicer.Components.Thekenfront
 
                     f3.Write(p3, 7);
                     files.Add(p3);
-                    log.Add("3DM geschrieben");
+                    log.Add("3DM-Datei geschrieben");
                 }
                 catch (Exception ex)
                 {
-                    log.Add("3DM Fehler: " + ex.Message);
+                    log.Add("Fehler beim Schreiben der 3DM-Datei: " + ex.Message);
                 }
             }
 
@@ -120,11 +120,11 @@ namespace LARGERslicer.Components.Thekenfront
                         sb.AppendLine(l);
                     File.WriteAllText(pc, sb.ToString(), Encoding.UTF8);
                     files.Add(pc);
-                    log.Add("CSV geschrieben");
+                    log.Add("CSV-Datei geschrieben");
                 }
                 catch (Exception ex)
                 {
-                    log.Add("CSV Fehler: " + ex.Message);
+                    log.Add("Fehler beim Schreiben der CSV-Datei: " + ex.Message);
                 }
             }
 

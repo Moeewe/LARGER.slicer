@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using LARGERslicer.Types;
 using Rhino.Geometry;
 
@@ -8,10 +9,10 @@ namespace LARGERslicer.Components.Thekenfront
 {
     public class ThekenfrontBlockComponent : GH_Component
     {
-        public ThekenfrontBlockComponent()
-          : base("TH Block", "TH_05",
-              "Erzeugt den Verleimblock aus Split-Brettern, Tiefenstufen und Brettlaenge.",
-              "", "")
+                public ThekenfrontBlockComponent()
+                    : base("Thekenfront 05 Verleimblock", "TH_05",
+                            "Erzeugt den Verleimblock aus Brettern, Fraestiefen und Brettlaenge.",
+                            "", "")
         {
         }
 
@@ -20,18 +21,18 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientiertes Solid", "OS", "Referenz-Solid aus TH_01", GH_ParamAccess.item);
-            pManager.AddGenericParameter("Split Bretter", "SB", "Bretter bzw. Bretthaelften aus TH_03b", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Tiefen", "T", "Tiefenstufe pro Brett aus TH_04", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Brettlaenge", "L", "Einheitliche Brettlaenge aus TH_04", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Ueberstand links/rechts", "ULR", "Ueberstand fuer die Positionierung in mm", GH_ParamAccess.item, 100.0);
+            pManager.AddBrepParameter("Orientierter Koerper", "Koerper", "Referenzkoerper aus Thekenfront 01 Ausrichtung", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus Thekenfront 03b Fuge teilen", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Fraestiefe je Brett aus Thekenfront 04 Fraestiefe", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Einheitliche Brettlaenge aus Thekenfront 04 Fraestiefe", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Seitlicher Ueberstand", "Ueberstand", "Ueberstand fuer die Positionierung in mm", GH_ParamAccess.item, 100.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBrepParameter("Bretter", "B", "Bretter/Bretthaelften als Breps", GH_ParamAccess.list);
-            pManager.AddBrepParameter("Containerbox", "C", "Gesamt-Bounding-Box des Verleimblocks", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Referenz-Solid", "R", "Orientiertes Referenz-Solid", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Bretter", "Bretter", "Alle Bretter als Breps", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Containerbox", "Box", "Umhuellende Box des Verleimblocks", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Referenzkoerper", "Referenz", "Orientierter Referenzkoerper", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -55,13 +56,19 @@ namespace LARGERslicer.Components.Thekenfront
             var boards = new List<ThekenBoard>();
             foreach (var o in boardsRaw)
             {
-                if (o is ThekenBoard row)
+                if (TryGetBoard(o, out ThekenBoard row))
                     boards.Add(row);
+            }
+
+            if (boardsRaw.Count > 0 && boards.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Eingabedaten koennen nicht als Brettliste gelesen werden.");
+                return;
             }
 
             if (boards.Count != depths.Count)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Anzahl Split Bretter und Tiefen muss uebereinstimmen.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Anzahl Bretter und Fraestiefen muss uebereinstimmen.");
                 return;
             }
 
@@ -96,6 +103,25 @@ namespace LARGERslicer.Components.Thekenfront
             DA.SetDataList(0, breps);
             DA.SetData(1, container);
             DA.SetData(2, refSolid);
+        }
+
+        private static bool TryGetBoard(object input, out ThekenBoard board)
+        {
+            board = null;
+
+            if (input is ThekenBoard directBoard)
+            {
+                board = directBoard;
+                return true;
+            }
+
+            if (input is GH_ObjectWrapper wrapper && wrapper.Value is ThekenBoard wrappedBoard)
+            {
+                board = wrappedBoard;
+                return true;
+            }
+
+            return false;
         }
 
         protected override System.Drawing.Bitmap Icon => null;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using LARGERslicer.Types;
 using Rhino.Geometry;
 
@@ -8,10 +9,10 @@ namespace LARGERslicer.Components.Thekenfront
 {
     public class ThekenfrontDepthComponent : GH_Component
     {
-        public ThekenfrontDepthComponent()
-          : base("TH Depth", "TH_04",
-              "Berechnet Tiefenstufen pro Brett bzw. Bretthaelfte aus dem orientierten Solid.",
-              "", "")
+                public ThekenfrontDepthComponent()
+                    : base("Thekenfront 04 Fraestiefe", "TH_04",
+                            "Berechnet fuer jedes Brett die benoetigte Fraestiefe in Stufen.",
+                            "", "")
         {
         }
 
@@ -20,21 +21,21 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientiertes Solid", "OS", "Aus TH_01 Orient", GH_ParamAccess.item);
-            pManager.AddGenericParameter("Split Bretter", "SB", "Bretter bzw. Bretthaelften aus TH_03b", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Tiefenbasis", "TB", "Basistiefe des Stufenrasters in mm", GH_ParamAccess.item, 150.0);
-            pManager.AddNumberParameter("Tiefenschritt", "TS", "Stufenweite des Tiefenrasters in mm", GH_ParamAccess.item, 50.0);
-            pManager.AddNumberParameter("Puffer vorne", "PV", "Zusaetzlicher Puffer an der Frontseite in mm", GH_ParamAccess.item, 5.0);
-            pManager.AddNumberParameter("Puffer hinten", "PH", "Zusaetzlicher Puffer an der Rueckseite in mm", GH_ParamAccess.item, 5.0);
-            pManager.AddNumberParameter("Ueberstand links/rechts", "ULR", "Einheitlicher Ueberstand fuer die Brettlaenge in mm", GH_ParamAccess.item, 100.0);
+            pManager.AddBrepParameter("Orientierter Koerper", "Koerper", "Aus Thekenfront 01 Ausrichtung", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus Thekenfront 03b Fuge teilen", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Starttiefe", "Start", "Kleinste zulaessige Fraestiefe in mm", GH_ParamAccess.item, 150.0);
+            pManager.AddNumberParameter("Tiefenschritt", "Schritt", "Stufenweite fuer die Fraestiefe in mm", GH_ParamAccess.item, 50.0);
+            pManager.AddNumberParameter("Vorderer Puffer", "Vorne", "Zusaetzlicher Puffer vorne in mm", GH_ParamAccess.item, 5.0);
+            pManager.AddNumberParameter("Hinterer Puffer", "Hinten", "Zusaetzlicher Puffer hinten in mm", GH_ParamAccess.item, 5.0);
+            pManager.AddNumberParameter("Seitlicher Ueberstand", "Ueberstand", "Zusaetzliche Brettlaenge links und rechts in mm", GH_ParamAccess.item, 100.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddNumberParameter("Tiefen", "T", "Tiefenstufe pro Brett/Bretthaelfte in mm", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Brettlaenge", "L", "Einheitliche Brettlaenge in mm", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Rohtiefen", "RT", "Ungerasterte Maximaltiefe pro Brett in mm", GH_ParamAccess.list);
-            pManager.AddTextParameter("Info", "I", "Berechnungsprotokoll je Brett", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Berechnete Fraestiefe je Brett in mm", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Einheitliche Brettlaenge in mm", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Rohtiefen", "Roh", "Unrasterte Maximaltiefe je Brett in mm", GH_ParamAccess.list);
+            pManager.AddTextParameter("Info", "Info", "Erlaeuterung zur Tiefenberechnung je Brett", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -59,15 +60,21 @@ namespace LARGERslicer.Components.Thekenfront
 
             if (depthStep <= 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Depth Step muss > 0 sein.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Der Tiefenschritt muss groesser als 0 sein.");
                 return;
             }
 
             var boards = new List<ThekenBoard>();
             foreach (var o in boardsRaw)
             {
-                if (o is ThekenBoard tb)
+                if (TryGetBoard(o, out ThekenBoard tb))
                     boards.Add(tb);
+            }
+
+            if (boardsRaw.Count > 0 && boards.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Eingabedaten koennen nicht als Brettliste gelesen werden.");
+                return;
             }
 
             BoundingBox bb = solid.GetBoundingBox(true);
@@ -135,6 +142,25 @@ namespace LARGERslicer.Components.Thekenfront
 
             double n = Math.Ceiling((value - baseDepth) / step);
             return baseDepth + n * step;
+        }
+
+        private static bool TryGetBoard(object input, out ThekenBoard board)
+        {
+            board = null;
+
+            if (input is ThekenBoard directBoard)
+            {
+                board = directBoard;
+                return true;
+            }
+
+            if (input is GH_ObjectWrapper wrapper && wrapper.Value is ThekenBoard wrappedBoard)
+            {
+                board = wrappedBoard;
+                return true;
+            }
+
+            return false;
         }
 
         protected override System.Drawing.Bitmap Icon => null;

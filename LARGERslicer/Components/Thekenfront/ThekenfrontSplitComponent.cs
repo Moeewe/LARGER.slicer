@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using LARGERslicer.Types;
 
 namespace LARGERslicer.Components.Thekenfront
 {
     public class ThekenfrontSplitComponent : GH_Component
     {
-        public ThekenfrontSplitComponent()
-          : base("TH Fuge Split", "TH_03b",
-                            "Teilt Fuge-Bretter in Brett A und Brett B fuer separate Fraeselemente.",
-              "", "")
+                public ThekenfrontSplitComponent()
+                    : base("Thekenfront 03b Fuge teilen", "TH_03b",
+                                                        "Teilt jedes Fuge-Brett in unteren und oberen Teil.",
+                            "", "")
         {
         }
 
@@ -19,14 +20,14 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Bretter", "B", "Bretter aus TH_03 Slice", GH_ParamAccess.list);
-            pManager.AddBooleanParameter("Split aktiv", "S", "True = Fuge-Bretter in A/B teilen", GH_ParamAccess.item, true);
+            pManager.AddGenericParameter("Bretter", "Bretter", "Bretter aus Thekenfront 03 Bretteinteilung", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Split aktiv", "Aktiv", "True = Fuge-Bretter teilen", GH_ParamAccess.item, true);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Split Bretter", "SB", "Bretterliste nach dem Splitten der Fuge-Bretter", GH_ParamAccess.list);
-            pManager.AddTextParameter("Info", "I", "Split-Protokoll", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Split Bretter", "Split", "Bretterliste nach dem Teilen der Fuge-Bretter", GH_ParamAccess.list);
+            pManager.AddTextParameter("Info", "Info", "Erlaeuterungen zum Split", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -41,8 +42,14 @@ namespace LARGERslicer.Components.Thekenfront
             var inputBoards = new List<ThekenBoard>();
             foreach (var o in boardsObj)
             {
-                if (o is ThekenBoard tb)
+                if (TryGetBoard(o, out ThekenBoard tb))
                     inputBoards.Add(tb);
+            }
+
+            if (boardsObj.Count > 0 && inputBoards.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Eingabedaten koennen nicht als Brettliste gelesen werden.");
+                return;
             }
 
             var outBoards = new List<ThekenBoard>();
@@ -51,7 +58,7 @@ namespace LARGERslicer.Components.Thekenfront
             if (!split)
             {
                 outBoards.AddRange(inputBoards);
-                info.Add("Split deaktiviert.");
+                info.Add("Split ist deaktiviert. Es wird die unveraenderte Brettliste ausgegeben.");
                 DA.SetDataList(0, outBoards);
                 DA.SetDataList(1, info);
                 return;
@@ -91,7 +98,7 @@ namespace LARGERslicer.Components.Thekenfront
                     else
                     {
                         outBoards.Add(b);
-                        info.Add($"Fuge in Board {b.SourceIndex} konnte wegen Geometriegrenzen nicht gesplittet werden.");
+                        info.Add($"Fuge im Brett {b.SourceIndex} konnte wegen ungueltiger Grenzen nicht geteilt werden.");
                     }
                 }
                 else
@@ -100,9 +107,28 @@ namespace LARGERslicer.Components.Thekenfront
                 }
             }
 
-            info.Add($"Split parts created from fuge boards: {createdSplits}");
+            info.Add($"Erzeugte gesplittete Fuge-Bretter: {createdSplits}");
             DA.SetDataList(0, outBoards);
             DA.SetDataList(1, info);
+        }
+
+        private static bool TryGetBoard(object input, out ThekenBoard board)
+        {
+            board = null;
+
+            if (input is ThekenBoard directBoard)
+            {
+                board = directBoard;
+                return true;
+            }
+
+            if (input is GH_ObjectWrapper wrapper && wrapper.Value is ThekenBoard wrappedBoard)
+            {
+                board = wrappedBoard;
+                return true;
+            }
+
+            return false;
         }
 
         protected override System.Drawing.Bitmap Icon => null;

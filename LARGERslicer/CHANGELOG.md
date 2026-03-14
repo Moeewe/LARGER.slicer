@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.41] - 2026-03-14
+
+### Changed
+- Thekenfront: Alle Komponenten-Namen, Portbezeichnungen und Fehlermeldungen auf verstaendliches Deutsch umgestellt
+- Thekenfront: TH_01 Orient verwendet jetzt zweistufige Ausrichtung – Roll-Korrektur stellt sicher, dass Bretter parallel zur originalen Ober-/Unterseite liegen
+
+### Fixed
+- TH_03 Slice: Doppelte Fehlermeldungen und defekte Info-Listen-Initialisierung bereinigt
+
 ## [1.0.40] - 2026-03-14
 
 ### Fixed

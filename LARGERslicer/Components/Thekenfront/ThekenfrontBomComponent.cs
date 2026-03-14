@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using LARGERslicer.Types;
 using Rhino.Geometry;
 
@@ -10,10 +11,10 @@ namespace LARGERslicer.Components.Thekenfront
 {
     public class ThekenfrontBomComponent : GH_Component
     {
-        public ThekenfrontBomComponent()
-          : base("TH BOM", "TH_07",
-              "Erzeugt die Stueckliste fuer GH-Panel und CSV-Export.",
-              "", "")
+                public ThekenfrontBomComponent()
+                    : base("Thekenfront 07 Stueckliste", "TH_07",
+                            "Erzeugt eine Stueckliste fuer Panel-Anzeige und CSV-Export.",
+                            "", "")
         {
         }
 
@@ -22,21 +23,21 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Split Bretter", "SB", "Bretter bzw. Bretthaelften aus TH_03b", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Tiefen", "T", "Tiefenstufe pro Brett aus TH_04", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Brettlaenge", "L", "Einheitliche Brettlaenge aus TH_04", GH_ParamAccess.item);
-            pManager.AddTextParameter("Material", "M", "Material-Freitext fuer die Stueckliste", GH_ParamAccess.item, "MDF / Vollholz");
-            pManager.AddBrepParameter("Saug links", "SL", "Optionales Saugelement links aus TH_06", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Saug rechts", "SR", "Optionales Saugelement rechts aus TH_06", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus Thekenfront 03b Fuge teilen", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Fraestiefen aus Thekenfront 04 Fraestiefe", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Brettlaenge aus Thekenfront 04 Fraestiefe", GH_ParamAccess.item);
+            pManager.AddTextParameter("Material", "Material", "Materialname fuer die Stueckliste", GH_ParamAccess.item, "MDF / Vollholz");
+            pManager.AddBrepParameter("Saugelement links", "Links", "Optionales Saugelement links aus Thekenfront 06 Saugelemente", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Saugelement rechts", "Rechts", "Optionales Saugelement rechts aus Thekenfront 06 Saugelemente", GH_ParamAccess.item);
             pManager[4].Optional = true;
             pManager[5].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Panel", "P", "Formatierte Stueckliste fuer ein GH-Panel", GH_ParamAccess.list);
-            pManager.AddTextParameter("CSV Header", "H", "CSV-Headerzeile", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV Lines", "C", "CSV-Datenzeilen", GH_ParamAccess.list);
+            pManager.AddTextParameter("Paneltext", "Panel", "Formatierte Stueckliste fuer ein GH-Panel", GH_ParamAccess.list);
+            pManager.AddTextParameter("CSV-Kopf", "Header", "CSV-Headerzeile", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV-Zeilen", "CSV", "CSV-Datenzeilen", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -60,12 +61,18 @@ namespace LARGERslicer.Components.Thekenfront
 
             var rows = new List<ThekenBoard>();
             foreach (var o in raw)
-                if (o is ThekenBoard t)
+                if (TryGetBoard(o, out ThekenBoard t))
                     rows.Add(t);
+
+            if (raw.Count > 0 && rows.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Eingabedaten koennen nicht als Brettliste gelesen werden.");
+                return;
+            }
 
             if (rows.Count != depths.Count)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Anzahl Split Bretter und Tiefen muss uebereinstimmen.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Anzahl Bretter und Fraestiefen muss uebereinstimmen.");
                 return;
             }
 
@@ -151,6 +158,25 @@ namespace LARGERslicer.Components.Thekenfront
                 "Aufspanngeometrie"
             }));
             pos++;
+        }
+
+        private static bool TryGetBoard(object input, out ThekenBoard board)
+        {
+            board = null;
+
+            if (input is ThekenBoard directBoard)
+            {
+                board = directBoard;
+                return true;
+            }
+
+            if (input is GH_ObjectWrapper wrapper && wrapper.Value is ThekenBoard wrappedBoard)
+            {
+                board = wrappedBoard;
+                return true;
+            }
+
+            return false;
         }
 
         protected override System.Drawing.Bitmap Icon => null;

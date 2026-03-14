@@ -7,10 +7,10 @@ namespace LARGERslicer.Components.Thekenfront
 {
     public class ThekenfrontSliceComponent : GH_Component
     {
-        public ThekenfrontSliceComponent()
-          : base("TH Slice", "TH_03",
-                            "Erzeugt die Bretteinteilung inklusive Fugenlogik und Restmassverteilung.",
-              "", "")
+                public ThekenfrontSliceComponent()
+                    : base("Thekenfront 03 Bretteinteilung", "TH_03",
+                                                "Teilt die Hoehe in Randbretter, Mittelbretter und Fuge-Bretter auf.",
+                            "", "")
         {
         }
 
@@ -19,22 +19,22 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddNumberParameter("Gesamthoehe", "H", "Gesamthoehe des Blocks in mm, typischerweise aus TH_02 Hoehe Z", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Randbrett unten", "RU", "Fixe Dicke des unteren Randbretts in mm", GH_ParamAccess.item, 35.0);
-            pManager.AddNumberParameter("Randbrett oben", "RO", "Fixe Dicke des oberen Randbretts in mm", GH_ParamAccess.item, 35.0);
-            pManager.AddNumberParameter("Brettstaerke Mitte", "BM", "Standardstaerke der Mittelbretter in mm", GH_ParamAccess.item, 30.0);
-            pManager.AddIntegerParameter("Fugenanzahl", "FA", "Anzahl der Fugen", GH_ParamAccess.item, 1);
-            pManager.AddNumberParameter("Fugenbreite min", "FW", "Minimale Fugenbreite in mm", GH_ParamAccess.item, 4.0);
-            pManager.AddNumberParameter("Fugenpositionen", "FP", "Optionale absolute Hoehen der Fugenmitten in mm", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Gesamthoehe", "Hoehe", "Gesamthoehe des Blocks in mm (z. B. aus Thekenfront 02 Blockmasse)", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Randbrett unten", "Unten", "Dicke des unteren Randbretts in mm", GH_ParamAccess.item, 35.0);
+            pManager.AddNumberParameter("Randbrett oben", "Oben", "Dicke des oberen Randbretts in mm", GH_ParamAccess.item, 35.0);
+            pManager.AddNumberParameter("Mittelbrett-Staerke", "Mitte", "Dicke der Mittelbretter in mm", GH_ParamAccess.item, 30.0);
+            pManager.AddIntegerParameter("Fugenanzahl", "Fugen", "Anzahl der Fugen", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Minimale Fugenbreite", "MinFuge", "Mindestbreite je Fuge in mm", GH_ParamAccess.item, 4.0);
+            pManager.AddNumberParameter("Fugenpositionen", "Positionen", "Optional: absolute Hoehen der Fugenmitten in mm", GH_ParamAccess.list);
             pManager[6].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Bretter", "B", "Liste der erzeugten Bretter mit Fugen-Metadaten", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fugenmitten", "FM", "Berechnete bzw. uebernommene Fugenmitten in mm", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fugenbreite", "FW", "Tatsaechliche Fugenbreite nach Restmassverteilung in mm", GH_ParamAccess.item);
-            pManager.AddTextParameter("Info", "I", "Berechnungsprotokoll", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Bretter", "Bretter", "Erzeugte Bretter inklusive Fuge-Metadaten", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Fugenmitten", "Mitten", "Fugenmitten in mm", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Fugenbreite", "Breite", "Tatsaechliche Fugenbreite in mm", GH_ParamAccess.item);
+            pManager.AddTextParameter("Info", "Info", "Erlaeuterungen zur Bretteinteilung", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -58,7 +58,7 @@ namespace LARGERslicer.Components.Thekenfront
 
             if (h <= 0 || ru <= 0 || ro <= 0 || mb <= 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Alle Dicken/Hoehen muessen > 0 sein.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Alle Hoehen und Dicken muessen groesser als 0 sein.");
                 return;
             }
 
@@ -68,7 +68,7 @@ namespace LARGERslicer.Components.Thekenfront
             double inner = h - ru - ro;
             if (inner <= fw * fn)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Zu wenig Hoehe fuer Bretter und Fugen.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Gesamthoehe ist zu klein fuer Bretter und Fugen.");
                 return;
             }
 
@@ -100,7 +100,7 @@ namespace LARGERslicer.Components.Thekenfront
             {
                 if (fugenMitten[i] <= ru || fugenMitten[i] >= (h - ro))
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Mindestens eine Fugenposition liegt ausserhalb des gueltigen Innenbereichs.");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Mindestens eine Fugenposition liegt ausserhalb des nutzbaren Innenbereichs.");
                     return;
                 }
             }
@@ -121,7 +121,7 @@ namespace LARGERslicer.Components.Thekenfront
 
                 if (fugeLow <= zCursor)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Fuge bei Z={fugeCenter:F2} liegt zu tief oder ueberschneidet eine vorherige Fuge.");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Fuge bei Z={fugeCenter:F2} ist ungueltig oder ueberschneidet eine andere Fuge.");
                     return;
                 }
 
@@ -164,7 +164,7 @@ namespace LARGERslicer.Components.Thekenfront
             int remainingMiddleBoards = middleCount - consumedMiddleBoards;
             if (remainingMiddleBoards < 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Fugenlogik verbraucht mehr Mittelbretter als verfuegbar.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Fugenaufteilung passt nicht zu den eingestellten Brettstaerken.");
                 return;
             }
 
@@ -184,17 +184,17 @@ namespace LARGERslicer.Components.Thekenfront
             if (Math.Abs(zCursor - expectedTopStart) > 0.01)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                    $"Brettstapel endet bei Z={zCursor:F2}, Randbrett oben startet bei Z={expectedTopStart:F2}. Bitte Parameter pruefen.");
+                    $"Brettstapel endet bei Z={zCursor:F2}, Randbrett oben beginnt bei Z={expectedTopStart:F2}. Bitte Parameter pruefen.");
             }
 
             boards.Add(new ThekenBoard { ZMin = expectedTopStart, ZMax = h, Type = "Randbrett oben", SourceIndex = src++ });
 
             var infos = new List<string>
             {
-                $"inner={inner:F2}",
-                $"middleCount={middleCount}",
-                $"fugeWidth={actualFugeWidth:F2}",
-                $"fugeBoardsMarked={marked}"
+                $"Nutzhoehe innen: {inner:F2} mm",
+                $"Anzahl Mittelbretter: {middleCount}",
+                $"Tatsaechliche Fugenbreite: {actualFugeWidth:F2} mm",
+                $"Anzahl Fuge-Bretter: {marked}"
             };
 
             // Fugen als Marker-Info, die eigentliche Teilung passiert in TH_03b.
