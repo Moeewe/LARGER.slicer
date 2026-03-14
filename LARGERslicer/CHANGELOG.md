@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.48] - 2026-03-14
+
+### Added
+- TH_01 Orient: Neuer Input 'Drehwinkel' (default 0°).
+  Rotiert die Brettorientierung um die Top-Achse.
+  Typisch: 0° / 90° / 180° / 270° um Laenge und Tiefe zu tauschen.
+
 ## [1.0.47] - 2026-03-14
 
 ### Changed

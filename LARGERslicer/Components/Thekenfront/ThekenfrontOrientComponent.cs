@@ -23,6 +23,7 @@ namespace LARGERslicer.Components.Thekenfront
             pManager[1].Optional = true;
             pManager.AddSurfaceParameter("Frontflaeche", "Front", "Referenzflaeche fuer die Front (definiert Tiefenrichtung Y)", GH_ParamAccess.item);
             pManager[2].Optional = true;
+            pManager.AddNumberParameter("Drehwinkel", "Winkel", "Zusaetzliche Rotation der Brettorientierung um die Top-Achse in Grad (0/90/180/270)", GH_ParamAccess.item, 0.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -37,11 +38,13 @@ namespace LARGERslicer.Components.Thekenfront
             Brep solid = null;
             Surface topSrf = null;
             Surface frontSrf = null;
+            double angle = 0;
 
             if (!DA.GetData(0, ref solid))
                 return;
             DA.GetData(1, ref topSrf);
             DA.GetData(2, ref frontSrf);
+            DA.GetData(3, ref angle);
 
             if (solid == null || !solid.IsValid || !solid.IsSolid)
             {
@@ -102,6 +105,20 @@ namespace LARGERslicer.Components.Thekenfront
             // Laengsrichtung = Kreuzprodukt
             Vector3d nRight = Vector3d.CrossProduct(nFront, nTop);
             nRight.Unitize();
+
+            // Zusaetzliche Rotation um die Top-Achse (nTop)
+            if (Math.Abs(angle) > Rhino.RhinoMath.ZeroTolerance)
+            {
+                double rad = Rhino.RhinoMath.ToRadians(angle);
+                double cos = Math.Cos(rad);
+                double sin = Math.Sin(rad);
+                Vector3d newRight = cos * nRight + sin * nFront;
+                Vector3d newFront = -sin * nRight + cos * nFront;
+                nRight = newRight;
+                nRight.Unitize();
+                nFront = newFront;
+                nFront.Unitize();
+            }
 
             // Zentrum des Solids als Frame-Ursprung
             var amp = AreaMassProperties.Compute(solid);
