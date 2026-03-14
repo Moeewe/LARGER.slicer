@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.42] - 2026-03-14
+
+### Fixed
+- TH_01 Orient: Komplett ueberarbeitete Ausrichtung mit PlaneToPlane statt zweistufiger Rotation.
+  Front- und Ober-/Unterseitenflaeche werden im Originalsystem gleichzeitig erkannt,
+  sodass Bretter zuverlaessig parallel zur originalen Ober-/Unterseite liegen.
+
 ## [1.0.41] - 2026-03-14
 
 ### Changed

@@ -55,33 +55,50 @@ namespace LARGERslicer.Components.Thekenfront
             }
 
             BrepFace face = solid.Faces[useIndex];
-            if (!TryGetFaceNormal(face, out Point3d center, out Vector3d normal))
+            if (!TryGetFaceNormal(face, out Point3d center, out Vector3d nFront))
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Frontflaeche konnte nicht ausgewertet werden.");
                 return;
             }
 
-            normal.Unitize();
+            nFront.Unitize();
 
-            // Schritt 1: Front-Normale nach +Z drehen
-            Transform alignFront = Transform.Rotation(normal, Vector3d.ZAxis, center);
+            // Ober-/Unterseite des Originals finden (groesste Flaeche senkrecht zur Front)
+            Vector3d nTop = FindPerpendicularFaceNormal(solid, useIndex, nFront);
+
+            // Orthogonalisieren: Anteil von nTop parallel zu nFront entfernen
+            Vector3d nTopPerp = nTop - (nTop * nFront) * nFront;
+            if (nTopPerp.Length < Rhino.RhinoMath.ZeroTolerance)
+            {
+                // Fallback: Welt-Z senkrecht zu nFront projizieren
+                nTopPerp = Vector3d.ZAxis - (Vector3d.ZAxis * nFront) * nFront;
+                if (nTopPerp.Length < Rhino.RhinoMath.ZeroTolerance)
+                    nTopPerp = Vector3d.YAxis - (Vector3d.YAxis * nFront) * nFront;
+            }
+            nTopPerp.Unitize();
+
+            // Dritte Achse = Kreuzprodukt
+            Vector3d nRight = Vector3d.CrossProduct(nTopPerp, nFront);
+            nRight.Unitize();
+
+            // Quell-Frame: X=Laengsrichtung, Y=Ober/Unterseite, Normal=Front
+            Plane source = new Plane(center, nRight, nTopPerp);
+
+            // Ziel-Frame: X=WorldX, Y=WorldY, Normal=WorldZ
+            // Ergebnis: Front → +Z, Ober/Unterseite → +Y, Laenge → +X
+            Plane target = new Plane(center, Vector3d.XAxis, Vector3d.YAxis);
+
+            Transform orient = Transform.PlaneToPlane(source, target);
 
             Brep result = solid.DuplicateBrep();
-            result.Transform(alignFront);
+            result.Transform(orient);
 
-            // Schritt 2: Um Z drehen, damit die ehemalige Ober-/Unterseite
-            // (groesste Nicht-Front-Flaeche) in Y zeigt.
-            // Die Bretter werden als Z-Schichten erzeugt und muessen
-            // parallel zur originalen Ober-/Unterseite liegen.
-            Transform alignRoll = FindRollCorrection(result, useIndex);
-            result.Transform(alignRoll);
-
-            // Schritt 3: An den Ursprung verschieben (Min auf 0,0,0)
+            // An den Ursprung verschieben (BBox-Min auf 0,0,0)
             BoundingBox bb = result.GetBoundingBox(true);
             Transform move = Transform.Translation(-bb.Min.X, -bb.Min.Y, -bb.Min.Z);
             result.Transform(move);
 
-            Transform total = move * alignRoll * alignFront;
+            Transform total = move * orient;
             DA.SetData(0, result);
             DA.SetData(1, total);
             DA.SetData(2, useIndex);
@@ -125,57 +142,49 @@ namespace LARGERslicer.Components.Thekenfront
         }
 
         /// <summary>
-        /// Nach der Front-nach-Z-Drehung: Finde die groesste Flaeche, deren Normale
-        /// ueberwiegend in der XY-Ebene liegt (= ehemalige Ober-/Unterseite),
-        /// und drehe das Solid um Z, damit diese Flaeche nach +Y oder -Y zeigt.
-        /// So liegen die spaeter erzeugten Z-Schicht-Bretter parallel zur
-        /// originalen Ober-/Unterseite.
+        /// Sucht im Original-Solid die groesste Flaeche, deren Normale
+        /// moeglichst senkrecht zur Frontnormalen steht (= Ober-/Unterseite).
         /// </summary>
-        private static Transform FindRollCorrection(Brep rotatedSolid, int frontFaceIndex)
+        private static Vector3d FindPerpendicularFaceNormal(Brep solid, int frontIndex, Vector3d frontNormal)
         {
-            double bestArea = 0;
-            Vector3d bestNormalXY = Vector3d.Unset;
+            frontNormal.Unitize();
+            double bestScore = 0;
+            Vector3d bestNormal = Vector3d.Unset;
 
-            for (int i = 0; i < rotatedSolid.Faces.Count; i++)
+            for (int i = 0; i < solid.Faces.Count; i++)
             {
-                if (!TryGetFaceNormal(rotatedSolid.Faces[i], out _, out Vector3d n))
+                if (i == frontIndex)
+                    continue;
+
+                if (!TryGetFaceNormal(solid.Faces[i], out _, out Vector3d n))
                     continue;
 
                 n.Unitize();
 
-                // Nur Flaechen betrachten, deren Normale ueberwiegend in XY liegt
-                // (also nicht die Frontflaeche/Rueckseite, die nach +Z/-Z zeigt)
-                double zComponent = Math.Abs(n.Z);
-                if (zComponent > 0.5)
+                // Flaechen ueberspringen, deren Normale zu parallel zur Front steht
+                double parallelism = Math.Abs(n * frontNormal);
+                if (parallelism > 0.7)
                     continue;
 
-                var amp = AreaMassProperties.Compute(rotatedSolid.Faces[i]);
+                double perpendicularity = 1.0 - parallelism;
+
+                var amp = AreaMassProperties.Compute(solid.Faces[i]);
                 if (amp == null)
                     continue;
 
-                double area = amp.Area;
-                if (area > bestArea)
+                double score = amp.Area * perpendicularity;
+                if (score > bestScore)
                 {
-                    bestArea = area;
-                    // Projiziere Normale in XY-Ebene
-                    bestNormalXY = new Vector3d(n.X, n.Y, 0);
+                    bestScore = score;
+                    bestNormal = n;
                 }
             }
 
-            if (!bestNormalXY.IsValid || bestNormalXY.Length < Rhino.RhinoMath.ZeroTolerance)
-                return Transform.Identity;
+            // Fallback: Welt-Z wenn nichts passendes gefunden
+            if (!bestNormal.IsValid)
+                return Vector3d.ZAxis;
 
-            bestNormalXY.Unitize();
-
-            // Drehe so, dass die Ober-/Unterseiten-Normale nach +Y zeigt
-            // (oder -Y, je nach Orientierung – wir nehmen die Richtung,
-            // die weniger dreht, also den kuerzeren Weg)
-            double angle = Math.Atan2(bestNormalXY.X, bestNormalXY.Y);
-
-            BoundingBox rbb = rotatedSolid.GetBoundingBox(true);
-            Point3d centroid = 0.5 * (rbb.Min + rbb.Max);
-
-            return Transform.Rotation(-angle, Vector3d.ZAxis, centroid);
+            return bestNormal;
         }
 
         protected override System.Drawing.Bitmap Icon => null;
