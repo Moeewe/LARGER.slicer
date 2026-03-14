@@ -13,7 +13,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
         public ThekenfrontExportComponent()
           : base("TH Export", "TH_08",
-              "Exportiert 3DM und CSV fuer Thekenfront-Toolset.",
+                            "Exportiert Bretter, Containerbox und Stueckliste als 3DM bzw. CSV.",
               "", "")
         {
         }
@@ -23,22 +23,22 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Boards", "B", "Bretter", GH_ParamAccess.list);
-            pManager.AddBrepParameter("Container", "C", "Container", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Reference", "R", "Referenz", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV Header", "H", "CSV Header", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV Lines", "L", "CSV Zeilen", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Bretter", "B", "Bretter aus TH_05 Block", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Containerbox", "C", "Containerbox aus TH_05 Block", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Referenz-Solid", "R", "Orientiertes Referenz-Solid aus TH_05 Block", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV Header", "H", "CSV-Headerzeile aus TH_07 BOM", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV Zeilen", "L", "CSV-Datenzeilen aus TH_07 BOM", GH_ParamAccess.list);
             pManager.AddTextParameter("Export Ordner", "P", "Exportpfad", GH_ParamAccess.item, "");
-            pManager.AddTextParameter("Base Name", "N", "Dateiname", GH_ParamAccess.item, "Thekenfront");
-            pManager.AddBooleanParameter("Write 3DM", "3DM", "3DM schreiben", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("Write CSV", "CSV", "CSV schreiben", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("Run", "!", "Export ausfuehren", GH_ParamAccess.item, false);
+            pManager.AddTextParameter("Dateiname Basis", "N", "Basisname der Exportdateien", GH_ParamAccess.item, "Thekenfront");
+            pManager.AddBooleanParameter("3DM schreiben", "3DM", "3DM-Datei exportieren", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("CSV schreiben", "CSV", "CSV-Datei exportieren", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Export starten", "!", "True = Export ausfuehren", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Files", "F", "Geschriebene Dateien", GH_ParamAccess.list);
-            pManager.AddTextParameter("Log", "Log", "Export-Log", GH_ParamAccess.list);
+            pManager.AddTextParameter("Dateien", "F", "Geschriebene Dateipfade", GH_ParamAccess.list);
+            pManager.AddTextParameter("Log", "Log", "Export-Protokoll", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

@@ -9,7 +9,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
         public ThekenfrontSplitComponent()
           : base("TH Fuge Split", "TH_03b",
-              "Teilt Bretter an Fugenmitten in A/B-Haelften fuer separate Fraeselemente.",
+                            "Teilt Fuge-Bretter in Brett A und Brett B fuer separate Fraeselemente.",
               "", "")
         {
         }
@@ -19,14 +19,14 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Boards", "B", "ThekenBoard-Liste aus TH_03", GH_ParamAccess.list);
-            pManager.AddBooleanParameter("Split aktiv", "S", "True = Split erzeugen", GH_ParamAccess.item, true);
+            pManager.AddGenericParameter("Bretter", "B", "Bretter aus TH_03 Slice", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Split aktiv", "S", "True = Fuge-Bretter in A/B teilen", GH_ParamAccess.item, true);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Split Boards", "SB", "Ausgangs-Bretter inkl. Splitteile", GH_ParamAccess.list);
-            pManager.AddTextParameter("Info", "I", "Split-Infos", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Split Bretter", "SB", "Bretterliste nach dem Splitten der Fuge-Bretter", GH_ParamAccess.list);
+            pManager.AddTextParameter("Info", "I", "Split-Protokoll", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

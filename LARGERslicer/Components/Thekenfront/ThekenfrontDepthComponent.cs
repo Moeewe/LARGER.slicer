@@ -10,7 +10,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
         public ThekenfrontDepthComponent()
           : base("TH Depth", "TH_04",
-              "Berechnet Tiefenstufen je Brett/Bretthaelfte aus dem ausgerichteten Solid.",
+              "Berechnet Tiefenstufen pro Brett bzw. Bretthaelfte aus dem orientierten Solid.",
               "", "")
         {
         }
@@ -20,20 +20,21 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Oriented Solid", "OS", "Aus TH_01", GH_ParamAccess.item);
-            pManager.AddGenericParameter("Split Boards", "SB", "ThekenBoard-Liste", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Depth Base", "DB", "Basistiefe", GH_ParamAccess.item, 150.0);
-            pManager.AddNumberParameter("Depth Step", "DS", "Tiefenschritt", GH_ParamAccess.item, 50.0);
-            pManager.AddNumberParameter("Puffer vorne", "PV", "Puffer vorne", GH_ParamAccess.item, 5.0);
-            pManager.AddNumberParameter("Puffer hinten", "PH", "Puffer hinten", GH_ParamAccess.item, 5.0);
-            pManager.AddNumberParameter("Ueberstand", "U", "Ueberstand links/rechts", GH_ParamAccess.item, 100.0);
+            pManager.AddBrepParameter("Orientiertes Solid", "OS", "Aus TH_01 Orient", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Bretter", "SB", "Bretter bzw. Bretthaelften aus TH_03b", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Tiefenbasis", "TB", "Basistiefe des Stufenrasters in mm", GH_ParamAccess.item, 150.0);
+            pManager.AddNumberParameter("Tiefenschritt", "TS", "Stufenweite des Tiefenrasters in mm", GH_ParamAccess.item, 50.0);
+            pManager.AddNumberParameter("Puffer vorne", "PV", "Zusaetzlicher Puffer an der Frontseite in mm", GH_ParamAccess.item, 5.0);
+            pManager.AddNumberParameter("Puffer hinten", "PH", "Zusaetzlicher Puffer an der Rueckseite in mm", GH_ParamAccess.item, 5.0);
+            pManager.AddNumberParameter("Ueberstand links/rechts", "ULR", "Einheitlicher Ueberstand fuer die Brettlaenge in mm", GH_ParamAccess.item, 100.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Boards with Depth", "BD", "ThekenBoardWithDepth", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Length", "L", "Einheitliche Brettlaenge", GH_ParamAccess.item);
-            pManager.AddTextParameter("Info", "I", "Debug-Infos", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Tiefen", "T", "Tiefenstufe pro Brett/Bretthaelfte in mm", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Brettlaenge", "L", "Einheitliche Brettlaenge in mm", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Rohtiefen", "RT", "Ungerasterte Maximaltiefe pro Brett in mm", GH_ParamAccess.list);
+            pManager.AddTextParameter("Info", "I", "Berechnungsprotokoll je Brett", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -72,7 +73,8 @@ namespace LARGERslicer.Components.Thekenfront
             BoundingBox bb = solid.GetBoundingBox(true);
             double length = (bb.Max.X - bb.Min.X) + 2.0 * overhang;
 
-            var result = new List<ThekenBoardWithDepth>();
+            var depths = new List<double>();
+            var rawDepths = new List<double>();
             var info = new List<string>();
 
             for (int i = 0; i < boards.Count; i++)
@@ -81,20 +83,16 @@ namespace LARGERslicer.Components.Thekenfront
                 double need = rawDepth + pv + ph;
                 double stepped = StepUp(need, depthBase, depthStep);
 
-                var row = new ThekenBoardWithDepth
-                {
-                    Board = boards[i],
-                    Depth = stepped,
-                    Length = length
-                };
-                result.Add(row);
+                rawDepths.Add(rawDepth);
+                depths.Add(stepped);
 
                 info.Add($"{boards[i].Type}: raw={rawDepth:F1} need={need:F1} step={stepped:F1}");
             }
 
-            DA.SetDataList(0, result);
+            DA.SetDataList(0, depths);
             DA.SetData(1, length);
-            DA.SetDataList(2, info);
+            DA.SetDataList(2, rawDepths);
+            DA.SetDataList(3, info);
         }
 
         private static double GetMaxDepthInZRange(Brep solid, double zMin, double zMax)

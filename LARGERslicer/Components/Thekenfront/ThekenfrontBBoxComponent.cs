@@ -8,7 +8,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
         public ThekenfrontBBoxComponent()
           : base("TH BBox", "TH_02",
-              "Ermittelt Axis-Aligned Bounding Box und Grundmasse des ausgerichteten Solids.",
+                            "Ermittelt Bounding Box und Grundmasse des orientierten Solids.",
               "", "")
         {
         }
@@ -18,15 +18,15 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Oriented Solid", "OS", "Aus Modul TH_01", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Orientiertes Solid", "OS", "Solid aus TH_01 Orient", GH_ParamAccess.item);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBoxParameter("Bounding Box", "BB", "Axis-Aligned Bounding Box", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Width X", "X", "Laenge/Breite in X", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Depth Y", "Y", "Tiefe in Y", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Height Z", "Z", "Hoehe in Z", GH_ParamAccess.item);
+            pManager.AddBoxParameter("Bounding Box", "BB", "Axis-aligned Bounding Box des orientierten Solids", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Breite X", "X", "Breite bzw. Laenge des Blocks in X", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Tiefe Y", "Y", "Tiefe des Blocks in Y", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Hoehe Z", "Z", "Hoehe des Blocks in Z", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

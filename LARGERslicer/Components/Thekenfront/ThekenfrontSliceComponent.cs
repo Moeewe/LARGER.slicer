@@ -9,7 +9,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
         public ThekenfrontSliceComponent()
           : base("TH Slice", "TH_03",
-              "Bretteinteilung inkl. Fugenlogik mit Restmassverteilung auf Fugen.",
+                            "Erzeugt die Bretteinteilung inklusive Fugenlogik und Restmassverteilung.",
               "", "")
         {
         }
@@ -19,22 +19,22 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddNumberParameter("Gesamthoehe", "H", "Blockhoehe in mm", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Rand unten", "RU", "Randbrett unten", GH_ParamAccess.item, 35.0);
-            pManager.AddNumberParameter("Rand oben", "RO", "Randbrett oben", GH_ParamAccess.item, 35.0);
-            pManager.AddNumberParameter("Mittelbrett", "MB", "Mittelbrettstaerke", GH_ParamAccess.item, 30.0);
-            pManager.AddIntegerParameter("Fugenanzahl", "FN", "Anzahl Fugen", GH_ParamAccess.item, 1);
-            pManager.AddNumberParameter("Fugenbreite min", "FW", "Minimale Fugenbreite", GH_ParamAccess.item, 4.0);
-            pManager.AddNumberParameter("Fugenpositionen", "FP", "Optional manuelle Fugenmitten in mm (absolut)", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Gesamthoehe", "H", "Gesamthoehe des Blocks in mm, typischerweise aus TH_02 Hoehe Z", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Randbrett unten", "RU", "Fixe Dicke des unteren Randbretts in mm", GH_ParamAccess.item, 35.0);
+            pManager.AddNumberParameter("Randbrett oben", "RO", "Fixe Dicke des oberen Randbretts in mm", GH_ParamAccess.item, 35.0);
+            pManager.AddNumberParameter("Brettstaerke Mitte", "BM", "Standardstaerke der Mittelbretter in mm", GH_ParamAccess.item, 30.0);
+            pManager.AddIntegerParameter("Fugenanzahl", "FA", "Anzahl der Fugen", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Fugenbreite min", "FW", "Minimale Fugenbreite in mm", GH_ParamAccess.item, 4.0);
+            pManager.AddNumberParameter("Fugenpositionen", "FP", "Optionale absolute Hoehen der Fugenmitten in mm", GH_ParamAccess.list);
             pManager[6].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Boards", "B", "Liste ThekenBoard", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fugenmitten", "FM", "Berechnete Fugenmitten", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fugenbreite", "FW", "Tatsaechliche Fugenbreite nach Restmassverteilung", GH_ParamAccess.item);
-            pManager.AddTextParameter("Info", "I", "Debug-Infos", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Bretter", "B", "Liste der erzeugten Bretter mit Fugen-Metadaten", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Fugenmitten", "FM", "Berechnete bzw. uebernommene Fugenmitten in mm", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Fugenbreite", "FW", "Tatsaechliche Fugenbreite nach Restmassverteilung in mm", GH_ParamAccess.item);
+            pManager.AddTextParameter("Info", "I", "Berechnungsprotokoll", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

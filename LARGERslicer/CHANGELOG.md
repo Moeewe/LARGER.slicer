@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.39] - 2026-03-14
+
+### Fixed
+- Reworked Thekenfront workflow to remove cyclic Grasshopper wiring between depth and block generation
+- TH_04 Depth now outputs scalar depth data and board length instead of composite board objects
+- TH_05 Block and TH_07 BOM now consume split boards plus depth lists in a linear pipeline
+
+### Changed
+- Renamed Thekenfront inputs and outputs to be clearer and closer to the intended planning terminology
+- Added wiring guide for the full Thekenfront workflow in `documentations/THEKENFRONT_BAUPLAN.md`
+
 ## [1.0.38] - 2026-03-14
 
 ### Fixed

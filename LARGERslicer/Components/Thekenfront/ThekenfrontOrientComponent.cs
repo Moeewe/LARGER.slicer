@@ -8,7 +8,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
         public ThekenfrontOrientComponent()
           : base("TH Orient", "TH_01",
-              "Orientiert ein Thekenfront-Solid so, dass die Frontflaeche nach +Z zeigt.",
+                            "Orientiert einen Thekenfront-Abschnitt so, dass die Frontflaeche nach oben auf World-XY zeigt.",
               "", "")
         {
         }
@@ -18,16 +18,16 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Solid", "S", "Geschlossenes Brep/Solid", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Frontflaechen-Index", "Idx", "Manueller Frontflaechen-Index", GH_ParamAccess.item, 0);
-            pManager.AddBooleanParameter("Auto", "A", "True = Frontflaeche automatisch ueber groesste +Y Normale erkennen", GH_ParamAccess.item, true);
+            pManager.AddBrepParameter("Solid", "S", "Geschlossenes Brep/Solid eines Thekenabschnitts", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Frontflaechen-Index", "Idx", "Manueller Index der Frontflaeche", GH_ParamAccess.item, 0);
+            pManager.AddBooleanParameter("Ausrichtung Auto", "A", "True = Frontflaeche automatisch ueber groesste +Y-Normale erkennen", GH_ParamAccess.item, true);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBrepParameter("Oriented Solid", "OS", "Ausgerichtetes Solid", GH_ParamAccess.item);
-            pManager.AddTransformParameter("Transform", "T", "Verwendete Transform", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Used Index", "UI", "Verwendeter Frontflaechen-Index", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Orientiertes Solid", "OS", "Ausgerichtetes Solid mit Front nach oben", GH_ParamAccess.item);
+            pManager.AddTransformParameter("Transform", "T", "Verwendete Transformationsmatrix", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Verwendeter Index", "VI", "Tatsaechlich verwendeter Frontflaechen-Index", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

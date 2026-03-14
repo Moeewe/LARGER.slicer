@@ -9,7 +9,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
         public ThekenfrontSaugComponent()
           : base("TH Saug", "TH_06",
-              "Erzeugt linkes/rechtes Saugelement auf Basis des Verleimblocks.",
+                            "Erzeugt linke und rechte Saugelemente inklusive vereinfachter Treppenkonturen.",
               "", "")
         {
         }
@@ -19,18 +19,18 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Boards", "B", "Bretter aus TH_05", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Outline Tiefe", "OT", "Y-Versatz fuer Outline", GH_ParamAccess.item, 5.0);
-            pManager.AddNumberParameter("Vereinfachung", "Tol", "Vereinfachungstoleranz", GH_ParamAccess.item, 2.0);
-            pManager.AddNumberParameter("Saugbreite", "SB", "Breite in X", GH_ParamAccess.item, 200.0);
+            pManager.AddBrepParameter("Bretter", "B", "Bretter/Bretthaelften aus TH_05 Block", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Outline Tiefe", "OT", "Rueckversatz der Outline in mm", GH_ParamAccess.item, 5.0);
+            pManager.AddNumberParameter("Vereinfachung", "Tol", "Vereinfachungstoleranz fuer die Treppenkontur in mm", GH_ParamAccess.item, 2.0);
+            pManager.AddNumberParameter("Saugbreite", "SB", "Breite des Saugelements in mm", GH_ParamAccess.item, 200.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddBrepParameter("Saug links", "SL", "Linkes Saugelement", GH_ParamAccess.item);
             pManager.AddBrepParameter("Saug rechts", "SR", "Rechtes Saugelement", GH_ParamAccess.item);
-            pManager.AddCurveParameter("Outline links", "OL", "Treppenkontur links (vereinfacht)", GH_ParamAccess.item);
-            pManager.AddCurveParameter("Outline rechts", "OR", "Treppenkontur rechts (vereinfacht)", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Outline links", "OL", "Vereinfachte Treppenkontur links", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Outline rechts", "OR", "Vereinfachte Treppenkontur rechts", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

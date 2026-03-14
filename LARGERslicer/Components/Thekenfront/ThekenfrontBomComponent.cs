@@ -12,7 +12,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
         public ThekenfrontBomComponent()
           : base("TH BOM", "TH_07",
-              "Erzeugt Stueckliste fuer GH-Panel und CSV-Linien.",
+              "Erzeugt die Stueckliste fuer GH-Panel und CSV-Export.",
               "", "")
         {
         }
@@ -22,47 +22,61 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Boards with Depth", "BD", "ThekenBoardWithDepth", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material", "M", "Materialname", GH_ParamAccess.item, "MDF / Vollholz");
-            pManager.AddBrepParameter("Saug links", "SL", "Optional", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Saug rechts", "SR", "Optional", GH_ParamAccess.item);
-            pManager[2].Optional = true;
-            pManager[3].Optional = true;
+            pManager.AddGenericParameter("Split Bretter", "SB", "Bretter bzw. Bretthaelften aus TH_03b", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Tiefen", "T", "Tiefenstufe pro Brett aus TH_04", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Brettlaenge", "L", "Einheitliche Brettlaenge aus TH_04", GH_ParamAccess.item);
+            pManager.AddTextParameter("Material", "M", "Material-Freitext fuer die Stueckliste", GH_ParamAccess.item, "MDF / Vollholz");
+            pManager.AddBrepParameter("Saug links", "SL", "Optionales Saugelement links aus TH_06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Saug rechts", "SR", "Optionales Saugelement rechts aus TH_06", GH_ParamAccess.item);
+            pManager[4].Optional = true;
+            pManager[5].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Panel", "P", "Formatierte BOM", GH_ParamAccess.list);
-            pManager.AddTextParameter("CSV Header", "H", "CSV Header", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV Lines", "C", "CSV Daten", GH_ParamAccess.list);
+            pManager.AddTextParameter("Panel", "P", "Formatierte Stueckliste fuer ein GH-Panel", GH_ParamAccess.list);
+            pManager.AddTextParameter("CSV Header", "H", "CSV-Headerzeile", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV Lines", "C", "CSV-Datenzeilen", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             var raw = new List<object>();
+            var depths = new List<double>();
+            double length = 0;
             string material = "MDF / Vollholz";
             Brep saugL = null;
             Brep saugR = null;
 
             if (!DA.GetDataList(0, raw))
                 return;
-            DA.GetData(1, ref material);
-            DA.GetData(2, ref saugL);
-            DA.GetData(3, ref saugR);
+            if (!DA.GetDataList(1, depths))
+                return;
+            if (!DA.GetData(2, ref length))
+                return;
+            DA.GetData(3, ref material);
+            DA.GetData(4, ref saugL);
+            DA.GetData(5, ref saugR);
 
-            var rows = new List<ThekenBoardWithDepth>();
+            var rows = new List<ThekenBoard>();
             foreach (var o in raw)
-                if (o is ThekenBoardWithDepth t)
+                if (o is ThekenBoard t)
                     rows.Add(t);
 
+            if (rows.Count != depths.Count)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Anzahl Split Bretter und Tiefen muss uebereinstimmen.");
+                return;
+            }
+
             var groups = rows
-                .Where(r => r?.Board != null)
+                .Select((row, index) => new { Row = row, Depth = depths[index] })
                 .GroupBy(r => new
                 {
-                    T = r.Board.Type,
-                    L = Math.Round(r.Length, 1),
+                    T = r.Row.Type,
+                    L = Math.Round(length, 1),
                     D = Math.Round(r.Depth, 1),
-                    H = Math.Round(r.Board.Thickness, 1)
+                    H = Math.Round(r.Row.Thickness, 1)
                 })
                 .OrderBy(g => SortOrder(g.Key.T))
                 .ToList();

@@ -10,7 +10,7 @@ namespace LARGERslicer.Components.Thekenfront
     {
         public ThekenfrontBlockComponent()
           : base("TH Block", "TH_05",
-              "Erzeugt gestapelte Brettgeometrien und Containerbox.",
+              "Erzeugt den Verleimblock aus Split-Brettern, Tiefenstufen und Brettlaenge.",
               "", "")
         {
         }
@@ -20,35 +20,49 @@ namespace LARGERslicer.Components.Thekenfront
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Oriented Solid", "OS", "Referenz-Solid", GH_ParamAccess.item);
-            pManager.AddGenericParameter("Boards with Depth", "BD", "ThekenBoardWithDepth", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Ueberstand", "U", "Ueberstand links/rechts", GH_ParamAccess.item, 100.0);
+            pManager.AddBrepParameter("Orientiertes Solid", "OS", "Referenz-Solid aus TH_01", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Bretter", "SB", "Bretter bzw. Bretthaelften aus TH_03b", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Tiefen", "T", "Tiefenstufe pro Brett aus TH_04", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Brettlaenge", "L", "Einheitliche Brettlaenge aus TH_04", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Ueberstand links/rechts", "ULR", "Ueberstand fuer die Positionierung in mm", GH_ParamAccess.item, 100.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBrepParameter("Boards", "B", "Bretter/Bretthaelften als Breps", GH_ParamAccess.list);
-            pManager.AddBrepParameter("Container", "C", "Containerbox", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Reference", "R", "Referenz-Solid", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Bretter", "B", "Bretter/Bretthaelften als Breps", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Containerbox", "C", "Gesamt-Bounding-Box des Verleimblocks", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Referenz-Solid", "R", "Orientiertes Referenz-Solid", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Brep refSolid = null;
-            var dataRaw = new List<object>();
+            var boardsRaw = new List<object>();
+            var depths = new List<double>();
+            double boardLength = 0;
             double overhang = 100;
 
             if (!DA.GetData(0, ref refSolid))
                 return;
-            if (!DA.GetDataList(1, dataRaw))
+            if (!DA.GetDataList(1, boardsRaw))
                 return;
-            DA.GetData(2, ref overhang);
+            if (!DA.GetDataList(2, depths))
+                return;
+            if (!DA.GetData(3, ref boardLength))
+                return;
+            DA.GetData(4, ref overhang);
 
-            var rows = new List<ThekenBoardWithDepth>();
-            foreach (var o in dataRaw)
+            var boards = new List<ThekenBoard>();
+            foreach (var o in boardsRaw)
             {
-                if (o is ThekenBoardWithDepth row)
-                    rows.Add(row);
+                if (o is ThekenBoard row)
+                    boards.Add(row);
+            }
+
+            if (boards.Count != depths.Count)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Anzahl Split Bretter und Tiefen muss uebereinstimmen.");
+                return;
             }
 
             BoundingBox sbb = refSolid.GetBoundingBox(true);
@@ -58,16 +72,16 @@ namespace LARGERslicer.Components.Thekenfront
             var breps = new List<Brep>();
             BoundingBox all = BoundingBox.Empty;
 
-            foreach (var row in rows)
+            for (int i = 0; i < boards.Count; i++)
             {
-                if (row?.Board == null)
-                    continue;
+                ThekenBoard row = boards[i];
+                double depth = depths[i];
 
-                var plane = new Plane(new Point3d(x0, y0, row.Board.ZMin), Vector3d.XAxis, Vector3d.YAxis);
+                var plane = new Plane(new Point3d(x0, y0, row.ZMin), Vector3d.XAxis, Vector3d.YAxis);
                 var box = new Box(plane,
-                    new Interval(0, row.Length),
-                    new Interval(0, row.Depth),
-                    new Interval(0, row.Board.Thickness));
+                    new Interval(0, boardLength),
+                    new Interval(0, depth),
+                    new Interval(0, row.Thickness));
 
                 Brep b = box.ToBrep();
                 if (b != null)
