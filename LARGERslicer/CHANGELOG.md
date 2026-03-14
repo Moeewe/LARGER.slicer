@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.40] - 2026-03-14
+
+### Fixed
+- Fixed Thekenfront slicing so fuge boards include the full board-plus-gap height instead of only tagging a regular 30 mm board
+- Fixed TH_03b Fuge Split not producing split parts for valid fuge positions in common one-fuge setups
+
 ## [1.0.39] - 2026-03-14
 
 ### Fixed

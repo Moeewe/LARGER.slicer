@@ -110,7 +110,65 @@ namespace LARGERslicer.Components.Thekenfront
 
             double zCursor = ru;
             int src = 1;
-            for (int i = 0; i < middleCount; i++)
+            int consumedMiddleBoards = 0;
+            int marked = 0;
+
+            for (int i = 0; i < fugenMitten.Count; i++)
+            {
+                double fugeCenter = fugenMitten[i];
+                double fugeLow = fugeCenter - actualFugeWidth * 0.5;
+                double fugeHigh = fugeCenter + actualFugeWidth * 0.5;
+
+                if (fugeLow <= zCursor)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Fuge bei Z={fugeCenter:F2} liegt zu tief oder ueberschneidet eine vorherige Fuge.");
+                    return;
+                }
+
+                double deltaToFugeLow = fugeLow - zCursor;
+                int regularBoardsBefore = (int)Math.Floor(deltaToFugeLow / mb);
+                double lowerHalfThickness = deltaToFugeLow - regularBoardsBefore * mb;
+
+                for (int j = 0; j < regularBoardsBefore; j++)
+                {
+                    boards.Add(new ThekenBoard
+                    {
+                        ZMin = zCursor,
+                        ZMax = zCursor + mb,
+                        Type = "Mittelbrett",
+                        SourceIndex = src++
+                    });
+                    zCursor += mb;
+                    consumedMiddleBoards++;
+                }
+
+                double upperHalfThickness = mb - lowerHalfThickness;
+                double fugeBoardTop = fugeHigh + upperHalfThickness;
+
+                boards.Add(new ThekenBoard
+                {
+                    ZMin = zCursor,
+                    ZMax = fugeBoardTop,
+                    Type = "Fuge-Brett",
+                    ContainsFuge = true,
+                    FugeCenter = fugeCenter,
+                    FugeWidth = actualFugeWidth,
+                    SourceIndex = src++
+                });
+
+                zCursor = fugeBoardTop;
+                consumedMiddleBoards++;
+                marked++;
+            }
+
+            int remainingMiddleBoards = middleCount - consumedMiddleBoards;
+            if (remainingMiddleBoards < 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Fugenlogik verbraucht mehr Mittelbretter als verfuegbar.");
+                return;
+            }
+
+            for (int i = 0; i < remainingMiddleBoards; i++)
             {
                 boards.Add(new ThekenBoard
                 {
@@ -122,40 +180,14 @@ namespace LARGERslicer.Components.Thekenfront
                 zCursor += mb;
             }
 
-            boards.Add(new ThekenBoard { ZMin = h - ro, ZMax = h, Type = "Randbrett oben", SourceIndex = src++ });
-
-            // Markiere Bretter, die eine Fuge enthalten.
-            int marked = 0;
-            foreach (double fm in fugenMitten)
+            double expectedTopStart = h - ro;
+            if (Math.Abs(zCursor - expectedTopStart) > 0.01)
             {
-                ThekenBoard hit = null;
-                foreach (var b in boards)
-                {
-                    if (fm > b.ZMin && fm < b.ZMax)
-                    {
-                        hit = b;
-                        break;
-                    }
-                }
-
-                if (hit == null)
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Fuge bei Z={fm:F2} schneidet kein Brett.");
-                    continue;
-                }
-
-                if (hit.ContainsFuge)
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Mehrere Fugen im selben Brett (SourceIndex {hit.SourceIndex}).");
-                    continue;
-                }
-
-                hit.ContainsFuge = true;
-                hit.FugeCenter = fm;
-                hit.FugeWidth = actualFugeWidth;
-                hit.Type = "Fuge-Brett";
-                marked++;
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    $"Brettstapel endet bei Z={zCursor:F2}, Randbrett oben startet bei Z={expectedTopStart:F2}. Bitte Parameter pruefen.");
             }
+
+            boards.Add(new ThekenBoard { ZMin = expectedTopStart, ZMax = h, Type = "Randbrett oben", SourceIndex = src++ });
 
             var infos = new List<string>
             {
