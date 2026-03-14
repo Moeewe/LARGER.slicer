@@ -93,11 +93,18 @@ Ausgaenge:
 
 Eingaben:
 - `Bretter` aus `TH_05 Block`
+- `Einstecktiefe` per Slider (Voreinstellung 5 mm)
+- `Anschlag-Staerke` per Slider (Voreinstellung 30 mm)
+- `Basis-Hoehe` per Slider (Voreinstellung 20 mm)
+- `Basis-Ueberstand` per Slider (Voreinstellung 50 mm)
 
 Ausgaenge:
-- `Saug links` geht an `TH_07 BOM`
-- `Saug rechts` geht an `TH_07 BOM`
-- optionale Outlines nur zur Kontrolle
+- `Anschlag links` geht an `TH_07 BOM`
+- `Anschlag rechts` geht an `TH_07 BOM`
+- `Basis links` geht an `TH_07 BOM`
+- `Basis rechts` geht an `TH_07 BOM`
+- `Gefraeste Bretter` geht an `TH_08 Export` (statt der Rohbretter aus TH_05!)
+- Konturen nur zur Kontrolle
 
 ### 8. TH_07 BOM
 
@@ -105,7 +112,8 @@ Eingaben:
 - `Split Bretter` aus `TH_03b Fuge Split`
 - `Tiefen` aus `TH_04 Depth`
 - `Brettlaenge` aus `TH_04 Depth`
-- `Saug links` und `Saug rechts` aus `TH_06 Saug`
+- `Anschlag links` und `Anschlag rechts` aus `TH_06 Saug`
+- `Basis links` und `Basis rechts` aus `TH_06 Saug`
 
 Ausgaenge:
 - `CSV Header` geht an `TH_08 Export`
@@ -115,7 +123,7 @@ Ausgaenge:
 ### 9. TH_08 Export
 
 Eingaben:
-- `Bretter` aus `TH_05 Block`
+- `Bretter` aus `TH_06 Saug` (`Gefraeste Bretter`) – NICHT aus TH_05!
 - `Containerbox` aus `TH_05 Block`
 - `Referenz-Solid` aus `TH_05 Block`
 - `CSV Header` aus `TH_07 BOM`

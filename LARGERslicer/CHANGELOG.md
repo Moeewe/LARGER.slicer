@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.43] - 2026-03-14
+
+### Changed
+- TH_06 Saugelemente komplett ueberarbeitet: L-foermige Saugelemente mit
+  vertikalem Anschlagbrett + horizontalem Basisbrett pro Seite
+- Neue Eingaben: Einstecktiefe (5mm), Anschlag-Staerke (30mm),
+  Basis-Hoehe (20mm), Basis-Ueberstand (50mm)
+- Neuer Ausgang: Gefraeste Bretter (Bretter mit Einsteck-Taschen an beiden Enden)
+- TH_07 BOM erweitert: nimmt jetzt auch Basis-Bretter links/rechts als optionale Eingaben
+
 ## [1.0.42] - 2026-03-14
 
 ### Fixed

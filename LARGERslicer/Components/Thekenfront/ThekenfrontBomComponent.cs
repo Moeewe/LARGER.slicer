@@ -27,10 +27,14 @@ namespace LARGERslicer.Components.Thekenfront
             pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Fraestiefen aus Thekenfront 04 Fraestiefe", GH_ParamAccess.list);
             pManager.AddNumberParameter("Brettlaenge", "Laenge", "Brettlaenge aus Thekenfront 04 Fraestiefe", GH_ParamAccess.item);
             pManager.AddTextParameter("Material", "Material", "Materialname fuer die Stueckliste", GH_ParamAccess.item, "MDF / Vollholz");
-            pManager.AddBrepParameter("Saugelement links", "Links", "Optionales Saugelement links aus Thekenfront 06 Saugelemente", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Saugelement rechts", "Rechts", "Optionales Saugelement rechts aus Thekenfront 06 Saugelemente", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Saugelement links", "Links", "Optionales Saugelement (Anschlag) links aus Thekenfront 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Saugelement rechts", "Rechts", "Optionales Saugelement (Anschlag) rechts aus Thekenfront 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Basis links", "BasisL", "Optionales Basisbrett links aus Thekenfront 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Basis rechts", "BasisR", "Optionales Basisbrett rechts aus Thekenfront 06", GH_ParamAccess.item);
             pManager[4].Optional = true;
             pManager[5].Optional = true;
+            pManager[6].Optional = true;
+            pManager[7].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -48,6 +52,8 @@ namespace LARGERslicer.Components.Thekenfront
             string material = "MDF / Vollholz";
             Brep saugL = null;
             Brep saugR = null;
+            Brep basisL = null;
+            Brep basisR = null;
 
             if (!DA.GetDataList(0, raw))
                 return;
@@ -58,6 +64,8 @@ namespace LARGERslicer.Components.Thekenfront
             DA.GetData(3, ref material);
             DA.GetData(4, ref saugL);
             DA.GetData(5, ref saugR);
+            DA.GetData(6, ref basisL);
+            DA.GetData(7, ref basisR);
 
             var rows = new List<ThekenBoard>();
             foreach (var o in raw)
@@ -117,11 +125,19 @@ namespace LARGERslicer.Components.Thekenfront
 
             if (saugL != null)
             {
-                AddSaugRow(ref pos, material, "Saugelement links", saugL, panel, csv);
+                AddSaugRow(ref pos, material, "Anschlag links", saugL, panel, csv);
             }
             if (saugR != null)
             {
-                AddSaugRow(ref pos, material, "Saugelement rechts", saugR, panel, csv);
+                AddSaugRow(ref pos, material, "Anschlag rechts", saugR, panel, csv);
+            }
+            if (basisL != null)
+            {
+                AddSaugRow(ref pos, material, "Basis links", basisL, panel, csv);
+            }
+            if (basisR != null)
+            {
+                AddSaugRow(ref pos, material, "Basis rechts", basisR, panel, csv);
             }
 
             DA.SetDataList(0, panel);
