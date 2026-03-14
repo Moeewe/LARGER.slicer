@@ -81,11 +81,11 @@ namespace LARGERslicer.Components.Thekenfront
             Vector3d nRight = Vector3d.CrossProduct(nTopPerp, nFront);
             nRight.Unitize();
 
-            // Quell-Frame: X=Laengsrichtung, Y=Ober/Unterseite, Normal=Front
-            Plane source = new Plane(center, nRight, nTopPerp);
+            // Quell-Frame: X=Laengsrichtung, Y=Front, Normal=Ober/Unterseite
+            Plane source = new Plane(center, nRight, nFront);
 
             // Ziel-Frame: X=WorldX, Y=WorldY, Normal=WorldZ
-            // Ergebnis: Front → +Z, Ober/Unterseite → +Y, Laenge → +X
+            // Ergebnis: Laenge → +X, Front/Tiefe → +Y, Hoehe → +Z (Stapelrichtung)
             Plane target = new Plane(center, Vector3d.XAxis, Vector3d.YAxis);
 
             Transform orient = Transform.PlaneToPlane(source, target);

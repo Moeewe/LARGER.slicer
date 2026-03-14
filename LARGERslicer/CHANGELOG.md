@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Versioning strategy documentation
 - Yak package configuration
 
+## [1.0.44] - 2026-03-14
+
+### Fixed
+- TH_01 Orient: Achsen-Mapping korrigiert. Hoehe (Stapelrichtung) geht jetzt
+  korrekt auf Z-Achse und Fraesetiefe auf Y-Achse, sodass die Bretter entlang
+  des rotierten Teils ausgerichtet sind und die Schnittkonturen stimmen.
+
 ## [1.0.43] - 2026-03-14
 
 ### Changed
