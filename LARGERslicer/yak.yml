@@ -2,7 +2,7 @@
 # Rhino Package Manager (Yak) configuration file
 
 name: LARGERslicer
-version: 1.0.48
+version: 1.1.0
 description: Advanced slicing operations and mesh processing tools for Grasshopper. Includes DXR postprocessing, continuous toolpath generation, and various infill patterns.
 
 authors:

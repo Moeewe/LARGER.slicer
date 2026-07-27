@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-27
+
+### Changed
+- Renamed the previous Thekenfront toolchain to CNC Utilities (CU_01 to CU_08) with generic CNC-oriented naming for broader workflows.
+- Added bilingual DE/EN compatibility aliases for key GHPython export scripts while preserving legacy German inputs and outputs.
+
+### Added
+- Added a full 24x24 icon set for CNC Utilities components and wired all CU components to embedded PNG icons.
+- Added CAD package export helper components and export naming utilities used by the updated export pipeline.
+
 ### Added
 - Optimized Toolpath component with icon
 - Versioning strategy documentation
