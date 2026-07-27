@@ -5,32 +5,33 @@ using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using LARGERslicer.Types;
+using LARGERslicer.Utils;
 using Rhino.Geometry;
 
-namespace LARGERslicer.Components.Thekenfront
+namespace LARGERslicer.Components.CNCUtilities
 {
-    public class ThekenfrontBomComponent : GH_Component
+    public class CncUtilityBomComponent : GH_Component
     {
-                public ThekenfrontBomComponent()
-                    : base("Thekenfront 07 Stueckliste", "TH_07",
-                            "Erzeugt eine Stueckliste fuer Panel-Anzeige und CSV-Export.",
+                public CncUtilityBomComponent()
+                : base("CNC Utilities 07 Materialliste", "CU_07",
+                    "Erzeugt eine Materialliste fuer Panel-Anzeige und CSV-Export.",
                             "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Thekenfront";
+        public override string SubCategory => "CNC Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus Thekenfront 03b Fuge teilen", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Fraestiefen aus Thekenfront 04 Fraestiefe", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Brettlaenge aus Thekenfront 04 Fraestiefe", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus CNC Utilities 03b Trennfuge teilen", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Fraestiefen aus CNC Utilities 04 Bearbeitungstiefe", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Brettlaenge aus CNC Utilities 04 Bearbeitungstiefe", GH_ParamAccess.item);
             pManager.AddTextParameter("Material", "Material", "Materialname fuer die Stueckliste", GH_ParamAccess.item, "MDF / Vollholz");
-            pManager.AddBrepParameter("Saugelement links", "Links", "Optionales Saugelement (Anschlag) links aus Thekenfront 06", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Saugelement rechts", "Rechts", "Optionales Saugelement (Anschlag) rechts aus Thekenfront 06", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Basis links", "BasisL", "Optionales Basisbrett links aus Thekenfront 06", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Basis rechts", "BasisR", "Optionales Basisbrett rechts aus Thekenfront 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Saugelement links", "Links", "Optionale Aufspannhilfe (Anschlag) links aus CNC Utilities 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Saugelement rechts", "Rechts", "Optionale Aufspannhilfe (Anschlag) rechts aus CNC Utilities 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Basis links", "BasisL", "Optionales Basisbrett links aus CNC Utilities 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Basis rechts", "BasisR", "Optionales Basisbrett rechts aus CNC Utilities 06", GH_ParamAccess.item);
             pManager[4].Optional = true;
             pManager[5].Optional = true;
             pManager[6].Optional = true;
@@ -195,7 +196,7 @@ namespace LARGERslicer.Components.Thekenfront
             return false;
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityBomIcon.png");
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E08");
     }
 }

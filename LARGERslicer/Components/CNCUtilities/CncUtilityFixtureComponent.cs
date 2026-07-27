@@ -1,25 +1,26 @@
 using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
+using LARGERslicer.Utils;
 using Rhino.Geometry;
 
-namespace LARGERslicer.Components.Thekenfront
+namespace LARGERslicer.Components.CNCUtilities
 {
-    public class ThekenfrontSaugComponent : GH_Component
+    public class CncUtilityFixtureComponent : GH_Component
     {
-        public ThekenfrontSaugComponent()
-          : base("Thekenfront 06 Saugelemente", "TH_06",
+        public CncUtilityFixtureComponent()
+                    : base("CNC Utilities 06 Aufspannhilfen", "CU_06",
               "Erzeugt L-foermige Saugelemente (Anschlag + Basis) und schneidet Einsteck-Taschen in die Bretter.",
               "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Thekenfront";
+        public override string SubCategory => "CNC Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Bretter", "Bretter", "Bretter aus Thekenfront 05 Verleimblock", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Bretter", "Bretter", "Bretter aus CNC Utilities 05 Rohblock erzeugen", GH_ParamAccess.list);
             pManager.AddNumberParameter("Einstecktiefe", "Tiefe", "Wie tief der Anschlag in die Bretter eingesteckt wird (mm)", GH_ParamAccess.item, 5.0);
             pManager.AddNumberParameter("Anschlag-Staerke", "Staerke", "Gesamtdicke des vertikalen Anschlagbretts (mm)", GH_ParamAccess.item, 30.0);
             pManager.AddNumberParameter("Basis-Hoehe", "BasisH", "Dicke des horizontalen Basisbretts (mm)", GH_ParamAccess.item, 20.0);
@@ -191,7 +192,7 @@ namespace LARGERslicer.Components.Thekenfront
             return new Polyline(pts);
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityFixtureIcon.png");
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E07");
     }
 }

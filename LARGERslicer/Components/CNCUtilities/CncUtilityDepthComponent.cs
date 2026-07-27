@@ -3,26 +3,27 @@ using System.Collections.Generic;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using LARGERslicer.Types;
+using LARGERslicer.Utils;
 using Rhino.Geometry;
 
-namespace LARGERslicer.Components.Thekenfront
+namespace LARGERslicer.Components.CNCUtilities
 {
-    public class ThekenfrontDepthComponent : GH_Component
+    public class CncUtilityDepthComponent : GH_Component
     {
-                public ThekenfrontDepthComponent()
-                    : base("Thekenfront 04 Fraestiefe", "TH_04",
-                            "Berechnet fuer jedes Brett die benoetigte Fraestiefe in Stufen.",
+                public CncUtilityDepthComponent()
+                : base("CNC Utilities 04 Bearbeitungstiefe", "CU_04",
+                    "Berechnet fuer jedes Brett die benoetigte Bearbeitungstiefe in Stufen.",
                             "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Thekenfront";
+        public override string SubCategory => "CNC Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientierter Koerper", "Koerper", "Aus Thekenfront 01 Ausrichtung", GH_ParamAccess.item);
-            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus Thekenfront 03b Fuge teilen", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Orientierter Koerper", "Koerper", "Aus CNC Utilities 01 Bauteil ausrichten", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus CNC Utilities 03b Trennfuge teilen", GH_ParamAccess.list);
             pManager.AddNumberParameter("Starttiefe", "Start", "Kleinste zulaessige Fraestiefe in mm", GH_ParamAccess.item, 150.0);
             pManager.AddNumberParameter("Tiefenschritt", "Schritt", "Stufenweite fuer die Fraestiefe in mm", GH_ParamAccess.item, 50.0);
             pManager.AddNumberParameter("Vorderer Puffer", "Vorne", "Zusaetzlicher Puffer vorne in mm", GH_ParamAccess.item, 5.0);
@@ -163,7 +164,7 @@ namespace LARGERslicer.Components.Thekenfront
             return false;
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityDepthIcon.png");
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E05");
     }
 }

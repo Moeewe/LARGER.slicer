@@ -2,24 +2,25 @@ using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
 using LARGERslicer.Types;
+using LARGERslicer.Utils;
 
-namespace LARGERslicer.Components.Thekenfront
+namespace LARGERslicer.Components.CNCUtilities
 {
-    public class ThekenfrontSliceComponent : GH_Component
+    public class CncUtilitySliceComponent : GH_Component
     {
-                public ThekenfrontSliceComponent()
-                    : base("Thekenfront 03 Bretteinteilung", "TH_03",
-                                                "Teilt die Hoehe in Randbretter, Mittelbretter und Fuge-Bretter auf.",
+                public CncUtilitySliceComponent()
+                    : base("CNC Utilities 03 Schichtaufteilung", "CU_03",
+                                                "Teilt die Gesamthoehe in Materialschichten und Trennfugen auf.",
                             "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Thekenfront";
+        public override string SubCategory => "CNC Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddNumberParameter("Gesamthoehe", "Hoehe", "Gesamthoehe des Blocks in mm (z. B. aus Thekenfront 02 Blockmasse)", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Gesamthoehe", "Hoehe", "Gesamthoehe des Blocks in mm (z. B. aus CNC Utilities 02 Abmessungen)", GH_ParamAccess.item);
             pManager.AddNumberParameter("Randbrett unten", "Unten", "Dicke des unteren Randbretts in mm", GH_ParamAccess.item, 35.0);
             pManager.AddNumberParameter("Randbrett oben", "Oben", "Dicke des oberen Randbretts in mm", GH_ParamAccess.item, 35.0);
             pManager.AddNumberParameter("Mittelbrett-Staerke", "Mitte", "Dicke der Mittelbretter in mm", GH_ParamAccess.item, 30.0);
@@ -207,7 +208,7 @@ namespace LARGERslicer.Components.Thekenfront
             DA.SetDataList(3, infos);
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilitySliceIcon.png");
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E03");
     }
 }

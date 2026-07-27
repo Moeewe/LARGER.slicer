@@ -1,24 +1,25 @@
 using System;
 using Grasshopper.Kernel;
+using LARGERslicer.Utils;
 using Rhino.Geometry;
 
-namespace LARGERslicer.Components.Thekenfront
+namespace LARGERslicer.Components.CNCUtilities
 {
-    public class ThekenfrontOrientComponent : GH_Component
+    public class CncUtilityOrientComponent : GH_Component
     {
-                public ThekenfrontOrientComponent()
-                    : base("Thekenfront 01 Ausrichten", "TH_01",
-                            "Richtet den Thekenabschnitt aus: Bretter parallel zur Oberseite, Tiefe in Y, Hoehe in Z.",
+                public CncUtilityOrientComponent()
+                : base("CNC Utilities 01 Bauteil ausrichten", "CU_01",
+                    "Richtet ein Solid fuer die CNC-Bearbeitung aus: Laenge in X, Tiefe in Y, Hoehe in Z.",
                             "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Thekenfront";
+        public override string SubCategory => "CNC Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Thekenabschnitt", "Geo", "Geschlossenes Solid des Thekenabschnitts", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Bauteil", "Geo", "Geschlossenes Solid des zu bearbeitenden Bauteils", GH_ParamAccess.item);
             pManager.AddSurfaceParameter("Oberseite", "Top", "Referenzflaeche fuer die Oberseite (definiert Stapelrichtung Z)", GH_ParamAccess.item);
             pManager[1].Optional = true;
             pManager.AddSurfaceParameter("Frontflaeche", "Front", "Referenzflaeche fuer die Front (definiert Tiefenrichtung Y)", GH_ParamAccess.item);
@@ -160,7 +161,7 @@ namespace LARGERslicer.Components.Thekenfront
 
         /// <summary>
         /// Sucht die Flache mit der groessten Flaecheninhalt, deren Normale
-        /// am staerksten in Welt-Z zeigt. Fuer Thekenfronten ist das typischerweise
+        /// am staerksten in Welt-Z zeigt. Fuer allgemeine Plattenbauteile ist das typischerweise
         /// die Ober- oder Unterseite.
         /// </summary>
         private static Vector3d DetectTopNormal(Brep solid)
@@ -264,7 +265,7 @@ namespace LARGERslicer.Components.Thekenfront
             return bestDir;
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityOrientIcon.png");
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E01");
     }
 }

@@ -3,24 +3,25 @@ using System.Collections.Generic;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using LARGERslicer.Types;
+using LARGERslicer.Utils;
 
-namespace LARGERslicer.Components.Thekenfront
+namespace LARGERslicer.Components.CNCUtilities
 {
-    public class ThekenfrontSplitComponent : GH_Component
+    public class CncUtilitySplitComponent : GH_Component
     {
-                public ThekenfrontSplitComponent()
-                    : base("Thekenfront 03b Fuge teilen", "TH_03b",
-                                                        "Teilt jedes Fuge-Brett in unteren und oberen Teil.",
+                public CncUtilitySplitComponent()
+                    : base("CNC Utilities 03b Trennfuge teilen", "CU_03b",
+                                                        "Teilt jede Schicht mit Trennfuge in einen unteren und oberen Teil.",
                             "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Thekenfront";
+        public override string SubCategory => "CNC Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Bretter", "Bretter", "Bretter aus Thekenfront 03 Bretteinteilung", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Bretter", "Bretter", "Bretter aus CNC Utilities 03 Schichtaufteilung", GH_ParamAccess.list);
             pManager.AddBooleanParameter("Split aktiv", "Aktiv", "True = Fuge-Bretter teilen", GH_ParamAccess.item, true);
         }
 
@@ -131,7 +132,7 @@ namespace LARGERslicer.Components.Thekenfront
             return false;
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilitySplitIcon.png");
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E04");
     }
 }

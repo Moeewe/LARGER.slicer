@@ -1,24 +1,25 @@
 using System;
 using Grasshopper.Kernel;
+using LARGERslicer.Utils;
 using Rhino.Geometry;
 
-namespace LARGERslicer.Components.Thekenfront
+namespace LARGERslicer.Components.CNCUtilities
 {
-    public class ThekenfrontBBoxComponent : GH_Component
+    public class CncUtilityBBoxComponent : GH_Component
     {
-                public ThekenfrontBBoxComponent()
-                    : base("Thekenfront 02 Blockmasse", "TH_02",
-                                                        "Ermittelt die Blockmasse und Bounding Box des ausgerichteten Solids.",
+                public CncUtilityBBoxComponent()
+                    : base("CNC Utilities 02 Abmessungen", "CU_02",
+                                                        "Ermittelt die Abmessungen und Bounding Box des ausgerichteten Solids.",
                             "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Thekenfront";
+        public override string SubCategory => "CNC Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientiertes Solid", "Solid", "Solid aus Thekenfront 01 Ausrichten", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Orientiertes Solid", "Solid", "Solid aus CNC Utilities 01 Bauteil ausrichten", GH_ParamAccess.item);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -54,7 +55,7 @@ namespace LARGERslicer.Components.Thekenfront
             DA.SetData(3, bb.Max.Z - bb.Min.Z);
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityBBoxIcon.png");
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E02");
     }
 }

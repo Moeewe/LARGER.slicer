@@ -3,28 +3,29 @@ using System.Collections.Generic;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using LARGERslicer.Types;
+using LARGERslicer.Utils;
 using Rhino.Geometry;
 
-namespace LARGERslicer.Components.Thekenfront
+namespace LARGERslicer.Components.CNCUtilities
 {
-    public class ThekenfrontBlockComponent : GH_Component
+    public class CncUtilityBlockComponent : GH_Component
     {
-                public ThekenfrontBlockComponent()
-                    : base("Thekenfront 05 Verleimblock", "TH_05",
-                            "Erzeugt den Verleimblock aus Brettern, Fraestiefen und Brettlaenge.",
+                public CncUtilityBlockComponent()
+                : base("CNC Utilities 05 Rohblock erzeugen", "CU_05",
+                    "Erzeugt den Rohblock aus Brettern, Bearbeitungstiefen und Brettlaenge.",
                             "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Thekenfront";
+        public override string SubCategory => "CNC Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientierter Koerper", "Koerper", "Referenzkoerper aus Thekenfront 01 Ausrichtung", GH_ParamAccess.item);
-            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus Thekenfront 03b Fuge teilen", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Fraestiefe je Brett aus Thekenfront 04 Fraestiefe", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Einheitliche Brettlaenge aus Thekenfront 04 Fraestiefe", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Orientierter Koerper", "Koerper", "Referenzkoerper aus CNC Utilities 01 Bauteil ausrichten", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus CNC Utilities 03b Trennfuge teilen", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Fraestiefe je Brett aus CNC Utilities 04 Bearbeitungstiefe", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Einheitliche Brettlaenge aus CNC Utilities 04 Bearbeitungstiefe", GH_ParamAccess.item);
             pManager.AddNumberParameter("Seitlicher Ueberstand", "Ueberstand", "Ueberstand fuer die Positionierung in mm", GH_ParamAccess.item, 100.0);
         }
 
@@ -124,7 +125,7 @@ namespace LARGERslicer.Components.Thekenfront
             return false;
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityBlockIcon.png");
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E06");
     }
 }

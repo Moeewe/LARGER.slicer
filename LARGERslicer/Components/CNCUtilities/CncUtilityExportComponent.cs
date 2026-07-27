@@ -3,33 +3,34 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Grasshopper.Kernel;
+using LARGERslicer.Utils;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Geometry;
 
-namespace LARGERslicer.Components.Thekenfront
+namespace LARGERslicer.Components.CNCUtilities
 {
-    public class ThekenfrontExportComponent : GH_Component
+    public class CncUtilityExportComponent : GH_Component
     {
-                public ThekenfrontExportComponent()
-                    : base("Thekenfront 08 Export", "TH_08",
-                                                        "Exportiert Bretter und Stueckliste als 3DM und CSV.",
+                public CncUtilityExportComponent()
+                    : base("CNC Utilities 08 Datenexport", "CU_08",
+                                                        "Exportiert Bretter und Materialliste als 3DM und CSV.",
                             "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Thekenfront";
+        public override string SubCategory => "CNC Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Bretter", "Bretter", "Bretter aus Thekenfront 05 Verleimblock", GH_ParamAccess.list);
-            pManager.AddBrepParameter("Containerbox", "Box", "Containerbox aus Thekenfront 05 Verleimblock", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Referenzkoerper", "Referenz", "Referenzkoerper aus Thekenfront 05 Verleimblock", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV-Kopf", "Header", "CSV-Headerzeile aus Thekenfront 07 Stueckliste", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV-Zeilen", "CSV", "CSV-Datenzeilen aus Thekenfront 07 Stueckliste", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Bretter", "Bretter", "Bretter aus CNC Utilities 05 Rohblock erzeugen", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Containerbox", "Box", "Containerbox aus CNC Utilities 05 Rohblock erzeugen", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Referenzkoerper", "Referenz", "Referenzkoerper aus CNC Utilities 05 Rohblock erzeugen", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV-Kopf", "Header", "CSV-Headerzeile aus CNC Utilities 07 Materialliste", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV-Zeilen", "CSV", "CSV-Datenzeilen aus CNC Utilities 07 Materialliste", GH_ParamAccess.list);
             pManager.AddTextParameter("Exportordner", "Ordner", "Zielordner fuer den Export", GH_ParamAccess.item, "");
-            pManager.AddTextParameter("Dateiname", "Name", "Basisname der Exportdateien", GH_ParamAccess.item, "Thekenfront");
+            pManager.AddTextParameter("Dateiname", "Name", "Basisname der Exportdateien", GH_ParamAccess.item, "CNC_Projekt");
             pManager.AddBooleanParameter("3DM schreiben", "3DM", "3DM-Datei exportieren", GH_ParamAccess.item, true);
             pManager.AddBooleanParameter("CSV schreiben", "CSV", "CSV-Datei exportieren", GH_ParamAccess.item, true);
             pManager.AddBooleanParameter("Export starten", "Start", "True = Export ausfuehren", GH_ParamAccess.item, false);
@@ -49,7 +50,7 @@ namespace LARGERslicer.Components.Thekenfront
             string header = "";
             var lines = new List<string>();
             string path = "";
-            string name = "Thekenfront";
+            string name = "CNC_Projekt";
             bool write3dm = true;
             bool writeCsv = true;
             bool run = false;
@@ -132,7 +133,7 @@ namespace LARGERslicer.Components.Thekenfront
             DA.SetDataList(1, log);
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityExportIcon.png");
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E09");
     }
 }
