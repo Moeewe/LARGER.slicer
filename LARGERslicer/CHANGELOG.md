@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-27
+
+### Fixed
+- Package publish follow-up: released a new package version so Rhino Package Manager upgrades continue from 1.0.48 after 1.1.0 became unavailable on Yak.
+
 ## [1.1.0] - 2026-07-27
 
 ### Changed
