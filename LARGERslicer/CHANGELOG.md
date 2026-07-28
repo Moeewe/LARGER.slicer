@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-07-28
+
+### Fixed
+- Restored plugin-facing CNC Utilities and export registration metadata in component constructors for stable category visibility.
+- Fixed `CAD Package Export` user-facing log text to English.
+- Ensured `DXR File Health Check` registration metadata is explicit so the component appears reliably in Grasshopper.
+
+### Changed
+- Aligned assembly/file/informational version metadata with package version to avoid stale plugin loading across updates.
+
 ## [1.1.5] - 2026-07-28
 
 ### Fixed

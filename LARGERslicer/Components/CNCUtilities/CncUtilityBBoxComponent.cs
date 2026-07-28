@@ -10,7 +10,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 public CncUtilityBBoxComponent()
                     : base("CNC Utilities 02 Dimensions", "CU_02",
                                                         "Calculates dimensions and bounding box of the oriented solid.",
-                            "", "")
+                            "LARGER", "CNC Utilities")
         {
         }
 

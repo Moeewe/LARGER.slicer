@@ -13,7 +13,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 public CncUtilityBlockComponent()
                 : base("CNC Utilities 05 Build Raw Block", "CU_05",
                     "Builds the raw block from boards, milling depths, and board length.",
-                            "", "")
+                            "LARGER", "CNC Utilities")
         {
         }
 

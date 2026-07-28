@@ -15,7 +15,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 public CncUtilityBomComponent()
                 : base("CNC Utilities 07 Bill of Materials", "CU_07",
                     "Generates a bill of materials for panel display and CSV export.",
-                            "", "")
+                            "LARGER", "CNC Utilities")
         {
         }
 

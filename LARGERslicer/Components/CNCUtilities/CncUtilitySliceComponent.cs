@@ -11,7 +11,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 public CncUtilitySliceComponent()
                     : base("CNC Utilities 03 Layer Split", "CU_03",
                                                 "Splits total height into material layers and separation joints.",
-                            "", "")
+                            "LARGER", "CNC Utilities")
         {
         }
 

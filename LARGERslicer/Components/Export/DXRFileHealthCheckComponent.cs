@@ -22,7 +22,7 @@ namespace LARGERslicer.Components.Export
         public DXRFileHealthCheckComponent()
           : base("DXR File Health Check", "DXR Check",
               "Checks DXR/GCode files for readability, filename safety, and printable content. Outputs GO / NO GO for machine loading.",
-              "", "")
+              "LARGER", "DXR")
         {
         }
 

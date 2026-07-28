@@ -15,7 +15,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 public CncUtilityExportComponent()
                     : base("CNC Utilities 08 Data Export", "CU_08",
                                                         "Exports boards and bill of materials as 3DM and CSV.",
-                            "", "")
+                            "LARGER", "CNC Utilities")
         {
         }
 

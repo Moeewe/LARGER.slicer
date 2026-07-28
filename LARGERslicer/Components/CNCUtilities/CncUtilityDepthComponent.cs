@@ -13,7 +13,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 public CncUtilityDepthComponent()
                 : base("CNC Utilities 04 Milling Depth", "CU_04",
                     "Calculates required milling depth per board in stepped increments.",
-                            "", "")
+                            "LARGER", "CNC Utilities")
         {
         }
 

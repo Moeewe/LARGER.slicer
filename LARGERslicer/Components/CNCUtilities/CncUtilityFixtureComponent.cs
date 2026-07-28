@@ -11,7 +11,7 @@ namespace LARGERslicer.Components.CNCUtilities
         public CncUtilityFixtureComponent()
                       : base("CNC Utilities 06 Fixtures", "CU_06",
                   "Creates L-shaped fixture elements (stop + base) and cuts insertion pockets into the boards.",
-              "", "")
+              "LARGER", "CNC Utilities")
         {
         }
 

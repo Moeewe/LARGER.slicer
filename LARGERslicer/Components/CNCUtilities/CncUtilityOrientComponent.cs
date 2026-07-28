@@ -10,7 +10,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 public CncUtilityOrientComponent()
                 : base("CNC Utilities 01 Orient Part", "CU_01",
                     "Orients a solid for CNC processing: length in X, depth in Y, height in Z.",
-                            "", "")
+                            "LARGER", "CNC Utilities")
         {
         }
 

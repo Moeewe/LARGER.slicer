@@ -12,7 +12,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 public CncUtilitySplitComponent()
                     : base("CNC Utilities 03b Split Joint", "CU_03b",
                                                  "Splits each layer with a separation joint into lower and upper parts.",
-                            "", "")
+                            "LARGER", "CNC Utilities")
         {
         }
 

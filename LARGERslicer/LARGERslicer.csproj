@@ -18,7 +18,10 @@
   <PropertyGroup>
     <!-- Specifies information for Assembly and Yak -->
     <!-- Version follows Semantic Versioning: MAJOR.MINOR.PATCH -->
-    <Version>1.1.5</Version>
+    <Version>1.1.6</Version>
+    <AssemblyVersion>1.1.6.0</AssemblyVersion>
+    <FileVersion>1.1.6.0</FileVersion>
+    <InformationalVersion>1.1.6</InformationalVersion>
     <Title>LARGERslicer</Title>
     <Company>LARGERslicer Authors</Company>
     <Authors>Moritz Wesseler, FH Münster</Authors>

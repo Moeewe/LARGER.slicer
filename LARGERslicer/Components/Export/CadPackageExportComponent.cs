@@ -15,7 +15,7 @@ namespace LARGERslicer.Components.Export
         public CadPackageExportComponent()
           : base("CAD Package Export", "CAD Export",
               "Exports closed Breps 1:1 (without union) to 3DM, STEP, and IGES with PSYYYYMMDD file naming.",
-              "", "")
+              "LARGER", "Export")
         {
         }
 
@@ -141,9 +141,9 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
-            log.Add($"Eingabe-Breps gesamt: {inputBreps.Count}");
-            log.Add($"Gueltige Breps: {validBreps.Count}");
-            log.Add("Union: deaktiviert (1:1 Export). ");
+            log.Add($"Input Breps total: {inputBreps.Count}");
+            log.Add($"Valid Breps: {validBreps.Count}");
+            log.Add("Union: disabled (1:1 export).");
 
             if (write3dm)
             {
@@ -257,7 +257,7 @@ namespace LARGERslicer.Components.Export
                 }
 
                 string escapedPath = path.Replace("\\", "\\\\").Replace("\"", "\\\"");
-                // "!" beendet ggf. haengende Vorbefehle; extra Enter puffert Exporter-Optionen.
+                // "!" ends any pending command state; extra Enter confirms exporter options.
                 string script = "! _-Export \"" + escapedPath + "\" _Enter _Enter _Enter";
 
                 bool ok = RhinoApp.RunScript(script, false);
@@ -267,7 +267,7 @@ namespace LARGERslicer.Components.Export
                     return false;
                 }
 
-                message = $"Datei geschrieben ({addedIds.Count} Breps, 1:1 ohne Union).";
+                message = $"File written ({addedIds.Count} Breps, 1:1 without union).";
                 return true;
             }
             catch (Exception ex)
