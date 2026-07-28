@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.7] - 2026-07-28
+
+### Fixed
+- Packaging hotfix: `build-package.sh` now always copies fresh build outputs into package root `LARGERslicer.gha` before `yak build`, preventing stale plugin binaries from being published.
+- Synced manual install bundle files in `Plugin Installation Files/LARGERSlicer/` from the latest net48 release build.
+- Prevented regression where older component naming/icon state could reappear after package updates.
+
 ## [1.1.6] - 2026-07-28
 
 ### Fixed

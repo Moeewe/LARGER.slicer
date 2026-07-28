@@ -80,9 +80,20 @@ mkdir -p net48 net7.0 net7.0-windows
 cp -R bin/Release/net48/. net48/
 cp -R bin/Release/net7.0/. net7.0/
 cp -R bin/Release/net7.0-windows/. net7.0-windows/
+cp -f bin/Release/net48/LARGERslicer.gha LARGERslicer.gha
 cp -f bin/Release/net48/LARGERslicer.gha dist/LARGERslicer.gha
 cp -f bin/Release/net7.0/LARGERslicer.gha dist/LARGERslicer-mac.gha
 cp -f bin/Release/net7.0-windows/LARGERslicer.gha dist/LARGERslicer-win.gha
+
+# Keep manual-install bundle in sync with the package build.
+mkdir -p "Plugin Installation Files/LARGERSlicer"
+cp -f bin/Release/net48/LARGERslicer.gha "Plugin Installation Files/LARGERSlicer/LARGERslicer.gha"
+if [ -f bin/Release/net48/LARGERslicer.pdb ]; then
+    cp -f bin/Release/net48/LARGERslicer.pdb "Plugin Installation Files/LARGERSlicer/LARGERslicer.pdb"
+fi
+if [ -f bin/Release/net48/Newtonsoft.Json.dll ]; then
+    cp -f bin/Release/net48/Newtonsoft.Json.dll "Plugin Installation Files/LARGERSlicer/Newtonsoft.Json.dll"
+fi
 
 echo -e "${GREEN}✓ Packaged binaries synced${NC}"
 
