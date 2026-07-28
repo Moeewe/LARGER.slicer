@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-07-28
+
+### Added
+- Added `DXR File Health Check` component with dedicated GUID and icon for operator-facing GO/NO-GO file validation.
+- Added printable cabinet sheets for GO/NO-GO workflow and NO-GO immediate help with QR links to repository and issue tracking.
+
+### Changed
+- Simplified and hardened DXR/GCode preflight logic for clearer readable/filename/content rule status in cabinet output.
+
+## [1.1.3] - 2026-07-27
+
+### Changed
+- Refined `CNC Utilities 08` and `Fast Deconstruct Point` icons to match the existing icon language with transparent backgrounds.
+
+## [1.1.2] - 2026-07-27
+
+### Added
+- Added `Fast Deconstruct Point` utility component for high-performance point decomposition into X/Y/Z outputs.
+
+### Fixed
+- Fixed curve-tool robustness in `Join Open Contours` and `Alternate Curves` for safer ordering and direction handling.
+- Updated component icons to match the CNC Utilities icon style, with a dedicated icon for the fast point utility.
+
 ## [1.1.1] - 2026-07-27
 
 ### Fixed

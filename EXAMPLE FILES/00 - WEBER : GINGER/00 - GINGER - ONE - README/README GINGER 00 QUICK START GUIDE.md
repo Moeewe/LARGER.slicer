@@ -41,9 +41,46 @@ Large-scale 3D printing introduces unique mechanical, thermal, and material chal
 
 Use it as both a step-by-step guide and a quick reference during your print runs.
 
+### LARGER Slicer Script Overview
+
+**LARGE FORMAT 3D PRINTING ALGORITHM**  
+**BY MORITZ WESSELER - FH MÜNSTER 2025**
+
+Inspired by Ginger.Additive.
+
+The merged file `LARGERslicer Weber Robot and Ginger.gh` now includes three ways to prepare a part for a Ginger 3D printer or a Weber DXR 3D printing robot:
+
+1. **Easy Slicer**  
+   Slices surfaces and creates the toolpath automatically.
+2. **Path Creator (Multiaxial)**  
+   Converts your prepared toolpath into a multiaxial robot path.  
+   Check collisions and plane rotations manually before production.
+3. **Custom Paths**  
+   Uses only the required conversion components to export robot-specific DXR code from custom paths.
+
+### General Additional Instructions (Grasshopper Workflow)
+
+1. Open the merged script and duplicate the workflow section you need into a new Grasshopper file.
+2. Verify that the robot software and the LARGERslicer plugin are installed.
+3. Select the correct machine and set machine/print parameters.
+4. Connect your geometry and validate accepted input types (for example, surfaces where required).
+5. Prepare and slice, then export via the corresponding save/export button.
+6. Validate the generated DXR/G-code in a text editor before printing (especially Z values, empty sections, or impossible moves).
+
+### Practical Tips
+
+- Large text panels and extensive point previews can slow down Rhino/Grasshopper significantly.
+- Large models may take longer to calculate.
+- Improvements are welcome; feel free to submit workflow optimizations.
+
 ---
 
 ## Quick Start Guide
+
+### Schaltschrank Print Sheets (DXR / GCode)
+
+- Printable GO/NO-GO checklist: `LARGERslicer/documentations/SCHALTSCHRANK_ZETTEL_DXR_GOCHECK_DE.md`
+- Printable NO-GO immediate help: `LARGERslicer/documentations/SCHALTSCHRANK_ZETTEL_NOGO_HILFE_DE.md`
 
 1. **Power On** the printer via the power box with multiple sockets.
 2. **Remove** all red emergency safety knobs.
