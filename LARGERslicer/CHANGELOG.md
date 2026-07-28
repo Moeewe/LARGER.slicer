@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.10] - 2026-07-28
+
+### Fixed
+- Recolored affected custom component icons to match the darker blue reference icon style used by existing LARGERslicer components.
+- Updated icon tone consistency for: `CadPackageExport`, `CncUtilityExport`, `FastDeconstructPoint`, `GCodeRobotCodeMaker`, `NameCreator`, `PathCreatorMultiaxial`, `PreviewComponent`, `PrintPathCreatorPlanar`, and `RobotCodeCreator`.
+
 ## [1.1.9] - 2026-07-28
 
 ### Fixed
