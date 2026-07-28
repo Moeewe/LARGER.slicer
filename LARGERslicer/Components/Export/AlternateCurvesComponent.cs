@@ -63,6 +63,8 @@ namespace LARGERslicer.Components.Export
             // Clamp group size
             if (groupSize < 1) groupSize = 1;
 
+            Vector3d alternationAxis = GetAlternationAxis(validCurves);
+
             var alternatedCurves = new List<Curve>();
             var flippedFlags = new List<bool>();
             bool currentDirection = startLeft; // true = left, false = right
@@ -79,7 +81,7 @@ namespace LARGERslicer.Components.Export
 
                 // Determine if curve should point left or right
                 Vector3d curveDirection = GetCurveDirection(curve);
-                bool curvePointsLeft = IsLeftDirection(curveDirection);
+                bool curvePointsLeft = IsLeftDirection(curveDirection, alternationAxis);
 
                 // Flip if direction doesn't match desired direction
                 bool shouldFlip = (curvePointsLeft != currentDirection);
@@ -148,17 +150,43 @@ namespace LARGERslicer.Components.Export
         }
 
         /// <summary>
-        /// Determines if a direction vector points left (negative X component in XY plane).
+        /// Builds a stable horizontal axis from the first usable curve direction.
+        /// Falls back to World X when no horizontal direction can be extracted.
         /// </summary>
-        private bool IsLeftDirection(Vector3d direction)
+        private Vector3d GetAlternationAxis(List<Curve> curves)
+        {
+            foreach (var c in curves)
+            {
+                Vector3d d = GetCurveDirection(c);
+                Vector3d xy = new Vector3d(d.X, d.Y, 0);
+                if (xy.Length >= 0.001)
+                {
+                    xy.Unitize();
+                    return xy;
+                }
+            }
+
+            return Vector3d.XAxis;
+        }
+
+        /// <summary>
+        /// Determines if a direction vector points left relative to a given horizontal axis.
+        /// </summary>
+        private bool IsLeftDirection(Vector3d direction, Vector3d axis)
         {
             // Project to XY plane
             Vector3d xyDirection = new Vector3d(direction.X, direction.Y, 0);
             if (xyDirection.Length < 0.001)
                 return false; // Vertical or zero vector
+
+            Vector3d xyAxis = new Vector3d(axis.X, axis.Y, 0);
+            if (xyAxis.Length < 0.001)
+                xyAxis = Vector3d.XAxis;
+            else
+                xyAxis.Unitize();
             
-            // Check if X component is negative (left)
-            return xyDirection.X < 0;
+            // Negative projection means opposite to axis => "left".
+            return (xyDirection * xyAxis) < 0;
         }
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("AlternateCurvesIcon.png");

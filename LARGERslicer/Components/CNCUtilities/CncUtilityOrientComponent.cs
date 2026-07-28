@@ -8,8 +8,8 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityOrientComponent : GH_Component
     {
                 public CncUtilityOrientComponent()
-                : base("CNC Utilities 01 Bauteil ausrichten", "CU_01",
-                    "Richtet ein Solid fuer die CNC-Bearbeitung aus: Laenge in X, Tiefe in Y, Hoehe in Z.",
+                : base("CNC Utilities 01 Orient Part", "CU_01",
+                    "Orients a solid for CNC processing: length in X, depth in Y, height in Z.",
                             "", "")
         {
         }
@@ -19,19 +19,19 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Bauteil", "Geo", "Geschlossenes Solid des zu bearbeitenden Bauteils", GH_ParamAccess.item);
-            pManager.AddSurfaceParameter("Oberseite", "Top", "Referenzflaeche fuer die Oberseite (definiert Stapelrichtung Z)", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Part", "Geo", "Closed solid part to be processed", GH_ParamAccess.item);
+            pManager.AddSurfaceParameter("Top Face", "Top", "Reference surface for the top side (defines stacking direction Z)", GH_ParamAccess.item);
             pManager[1].Optional = true;
-            pManager.AddSurfaceParameter("Frontflaeche", "Front", "Referenzflaeche fuer die Front (definiert Tiefenrichtung Y)", GH_ParamAccess.item);
+            pManager.AddSurfaceParameter("Front Face", "Front", "Reference surface for the front side (defines depth direction Y)", GH_ParamAccess.item);
             pManager[2].Optional = true;
-            pManager.AddNumberParameter("Drehwinkel", "Winkel", "Zusaetzliche Rotation der Brettorientierung um die Top-Achse in Grad (0/90/180/270)", GH_ParamAccess.item, 0.0);
+            pManager.AddNumberParameter("Rotation Angle", "Angle", "Additional board orientation rotation around the top axis in degrees (0/90/180/270)", GH_ParamAccess.item, 0.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientiertes Solid", "Solid", "Ausgerichtetes Solid (X=Laenge, Y=Tiefe, Z=Hoehe)", GH_ParamAccess.item);
-            pManager.AddTransformParameter("Ausrichtungs-Transform", "XForm", "Verwendete Transformationsmatrix", GH_ParamAccess.item);
-            pManager.AddPlaneParameter("Quell-Frame", "Frame", "Erkannter/berechneter Quell-Frame zur Kontrolle", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Oriented Solid", "Solid", "Oriented solid (X=length, Y=depth, Z=height)", GH_ParamAccess.item);
+            pManager.AddTransformParameter("Orientation Transform", "XForm", "Applied transformation matrix", GH_ParamAccess.item);
+            pManager.AddPlaneParameter("Source Frame", "Frame", "Detected/computed source frame for inspection", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -49,7 +49,7 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (solid == null || !solid.IsValid || !solid.IsSolid)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Bitte ein gueltiges, geschlossenes Solid anschliessen.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Please provide a valid closed solid.");
                 return;
             }
 
@@ -63,7 +63,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 nTop = GetSurfaceNormal(topSrf);
                 if (!nTop.IsValid)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Oberflaeche 'Oberseite' konnte nicht ausgewertet werden.");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The 'Top Face' input could not be evaluated.");
                     return;
                 }
             }
@@ -81,7 +81,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 nFront = GetSurfaceNormal(frontSrf);
                 if (!nFront.IsValid)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Oberflaeche 'Frontflaeche' konnte nicht ausgewertet werden.");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The 'Front Face' input could not be evaluated.");
                     return;
                 }
             }

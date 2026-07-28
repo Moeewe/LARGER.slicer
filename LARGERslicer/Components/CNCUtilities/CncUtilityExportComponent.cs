@@ -13,8 +13,8 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityExportComponent : GH_Component
     {
                 public CncUtilityExportComponent()
-                    : base("CNC Utilities 08 Datenexport", "CU_08",
-                                                        "Exportiert Bretter und Materialliste als 3DM und CSV.",
+                    : base("CNC Utilities 08 Data Export", "CU_08",
+                                                        "Exports boards and bill of materials as 3DM and CSV.",
                             "", "")
         {
         }
@@ -24,22 +24,22 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Bretter", "Bretter", "Bretter aus CNC Utilities 05 Rohblock erzeugen", GH_ParamAccess.list);
-            pManager.AddBrepParameter("Containerbox", "Box", "Containerbox aus CNC Utilities 05 Rohblock erzeugen", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Referenzkoerper", "Referenz", "Referenzkoerper aus CNC Utilities 05 Rohblock erzeugen", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV-Kopf", "Header", "CSV-Headerzeile aus CNC Utilities 07 Materialliste", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV-Zeilen", "CSV", "CSV-Datenzeilen aus CNC Utilities 07 Materialliste", GH_ParamAccess.list);
-            pManager.AddTextParameter("Exportordner", "Ordner", "Zielordner fuer den Export", GH_ParamAccess.item, "");
-            pManager.AddTextParameter("Dateiname", "Name", "Basisname der Exportdateien", GH_ParamAccess.item, "CNC_Projekt");
-            pManager.AddBooleanParameter("3DM schreiben", "3DM", "3DM-Datei exportieren", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("CSV schreiben", "CSV", "CSV-Datei exportieren", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("Export starten", "Start", "True = Export ausfuehren", GH_ParamAccess.item, false);
+            pManager.AddBrepParameter("Boards", "Boards", "Boards from CNC Utilities 05 Build Raw Block", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Container Box", "Box", "Container box from CNC Utilities 05 Build Raw Block", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Reference Body", "Ref", "Reference body from CNC Utilities 05 Build Raw Block", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV Header", "Header", "CSV header row from CNC Utilities 07 Bill of Materials", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV Rows", "CSV", "CSV data rows from CNC Utilities 07 Bill of Materials", GH_ParamAccess.list);
+            pManager.AddTextParameter("Export Folder", "Folder", "Destination folder for export", GH_ParamAccess.item, "");
+            pManager.AddTextParameter("File Name", "Name", "Base name for exported files", GH_ParamAccess.item, "CNC_Project");
+            pManager.AddBooleanParameter("Write 3DM", "3DM", "Export a 3DM file", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Write CSV", "CSV", "Export a CSV file", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Start Export", "Start", "True = run export", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Dateien", "Dateien", "Geschriebene Dateipfade", GH_ParamAccess.list);
-            pManager.AddTextParameter("Protokoll", "Log", "Export-Protokoll", GH_ParamAccess.list);
+            pManager.AddTextParameter("Files", "Files", "Written file paths", GH_ParamAccess.list);
+            pManager.AddTextParameter("Log", "Log", "Export log", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -50,7 +50,7 @@ namespace LARGERslicer.Components.CNCUtilities
             string header = "";
             var lines = new List<string>();
             string path = "";
-            string name = "CNC_Projekt";
+            string name = "CNC_Project";
             bool write3dm = true;
             bool writeCsv = true;
             bool run = false;
@@ -71,7 +71,7 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (!run)
             {
-                log.Add("Export ist bereit. Setze 'Export starten' auf True.");
+                log.Add("Export is ready. Set 'Start Export' to True.");
                 DA.SetDataList(0, files);
                 DA.SetDataList(1, log);
                 return;
@@ -102,11 +102,11 @@ namespace LARGERslicer.Components.CNCUtilities
 
                     f3.Write(p3, 7);
                     files.Add(p3);
-                    log.Add("3DM-Datei geschrieben");
+                    log.Add("3DM file written");
                 }
                 catch (Exception ex)
                 {
-                    log.Add("Fehler beim Schreiben der 3DM-Datei: " + ex.Message);
+                    log.Add("Error writing 3DM file: " + ex.Message);
                 }
             }
 
@@ -121,11 +121,11 @@ namespace LARGERslicer.Components.CNCUtilities
                         sb.AppendLine(l);
                     File.WriteAllText(pc, sb.ToString(), Encoding.UTF8);
                     files.Add(pc);
-                    log.Add("CSV-Datei geschrieben");
+                    log.Add("CSV file written");
                 }
                 catch (Exception ex)
                 {
-                    log.Add("Fehler beim Schreiben der CSV-Datei: " + ex.Message);
+                    log.Add("Error writing CSV file: " + ex.Message);
                 }
             }
 

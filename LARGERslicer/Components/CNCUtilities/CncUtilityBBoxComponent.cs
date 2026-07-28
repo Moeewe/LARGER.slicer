@@ -8,8 +8,8 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityBBoxComponent : GH_Component
     {
                 public CncUtilityBBoxComponent()
-                    : base("CNC Utilities 02 Abmessungen", "CU_02",
-                                                        "Ermittelt die Abmessungen und Bounding Box des ausgerichteten Solids.",
+                    : base("CNC Utilities 02 Dimensions", "CU_02",
+                                                        "Calculates dimensions and bounding box of the oriented solid.",
                             "", "")
         {
         }
@@ -19,15 +19,15 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientiertes Solid", "Solid", "Solid aus CNC Utilities 01 Bauteil ausrichten", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Oriented Solid", "Solid", "Solid from CNC Utilities 01 Orient Part", GH_ParamAccess.item);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBoxParameter("Bounding Box", "BBox", "Bounding Box des orientierten Solids", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Breite X", "Breite", "Blockbreite in X", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Tiefe Y", "Tiefe", "Blocktiefe in Y", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Hoehe Z", "Hoehe", "Blockhoehe in Z", GH_ParamAccess.item);
+            pManager.AddBoxParameter("Bounding Box", "BBox", "Bounding box of the oriented solid", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Width X", "W", "Block width in X", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Depth Y", "D", "Block depth in Y", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Height Z", "H", "Block height in Z", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -38,14 +38,14 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (solid == null || !solid.IsValid)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Das orientierte Solid ist ungueltig.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The oriented solid is invalid.");
                 return;
             }
 
             BoundingBox bb = solid.GetBoundingBox(true);
             if (!bb.IsValid)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Bounding Box konnte nicht berechnet werden.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Bounding box could not be computed.");
                 return;
             }
 

@@ -9,8 +9,8 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityFixtureComponent : GH_Component
     {
         public CncUtilityFixtureComponent()
-                    : base("CNC Utilities 06 Aufspannhilfen", "CU_06",
-              "Erzeugt L-foermige Saugelemente (Anschlag + Basis) und schneidet Einsteck-Taschen in die Bretter.",
+                      : base("CNC Utilities 06 Fixtures", "CU_06",
+                  "Creates L-shaped fixture elements (stop + base) and cuts insertion pockets into the boards.",
               "", "")
         {
         }
@@ -20,22 +20,22 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Bretter", "Bretter", "Bretter aus CNC Utilities 05 Rohblock erzeugen", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Einstecktiefe", "Tiefe", "Wie tief der Anschlag in die Bretter eingesteckt wird (mm)", GH_ParamAccess.item, 5.0);
-            pManager.AddNumberParameter("Anschlag-Staerke", "Staerke", "Gesamtdicke des vertikalen Anschlagbretts (mm)", GH_ParamAccess.item, 30.0);
-            pManager.AddNumberParameter("Basis-Hoehe", "BasisH", "Dicke des horizontalen Basisbretts (mm)", GH_ParamAccess.item, 20.0);
-            pManager.AddNumberParameter("Basis-Ueberstand", "BasisU", "Wie weit die Basis ueber den Anschlag hinausragt (mm)", GH_ParamAccess.item, 50.0);
+            pManager.AddBrepParameter("Boards", "Boards", "Boards from CNC Utilities 05 Build Raw Block", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Insert Depth", "Depth", "How deep the stop is inserted into the boards (mm)", GH_ParamAccess.item, 5.0);
+            pManager.AddNumberParameter("Stop Thickness", "Thk", "Total thickness of the vertical stop board (mm)", GH_ParamAccess.item, 30.0);
+            pManager.AddNumberParameter("Base Height", "BaseH", "Thickness of the horizontal base board (mm)", GH_ParamAccess.item, 20.0);
+            pManager.AddNumberParameter("Base Overhang", "BaseO", "How far the base extends beyond the stop (mm)", GH_ParamAccess.item, 50.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBrepParameter("Anschlag links", "Links", "Vertikales Anschlagbrett links", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Anschlag rechts", "Rechts", "Vertikales Anschlagbrett rechts", GH_ParamAccess.item);
-            pManager.AddCurveParameter("Kontur links", "Kontur L", "Treppenkontur links (YZ-Profil)", GH_ParamAccess.item);
-            pManager.AddCurveParameter("Kontur rechts", "Kontur R", "Treppenkontur rechts (YZ-Profil)", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Basis links", "BasisL", "Horizontales Basisbrett links", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Basis rechts", "BasisR", "Horizontales Basisbrett rechts", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Gefraeste Bretter", "Bretter", "Bretter mit Einsteck-Taschen an beiden Enden", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Left Stop", "Left", "Vertical stop board on the left", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Right Stop", "Right", "Vertical stop board on the right", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Left Contour", "Cont L", "Left step contour (YZ profile)", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Right Contour", "Cont R", "Right step contour (YZ profile)", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Left Base", "BaseL", "Horizontal base board on the left", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Right Base", "BaseR", "Horizontal base board on the right", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Milled Boards", "Boards", "Boards with insertion pockets on both ends", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -55,19 +55,19 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (boards.Count == 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Keine Bretter vorhanden.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No boards provided.");
                 return;
             }
 
             if (insertDepth <= 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Einstecktiefe muss groesser als 0 sein.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Insert depth must be greater than 0.");
                 return;
             }
 
             if (stopThickness <= insertDepth)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Anschlag-Staerke muss groesser als Einstecktiefe sein.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Stop thickness must be greater than insert depth.");
                 return;
             }
 
@@ -93,7 +93,7 @@ namespace LARGERslicer.Components.CNCUtilities
             if (boardLength <= 2.0 * insertDepth)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    "Bretter sind kuerzer als die doppelte Einstecktiefe. Bretter muessen laenger sein als die Einsteck-Kontur.");
+                    "Boards are shorter than twice the insert depth. Boards must be longer than the insert contour.");
                 return;
             }
 

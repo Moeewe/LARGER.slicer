@@ -13,8 +13,8 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityBomComponent : GH_Component
     {
                 public CncUtilityBomComponent()
-                : base("CNC Utilities 07 Materialliste", "CU_07",
-                    "Erzeugt eine Materialliste fuer Panel-Anzeige und CSV-Export.",
+                : base("CNC Utilities 07 Bill of Materials", "CU_07",
+                    "Generates a bill of materials for panel display and CSV export.",
                             "", "")
         {
         }
@@ -24,14 +24,14 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus CNC Utilities 03b Trennfuge teilen", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Fraestiefen aus CNC Utilities 04 Bearbeitungstiefe", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Brettlaenge aus CNC Utilities 04 Bearbeitungstiefe", GH_ParamAccess.item);
-            pManager.AddTextParameter("Material", "Material", "Materialname fuer die Stueckliste", GH_ParamAccess.item, "MDF / Vollholz");
-            pManager.AddBrepParameter("Saugelement links", "Links", "Optionale Aufspannhilfe (Anschlag) links aus CNC Utilities 06", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Saugelement rechts", "Rechts", "Optionale Aufspannhilfe (Anschlag) rechts aus CNC Utilities 06", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Basis links", "BasisL", "Optionales Basisbrett links aus CNC Utilities 06", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Basis rechts", "BasisR", "Optionales Basisbrett rechts aus CNC Utilities 06", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Boards", "Split", "Boards from CNC Utilities 03b Split Joint", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Milling Depths", "Depths", "Milling depths from CNC Utilities 04 Milling Depth", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Board Length", "Length", "Board length from CNC Utilities 04 Milling Depth", GH_ParamAccess.item);
+            pManager.AddTextParameter("Material", "Material", "Material name used in the BOM", GH_ParamAccess.item, "MDF / Solid Wood");
+            pManager.AddBrepParameter("Left Fixture", "Left", "Optional left fixture stop from CNC Utilities 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Right Fixture", "Right", "Optional right fixture stop from CNC Utilities 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Left Base", "BaseL", "Optional left base board from CNC Utilities 06", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Right Base", "BaseR", "Optional right base board from CNC Utilities 06", GH_ParamAccess.item);
             pManager[4].Optional = true;
             pManager[5].Optional = true;
             pManager[6].Optional = true;
@@ -40,9 +40,9 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Paneltext", "Panel", "Formatierte Stueckliste fuer ein GH-Panel", GH_ParamAccess.list);
-            pManager.AddTextParameter("CSV-Kopf", "Header", "CSV-Headerzeile", GH_ParamAccess.item);
-            pManager.AddTextParameter("CSV-Zeilen", "CSV", "CSV-Datenzeilen", GH_ParamAccess.list);
+            pManager.AddTextParameter("Panel Text", "Panel", "Formatted BOM text for a GH panel", GH_ParamAccess.list);
+            pManager.AddTextParameter("CSV Header", "Header", "CSV header row", GH_ParamAccess.item);
+            pManager.AddTextParameter("CSV Rows", "CSV", "CSV data rows", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -75,13 +75,13 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (raw.Count > 0 && rows.Count == 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Eingabedaten koennen nicht als Brettliste gelesen werden.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Input data could not be parsed as a board list.");
                 return;
             }
 
             if (rows.Count != depths.Count)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Anzahl Bretter und Fraestiefen muss uebereinstimmen.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Board count and milling depth count must match.");
                 return;
             }
 
@@ -99,10 +99,10 @@ namespace LARGERslicer.Components.CNCUtilities
 
             var panel = new List<string>();
             var csv = new List<string>();
-            string header = "Pos;Typ;Laenge;Tiefe;Hoehe;Anzahl;Material;Bemerkung";
+            string header = "Pos;Type;Length;Depth;Height;Count;Material;Remark";
 
             int pos = 1;
-            panel.Add("Pos | Typ | L | T | H | Anzahl | Material | Bemerkung");
+            panel.Add("Pos | Type | L | D | H | Count | Material | Remark");
             panel.Add("-------------------------------------------------------");
 
             foreach (var g in groups)
@@ -126,19 +126,19 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (saugL != null)
             {
-                AddSaugRow(ref pos, material, "Anschlag links", saugL, panel, csv);
+                AddSaugRow(ref pos, material, "Fixture left", saugL, panel, csv);
             }
             if (saugR != null)
             {
-                AddSaugRow(ref pos, material, "Anschlag rechts", saugR, panel, csv);
+                AddSaugRow(ref pos, material, "Fixture right", saugR, panel, csv);
             }
             if (basisL != null)
             {
-                AddSaugRow(ref pos, material, "Basis links", basisL, panel, csv);
+                AddSaugRow(ref pos, material, "Base left", basisL, panel, csv);
             }
             if (basisR != null)
             {
-                AddSaugRow(ref pos, material, "Basis rechts", basisR, panel, csv);
+                AddSaugRow(ref pos, material, "Base right", basisR, panel, csv);
             }
 
             DA.SetDataList(0, panel);
@@ -162,7 +162,7 @@ namespace LARGERslicer.Components.CNCUtilities
             double d = bb.Max.Y - bb.Min.Y;
             double h = bb.Max.Z - bb.Min.Z;
 
-            panel.Add($"{pos} | {type} | {l:F1} | {d:F1} | {h:F1} | 1 | {material} | Aufspanngeometrie");
+            panel.Add($"{pos} | {type} | {l:F1} | {d:F1} | {h:F1} | 1 | {material} | Fixture geometry");
             csv.Add(string.Join(";", new[]
             {
                 pos.ToString(CultureInfo.InvariantCulture),
@@ -172,7 +172,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 h.ToString("F1", CultureInfo.InvariantCulture),
                 "1",
                 material,
-                "Aufspanngeometrie"
+                "Fixture geometry"
             }));
             pos++;
         }

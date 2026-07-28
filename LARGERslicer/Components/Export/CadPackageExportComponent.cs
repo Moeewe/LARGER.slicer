@@ -14,7 +14,7 @@ namespace LARGERslicer.Components.Export
     {
         public CadPackageExportComponent()
           : base("CAD Package Export", "CAD Export",
-              "Exportiert Closed Breps 1:1 (ohne Union) nach 3DM, STEP und IGES mit PSYYYYMMDD-Dateinamen.",
+              "Exports closed Breps 1:1 (without union) to 3DM, STEP, and IGES with PSYYYYMMDD file naming.",
               "", "")
         {
         }
@@ -24,32 +24,32 @@ namespace LARGERslicer.Components.Export
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Geometrien", "Geo", "Closed Breps fuer den Export (werden 1:1 wie eingegeben exportiert).", GH_ParamAccess.list);
-            pManager.AddTextParameter("Exportordner", "Ordner", "Zielordner fuer alle Dateien.", GH_ParamAccess.item, string.Empty);
-            pManager.AddTextParameter("Projektname", "Projekt", "Projektname fuer Dateibenennung.", GH_ParamAccess.item, "Projekt");
-            pManager.AddTextParameter("Teilenummer", "Teil", "Teilenummer im Dateinamen.", GH_ParamAccess.item, "Teil1");
-            pManager.AddTextParameter("Unterteilenummer", "Unterteil", "Unterteilenummer, z.B. oben/unten.", GH_ParamAccess.item, "allgemein");
-            pManager.AddTextParameter("Revision", "Rev", "Revision, z.B. v1.1 (optional).", GH_ParamAccess.item, string.Empty);
-            pManager.AddBooleanParameter("3DM schreiben", "3DM", "3DM-Datei exportieren.", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("STEP schreiben", "STP", "STEP-Datei exportieren (.stp).", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("IGES schreiben", "IGES", "IGES-Datei exportieren (.iges).", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("Export starten", "Start", "True = Export ausfuehren.", GH_ParamAccess.item, false);
+            pManager.AddBrepParameter("Geometries", "Geo", "Closed Breps for export (exported 1:1 as provided).", GH_ParamAccess.list);
+            pManager.AddTextParameter("Export Folder", "Folder", "Destination folder for all files.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Project Name", "Project", "Project name used in file naming.", GH_ParamAccess.item, "Project");
+            pManager.AddTextParameter("Part Number", "Part", "Part number in file names.", GH_ParamAccess.item, "Part1");
+            pManager.AddTextParameter("Subpart Number", "Subpart", "Subpart number, e.g. top/bottom.", GH_ParamAccess.item, "general");
+            pManager.AddTextParameter("Revision", "Rev", "Revision, e.g. v1.1 (optional).", GH_ParamAccess.item, string.Empty);
+            pManager.AddBooleanParameter("Write 3DM", "3DM", "Export a 3DM file.", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Write STEP", "STP", "Export a STEP file (.stp).", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Write IGES", "IGES", "Export an IGES file (.iges).", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Start Export", "Start", "True = run export.", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("Dateien", "Dateien", "Geschriebene Dateipfade.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Basisname", "Name", "Aufgeloester Basisname gemaess Benennungsschema.", GH_ParamAccess.item);
-            pManager.AddTextParameter("Protokoll", "Log", "Export-Protokoll.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Files", "Files", "Written file paths.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Base Name", "Name", "Resolved base name according to naming scheme.", GH_ParamAccess.item);
+            pManager.AddTextParameter("Log", "Log", "Export log.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             var inputBreps = new List<Brep>();
             string folder = string.Empty;
-            string projectName = "Projekt";
-            string partNumber = "Teil1";
-            string subPart = "allgemein";
+            string projectName = "Project";
+            string partNumber = "Part1";
+            string subPart = "general";
             string revision = string.Empty;
             bool write3dm = true;
             bool writeStep = true;
@@ -70,14 +70,14 @@ namespace LARGERslicer.Components.Export
 
             var files = new List<string>();
             var log = new List<string>();
-            string baseName = ExportNamingHelper.BuildBaseName(DateTime.Now, projectName, partNumber, subPart, revision, "Geometrie");
+            string baseName = ExportNamingHelper.BuildBaseName(DateTime.Now, projectName, partNumber, subPart, revision, "Geometry");
 
             DA.SetData(1, baseName);
 
             if (!run)
             {
-                log.Add("Export ist bereit. Setze 'Export starten' auf True.");
-                log.Add("Regel: kein Union, Export 1:1 wie Eingabe.");
+                log.Add("Export is ready. Set 'Start Export' to True.");
+                log.Add("Rule: no union, export remains 1:1 with input.");
                 DA.SetDataList(0, files);
                 DA.SetDataList(2, log);
                 return;
@@ -85,8 +85,8 @@ namespace LARGERslicer.Components.Export
 
             if (!write3dm && !writeStep && !writeIges)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Kein Ausgabeformat aktiviert.");
-                log.Add("Abbruch: Kein Ausgabeformat aktiviert.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No output format enabled.");
+                log.Add("Canceled: no output format enabled.");
                 DA.SetDataList(0, files);
                 DA.SetDataList(2, log);
                 return;
@@ -98,12 +98,12 @@ namespace LARGERslicer.Components.Export
                 Brep b = inputBreps[i];
                 if (b == null)
                 {
-                    log.Add($"WARNUNG: Geometrie #{i + 1} ist null und wird uebersprungen.");
+                    log.Add($"WARNING: Geometry #{i + 1} is null and will be skipped.");
                     continue;
                 }
                 if (!b.IsValid)
                 {
-                    log.Add($"WARNUNG: Geometrie #{i + 1} ist ungueltig und wird uebersprungen.");
+                    log.Add($"WARNING: Geometry #{i + 1} is invalid and will be skipped.");
                     continue;
                 }
                 validBreps.Add(b);
@@ -111,8 +111,8 @@ namespace LARGERslicer.Components.Export
 
             if (validBreps.Count == 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Keine gueltigen Breps fuer den Export.");
-                log.Add("Abbruch: Keine gueltigen Breps fuer den Export.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No valid Breps found for export.");
+                log.Add("Canceled: no valid Breps found for export.");
                 DA.SetDataList(0, files);
                 DA.SetDataList(2, log);
                 return;
@@ -124,7 +124,7 @@ namespace LARGERslicer.Components.Export
                 folder = string.IsNullOrWhiteSpace(docPath)
                     ? System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop)
                     : Path.GetDirectoryName(docPath);
-                log.Add("Exportordner nicht gesetzt: Fallback auf Dokumentordner/Desktop.");
+                log.Add("Export folder not set: fallback to document folder/Desktop.");
             }
 
             try
@@ -134,8 +134,8 @@ namespace LARGERslicer.Components.Export
             }
             catch (Exception ex)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Exportordner ungueltig.");
-                log.Add("Abbruch: Exportordner ungueltig - " + ex.Message);
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Export folder is invalid.");
+                log.Add("Canceled: export folder is invalid - " + ex.Message);
                 DA.SetDataList(0, files);
                 DA.SetDataList(2, log);
                 return;
@@ -155,7 +155,7 @@ namespace LARGERslicer.Components.Export
                 }
                 else
                 {
-                    log.Add("Fehler 3DM: " + message);
+                    log.Add("Error 3DM: " + message);
                 }
             }
 
@@ -169,7 +169,7 @@ namespace LARGERslicer.Components.Export
                 }
                 else
                 {
-                    log.Add("Fehler STEP: " + message);
+                    log.Add("Error STEP: " + message);
                 }
             }
 
@@ -183,7 +183,7 @@ namespace LARGERslicer.Components.Export
                 }
                 else
                 {
-                    log.Add("Fehler IGES: " + message);
+                    log.Add("Error IGES: " + message);
                 }
             }
 
@@ -204,7 +204,7 @@ namespace LARGERslicer.Components.Export
                 }
 
                 f3.Write(path, 7);
-                message = $"3DM-Datei geschrieben ({breps.Count} Breps).";
+                message = $"3DM file written ({breps.Count} Breps).";
                 return true;
             }
             catch (Exception ex)
@@ -220,7 +220,7 @@ namespace LARGERslicer.Components.Export
             RhinoDoc doc = RhinoDoc.ActiveDoc;
             if (doc == null)
             {
-                message = "Kein aktives Rhino-Dokument vorhanden.";
+                message = "No active Rhino document available.";
                 return false;
             }
 
@@ -252,7 +252,7 @@ namespace LARGERslicer.Components.Export
 
                 if (addedIds.Count == 0)
                 {
-                    message = "Keine Geometrie konnte fuer den Export in das Dokument geschrieben werden.";
+                    message = "No geometry could be written into the document for export.";
                     return false;
                 }
 
@@ -263,7 +263,7 @@ namespace LARGERslicer.Components.Export
                 bool ok = RhinoApp.RunScript(script, false);
                 if (!ok)
                 {
-                    message = "Rhino Exportkommando fehlgeschlagen.";
+                    message = "Rhino export command failed.";
                     return false;
                 }
 
@@ -291,7 +291,7 @@ namespace LARGERslicer.Components.Export
             }
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CadPackageExportIcon.png");
 
         public override Guid ComponentGuid => new Guid("A1A1E8AE-58A6-4E6E-8A41-405F8B5D0601");
     }

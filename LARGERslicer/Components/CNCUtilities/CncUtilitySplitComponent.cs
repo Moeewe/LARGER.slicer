@@ -10,8 +10,8 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilitySplitComponent : GH_Component
     {
                 public CncUtilitySplitComponent()
-                    : base("CNC Utilities 03b Trennfuge teilen", "CU_03b",
-                                                        "Teilt jede Schicht mit Trennfuge in einen unteren und oberen Teil.",
+                    : base("CNC Utilities 03b Split Joint", "CU_03b",
+                                                 "Splits each layer with a separation joint into lower and upper parts.",
                             "", "")
         {
         }
@@ -21,14 +21,14 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Bretter", "Bretter", "Bretter aus CNC Utilities 03 Schichtaufteilung", GH_ParamAccess.list);
-            pManager.AddBooleanParameter("Split aktiv", "Aktiv", "True = Fuge-Bretter teilen", GH_ParamAccess.item, true);
+            pManager.AddGenericParameter("Boards", "Boards", "Boards from CNC Utilities 03 Layer Split", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Split Enabled", "On", "True = split joint boards", GH_ParamAccess.item, true);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Split Bretter", "Split", "Bretterliste nach dem Teilen der Fuge-Bretter", GH_ParamAccess.list);
-            pManager.AddTextParameter("Info", "Info", "Erlaeuterungen zum Split", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Split Boards", "Split", "Board list after splitting joint boards", GH_ParamAccess.list);
+            pManager.AddTextParameter("Info", "Info", "Split notes", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -49,7 +49,7 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (boardsObj.Count > 0 && inputBoards.Count == 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Eingabedaten koennen nicht als Brettliste gelesen werden.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Input data could not be parsed as a board list.");
                 return;
             }
 
@@ -59,7 +59,7 @@ namespace LARGERslicer.Components.CNCUtilities
             if (!split)
             {
                 outBoards.AddRange(inputBoards);
-                info.Add("Split ist deaktiviert. Es wird die unveraenderte Brettliste ausgegeben.");
+                    info.Add("Split is disabled. Returning the unchanged board list.");
                 DA.SetDataList(0, outBoards);
                 DA.SetDataList(1, info);
                 return;
@@ -82,7 +82,7 @@ namespace LARGERslicer.Components.CNCUtilities
                         {
                             ZMin = b.ZMin,
                             ZMax = lo,
-                            Type = "Fuge-Brett A",
+                            Type = "Joint Board A",
                             IsSplitPart = true,
                             SourceIndex = b.SourceIndex
                         });
@@ -90,7 +90,7 @@ namespace LARGERslicer.Components.CNCUtilities
                         {
                             ZMin = hi,
                             ZMax = b.ZMax,
-                            Type = "Fuge-Brett B",
+                            Type = "Joint Board B",
                             IsSplitPart = true,
                             SourceIndex = b.SourceIndex
                         });
@@ -99,7 +99,7 @@ namespace LARGERslicer.Components.CNCUtilities
                     else
                     {
                         outBoards.Add(b);
-                        info.Add($"Fuge im Brett {b.SourceIndex} konnte wegen ungueltiger Grenzen nicht geteilt werden.");
+                        info.Add($"Joint in board {b.SourceIndex} could not be split because bounds are invalid.");
                     }
                 }
                 else
@@ -108,7 +108,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 }
             }
 
-            info.Add($"Erzeugte gesplittete Fuge-Bretter: {createdSplits}");
+            info.Add($"Created split joint boards: {createdSplits}");
             DA.SetDataList(0, outBoards);
             DA.SetDataList(1, info);
         }

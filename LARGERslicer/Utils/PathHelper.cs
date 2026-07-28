@@ -569,7 +569,7 @@ namespace LARGERslicer.Utils
                 return new List<Curve>();
 
             if (curves.Count == 1)
-                return new List<Curve> { curves[0] };
+                return new List<Curve> { curves[0].DuplicateCurve() };
 
             List<Curve> remaining = new List<Curve>(curves);
             List<Curve> ordered = new List<Curve>();
@@ -607,7 +607,8 @@ namespace LARGERslicer.Utils
 
                 if (nearestIndex >= 0)
                 {
-                    Curve nextCurve = remaining[nearestIndex];
+                    Curve sourceCurve = remaining[nearestIndex];
+                    Curve nextCurve = sourceCurve.DuplicateCurve();
                     
                     // Reverse if needed
                     if (shouldReverse)

@@ -11,8 +11,8 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityDepthComponent : GH_Component
     {
                 public CncUtilityDepthComponent()
-                : base("CNC Utilities 04 Bearbeitungstiefe", "CU_04",
-                    "Berechnet fuer jedes Brett die benoetigte Bearbeitungstiefe in Stufen.",
+                : base("CNC Utilities 04 Milling Depth", "CU_04",
+                    "Calculates required milling depth per board in stepped increments.",
                             "", "")
         {
         }
@@ -22,21 +22,21 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientierter Koerper", "Koerper", "Aus CNC Utilities 01 Bauteil ausrichten", GH_ParamAccess.item);
-            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus CNC Utilities 03b Trennfuge teilen", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Starttiefe", "Start", "Kleinste zulaessige Fraestiefe in mm", GH_ParamAccess.item, 150.0);
-            pManager.AddNumberParameter("Tiefenschritt", "Schritt", "Stufenweite fuer die Fraestiefe in mm", GH_ParamAccess.item, 50.0);
-            pManager.AddNumberParameter("Vorderer Puffer", "Vorne", "Zusaetzlicher Puffer vorne in mm", GH_ParamAccess.item, 5.0);
-            pManager.AddNumberParameter("Hinterer Puffer", "Hinten", "Zusaetzlicher Puffer hinten in mm", GH_ParamAccess.item, 5.0);
-            pManager.AddNumberParameter("Seitlicher Ueberstand", "Ueberstand", "Zusaetzliche Brettlaenge links und rechts in mm", GH_ParamAccess.item, 100.0);
+            pManager.AddBrepParameter("Oriented Body", "Body", "From CNC Utilities 01 Orient Part", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Boards", "Split", "Boards from CNC Utilities 03b Split Joint", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Start Depth", "Start", "Minimum allowed milling depth in mm", GH_ParamAccess.item, 150.0);
+            pManager.AddNumberParameter("Depth Step", "Step", "Step size for milling depth in mm", GH_ParamAccess.item, 50.0);
+            pManager.AddNumberParameter("Front Buffer", "Front", "Additional front buffer in mm", GH_ParamAccess.item, 5.0);
+            pManager.AddNumberParameter("Rear Buffer", "Rear", "Additional rear buffer in mm", GH_ParamAccess.item, 5.0);
+            pManager.AddNumberParameter("Side Overhang", "Overhang", "Additional board length on both sides in mm", GH_ParamAccess.item, 100.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Berechnete Fraestiefe je Brett in mm", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Einheitliche Brettlaenge in mm", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Rohtiefen", "Roh", "Unrasterte Maximaltiefe je Brett in mm", GH_ParamAccess.list);
-            pManager.AddTextParameter("Info", "Info", "Erlaeuterung zur Tiefenberechnung je Brett", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Milling Depths", "Depths", "Calculated milling depth per board in mm", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Board Length", "Length", "Unified board length in mm", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Raw Depths", "Raw", "Unstepped maximum depth per board in mm", GH_ParamAccess.list);
+            pManager.AddTextParameter("Info", "Info", "Depth calculation notes per board", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -61,7 +61,7 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (depthStep <= 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Der Tiefenschritt muss groesser als 0 sein.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Depth step must be greater than 0.");
                 return;
             }
 
@@ -74,7 +74,7 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (boardsRaw.Count > 0 && boards.Count == 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Eingabedaten koennen nicht als Brettliste gelesen werden.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Input data could not be parsed as a board list.");
                 return;
             }
 

@@ -11,8 +11,8 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityBlockComponent : GH_Component
     {
                 public CncUtilityBlockComponent()
-                : base("CNC Utilities 05 Rohblock erzeugen", "CU_05",
-                    "Erzeugt den Rohblock aus Brettern, Bearbeitungstiefen und Brettlaenge.",
+                : base("CNC Utilities 05 Build Raw Block", "CU_05",
+                    "Builds the raw block from boards, milling depths, and board length.",
                             "", "")
         {
         }
@@ -22,18 +22,18 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddBrepParameter("Orientierter Koerper", "Koerper", "Referenzkoerper aus CNC Utilities 01 Bauteil ausrichten", GH_ParamAccess.item);
-            pManager.AddGenericParameter("Split Bretter", "Split", "Bretter aus CNC Utilities 03b Trennfuge teilen", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fraestiefen", "Tiefen", "Fraestiefe je Brett aus CNC Utilities 04 Bearbeitungstiefe", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Brettlaenge", "Laenge", "Einheitliche Brettlaenge aus CNC Utilities 04 Bearbeitungstiefe", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Seitlicher Ueberstand", "Ueberstand", "Ueberstand fuer die Positionierung in mm", GH_ParamAccess.item, 100.0);
+            pManager.AddBrepParameter("Oriented Body", "Body", "Reference body from CNC Utilities 01 Orient Part", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Split Boards", "Split", "Boards from CNC Utilities 03b Split Joint", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Milling Depths", "Depths", "Milling depth per board from CNC Utilities 04 Milling Depth", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Board Length", "Length", "Unified board length from CNC Utilities 04 Milling Depth", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Side Overhang", "Overhang", "Overhang used for placement in mm", GH_ParamAccess.item, 100.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddBrepParameter("Bretter", "Bretter", "Alle Bretter als Breps", GH_ParamAccess.list);
-            pManager.AddBrepParameter("Containerbox", "Box", "Umhuellende Box des Verleimblocks", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Referenzkoerper", "Referenz", "Orientierter Referenzkoerper", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Boards", "Boards", "All boards as Breps", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Container Box", "Box", "Enclosing box of the glued block", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Reference Body", "Ref", "Oriented reference body", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -63,13 +63,13 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (boardsRaw.Count > 0 && boards.Count == 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Eingabedaten koennen nicht als Brettliste gelesen werden.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Input data could not be parsed as a board list.");
                 return;
             }
 
             if (boards.Count != depths.Count)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Anzahl Bretter und Fraestiefen muss uebereinstimmen.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Board count and milling depth count must match.");
                 return;
             }
 

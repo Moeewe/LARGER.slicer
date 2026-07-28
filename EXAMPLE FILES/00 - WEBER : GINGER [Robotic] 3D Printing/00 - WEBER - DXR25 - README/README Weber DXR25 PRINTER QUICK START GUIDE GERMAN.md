@@ -240,6 +240,18 @@ Remotezugriff:
 - TeamViewer ist für kurze Sessions verfügbar (keine Pro‑Lizenz; typischerweise ~5 Minuten). Zugangsdaten sind auf dem Windows‑System (TeamViewer-App/Explorer) einsehbar.
 - Windows Remote Desktop kann ggf. verfügbar sein (vor Ort prüfen/freigeben lassen).
 
+Wichtige HMI-/Dateihandling-Hinweise:
+- **File Explorer im HMI nur einmal antippen.** Mehrfaches Tippen kann zu Abstürzen führen, weil alle Klicks verzögert abgearbeitet werden.
+- **Wenn eine `.dxr` ungewöhnlich lange lädt**, ist die Datei häufig fehlerhaft. Datei in einem Texteditor prüfen (z. B. unvollständig, leer oder beschädigt) und ggf. neu exportieren.
+- **Dateinamen kurz und sauber halten.** Zu lange Dateinamen, Sonderzeichen oder zusätzliche Punkte im Dateinamen können den Import stören oder die Anlage abstürzen lassen.
+- **Wichtig:** Es darf nur **ein Punkt direkt vor der Dateiendung** stehen. Beispiel problematisch: `examplename_23h12min_1.23kg.dxr` (zusätzlicher Punkt vor `.dxr`).
+- **Bei sehr langsamem System keine großen USB-Sticks anschließen.** Die Indizierung kann stark verzögern.
+- **Empfohlene Alternative bei langsamen USB-Transfers:**
+   1. Runtime über das Menü beenden.
+   2. Unten rechts in der Taskleiste das TeamViewer-Icon öffnen.
+   3. Verbindungsdaten/Passwort eingeben.
+   4. Innerhalb der verfügbaren Session-Zeit (typisch ca. 5 Minuten) Dateien übertragen.
+
 Voraussetzungen für Rhino/Grasshopper‑Workflow:
  - Rhino 8 oder höher mit Robot‑Plugin installiert. Achtung: Läuft nur auf Rhino 8+ wegen Python‑2‑Skripten.
  - **Plugin installieren (zwei Möglichkeiten):**
@@ -331,8 +343,10 @@ Hinweise zu Multi‑Axial Druck:
 | Verbindung „NC“ fehlt | Netzwerkpfad getrennt | Explorer öffnen, „NC“ neu verbinden, Datei erneut laden |
 | Endloses Laden beim Job-Start | Startreihenfolge/NC‑Verbindung fehlerhaft | In der Anzeige oben rechts: Runtime beenden → Explorer öffnen → „NC‑Laufwerk“ in der Seitenleiste anklicken (Symbol wechselt von rot auf grün) → Job erneut laden |
 | Temperaturanzeige rot/Fehler | Heizelement/Sensorfehler | Nicht weiterdrucken; Werkstatt/Hersteller informieren |
+| Anlage bläst/kühlt ungewöhnlich laut | Robotikraum zu warm / thermische Last hoch | Robotikraum lüften, Luftaustausch erhöhen, Temperatur stabilisieren |
 | Starker Geruch | Platten abgenommen / Filter aus | Platten auflegen; Aktivkohlefilter einschalten; lüften |
 | Druck stoppt bei leerem Trockner | Trockner leer; kein Pausenmodus | Material nachfüllen; Druck kann ohne Update nicht fortgesetzt werden |
+| Referenzfahrt schlägt fehl, Startpunkt wird nicht gefunden | Referenzschalter verstellt/verbogen oder locker | In Referenzposition prüfen, ob beide Lampen korrekt schalten; Referenzschalter vorsichtig nachjustieren bzw. neu befestigen, bis die Justagefahrt wieder zuverlässig funktioniert |
 
 KUKA‑Controller/Programm hängt (z. B. Singularität):
 - Versuche den Roboter zunächst manuell aus der Situation zu fahren (Teach‑In, langsam, Bereich frei!).

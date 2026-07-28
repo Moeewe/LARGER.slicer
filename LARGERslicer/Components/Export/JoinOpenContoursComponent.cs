@@ -56,6 +56,12 @@ namespace LARGERslicer.Components.Export
             DA.GetData(2, ref optimizeOrder);
             DA.GetData(3, ref transitionType);
 
+            if (transitionType < 0 || transitionType > 1)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Transition Type out of range. Using 0 = Linear.");
+                transitionType = 0;
+            }
+
             // Filter valid open curves
             var validContours = contours
                 .Where(c => c != null && c.IsValid && !c.IsClosed)
@@ -82,8 +88,7 @@ namespace LARGERslicer.Components.Export
             if (optimizeOrder)
             {
                 Point3d startPt = validContours[0].PointAtStart;
-                List<Curve> optimizationConnections;
-                orderedContours = PathHelper.OptimizeCurveOrder(validContours, startPt, out optimizationConnections);
+                orderedContours = PathHelper.OptimizeCurveOrder(validContours, startPt, out _);
             }
             else
             {
@@ -151,7 +156,22 @@ namespace LARGERslicer.Components.Export
 
             // Join all segments into continuous path
             var joined = Curve.JoinCurves(pathSegments, tolerance);
-            Curve finalPath = joined != null && joined.Length > 0 ? joined[0] : pathSegments[0];
+            bool fragmentedJoin = joined != null && joined.Length > 1;
+            Curve finalPath;
+
+            if (joined != null && joined.Length == 1)
+            {
+                finalPath = joined[0];
+            }
+            else if (joined != null && joined.Length > 1)
+            {
+                finalPath = joined.OrderByDescending(c => c.GetLength()).First();
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Path could not be fully joined into one curve. Outputting longest segment.");
+            }
+            else
+            {
+                finalPath = pathSegments[0];
+            }
 
             // Create info string
             string info = $"Joined {validContours.Count} open contours into continuous path. ";
@@ -163,6 +183,10 @@ namespace LARGERslicer.Components.Export
             else
             {
                 info += "Using input order.";
+            }
+            if (fragmentedJoin)
+            {
+                info += " Join result was fragmented; longest segment returned as Path.";
             }
 
             DA.SetData(0, finalPath);

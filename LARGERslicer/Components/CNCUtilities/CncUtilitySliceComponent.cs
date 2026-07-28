@@ -9,8 +9,8 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilitySliceComponent : GH_Component
     {
                 public CncUtilitySliceComponent()
-                    : base("CNC Utilities 03 Schichtaufteilung", "CU_03",
-                                                "Teilt die Gesamthoehe in Materialschichten und Trennfugen auf.",
+                    : base("CNC Utilities 03 Layer Split", "CU_03",
+                                                "Splits total height into material layers and separation joints.",
                             "", "")
         {
         }
@@ -20,22 +20,22 @@ namespace LARGERslicer.Components.CNCUtilities
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddNumberParameter("Gesamthoehe", "Hoehe", "Gesamthoehe des Blocks in mm (z. B. aus CNC Utilities 02 Abmessungen)", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Randbrett unten", "Unten", "Dicke des unteren Randbretts in mm", GH_ParamAccess.item, 35.0);
-            pManager.AddNumberParameter("Randbrett oben", "Oben", "Dicke des oberen Randbretts in mm", GH_ParamAccess.item, 35.0);
-            pManager.AddNumberParameter("Mittelbrett-Staerke", "Mitte", "Dicke der Mittelbretter in mm", GH_ParamAccess.item, 30.0);
-            pManager.AddIntegerParameter("Fugenanzahl", "Fugen", "Anzahl der Fugen", GH_ParamAccess.item, 1);
-            pManager.AddNumberParameter("Minimale Fugenbreite", "MinFuge", "Mindestbreite je Fuge in mm", GH_ParamAccess.item, 4.0);
-            pManager.AddNumberParameter("Fugenpositionen", "Positionen", "Optional: absolute Hoehen der Fugenmitten in mm", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Total Height", "H", "Total block height in mm (for example from CNC Utilities 02 Dimensions)", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Bottom Edge Board", "Bottom", "Thickness of the bottom edge board in mm", GH_ParamAccess.item, 35.0);
+            pManager.AddNumberParameter("Top Edge Board", "Top", "Thickness of the top edge board in mm", GH_ParamAccess.item, 35.0);
+            pManager.AddNumberParameter("Middle Board Thickness", "Mid", "Thickness of middle boards in mm", GH_ParamAccess.item, 30.0);
+            pManager.AddIntegerParameter("Joint Count", "Joints", "Number of separation joints", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Minimum Joint Width", "MinJoint", "Minimum width per joint in mm", GH_ParamAccess.item, 4.0);
+            pManager.AddNumberParameter("Joint Positions", "Positions", "Optional: absolute joint center heights in mm", GH_ParamAccess.list);
             pManager[6].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Bretter", "Bretter", "Erzeugte Bretter inklusive Fuge-Metadaten", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fugenmitten", "Mitten", "Fugenmitten in mm", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Fugenbreite", "Breite", "Tatsaechliche Fugenbreite in mm", GH_ParamAccess.item);
-            pManager.AddTextParameter("Info", "Info", "Erlaeuterungen zur Bretteinteilung", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Boards", "Boards", "Generated boards including joint metadata", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Joint Centers", "Centers", "Joint center heights in mm", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Joint Width", "Width", "Actual joint width in mm", GH_ParamAccess.item);
+            pManager.AddTextParameter("Info", "Info", "Notes about board partitioning", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -59,7 +59,7 @@ namespace LARGERslicer.Components.CNCUtilities
 
             if (h <= 0 || ru <= 0 || ro <= 0 || mb <= 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Alle Hoehen und Dicken muessen groesser als 0 sein.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "All heights and thicknesses must be greater than 0.");
                 return;
             }
 
@@ -69,7 +69,7 @@ namespace LARGERslicer.Components.CNCUtilities
             double inner = h - ru - ro;
             if (inner <= fw * fn)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Gesamthoehe ist zu klein fuer Bretter und Fugen.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Total height is too small for boards and joints.");
                 return;
             }
 
@@ -101,7 +101,7 @@ namespace LARGERslicer.Components.CNCUtilities
             {
                 if (fugenMitten[i] <= ru || fugenMitten[i] >= (h - ro))
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Mindestens eine Fugenposition liegt ausserhalb des nutzbaren Innenbereichs.");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one joint position is outside the usable inner range.");
                     return;
                 }
             }
@@ -122,7 +122,7 @@ namespace LARGERslicer.Components.CNCUtilities
 
                 if (fugeLow <= zCursor)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Fuge bei Z={fugeCenter:F2} ist ungueltig oder ueberschneidet eine andere Fuge.");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Joint at Z={fugeCenter:F2} is invalid or overlaps another joint.");
                     return;
                 }
 
@@ -165,7 +165,7 @@ namespace LARGERslicer.Components.CNCUtilities
             int remainingMiddleBoards = middleCount - consumedMiddleBoards;
             if (remainingMiddleBoards < 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Die Fugenaufteilung passt nicht zu den eingestellten Brettstaerken.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Joint distribution does not match the configured board thicknesses.");
                 return;
             }
 
@@ -185,22 +185,22 @@ namespace LARGERslicer.Components.CNCUtilities
             if (Math.Abs(zCursor - expectedTopStart) > 0.01)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                    $"Brettstapel endet bei Z={zCursor:F2}, Randbrett oben beginnt bei Z={expectedTopStart:F2}. Bitte Parameter pruefen.");
+                    $"Board stack ends at Z={zCursor:F2}, top edge board starts at Z={expectedTopStart:F2}. Please review parameters.");
             }
 
             boards.Add(new ThekenBoard { ZMin = expectedTopStart, ZMax = h, Type = "Randbrett oben", SourceIndex = src++ });
 
             var infos = new List<string>
             {
-                $"Nutzhoehe innen: {inner:F2} mm",
-                $"Anzahl Mittelbretter: {middleCount}",
-                $"Tatsaechliche Fugenbreite: {actualFugeWidth:F2} mm",
-                $"Anzahl Fuge-Bretter: {marked}"
+                $"Usable inner height: {inner:F2} mm",
+                $"Middle board count: {middleCount}",
+                $"Actual joint width: {actualFugeWidth:F2} mm",
+                $"Joint-board count: {marked}"
             };
 
             // Fugen als Marker-Info, die eigentliche Teilung passiert in TH_03b.
             for (int i = 0; i < fugenMitten.Count; i++)
-                infos.Add($"Fuge {i + 1}: {fugenMitten[i]:F2} +/- {actualFugeWidth * 0.5:F2}");
+                infos.Add($"Joint {i + 1}: {fugenMitten[i]:F2} +/- {actualFugeWidth * 0.5:F2}");
 
             DA.SetDataList(0, boards);
             DA.SetDataList(1, fugenMitten);

@@ -240,6 +240,18 @@ Remote access:
 - TeamViewer is available for short sessions (no Pro license; typically ~5 minutes). Access data can be viewed on the Windows system (TeamViewer app/Explorer).
 - Windows Remote Desktop may be available (check/enable on site).
 
+Important HMI/file-handling notes:
+- **Tap File Explorer only once on the HMI.** Repeated tapping can cause instability/crashes because all queued clicks may still be processed in sequence.
+- **If a `.dxr` file takes unusually long to load**, the file is often corrupted. Check it in a text editor (for example empty/incomplete/invalid content) and re-export if needed.
+- **Keep file names short and clean.** Very long file names, special characters, or extra dots in the file name can break import or crash the system.
+- **Important:** Use only **one dot directly before the extension**. Example problematic name: `examplename_23h12min_1.23kg.dxr` (extra dot before `.dxr`).
+- **Do not connect very large USB drives when the system is slow.** Indexing can significantly delay operation.
+- **Recommended alternative if USB transfer is too slow:**
+   1. Stop Runtime from the menu.
+   2. Open TeamViewer from the Windows taskbar (bottom right).
+   3. Enter connection credentials/password.
+   4. Transfer files within the available short session window (typically about 5 minutes).
+
 Requirements for the Rhino/Grasshopper workflow:
  - Rhino 8 or newer with robot plugin installed. Note: Runs only on Rhino 8+ due to Python‑2 scripts.
  - **Install the plugin (two options):**
@@ -331,8 +343,10 @@ Notes on multi‑axial printing:
 | “NC” connection missing | Network path disconnected | Open Explorer, reconnect “NC”, reload file |
 | Endless loading at job start | Incorrect start order/NC connection | At the top right: stop runtime → open Explorer → click the “NC drive” in the sidebar (symbol switches from red to green) → load job again |
 | Temperature indicator red/error | Heater/sensor fault | Do not continue printing; inform workshop/manufacturer |
+| System blows/cools unusually loudly | Robot room too warm / high thermal load | Ventilate the robot room, increase air exchange, stabilize ambient temperature |
 | Strong odor | Plates removed / filter off | Place plates; switch on activated carbon filter; ventilate |
 | Print stops when dryer empty | Dryer empty; no pause mode | Refill material; print cannot be resumed without update |
+| Reference run fails; robot cannot find startup reference | Reference switch bent, shifted, or loose | At the reference position, verify that both indicator lamps switch correctly; carefully readjust or re-mount the reference switch until homing works reliably again |
 
 KUKA controller/program stuck (e.g., singularity):
 - First try to jog the robot out of the situation manually (teach‑in, slowly, area clear!).
