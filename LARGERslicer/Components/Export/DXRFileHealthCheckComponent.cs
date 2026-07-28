@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -17,11 +18,12 @@ namespace LARGERslicer.Components.Export
     {
         private static readonly Regex DxrMoveRegex = new Regex(@"^\s*N\d+\s+G1\b", RegexOptions.IgnoreCase);
         private static readonly Regex GCodeMoveRegex = new Regex(@"^\s*G0?1\b", RegexOptions.IgnoreCase);
+        private static readonly Regex ZValueRegex = new Regex(@"(?:^|\s)Z(?<z>[+-]?\d+(?:[\.,]\d+)?)\b", RegexOptions.IgnoreCase);
         private static readonly Regex SafeBaseNameRegex = new Regex(@"^[A-Za-z0-9_-]+$");
 
         public DXRFileHealthCheckComponent()
           : base("DXR File Health Check", "DXR Check",
-              "Checks DXR/GCode files for readability, filename safety, and printable content. Outputs GO / NO GO for machine loading.",
+              "Checks DXR/GCode files for readability and printable safety. Supports optional direct code input and reports a single status.",
               "LARGER", "DXR")
         {
         }
@@ -36,22 +38,21 @@ namespace LARGERslicer.Components.Export
             pManager.AddBooleanParameter("Use Latest From Folder", "Latest", "If True, checks newest matching file in folder. If False, uses explicit File Path.", GH_ParamAccess.item, true);
             pManager.AddTextParameter("Allowed Extensions", "Ext", "Extensions considered for auto-scan (e.g. .dxr, .gcode, .nc).", GH_ParamAccess.list);
             pManager.AddIntegerParameter("Max Filename Length", "NameLen", "Maximum allowed filename length in characters.", GH_ParamAccess.item, 64);
-            pManager.AddNumberParameter("Large File Threshold MB", "LargeMB", "If file is larger than this and has almost no valid commands, it becomes NO GO.", GH_ParamAccess.item, 8.0);
+            pManager.AddNumberParameter("Large File Threshold MB", "LargeMB", "If file is larger than this and has almost no valid commands, it becomes NO GO.", GH_ParamAccess.item, 25.0);
             pManager.AddIntegerParameter("Min Command Lines", "MinCmd", "Minimum amount of valid movement command lines.", GH_ParamAccess.item, 3);
+            pManager.AddTextParameter("Code Input", "Code", "Optional DXR/GCode text to validate directly. If provided, file loading is skipped.", GH_ParamAccess.item, string.Empty);
 
             pManager[0].Optional = true;
             pManager[1].Optional = true;
             pManager[3].Optional = true;
+            pManager[7].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("Checked File", "File", "File that was checked.", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("GO", "GO", "True when file passes all required checks.", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("NO GO", "NO", "True when file failed one or more required checks.", GH_ParamAccess.item);
             pManager.AddTextParameter("Status", "Status", "Short status text.", GH_ParamAccess.item);
             pManager.AddTextParameter("Report", "Report", "Detailed validation report.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Cabinet Sheet", "Sheet", "Operator-friendly checklist for the control cabinet.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -61,8 +62,9 @@ namespace LARGERslicer.Components.Export
             bool useLatest = true;
             var allowedExtensionsInput = new List<string>();
             int maxFileNameLength = 64;
-            double largeFileThresholdMb = 8.0;
+            double largeFileThresholdMb = 25.0;
             int minCommandLines = 3;
+            string codeInput = string.Empty;
 
             DA.GetData(0, ref filePath);
             DA.GetData(1, ref watchFolder);
@@ -71,6 +73,7 @@ namespace LARGERslicer.Components.Export
             DA.GetData(4, ref maxFileNameLength);
             DA.GetData(5, ref largeFileThresholdMb);
             DA.GetData(6, ref minCommandLines);
+            DA.GetData(7, ref codeInput);
 
             if (maxFileNameLength < 8)
                 maxFileNameLength = 8;
@@ -89,110 +92,120 @@ namespace LARGERslicer.Components.Export
             }
 
             var report = new List<string>();
-            var sheet = new List<string>();
             var fatalIssues = new List<string>();
             var warnings = new List<string>();
-            bool readableOk = true;
-            bool filenameOk = true;
-            bool contentOk = true;
+            bool usingCodeInput = !string.IsNullOrWhiteSpace(codeInput);
 
-            report.Add($"Config: Latest={useLatest}, MaxNameLen={maxFileNameLength}, LargeMB={largeFileThresholdMb:0.##}, MinCmd={minCommandLines}");
+            report.Add($"Config: Latest={useLatest}, MaxNameLen={maxFileNameLength}, LargeMB={largeFileThresholdMb:0.##}, MinCmd={minCommandLines}, CodeInput={usingCodeInput}");
             report.Add($"Extensions: {string.Join(", ", allowedExtensions)}");
-
-            string resolvedFolder = ResolveFolder(watchFolder, report);
-            string resolvedPath = ResolveFilePath(filePath, resolvedFolder, useLatest, allowedExtensions, report);
-
-            if (string.IsNullOrWhiteSpace(resolvedPath))
-            {
-                fatalIssues.Add("No file selected or found.");
-                readableOk = false;
-                BuildOutputs(DA, string.Empty, false, fatalIssues, warnings, report, sheet, readableOk, filenameOk, contentOk);
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No file found to check.");
-                return;
-            }
-
-            report.Add($"Selected file: {resolvedPath}");
-
-            if (!File.Exists(resolvedPath))
-            {
-                fatalIssues.Add("File does not exist.");
-                readableOk = false;
-            }
-
-            string extension = Path.GetExtension(resolvedPath) ?? string.Empty;
-            extension = extension.ToLowerInvariant();
-            if (!allowedExtensions.Contains(extension))
-            {
-                fatalIssues.Add($"Extension '{extension}' is not allowed.");
-                contentOk = false;
-            }
-
-            string fileName = Path.GetFileName(resolvedPath) ?? string.Empty;
-            string baseName = Path.GetFileNameWithoutExtension(resolvedPath) ?? string.Empty;
-
-            filenameOk = ValidateFilename(fileName, baseName, maxFileNameLength, fatalIssues, warnings, report);
 
             long fileSizeBytes = 0;
             double fileSizeMb = 0.0;
             string[] lines = Array.Empty<string>();
             int textLineCount = 0;
             int nonEmptyLineCount = 0;
+            string resolvedPath = string.Empty;
+            string extension = string.Empty;
+            bool hasDxrMarker = false;
 
-            if (fatalIssues.Count == 0)
+            if (usingCodeInput)
             {
-                try
+                resolvedPath = "CODE INPUT";
+                report.Add("Source: direct code input");
+
+                lines = SplitLines(codeInput);
+                textLineCount = lines.Length;
+                nonEmptyLineCount = lines.Count(l => !string.IsNullOrWhiteSpace(l));
+                fileSizeBytes = Encoding.UTF8.GetByteCount(codeInput);
+                fileSizeMb = fileSizeBytes / (1024.0 * 1024.0);
+
+                report.Add($"Input size: {fileSizeBytes} bytes ({fileSizeMb:0.###} MB)");
+                report.Add($"Text lines: {textLineCount}, non-empty lines: {nonEmptyLineCount}");
+
+                if (nonEmptyLineCount == 0)
+                    fatalIssues.Add("Code input contains no usable text content.");
+
+                hasDxrMarker = lines.Any(l => (l ?? string.Empty).IndexOf("DXR.KUKA", StringComparison.OrdinalIgnoreCase) >= 0);
+                extension = hasDxrMarker ? ".dxr" : ".gcode";
+                report.Add($"Code mode type guess: {extension}");
+            }
+            else
+            {
+                string resolvedFolder = ResolveFolder(watchFolder, report);
+                resolvedPath = ResolveFilePath(filePath, resolvedFolder, useLatest, allowedExtensions, report);
+
+                if (string.IsNullOrWhiteSpace(resolvedPath))
                 {
-                    var fi = new FileInfo(resolvedPath);
-                    fileSizeBytes = fi.Length;
-                    fileSizeMb = fi.Length / (1024.0 * 1024.0);
-                    report.Add($"File size: {fileSizeBytes} bytes ({fileSizeMb:0.###} MB)");
-
-                    if (fileSizeBytes <= 0)
-                    {
-                        fatalIssues.Add("File is empty (0 bytes).");
-                        contentOk = false;
-                    }
-
-                    // Fast corruption signal for binary junk in text workflow.
-                    if (LooksBinary(resolvedPath))
-                    {
-                        fatalIssues.Add("File looks binary/corrupted (contains null bytes). DXR/GCode must be plain text.");
-                        contentOk = false;
-                    }
-
-                    lines = File.ReadAllLines(resolvedPath, Encoding.UTF8);
-                    textLineCount = lines.Length;
-                    nonEmptyLineCount = lines.Count(l => !string.IsNullOrWhiteSpace(l));
-                    report.Add($"Text lines: {textLineCount}, non-empty lines: {nonEmptyLineCount}");
-
-                    if (nonEmptyLineCount == 0)
-                    {
-                        fatalIssues.Add("File contains no usable text content.");
-                        contentOk = false;
-                    }
+                    fatalIssues.Add("No file selected or found.");
+                    BuildOutputs(DA, string.Empty, fatalIssues, warnings, report);
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No file found to check.");
+                    return;
                 }
-                catch (Exception ex)
+
+                report.Add($"Selected file: {resolvedPath}");
+
+                if (!File.Exists(resolvedPath))
+                    fatalIssues.Add("File does not exist.");
+
+                extension = (Path.GetExtension(resolvedPath) ?? string.Empty).ToLowerInvariant();
+                if (!allowedExtensions.Contains(extension))
+                    fatalIssues.Add($"Extension '{extension}' is not allowed.");
+
+                string fileName = Path.GetFileName(resolvedPath) ?? string.Empty;
+                string baseName = Path.GetFileNameWithoutExtension(resolvedPath) ?? string.Empty;
+
+                ValidateFilename(fileName, baseName, maxFileNameLength, fatalIssues, warnings, report);
+
+                if (fatalIssues.Count == 0)
                 {
-                    fatalIssues.Add($"File cannot be read: {ex.Message}");
-                    readableOk = false;
+                    try
+                    {
+                        var fi = new FileInfo(resolvedPath);
+                        fileSizeBytes = fi.Length;
+                        fileSizeMb = fi.Length / (1024.0 * 1024.0);
+                        report.Add($"File size: {fileSizeBytes} bytes ({fileSizeMb:0.###} MB)");
+
+                        if (fileSizeBytes <= 0)
+                            fatalIssues.Add("File is empty (0 bytes).");
+
+                        if (LooksBinary(resolvedPath))
+                            fatalIssues.Add("File looks binary/corrupted (contains null bytes). DXR/GCode must be plain text.");
+
+                        lines = File.ReadAllLines(resolvedPath, Encoding.UTF8);
+                        textLineCount = lines.Length;
+                        nonEmptyLineCount = lines.Count(l => !string.IsNullOrWhiteSpace(l));
+                        report.Add($"Text lines: {textLineCount}, non-empty lines: {nonEmptyLineCount}");
+
+                        if (nonEmptyLineCount == 0)
+                            fatalIssues.Add("File contains no usable text content.");
+                    }
+                    catch (Exception ex)
+                    {
+                        fatalIssues.Add($"File cannot be read: {ex.Message}");
+                    }
                 }
             }
 
             int movementLines = 0;
             bool hasM29 = false;
-            bool hasDxrMarker = false;
             bool hasGCodeEndMarker = false;
+            double? minDetectedZ = null;
+            double? firstPositiveZ = null;
 
             if (fatalIssues.Count == 0)
             {
                 for (int i = 0; i < lines.Length; i++)
                 {
                     string line = lines[i] ?? string.Empty;
+                    bool isMoveLine = false;
 
                     if (extension == ".dxr")
                     {
                         if (DxrMoveRegex.IsMatch(line))
+                        {
                             movementLines++;
+                            isMoveLine = true;
+                        }
 
                         if (!hasM29 && line.Trim().Equals("M29", StringComparison.OrdinalIgnoreCase))
                             hasM29 = true;
@@ -203,7 +216,10 @@ namespace LARGERslicer.Components.Export
                     else
                     {
                         if (GCodeMoveRegex.IsMatch(line))
+                        {
                             movementLines++;
+                            isMoveLine = true;
+                        }
 
                         if (!hasGCodeEndMarker)
                         {
@@ -216,14 +232,28 @@ namespace LARGERslicer.Components.Export
                             }
                         }
                     }
+
+                    if (isMoveLine && TryExtractZValue(line, out double z))
+                    {
+                        if (!minDetectedZ.HasValue || z < minDetectedZ.Value)
+                            minDetectedZ = z;
+
+                        if (z > 0.0 && !firstPositiveZ.HasValue)
+                            firstPositiveZ = z;
+                    }
                 }
 
                 report.Add($"Detected movement lines: {movementLines}");
+                report.Add(minDetectedZ.HasValue
+                    ? $"Detected minimum Z: {minDetectedZ.Value:0.###} mm"
+                    : "Detected minimum Z: (no Z value found in movement lines)");
+                report.Add(firstPositiveZ.HasValue
+                    ? $"Detected first positive layer Z: {firstPositiveZ.Value:0.###} mm"
+                    : "Detected first positive layer Z: (none)");
 
                 if (movementLines < minCommandLines)
                 {
                     fatalIssues.Add($"Too few movement lines ({movementLines} < {minCommandLines}). File likely incomplete/invalid.");
-                    contentOk = false;
                 }
 
                 if (extension == ".dxr")
@@ -231,12 +261,10 @@ namespace LARGERslicer.Components.Export
                     if (!hasDxrMarker)
                     {
                         fatalIssues.Add("DXR marker missing ('DXR.KUKA').");
-                        contentOk = false;
                     }
                     if (!hasM29)
                     {
                         fatalIssues.Add("DXR end marker missing (M29).");
-                        contentOk = false;
                     }
                 }
                 else
@@ -248,23 +276,56 @@ namespace LARGERslicer.Components.Export
                 if (fileSizeMb >= largeFileThresholdMb && movementLines < minCommandLines * 2)
                 {
                     fatalIssues.Add($"Large file ({fileSizeMb:0.##} MB) but almost no valid commands. Suspicious empty/corrupt export.");
-                    contentOk = false;
                 }
 
                 if (fileSizeMb >= largeFileThresholdMb && nonEmptyLineCount < 50)
                 {
                     fatalIssues.Add($"Large file ({fileSizeMb:0.##} MB) with very low content ({nonEmptyLineCount} lines). Suspicious export.");
-                    contentOk = false;
+                }
+
+                if (minDetectedZ.HasValue && minDetectedZ.Value <= 0.0)
+                {
+                    fatalIssues.Add($"Build plate safety: detected Z <= 0 ({minDetectedZ.Value:0.###} mm). This would crash into the build plate.");
+                }
+
+                if (firstPositiveZ.HasValue && firstPositiveZ.Value < 1.5)
+                {
+                    warnings.Add($"First positive layer is below 1.5 mm ({firstPositiveZ.Value:0.###} mm). Verify first layer safety.");
                 }
             }
 
             bool go = fatalIssues.Count == 0;
-            BuildOutputs(DA, resolvedPath, go, fatalIssues, warnings, report, sheet, readableOk, filenameOk, contentOk);
+            BuildOutputs(DA, resolvedPath, fatalIssues, warnings, report);
 
             if (go)
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "GO: File passed validation.");
             else
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "NO GO: File failed validation.");
+        }
+
+        private static string[] SplitLines(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return Array.Empty<string>();
+
+            return text
+                .Replace("\r\n", "\n")
+                .Replace('\r', '\n')
+                .Split(new[] { '\n' }, StringSplitOptions.None);
+        }
+
+        private static bool TryExtractZValue(string line, out double z)
+        {
+            z = 0.0;
+            if (string.IsNullOrWhiteSpace(line))
+                return false;
+
+            Match m = ZValueRegex.Match(line);
+            if (!m.Success)
+                return false;
+
+            string token = (m.Groups["z"].Value ?? string.Empty).Trim().Replace(',', '.');
+            return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out z);
         }
 
         private static bool ValidateFilename(
@@ -436,16 +497,19 @@ namespace LARGERslicer.Components.Export
         private static void BuildOutputs(
             IGH_DataAccess DA,
             string checkedFile,
-            bool go,
             List<string> fatalIssues,
             List<string> warnings,
-            List<string> report,
-            List<string> sheet,
-            bool readableOk,
-            bool filenameOk,
-            bool contentOk)
+            List<string> report)
         {
-            string status = go ? "GO - FILE OK" : "NO GO - FILE CHECK FAILED";
+            bool go = fatalIssues.Count == 0;
+            string status;
+
+            if (go && warnings.Count > 0)
+                status = "GO WITH WARNING";
+            else if (go)
+                status = "GO - FILE OK";
+            else
+                status = "NO GO - FILE CHECK FAILED";
 
             if (fatalIssues.Count > 0)
             {
@@ -459,25 +523,9 @@ namespace LARGERslicer.Components.Export
                     report.Add("WARNING: " + warnings[i]);
             }
 
-            sheet.Add("SCHALTSCHRANK FILE CHECK");
-            sheet.Add("----------------------");
-            sheet.Add("Status: " + status);
-            sheet.Add("File: " + (string.IsNullOrWhiteSpace(checkedFile) ? "(none)" : checkedFile));
-            sheet.Add("Readable: " + (readableOk ? "OK" : "FAIL"));
-            sheet.Add("Filename Rule: " + (filenameOk ? "OK" : "FAIL"));
-            sheet.Add("Content Rule: " + (contentOk ? "OK" : "FAIL"));
-
-            if (warnings.Count > 0)
-                sheet.Add("Warnings: " + warnings.Count);
-
-            sheet.Add("Result: " + (go ? "LOAD ALLOWED" : "DO NOT LOAD / RE-EXPORT"));
-
             DA.SetData(0, checkedFile ?? string.Empty);
-            DA.SetData(1, go);
-            DA.SetData(2, !go);
-            DA.SetData(3, status);
-            DA.SetDataList(4, report);
-            DA.SetDataList(5, sheet);
+            DA.SetData(1, status);
+            DA.SetDataList(2, report);
         }
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("DXRFileHealthCheckIcon.png");

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-07-28
+
+### Changed
+- `DXR File Health Check` now supports optional direct `Code Input` validation, allowing checks without a saved file.
+- Simplified outputs to `Checked File`, `Status`, and `Report` (removed separate GO/NO GO and cabinet sheet outputs).
+- Increased default `Large File Threshold MB` from 8 MB to 25 MB.
+
+### Added
+- Added Z-value safety checks in movement lines (including negative values).
+- Added build plate protection rule: any detected `Z <= 0` is `NO GO`.
+- Added first-layer safety warning: first positive layer below `1.5 mm` is flagged as warning.
+
+### Fixed
+- Reduced `DXR File Health Check` icon visual footprint to match standard Grasshopper icon density.
+
 ## [1.1.7] - 2026-07-28
 
 ### Fixed
