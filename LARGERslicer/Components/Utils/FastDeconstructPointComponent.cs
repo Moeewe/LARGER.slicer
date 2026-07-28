@@ -11,12 +11,9 @@ namespace LARGERslicer.Components.Utils
         public FastDeconstructPointComponent()
           : base("Fast Deconstruct Point", "FastPt",
               "Ultra-fast deconstruction of points into X, Y and Z values.",
-              "", "")
+              "LARGER", "Utilities")
         {
         }
-
-        public override string Category => "LARGER";
-        public override string SubCategory => "Utilities";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

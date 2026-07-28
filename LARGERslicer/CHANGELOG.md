@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-07-28
+
+### Fixed
+- Hotfix for `Fast Deconstruct Point` component registration to ensure stable loading and placement in Grasshopper.
+
+### Verified
+- Confirmed unique component GUIDs across the plugin (no duplicate `ComponentGuid` values).
+
 ## [1.1.4] - 2026-07-28
 
 ### Added
