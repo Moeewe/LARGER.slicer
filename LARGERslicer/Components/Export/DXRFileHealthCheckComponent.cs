@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using LARGERslicer.Utils;
 
 namespace LARGERslicer.Components.Export
@@ -40,7 +41,7 @@ namespace LARGERslicer.Components.Export
             pManager.AddIntegerParameter("Max Filename Length", "NameLen", "Maximum allowed filename length in characters.", GH_ParamAccess.item, 64);
             pManager.AddNumberParameter("Large File Threshold MB", "LargeMB", "If file is larger than this and has almost no valid commands, it becomes NO GO.", GH_ParamAccess.item, 25.0);
             pManager.AddIntegerParameter("Min Command Lines", "MinCmd", "Minimum amount of valid movement command lines.", GH_ParamAccess.item, 3);
-            pManager.AddTextParameter("Code Input", "Code", "Optional DXR/GCode text to validate directly. If provided, file loading is skipped.", GH_ParamAccess.item, string.Empty);
+            pManager.AddTextParameter("Code Input", "Code", "Optional DXR/GCode text or line list to validate directly. If provided, file loading is skipped.", GH_ParamAccess.list);
 
             pManager[0].Optional = true;
             pManager[1].Optional = true;
@@ -73,7 +74,7 @@ namespace LARGERslicer.Components.Export
             DA.GetData(4, ref maxFileNameLength);
             DA.GetData(5, ref largeFileThresholdMb);
             DA.GetData(6, ref minCommandLines);
-            DA.GetData(7, ref codeInput);
+            codeInput = CollectCodeInputText(DA);
 
             if (maxFileNameLength < 8)
                 maxFileNameLength = 8;
@@ -95,6 +96,10 @@ namespace LARGERslicer.Components.Export
             var fatalIssues = new List<string>();
             var warnings = new List<string>();
             bool usingCodeInput = !string.IsNullOrWhiteSpace(codeInput);
+
+            // Prevent expensive repeated execution when a connected Code input provides many items/branches.
+            if (usingCodeInput && DA.Iteration > 0)
+                return;
 
             report.Add($"Config: Latest={useLatest}, MaxNameLen={maxFileNameLength}, LargeMB={largeFileThresholdMb:0.##}, MinCmd={minCommandLines}, CodeInput={usingCodeInput}");
             report.Add($"Extensions: {string.Join(", ", allowedExtensions)}");
@@ -312,6 +317,38 @@ namespace LARGERslicer.Components.Export
                 .Replace("\r\n", "\n")
                 .Replace('\r', '\n')
                 .Split(new[] { '\n' }, StringSplitOptions.None);
+        }
+
+        private string CollectCodeInputText(IGH_DataAccess DA)
+        {
+            var parts = new List<string>();
+
+            if (Params.Input.Count > 7 && Params.Input[7] != null && Params.Input[7].SourceCount > 0)
+            {
+                var volatileData = Params.Input[7].VolatileData;
+                if (volatileData != null)
+                {
+                    foreach (IGH_Goo goo in volatileData.AllData(true))
+                    {
+                        if (goo == null)
+                            continue;
+
+                        string text = goo.ToString();
+                        if (text != null)
+                            parts.Add(text);
+                    }
+                }
+            }
+            else
+            {
+                // Handles manually entered local values on the input parameter.
+                DA.GetDataList(7, parts);
+            }
+
+            if (parts.Count == 0)
+                return string.Empty;
+
+            return string.Join("\n", parts);
         }
 
         private static bool TryExtractZValue(string line, out double z)

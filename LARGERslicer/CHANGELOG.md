@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-07-28
+
+### Fixed
+- `DXR File Health Check`: direct `Code Input` now collects full connected data (including lists/trees) and validates once, preventing Grasshopper grafting-style repeated solves and long runtime when code comes from upstream components.
+
 ## [1.1.8] - 2026-07-28
 
 ### Changed
