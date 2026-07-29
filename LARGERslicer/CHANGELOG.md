@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.11] - 2026-07-29
+
+### Added
+- Added `G-Code Diff Check` utility component for line-by-line coordinate integrity checks between original and remapped code.
+- Added `Overlap Tester Var Width` utility component for per-vertex overlap heatmap analysis with optional part-driven variable widths.
+- Added `Fast GCode DXR Preview` utility component with cached parsing/display and safe 3D preview architecture.
+- Added `GCode E Remap MultiPart` utility component for multi-part XE recalculation with transform-aware mapping and outline handling.
+- Added `Surface Thickness Heatmap` utility component for sampled thickness coloring, rebuilt fit surfaces, and downstream mapping metadata.
+- Added `Curve Pattern Split` utility component for repeat-based fixed/variable segment decomposition along a curve.
+
+### Changed
+- Standardized input/output names, descriptions, and component-facing text for the new utility components to consistent English terminology.
+
 ## [1.1.10] - 2026-07-28
 
 ### Fixed

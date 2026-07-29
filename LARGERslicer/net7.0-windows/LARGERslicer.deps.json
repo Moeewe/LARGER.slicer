@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v7.0": {
-      "LARGERslicer/1.1.4": {
+      "LARGERslicer/1.1.11": {
         "dependencies": {
           "Grasshopper": "8.0.23304.9001",
           "Newtonsoft.Json": "13.0.3",
@@ -34,7 +34,7 @@
     }
   },
   "libraries": {
-    "LARGERslicer/1.1.4": {
+    "LARGERslicer/1.1.11": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
