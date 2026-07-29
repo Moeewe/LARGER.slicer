@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.11] - 2026-07-29
 
+### Changed
+- Refined utility component icons to better match function semantics at 24x24 and align with the established dark-blue icon style.
+- Harmonized remaining mixed-language input/output labels and descriptions in newly added utility components to English.
+
+### Added
+- Added `Curve Pattern Split` utility component for modular fixed/variable curve segmentation.
+- Added `Fast GCode DXR Preview` utility component with cached parsing and 3D ribbon or conduit line preview modes.
+- Added `G-Code Diff Check` utility component for line/coordinate comparison between original and remapped code.
+- Added `GCode E Remap MultiPart` utility component for XE recalculation with multi-part mapping and optional outline handling.
+- Added `Overlap Tester Var Width` utility component for variable-width overlap analysis and heatmap output.
+- Added `Surface Thickness Heatmap` utility component for per-part thickness sampling, rebuild surfaces, and heatmap mesh generation.
+
 ### Added
 - Added `G-Code Diff Check` utility component for line-by-line coordinate integrity checks between original and remapped code.
 - Added `Overlap Tester Var Width` utility component for per-vertex overlap heatmap analysis with optional part-driven variable widths.

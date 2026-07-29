@@ -52,7 +52,7 @@ namespace LARGERslicer.Components.Utils
             pManager.AddBooleanParameter("Only Underside", "Under", "If true, only underside normals are critical.", GH_ParamAccess.item, false);
 
             pManager.AddGeometryParameter("Part Geometry", "PartGeo", "Optional part geometries for variable-width logic.", GH_ParamAccess.list);
-            pManager.AddTextParameter("Geo ID", "GeoID", "Optional IDs aligned to Teil Geo.", GH_ParamAccess.list);
+            pManager.AddTextParameter("Geo ID", "GeoID", "Optional IDs aligned to Part Geometry.", GH_ParamAccess.list);
             pManager.AddTextParameter("Part Info", "PartInfo", "Optional info lines: id;axis;mode;minT;maxT;lo;hi", GH_ParamAccess.list);
 
             pManager[9].Optional = true;
