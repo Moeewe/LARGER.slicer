@@ -91,6 +91,52 @@ In multiaxial paths (especially 45 degree orientations), TCP/extruder tilt can e
    - Run "Programm zurücksetzen".
    - Re-reference robot if requested by controller.
 
+### Issue: Robot Does Not Move / Start, Reference, or Calibration Run Cannot Be Executed
+
+Use this fallback if the robot does not respond, print start aborts at 0,0,0, or the startup/reference/calibration movement does not begin even though the safety-stop recovery itself is already completed.
+
+**Typical symptoms:**
+- No robot movement although the job is loaded
+- Print aborts at 0,0,0 or similar startup position
+- Brake test, reference run, or startup motion does not begin
+- Controller appears active, but robot does not react to start command
+
+**Likely causes:**
+- CNC program state is not correctly selected anymore
+- Robot program / EMI state is inconsistent after abort, jogging, or mode change
+- External/Internal control state is not fully synchronized
+- Reference switch / startup reference is not reached or not switching correctly
+
+**Recovery sequence:**
+
+1. **Check Smartpad status indicators:**
+   - All top-right status LEDs / state indicators should be green.
+   - If not, follow on-screen messages first until drive enable is fully restored.
+
+2. **Reselect the CNC program:**
+   - Open navigation.
+   - Select "cnc" again.
+   - Tap "Anwählen".
+
+3. **Reset the active program state:**
+   - Tap the yellow "R" on the Smartpad.
+   - Execute "Programm zurücksetzen".
+
+4. **Reset robot/CNC handover after abort or manual jogging:**
+   - Under softkey "PrgView", reset the EMI (External Motion Interface).
+   - In the top frame bar, reset the robot program and restart it.
+
+5. **Re-check operating mode:**
+   - Toggle the key switch if necessary and ensure the controller returns to the required mode (typically EXT for automatic operation).
+   - If needed, briefly switch between external/internal control and try again.
+
+6. **Retry brake test / reference run / startup motion:**
+   - Repeat the startup sequence only after the program and control state are reset.
+
+7. **If reference / calibration motion still fails:**
+   - Check whether the reference switch changes both indicator lamps correctly in reference position.
+   - Carefully readjust or re-mount the reference switch until homing/adjustment travel works reliably again.
+
 ---
 
 ## Deutsche Version
@@ -183,6 +229,52 @@ Bei multiaxialen Bahnen (insbesondere 45-Grad-Ausrichtung) kann die TCP-/Extrude
    - Navigation öffnen und "cnc" Programm neu anwählen.
    - "Programm zurücksetzen" ausführen.
    - Roboter bei Aufforderung neu referenzieren.
+
+### Problem: Roboter reagiert nicht / Start-, Referenz- oder Justagefahrt wird nicht ausgeführt
+
+Diesen Ablauf nutzen, wenn der Roboter trotz beendeter Sicherheitsstop-Wiederfreigabe nicht reagiert, der Druck bei 0,0,0 abbricht oder die Start-, Referenz- bzw. Justagefahrt nicht anläuft.
+
+**Typische Symptome:**
+- Keine Roboterbewegung, obwohl der Job geladen ist
+- Druckabbruch bei 0,0,0 oder aehnlicher Startposition
+- Bremstest, Referenzfahrt oder Startbewegung beginnt nicht
+- Steuerung wirkt aktiv, aber der Roboter reagiert nicht auf Start
+
+**Wahrscheinliche Ursachen:**
+- CNC-Programmzustand ist nicht mehr korrekt angewaehlt
+- Roboterprogramm-/EMI-Zustand ist nach Abbruch, Handverfahren oder Moduswechsel inkonsistent
+- Externe/interne Steuerung ist nicht sauber synchronisiert
+- Referenzschalter / Startreferenz wird nicht erreicht oder schaltet nicht korrekt
+
+**Wiederanlauf:**
+
+1. **Statusanzeigen am Smartpad pruefen:**
+   - Alle Status-LEDs / Zustandsanzeigen oben rechts sollten gruen sein.
+   - Falls nicht, zuerst den Bildschirmhinweisen folgen, bis die Fahrfreigabe wieder vollstaendig anliegt.
+
+2. **CNC-Programm neu anwaehlen:**
+   - Navigation oeffnen.
+   - "cnc" erneut auswaehlen.
+   - "Anwaehlen" tippen.
+
+3. **Aktiven Programmzustand zuruecksetzen:**
+   - Auf das gelbe "R" am Smartpad tippen.
+   - "Programm zuruecksetzen" ausfuehren.
+
+4. **Uebergabe zwischen Roboter/CNC nach Abbruch oder Handfahren zuruecksetzen:**
+   - Unter Softkey "PrgView" das EMI (External Motion Interface) mit "Reset" zuruecksetzen.
+   - Oben in der Rahmenleiste das Roboterprogramm zuruecksetzen und neu starten.
+
+5. **Betriebsmodus erneut pruefen:**
+   - Schluesselschalter bei Bedarf umschalten und sicherstellen, dass die Steuerung wieder im benoetigten Modus steht (typisch EXT fuer Automatikbetrieb).
+   - Falls noetig kurz zwischen externer/interner Steuerung wechseln und erneut versuchen.
+
+6. **Bremstest / Referenzfahrt / Startbewegung erneut ausloesen:**
+   - Den Startablauf erst nach Reset von Programm- und Steuerungszustand erneut ausfuehren.
+
+7. **Falls Referenz- oder Justagefahrt weiter fehlschlaegt:**
+   - Pruefen, ob der Referenzschalter in Referenzposition beide Kontrolllampen korrekt schaltet.
+   - Referenzschalter vorsichtig nachjustieren oder neu befestigen, bis Homing/Justagefahrt wieder zuverlaessig funktioniert.
 
 ---
 

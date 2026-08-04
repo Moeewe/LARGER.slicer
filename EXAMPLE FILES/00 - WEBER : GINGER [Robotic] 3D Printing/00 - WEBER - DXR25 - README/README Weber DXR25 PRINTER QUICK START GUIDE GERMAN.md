@@ -444,6 +444,18 @@ TCP-/Extruder-Neigung gelangt in multiaxialen Bahnabschnitten (häufig bei 45‑
    - Navigation öffnen und "cnc" neu anwählen.
    - "Programm zurücksetzen" ausführen und Roboter ggf. neu referenzieren.
 
+### Problem: Roboter reagiert nicht / Start- oder Referenzfahrt beginnt nicht
+
+Diesen Ablauf nutzen, wenn der Roboter nach dem Wiederanlauf weiter nicht reagiert, der Druck bei 0,0,0 abbricht oder die Start-, Referenz- oder Justagefahrt nicht beginnt.
+
+1. Prüfen, dass alle Status-LEDs oben rechts am Smartpad grün sind.
+2. Navigation öffnen, "cnc" erneut auswählen und "Anwählen" tippen.
+3. Auf das gelbe "R" tippen und "Programm zurücksetzen" ausführen.
+4. Unter "PrgView" das EMI zurücksetzen; danach in der oberen Rahmenleiste das Roboterprogramm zurücksetzen und neu starten.
+5. Betriebsmodus prüfen und wieder auf EXT gehen; falls nötig kurz zwischen externer/interner Steuerung umschalten.
+6. Bremstest, Referenzfahrt oder Startbewegung erneut auslösen.
+7. Falls Referenz-/Justagefahrt weiter fehlschlägt, Referenzschalter prüfen und kontrollieren, ob beide Lampen in Referenzposition korrekt schalten.
+
 Nach Not-Aus: Anlage neu initialisieren, Verriegelung prüfen, Bremstest erneut durchführen, Achswege und Offsets verifizieren.
 
 G‑Code/DXR lädt nicht:

@@ -444,6 +444,18 @@ TCP/extruder tilt enters the protected braking zone during multiaxial path segme
    - Re-open navigation and reselect "cnc".
    - Run "Programm zurücksetzen" and re-reference robot if requested.
 
+### Issue: Robot does not move / start or reference run does not begin
+
+Use this if the robot still does not react after recovery, the print aborts at 0,0,0, or startup/reference/calibration travel does not begin.
+
+1. Check that all top-right status LEDs on the Smartpad are green.
+2. Open navigation, select "cnc" again, and tap "Anwählen".
+3. Tap the yellow "R" and run "Programm zurücksetzen".
+4. Under "PrgView", reset the EMI; then reset and restart the robot program in the top frame bar.
+5. Re-check the operating mode and return to EXT; if needed, briefly toggle between external/internal control.
+6. Retry brake test, reference run, or startup motion.
+7. If reference/calibration travel still fails, inspect the reference switch and verify both indicator lamps change correctly in reference position.
+
 After E‑Stop: re‑initialize the system, check interlock, repeat brake test, verify axis limits and offsets.
 
 G‑code/DXR won’t load:
