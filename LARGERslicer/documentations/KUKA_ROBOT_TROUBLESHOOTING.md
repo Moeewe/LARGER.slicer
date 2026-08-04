@@ -55,6 +55,42 @@ The CNC program on the robot controller needs to be manually reselected.
    - Robot should now be able to move again
    - All status indicators on Smartpad should be green
 
+### Issue: Emergency Stop Triggered Near Safety Fence (Multiaxial Printing)
+
+**Symptoms:**
+- Robot performs an abrupt stop when the tool/extruder reaches fence-near areas
+- Audible brake engagement ("cracking" noise), robot is set out of operation
+- HMI / control-cabinet display shows safety-related stop or brake-test-required messages
+- Robot cannot continue automatic movement until manually moved away from protected zone
+
+**Root Cause:**
+In multiaxial paths (especially 45 degree orientations), TCP/extruder tilt can enter the protected braking zone before the physical fence.
+
+**Recovery Procedure (KRC5 / Smartpad):**
+
+1. **Read status message first:**
+   - Confirm current stop reason on HMI/Smartpad or cabinet display.
+
+2. **Switch into setup path:**
+   - Turn key from "Remote" to "Zahnrad" (Gear icon).
+   - Ensure mode is "EXT", then switch to "T1".
+   - Turn key back; Smartpad may restart.
+
+3. **Manually move robot out of safety zone:**
+   - Press and hold a rear dead-man switch (Totmannschalter).
+   - Move axis-by-axis (or SpaceMouse if enabled) until TCP/extruder is clearly outside the protected area.
+   - Motion icons turn green only while dead-man is actively pressed.
+
+4. **Return to automatic operation:**
+   - Turn key to "Zahnrad" again.
+   - Switch from "T1" back to "EXT".
+   - Turn key back to "Remote" (operating mode).
+
+5. **If automatic start still fails:**
+   - Re-open navigation and reselect "cnc" program.
+   - Run "Programm zurücksetzen".
+   - Re-reference robot if requested by controller.
+
 ---
 
 ## Deutsche Version
@@ -112,6 +148,42 @@ Das CNC Programm des Roboters muss manuell neu angewählt werden.
    - Roboter sollte sich jetzt wieder bewegen können
    - Alle Status-Anzeigen auf dem Smartpad sollten grün sein
 
+### Problem: Notstop nahe Sicherheitszaun (multiaxialer Druck)
+
+**Symptome:**
+- Roboter macht einen abrupten Stopp, sobald Tool/Extruder in zaunnahe Bereiche kommt
+- Bremsen sind hörbar ("Knacken"), der Roboter wird außer Betrieb gesetzt
+- HMI / Schaltschrank zeigt sicherheitsbezogene Stopps oder Bremstest-Hinweise
+- Automatische Bewegung ist blockiert, bis der Roboter manuell aus dem Schutzbereich gefahren wird
+
+**Ursache:**
+Bei multiaxialen Bahnen (insbesondere 45-Grad-Ausrichtung) kann die TCP-/Extruder-Neigung bereits vor dem physischen Zaun in den Sicherheits- bzw. Bremsbereich geraten.
+
+**Wiederanlauf (KRC5 / Smartpad):**
+
+1. **Statusmeldung zuerst lesen:**
+   - Stop-Ursache auf HMI/Smartpad oder Schaltschrank prüfen.
+
+2. **In den Einrichtweg wechseln:**
+   - Schlüssel von "Remote" auf "Zahnrad" drehen.
+   - Sicherstellen, dass "EXT" anliegt, dann auf "T1" wechseln.
+   - Schlüssel zurückdrehen; Smartpad kann neu starten.
+
+3. **Roboter manuell aus dem Sicherheitsbereich fahren:**
+   - Einen Totmannschalter auf der Rückseite gedrückt halten.
+   - Achsweise verfahren (oder SpaceMouse, falls freigegeben), bis TCP/Extruder klar außerhalb des Schutzbereichs ist.
+   - Verfahr-Icons werden nur bei gedrücktem Totmannschalter grün.
+
+4. **Zurück in den Automatikbetrieb:**
+   - Schlüssel wieder auf "Zahnrad".
+   - Von "T1" zurück auf "EXT" wechseln.
+   - Schlüssel zurück auf "Remote" (Betriebsmodus).
+
+5. **Falls Autostart weiter blockiert ist:**
+   - Navigation öffnen und "cnc" Programm neu anwählen.
+   - "Programm zurücksetzen" ausführen.
+   - Roboter bei Aufforderung neu referenzieren.
+
 ---
 
 ## Additional Notes / Zusätzliche Hinweise
@@ -122,11 +194,15 @@ To prevent this issue from recurring:
 - Always ensure the CNC program is properly selected before starting operations
 - Check that all status indicators are green before attempting to move the robot
 - If the brake test warning appears, address it immediately before continuing
+- Keep extra clearance near the fence; protected braking zone can begin before the physical barrier
+- For 45 degree multiaxial prints, orient extruder tilt toward the wall / largest free area (away from safety door side)
 
 Um dieses Problem zu vermeiden:
 - Immer sicherstellen, dass das CNC Programm vor dem Start korrekt angewählt ist
 - Prüfen, dass alle Status-Anzeigen grün sind, bevor der Roboter bewegt wird
 - Wenn die Bremstest-Warnung erscheint, diese sofort beheben, bevor fortgefahren wird
+- Zusätzlichen Abstand zum Zaun einplanen; der Sicherheits-/Bremsbereich beginnt vor der physischen Barriere
+- 45-Grad-Multiaxialdrucke so ausrichten, dass der Extruder zur Wand bzw. in den größten freien Bereich kippt (weg von der Sicherheits-/Eingangstür)
 
 ### Related Issues / Verwandte Probleme
 
@@ -144,7 +220,7 @@ Falls diese Lösung das Problem nicht behebt, prüfen:
 
 ---
 
-*Last updated: 2025-12-11*
+*Last updated: 2026-08-04*
 *Based on field experience with KUKA robot systems*
 
 

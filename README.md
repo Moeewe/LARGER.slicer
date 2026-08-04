@@ -262,7 +262,33 @@ LARGER.slicer/
 | DXR File Health Check returns NO GO | Invalid filename, unreadable file, or suspicious/incomplete content | Fix filename/path, re-export, and re-check until GO |
 | Preview slider inactive | Path Preview not connected | Check **Path Preview** input wiring |
 | Password-protected clusters | Components locked | Right-click component, enter **Supersizedprinting** |
-| KUKA Robot brake test / start movement problems | CNC program not selected on robot controller | See [KUKA Robot Troubleshooting Guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) or [Weber DXR25 Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) Section 13 |
+| KUKA Robot brake test / start movement / safety-fence emergency stop (multiaxial) | CNC program not selected, or tool/extruder enters protected braking zone near fence | Follow [KUKA Safety Stop Recovery (Fence Proximity / Multiaxial)](#kuka-safety-stop-recovery-fence-proximity--multiaxial), then see [KUKA Robot Troubleshooting Guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) or [Weber DXR25 Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) Section 13 |
+
+### KUKA Safety Stop Recovery (Fence Proximity / Multiaxial)
+
+Use this when the robot stops near the fence, brakes audibly engage, and movement is blocked with safety/brake-test related messages on HMI/switch cabinet.
+
+1. **Confirm status message** on HMI/Smartpad or cabinet display (safety stop, brake test required, movement blocked).
+2. **Switch to setup path on KRC5**:
+   - Turn key from **Remote** to **Gear** position.
+   - Ensure mode is **EXT**, then switch to **T1**.
+   - Turn key back; Smartpad/Fernbedienung may reboot.
+3. **Manually move robot out of safety zone**:
+   - Press and hold a rear dead-man switch (Totmannschalter).
+   - Move axis-by-axis (or with SpaceMouse, if enabled) until the TCP/extruder is clearly outside the protected area.
+   - Motion icons only turn green while dead-man is pressed.
+4. **Return to automatic operation**:
+   - Turn key to **Gear**, switch from **T1** back to **EXT**.
+   - Turn key back to **Remote**/operating mode.
+5. **If start still fails**:
+   - Re-open and reselect the **cnc** program on Smartpad.
+   - Run **Programm zurücksetzen** and re-reference if requested.
+   - See [KUKA Robot Troubleshooting Guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) and [Weber DXR25 Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) (Section 13).
+
+**Tip for path planning (important for 45° multiaxial prints):**
+- Prefer extruder tilt toward the wall / largest free area, not toward the safety door.
+- Keep extra clearance before the fence because the braking zone begins before the physical barrier (approx. 10-15 cm depending on setup).
+- Orient 45° jobs so the extruder points to the side opposite the entry/safety door.
 
 ### Getting Help
 

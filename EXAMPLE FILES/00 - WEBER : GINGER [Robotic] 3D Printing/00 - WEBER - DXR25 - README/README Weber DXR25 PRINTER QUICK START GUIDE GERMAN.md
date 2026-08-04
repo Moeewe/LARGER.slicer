@@ -2,7 +2,7 @@
 title: Inbetriebnahme & Bedienanleitung – 3D-Druck-Robotersystem DXR25 (Weber Additive)
 subtitle: Fachbereich Architektur – FH Münster / MSA Robotics Lab
 version: 1.1
-last_updated: 2025-10-09
+last_updated: 2026-08-04
 ---
 
 # Inbetriebnahme & Bedienanleitung – 3D-Druck-Robotersystem DXR25 (Weber Additive)
@@ -320,6 +320,8 @@ Ablauf:
 Hinweise zu Multi‑Axial Druck:
 - Multi‑axiales Drucken nutzt zusätzliche Orientierungen (A/B/C‑Achsen). Bei A=B=C=0 steht der Extruder senkrecht für horizontales Drucken. Orientierungen werden im Multiaxial‑Grasshopper‑Skript über Ebenen vorgegeben.
 - Vor Multiaxial‑Jobs mögliche Kollisionen zwischen Extruder und Roboterarm prüfen; ggf. mit erhöhtem Tisch/Fixture arbeiten.
+- Extruderneigung möglichst zur Wand bzw. in den größten freien Bereich ausrichten (weg von der Sicherheits-/Eingangstür), besonders bei 45‑Grad‑Jobs.
+- Zusätzlichen Abstand zum Zaun einplanen; der Sicherheits-/Bremsbereich beginnt bereits vor der physischen Barriere.
 
 ---
 
@@ -333,6 +335,8 @@ Hinweise zu Multi‑Axial Druck:
 ---
 
 ## 🧩 13. Fehlerbehebung (Troubleshooting)
+
+Fuer die gepflegte Master-Version (DE/EN) siehe auch: [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md).
 
 | Problem | Mögliche Ursache | Maßnahme |
 |---|---|---|
@@ -405,6 +409,40 @@ Das CNC Programm des Roboters muss manuell neu angewählt werden.
 7. **Verifikation:**
    - Roboter sollte sich jetzt wieder bewegen können
    - Alle Status-Anzeigen auf dem Smartpad sollten grün sein
+
+### Problem: Notstop nahe Sicherheitszaun bei multiaxialem Druck
+
+**Symptome:**
+- Roboter stoppt abrupt, sobald Tool/Extruder in zaunnahe Bereiche kommt
+- Bremsen greifen hörbar, Roboter wird außer Betrieb gesetzt
+- HMI/Schaltschrank zeigt sicherheitsbezogene Stopps oder Bremstest-Hinweise
+- Automatikfahrt bleibt blockiert, bis der Roboter manuell aus dem Schutzbereich gefahren wird
+
+**Ursache:**
+TCP-/Extruder-Neigung gelangt in multiaxialen Bahnabschnitten (häufig bei 45‑Grad‑Ausrichtungen) in den Sicherheits-/Bremsbereich.
+
+**Wiederanlauf (KRC5 / Smartpad):**
+
+1. **Statusmeldung zuerst lesen:**
+   - Stop-Ursache auf HMI/Smartpad oder am Schaltschrank prüfen.
+
+2. **In den Einrichtbetrieb wechseln:**
+   - Schlüssel von "Remote" auf "Zahnrad" drehen.
+   - Sicherstellen, dass "EXT" anliegt, dann auf "T1" wechseln.
+   - Schlüssel zurückdrehen; Smartpad kann neu starten.
+
+3. **Roboter manuell aus Sicherheitsbereich fahren:**
+   - Totmannschalter auf der Rückseite gedrückt halten.
+   - Achsweise verfahren (oder SpaceMouse, falls freigegeben), bis TCP/Extruder klar außerhalb des Schutzbereichs ist.
+   - Verfahr-Icons werden nur mit gedrücktem Totmannschalter grün.
+
+4. **Zurück in den Automatikbetrieb:**
+   - Schlüssel auf "Zahnrad", von "T1" zurück auf "EXT".
+   - Schlüssel zurück auf "Remote" (Betriebsmodus).
+
+5. **Falls Start weiter blockiert ist:**
+   - Navigation öffnen und "cnc" neu anwählen.
+   - "Programm zurücksetzen" ausführen und Roboter ggf. neu referenzieren.
 
 Nach Not-Aus: Anlage neu initialisieren, Verriegelung prüfen, Bremstest erneut durchführen, Achswege und Offsets verifizieren.
 

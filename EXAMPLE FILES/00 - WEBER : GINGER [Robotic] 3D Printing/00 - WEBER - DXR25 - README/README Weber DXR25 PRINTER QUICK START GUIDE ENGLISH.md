@@ -2,7 +2,7 @@
 title: Commissioning & Operating Manual – 3D Printing Robot System DXR25 (Weber Additive)
 subtitle: Faculty of Architecture – FH Münster / MSA Robotics Lab
 version: 1.1
-last_updated: 2025-10-09
+last_updated: 2026-08-04
 ---
 
 # Commissioning & Operating Manual – 3D Printing Robot System DXR25 (Weber Additive)
@@ -320,6 +320,8 @@ Procedure:
 Notes on multi‑axial printing:
 - Multi‑axial printing uses additional orientations (A/B/C axes). With A=B=C=0 the extruder is vertical for horizontal printing. Orientations are defined via planes in the multi‑axial Grasshopper script.
 - Before multi‑axial jobs, check potential collisions between extruder and robot arm; consider using a raised table/fixture.
+- Prefer extruder tilt toward the wall / largest free area (away from the safety door side), especially for 45 degree jobs.
+- Keep additional clearance near the fence; the protected braking zone can begin before the physical barrier.
 
 ---
 
@@ -333,6 +335,8 @@ Notes on multi‑axial printing:
 ---
 
 ## 🧩 13. Troubleshooting
+
+For the maintained master version (EN/DE), also see: [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md).
 
 | Problem | Possible cause | Action |
 |---|---|---|
@@ -405,6 +409,40 @@ The CNC program on the robot controller needs to be manually reselected.
 7. **Verification:**
    - Robot should now be able to move again
    - All status indicators on Smartpad should be green
+
+### Issue: Emergency stop near safety fence during multiaxial printing
+
+**Symptoms:**
+- Robot stops abruptly when the tool/extruder approaches fence-near regions
+- Brakes engage audibly and robot is set out of operation
+- HMI/control cabinet shows safety-stop or brake-test related messages
+- Robot cannot continue automatic motion until manually moved out of protected area
+
+**Root Cause:**
+TCP/extruder tilt enters the protected braking zone during multiaxial path segments (commonly on 45 degree orientations).
+
+**Recovery (KRC5 / Smartpad):**
+
+1. **Read status message first:**
+   - Confirm stop reason on HMI/Smartpad or control-cabinet display.
+
+2. **Switch to setup movement mode:**
+   - Turn key from "Remote" to "Zahnrad" (Gear icon).
+   - Ensure mode is "EXT", then switch to "T1".
+   - Turn key back; Smartpad may restart.
+
+3. **Move robot out of safety zone manually:**
+   - Press and hold a rear dead-man switch (Totmannschalter).
+   - Jog axis-by-axis (or SpaceMouse, if enabled) until TCP/extruder is clearly outside the protected area.
+   - Motion icons turn green only while dead-man is pressed.
+
+4. **Return to automatic operation:**
+   - Turn key to "Zahnrad", switch from "T1" back to "EXT".
+   - Turn key back to "Remote" operating mode.
+
+5. **If start remains blocked:**
+   - Re-open navigation and reselect "cnc".
+   - Run "Programm zurücksetzen" and re-reference robot if requested.
 
 After E‑Stop: re‑initialize the system, check interlock, repeat brake test, verify axis limits and offsets.
 
