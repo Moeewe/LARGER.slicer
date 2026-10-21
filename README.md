@@ -262,6 +262,7 @@ LARGER.slicer/
 | DXR File Health Check returns NO GO | Invalid filename, unreadable file, or suspicious/incomplete content | Fix filename/path, re-export, and re-check until GO |
 | Preview slider inactive | Path Preview not connected | Check **Path Preview** input wiring |
 | Password-protected clusters | Components locked | Right-click component, enter **Supersizedprinting** |
+| DXR25: Roboter nicht justiert / external axis E1 not mastered (KSS01347, KSS00106 E1) | E1 mastering is unavailable; movement and program start are blocked | Follow the installation-specific [E1 recovery procedure](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-robot-not-mastered-e1), including backup prerequisites; do not rely on program resets alone |
 | KUKA Robot brake test / no start movement / no reference run / safety-fence emergency stop (multiaxial) | CNC program not selected, robot/CNC handover state inconsistent, reference switch issue, or tool/extruder enters protected braking zone near fence | Follow [KUKA Safety Stop Recovery (Fence Proximity / Multiaxial)](#kuka-safety-stop-recovery-fence-proximity--multiaxial), then see [KUKA Robot Troubleshooting Guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) or [Weber DXR25 Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) Section 13 |
 
 ### KUKA Safety Stop Recovery (Fence Proximity / Multiaxial)

@@ -336,7 +336,19 @@ Hinweise zu Multi‑Axial Druck:
 
 ## 🧩 13. Fehlerbehebung (Troubleshooting)
 
-Fuer die gepflegte Master-Version (DE/EN) siehe auch: [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md).
+Für die gepflegte Master-Version (DE/EN) siehe auch: [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md).
+
+### Fehlerbehebung: Roboter nicht justiert (E1)
+
+**Fehlerbild:** Keine Bewegung und kein Programmstart; **KSS01347** (Roboter nicht justiert), **KSS00106** (Justage durchführen E1) oder **KSS15047** (Justagereferenzierung angefordert).
+
+**Voraussetzungen:** Eingewiesenes, autorisiertes Personal, freier Fahrweg und geschlossener Sicherheitszaun. Das einzige Projekt mit **BACKUP** im Namen aus **2023** ist das dokumentierte Backup, nicht die anderen Dateien vom Juli. Eignung und Projektstand vor dem Aktivieren mit dem Anlagenverantwortlichen prüfen.
+
+**Ablauf:** Die vollständige [E1-Fehlerbehebung mit Sicherheitshinweisen, drei Schritten und Kontrolle](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#problem-roboter-nicht-justiert-e1) vor Beginn lesen. Sie umfasst T1/Experte, Backup-Aktivierung und Steuerungsneustart sowie die vollständige Wiederanlauffahrt bis **SAK erreicht**. Danach das Programm nicht erneut zurücksetzen.
+
+**Kontrolle:** **S, O, R und Ext** sind grün, der Roboter steht in Grundstellung und die Justagemeldung ist behoben. Bleibt sie bestehen, abbrechen und den Anlagenverantwortlichen informieren.
+
+### Weitere Fehlerbilder
 
 | Problem | Mögliche Ursache | Maßnahme |
 |---|---|---|

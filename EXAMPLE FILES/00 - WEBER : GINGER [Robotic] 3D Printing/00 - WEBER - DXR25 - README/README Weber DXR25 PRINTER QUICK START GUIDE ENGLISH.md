@@ -338,6 +338,18 @@ Notes on multi‑axial printing:
 
 For the maintained master version (EN/DE), also see: [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md).
 
+### Troubleshooting: Robot not mastered (E1)
+
+**Symptoms:** Movement and program start are blocked; **KSS01347** (Roboter nicht justiert), **KSS00106** (Justage durchführen E1), or **KSS15047** (Justagereferenzierung angefordert).
+
+**Prerequisites:** Trained, authorized personnel, clear travel path, and closed safety fence. The single project with **BACKUP** in its name, dated **2023**, is the documented backup, not the other files dated July. Confirm suitability and project state with the person responsible for the plant before activation.
+
+**Procedure:** Read the complete [E1 recovery with safety requirements, three steps, and verification](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-robot-not-mastered-e1) before starting. It covers T1/Expert, backup activation and controller restart, and the complete recovery movement until **SAK erreicht** is displayed. Do not reset the program again afterward.
+
+**Verification:** **S, O, R, and Ext** are green, the robot is in its home position, and the mastering message is cleared. If it remains, stop and inform the person responsible for the plant.
+
+### Other symptoms
+
 | Problem | Possible cause | Action |
 |---|---|---|
 | No extrusion | Extruder not hot enough / not fully heated | Continue heating (> 15 min), then “Clean extruder” |
