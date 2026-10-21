@@ -220,18 +220,7 @@ M29
 - KUKA Smartpad shows: "Quitt Fahrtfreigabe gesamt Verursacher KS" and "Active-Status erforderlich"
 - Status indicators not all green
 
-**Solution:**
-The CNC program on the robot controller needs to be manually reselected. See detailed troubleshooting steps in `KUKA_ROBOT_TROUBLESHOOTING.md`.
-
-**Quick Fix:**
-1. Switch key from Remote to Gear icon
-2. Enter T1 mode, then switch back to Remote
-3. Open navigation (blue gear icon → Open → orange X)
-4. Select "cnc" folder and click "Anwählen"
-5. Reset program (tap yellow "R" square → "Programm zurücksetzen")
-6. Switch to EXT mode, then back to Remote
-
-For complete step-by-step instructions in German and English, see: `documentations/KUKA_ROBOT_TROUBLESHOOTING.md`
+**Solution:** Follow the matching procedure in the [German KUKA troubleshooting guide](KUKA_ROBOT_TROUBLESHOOTING_DE.md). An [English version](KUKA_ROBOT_TROUBLESHOOTING.md) is also available. Do not substitute a generic reset sequence for the procedure's safety requirements.
 
 ---
 
@@ -310,4 +299,3 @@ N40 G1 Y903.167 G91 XE=[38.529*P1] G90 F1800.000
 - **V1.0.0**: Initial documentation based on reference files
 - Documented critical `G90` positioning requirement
 - Identified common hanging issues with machine settings
-

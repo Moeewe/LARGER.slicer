@@ -2,44 +2,44 @@
 title: Commissioning & Operating Manual – 3D Printing Robot System DXR25 (Weber Additive)
 subtitle: Faculty of Architecture – FH Münster / MSA Robotics Lab
 version: 1.1
-last_updated: 2026-08-04
+last_updated: 2026-10-21
 ---
 
 # Commissioning & Operating Manual – 3D Printing Robot System DXR25 (Weber Additive)
 FH Münster – MSA Robotics Lab
 
-This manual consolidates the induction, transcripts, and meeting notes. It serves as a binding reference for all trained users of the DXR25.
+This manual consolidates the documented induction and operating notes for trained users of the DXR25. Plant operating instructions and manufacturer requirements remain authoritative.
+
+The [German operating manual](<README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) provides the expanded step-by-step navigation and symptom-based help matching the German machine interface. For [no movement / blocked startup](<README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen>), start with its status and release checks.
+
+Controller and software labels are quoted as they appear on the machine. German labels are translated where useful.
 
 ## Table of Contents
-1. Purpose and Scope
-2. Safety & Preparation
-   - General, Ventilation & Door Policy
-   - Personal Protective Equipment (PPE)
-   - Temperature/Burn Hazard
-   - Emergency Stop (E‑Stop)
-3. System Layout & Component Overview
-4. Preparations Before Start (Quick Check)
-5. Powering On the System (Sequence)
-6. Software Startup & Basic Configuration
-7. Materials & Temperature Profiles
-8. Extruder Cleaning & Material Change
-9. Nozzle & Build Plate
-10. Loading G‑code/DXR Files
-11. Starting a Print (Preview, Offsets, Start Speed)
-12. Post‑Processing & Shutdown
-13. Troubleshooting
-14. Maintenance & Regular Checks
-15. Notes & Open Points
-16. DXR25 Quick‑Start Checklist
-17. Credits
-18. Appendix – DXR Code Example (complete)
+1. [Purpose and Scope](#1-purpose-and-scope)
+2. [Safety and Preparation](#2-safety-and-preparation)
+3. [System Layout and Component Overview](#3-system-layout-and-component-overview)
+4. [Preparations Before Start (Quick Check)](#4-preparations-before-start-quick-check)
+5. [Powering On the System (Sequence)](#5-powering-on-the-system-sequence)
+6. [Software Startup and Basic Configuration](#6-software-startup-and-basic-configuration)
+7. [Materials and Temperature Profiles](#7-materials-and-temperature-profiles)
+8. [Extruder Cleaning and Material Change](#8-extruder-cleaning-and-material-change)
+9. [Nozzle and Build Plate](#9-nozzle-and-build-plate)
+10. [Loading G-code and DXR Files](#10-loading-g-code-and-dxr-files)
+11. [Starting a Print (Preview, Offsets, Start Speed)](#11-starting-a-print-preview-offsets-start-speed)
+12. [Post-Processing and Shutdown](#12-post-processing-and-shutdown)
+13. [Troubleshooting](#13-troubleshooting)
+14. [Maintenance and Regular Checks](#14-maintenance-and-regular-checks)
+15. [Notes and Open Points](#15-notes-and-open-points)
+16. [DXR25 Quick-Start Checklist](#16-dxr25-quick-start-checklist)
+17. [Credits](#credits)
+18. [Appendix – DXR Code Example (excerpt)](#appendix-dxr-code-example-complete)
 
 ---
 
 ## 1. Purpose and Scope
 The DXR25 is an industrial 6‑axis KUKA robot with a Weber pellet extruder for large‑format 3D printing. This manual describes safe commissioning, operation, typical error patterns, and care measures. Operation is strictly limited to trained personnel.
 
-## 🧱 2. Safety & Preparation
+## 2. Safety and Preparation
 
 > Emergency Quick Guide (memory box)
 > 1) Stop immediately: “Stop print” → if danger: press E‑Stop (display, fence, or smartpad)
@@ -49,7 +49,7 @@ The DXR25 is an industrial 6‑axis KUKA robot with a Weber pellet extruder for 
 > 5) Restart: only after fixing the issue and another visual and collision check
 
 ### 2.1 General, Ventilation & Door Policy
-- Ventilate the room before each use (occupational safety guideline, 5–10 minutes). While present, the door may remain open; always close it when leaving (safety area!).
+- Ventilate the room before each use (occupational safety guideline, 5–10 minutes). The documented open-door rule while present does not permit operation with an open protective door: close and interlock the cell door before automatic movement. Close the door when leaving.
 - Do not leave the safety area open and unattended. Access to the robot cell is for trained personnel only.
 - If you notice unusual noises, smell, vibrations, or anomalies, stop the print immediately; press E‑Stop if necessary.
  - Only start a print with a direct line of sight to the robot; keep the printing area clear (no obstacles in the workspace).
@@ -61,7 +61,7 @@ The DXR25 is an industrial 6‑axis KUKA robot with a Weber pellet extruder for 
 
 ### 2.3 Temperature and Burn Hazard
 - Heated bed: up to 150 °C. Nozzle/extruder: up to 250–280 °C.
-- Never touch hot areas. If needed, cautiously check temperature with the back of your hand (not the palm!).
+- Never touch hot areas. Check temperatures on the operator display, not by touching with a hand.
 - Keep the magnetic build plates placed on the heated bed when it’s on (to avoid fumes). Align plates without gaps/overlaps.
 
 ### 2.4 Emergency Stop Buttons
@@ -72,7 +72,7 @@ The DXR25 is an industrial 6‑axis KUKA robot with a Weber pellet extruder for 
 
 ---
 
-## ⚙️ 3. System Layout & Component Overview
+## 3. System Layout and Component Overview
 
 ### System Layout Plan
 
@@ -102,7 +102,7 @@ Additional notes from induction:
 
 ---
 
-## ✅ 4. Preparations Before Start (Quick Check)
+## 4. Preparations Before Start (Quick Check)
 - Room ventilated, area clear, plates correctly placed.
 - Cooling/chiller visually checked (fill level plausible). Switch on activated carbon filter if needed.
 - Material: only PETG/PLA (approved). Switch on dryer and check fill level.
@@ -111,17 +111,17 @@ Additional notes from induction:
 
 ---
 
-## 🔌 5. Powering On the System (Sequence)
+## 5. Powering On the System (Sequence)
 1. Finish ventilation & visual inspection.
 2. Switch on the robot controller (KUKA controller).
 3. Switch on the control cabinet main switch; check indicator lights.
 4. Let the display boot → Windows starts → Weber software launches automatically.
 
-Login to the software: user “Operator”, password “222”.
+Login to the software as “Operator”. Obtain the currently approved password from the lab supervisor; do not store credentials in this public manual.
 
 ---
 
-## 🧭 6. Software Startup & Basic Configuration
+## 6. Software Startup and Basic Configuration
 After login:
 - Check and acknowledge notifications (red/yellow icons at the top right).
 - Activate safety: close the door → white button blinks → press → system interlocks.
@@ -136,7 +136,7 @@ Switch KUKA to external operating mode (if required):
 
 ---
 
-## 🔥 7. Materials & Temperature Profiles
+## 7. Materials and Temperature Profiles
 Approved materials: PETG, PLA. Others (e.g., recycled) only with written approval.
 
 Heating zones in the software:
@@ -183,7 +183,7 @@ Influences and corrections (quick reference):
 
 ---
 
-## ♻️ 8. Extruder Cleaning & Material Change
+## 8. Extruder Cleaning and Material Change
 Before each print:
 1. Fully heat the extruder (at least 15 minutes until setpoint reached).
 2. Execute “Clean extruder”.
@@ -208,7 +208,7 @@ Woywod dryer emptying/cleaning (for material change):
 
 ---
 
-## 🧰 9. Nozzle & Build Plate
+## 9. Nozzle and Build Plate
 Nozzle change:
 - Perform only at operating temperature (material soft). Use a 13 mm wrench.
 - Loosen old nozzle counterclockwise; install new nozzle using suitable metal paste.
@@ -221,11 +221,11 @@ Additional (manufacturer’s note):
 
 Build plate:
 - Keep magnetic plates in place (avoid odor/fume generation). No open gaps/overlaps.
-- Typical bed temperature: 60–90 °C. Do not touch; back‑of‑hand test only with caution.
+- Typical bed temperature: 60–90 °C. Do not touch; check the temperature on the operator display.
 
 ---
 
-## 💾 10. Loading G‑code/DXR Files
+## 10. Loading G-code and DXR Files
 1. Weber software → “G‑code table”: check available print files.
 2. Data transfer: via USB stick or TeamViewer.
 3. File path: `D:\\Data\\Gcode`.
@@ -233,7 +233,7 @@ Build plate:
 5. Copy DXR files from the post‑processor into the G‑code folder.
 
 Notes on file conversion (DXR):
-- The machine processes DXR files, not G‑code directly. The recommended procedure is automatic conversion via Rhino/Grasshopper script (LargerSlicer.gh or LargerSlicerMultiaxial.gh) with the robot plugin.
+- The machine processes DXR files, not G-code directly. Use the current [LARGERslicer Weber Robot and Ginger.gh definition](<../LARGERslicer Weber Robot and Ginger.gh>) with the robot plugin. It includes Easy Slicer, Path Creator (Multiaxial), and Custom Paths; the archived multiaxial definition is not required.
 - Alternative at the control cabinet: use the Weber converter (taskbar icon → black window). Drag and drop G‑code into the window, press Enter. The generated .dxr must then be copied into the G‑code folder, otherwise it will not appear in the Weber software.
 
 Remote access:
@@ -268,7 +268,7 @@ Requirements for the Rhino/Grasshopper workflow:
      - Newtonsoft.Json.dll
      - Optional: LargerSlicer.pdb (debug symbols)
 
- - Download/open the .gh files as needed (LargerSlicer.gh or LargerSlicerMultiaxial.gh). Important: These Grasshopper files require the plugin (GHA + DLL) installed to run.
+ - Download and open the [current Grasshopper definition](<../LARGERslicer Weber Robot and Ginger.gh>). It requires the plugin (GHA + DLL) installed to run.
 
 ### ⚠️ First-Time Setup: Robot Library Installation (KUKA KR120)
 
@@ -295,7 +295,7 @@ DXR quick reference:
 - Extrusion is scaled with `XE=[value*P1]`, where P1 is the material factor in the machine UI.
 - Example: `N24 G1 X911.817 Y952.527 Z32.000 A0.000 B0.000 C0.000 G91 XE=[64.430*P1] G90`
 
-A complete DXR example is provided in the appendix.
+A DXR example excerpt is provided in the appendix.
 
 HMI/G‑code lists & paths:
 - Accessible via the right HMI menu: recipes, nozzle list, build substrates, formula collection, G‑code overview.
@@ -303,7 +303,7 @@ HMI/G‑code lists & paths:
 
 ---
 
-## ▶️ 11. Starting a Print (Preview, Offsets, Start Speed)
+## 11. Starting a Print (Preview, Offsets, Start Speed)
 Before starting, check:
 - Recipe loaded, material correct, extruder cleaned.
 - Door interlocked (white → pressed), safety active.
@@ -325,7 +325,7 @@ Notes on multi‑axial printing:
 
 ---
 
-## 🧯 12. Post‑Processing & Shutdown
+## 12. Post-Processing and Shutdown
 1. End the printing process and let it cool down; remove the part from the bed only below < 50 °C.
 2. Switch off heaters; keep cooling/chiller running until < 50 °C.
 3. Move the robot to the home position.
@@ -334,19 +334,15 @@ Notes on multi‑axial printing:
 
 ---
 
-## 🧩 13. Troubleshooting
+## 13. Troubleshooting
 
-For the maintained master version (EN/DE), also see: [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md).
+For the maintained English KUKA recovery guide, see the [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md).
 
 ### Troubleshooting: Robot not mastered (E1)
 
-**Symptoms:** Movement and program start are blocked; **KSS01347** (Roboter nicht justiert), **KSS00106** (Justage durchführen E1), or **KSS15047** (Justagereferenzierung angefordert).
+**Symptoms:** Movement and program start are blocked; **KSS01347** (robot not mastered), **KSS00106** (master E1), or **KSS15047** (mastering reference requested internally).
 
-**Prerequisites:** Trained, authorized personnel, clear travel path, and closed safety fence. The single project with **BACKUP** in its name, dated **2023**, is the documented backup, not the other files dated July. Confirm suitability and project state with the person responsible for the plant before activation.
-
-**Procedure:** Read the complete [E1 recovery with safety requirements, three steps, and verification](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-robot-not-mastered-e1) before starting. It covers T1/Expert, backup activation and controller restart, and the complete recovery movement until **SAK erreicht** is displayed. Do not reset the program again afterward.
-
-**Verification:** **S, O, R, and Ext** are green, the robot is in its home position, and the mastering message is cleared. If it remains, stop and inform the person responsible for the plant.
+This recovery is installation-specific and requires checking a backup. Read the complete [E1 recovery, including prerequisites and verification](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-robot-not-mastered-e1) before intervening.
 
 ### Other symptoms
 
@@ -362,124 +358,23 @@ For the maintained master version (EN/DE), also see: [KUKA Robot Troubleshooting
 | System blows/cools unusually loudly | Robot room too warm / high thermal load | Ventilate the robot room, increase air exchange, stabilize ambient temperature |
 | Strong odor | Plates removed / filter off | Place plates; switch on activated carbon filter; ventilate |
 | Print stops when dryer empty | Dryer empty; no pause mode | Refill material; print cannot be resumed without update |
-| Reference run fails; robot cannot find startup reference | Reference switch bent, shifted, or loose | At the reference position, verify that both indicator lamps switch correctly; carefully readjust or re-mount the reference switch until homing works reliably again |
+| Reference run fails; robot cannot find startup reference | Reference switch may not be switching correctly | Do not adjust the switch yourself; follow the [KUKA troubleshooting guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) and inform the person responsible for the plant or qualified maintenance personnel |
 
 KUKA controller/program stuck (e.g., singularity):
-- First try to jog the robot out of the situation manually (teach‑in, slowly, area clear!).
-- Check status LEDs on the KUKA pendant (all top‑right LEDs should be green). If not, follow the on‑screen instructions until green.
-- Reload or restart the CNC/program (do not delete). If needed, toggle between external/internal control (key switch top right) and try again.
+- Stop and use the matching procedure in the complete [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md); do not use generic manual-jogging or reset steps.
 
-### Issue: Robot does not perform brake test / start movement after startup
-
-**Symptoms:**
-- Robot does not perform required brake test / start movement after startup
-- Robot cannot move to home position
-- Drive button blinks continuously
-- Error message: "Druck abgebrochen bei XYZ jeweils 0" (Pressure aborted at XYZ all 0)
-- Control cabinet display shows: "Neu Starten" (Restart) or "Warnschwelle für Bremstest erreicht mit 0 Stunden Restlaufzeit" (Brake test warning threshold reached with 0 hours remaining runtime)
-- Corresponding indicator light is red
-
-**KUKA Smart Remote / Smartpad Display Shows:**
-- "Quitt Fahrtfreigabe gesamt Verursacher KS" (Acknowledge overall drive enable cause KS)
-- "Active-Status erforderlich" (Active status required)
-- Status indicators "S" "O" "R" "Ext" show: Green, Gray, Yellow, Green (or similar)
-- **Expected:** All indicators should be green on the Smartpad
-
-**Root Cause:**
-The CNC program on the robot controller needs to be manually reselected.
-
-**Solution (Work on Smartpad Only):**
-
-1. **Switch Key Position:**
-   - Turn the key from "Remote" to "Zahnrad" (Gear icon) position
-
-2. **Enter T1 Mode:**
-   - Navigate to T1 mode
-   - Then switch back: Turn key from "Zahnrad" to "Remote"
-
-3. **Open Navigation:**
-   - Tap the blue gear icon on the left side of the touchscreen
-   - Click "Öffnen" (Open)
-   - Tap the orange "X" on the left side
-   - This opens the navigation overview
-
-4. **Select CNC Program:**
-   - Multiple files and folders are displayed
-   - Click on "cnc"
-   - Tap "Anwählen" (Select) at the bottom of the touch display
-
-5. **Reset Program:**
-   - At the top of the Smartpad touchscreen, tap the yellow square "R"
-   - A window opens
-   - Click: "Programm zurücksetzen" (Reset program)
-
-6. **Return to External Mode:**
-   - Turn key to "Zahnrad" (Gear icon) position
-   - Select external mode "EXT"
-   - Turn key back to "Remote" (Fernbedienung)
-
-7. **Verification:**
-   - Robot should now be able to move again
-   - All status indicators on Smartpad should be green
-
-### Issue: Emergency stop near safety fence during multiaxial printing
-
-**Symptoms:**
-- Robot stops abruptly when the tool/extruder approaches fence-near regions
-- Brakes engage audibly and robot is set out of operation
-- HMI/control cabinet shows safety-stop or brake-test related messages
-- Robot cannot continue automatic motion until manually moved out of protected area
-
-**Root Cause:**
-TCP/extruder tilt enters the protected braking zone during multiaxial path segments (commonly on 45 degree orientations).
-
-**Recovery (KRC5 / Smartpad):**
-
-1. **Read status message first:**
-   - Confirm stop reason on HMI/Smartpad or control-cabinet display.
-
-2. **Switch to setup movement mode:**
-   - Turn key from "Remote" to "Zahnrad" (Gear icon).
-   - Ensure mode is "EXT", then switch to "T1".
-   - Turn key back; Smartpad may restart.
-
-3. **Move robot out of safety zone manually:**
-   - Press and hold a rear dead-man switch (Totmannschalter).
-   - Jog axis-by-axis (or SpaceMouse, if enabled) until TCP/extruder is clearly outside the protected area.
-   - Motion icons turn green only while dead-man is pressed.
-
-4. **Return to automatic operation:**
-   - Turn key to "Zahnrad", switch from "T1" back to "EXT".
-   - Turn key back to "Remote" operating mode.
-
-5. **If start remains blocked:**
-   - Re-open navigation and reselect "cnc".
-   - Run "Programm zurücksetzen" and re-reference robot if requested.
-
-### Issue: Robot does not move / start or reference run does not begin
-
-Use this if the robot still does not react after recovery, the print aborts at 0,0,0, or startup/reference/calibration travel does not begin.
-
-1. Check that all top-right status LEDs on the Smartpad are green.
-2. Open navigation, select "cnc" again, and tap "Anwählen".
-3. Tap the yellow "R" and run "Programm zurücksetzen".
-4. Under "PrgView", reset the EMI; then reset and restart the robot program in the top frame bar.
-5. Re-check the operating mode and return to EXT; if needed, briefly toggle between external/internal control.
-6. Retry brake test, reference run, or startup motion.
-7. If reference/calibration travel still fails, inspect the reference switch and verify both indicator lamps change correctly in reference position.
-
-After E‑Stop: re‑initialize the system, check interlock, repeat brake test, verify axis limits and offsets.
+For KUKA-specific issues — including brake-test/startup failure, a fence-proximity emergency stop, a failed reference run, or a stalled controller/program — follow the matching procedure in the complete [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md). Do not substitute generic reset or manual-jogging steps for its safety prerequisites.
 
 G‑code/DXR won’t load:
 - When loading, G‑code is copied as `Gcode.nc` to a drive shared with the robot. If loading problems occur: in Explorer open drive `nc (Z:)` and delete `Gcode.nc`; load the print program again.
 
 Issues after program abort or manual jogging:
 - When switching from the robot program to the CNC control, the latter takes over position control. If positions do not match, the robot stops with error messages.
-- Under softkey “PrgView” reset the EMI (External Motion Interface); at the top frame bar reset the robot program and restart.
+- For the complete recovery procedure, see [Robot does not move / start or reference run does not begin](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-robot-does-not-move--start-reference-or-calibration-run-cannot-be-executed).
 
 ---
 
-## 🧼 14. Maintenance & Regular Checks
+## 14. Maintenance and Regular Checks
 - Check chiller fill level every few weeks/months (closed circuit, refills rarely needed; reserve in the black container).
 - Visually inspect overpressure safety; replace all screws if triggered (spares on the shelf above the KUKA controller). Check stock monthly and reorder if needed.
 - Ensure order in the room; dispose of material bags; keep work surfaces clean.
@@ -493,14 +388,13 @@ Calibration/Homing:
 
 ---
 
-## 💡 15. Notes & Open Points
+## 15. Notes and Open Points
 
 ### Camera – Live View
 - Link: http://fb05-dxr25-cam.fh-muenster.de
 - Accessible in the FH network or via VPN. Access is usually only possible when the robot is active.
 - Logins:
-   - Admin: user “Admin”, password “#DXR(insert standard password)2025”
-   - Student: user “student”, password “DXR(insert standard password)”
+   - Accounts: “Admin” and “student”. Obtain the approved account and password from the lab supervisor.
  - The stream is not recorded and not stored online.
 
 ### Further Notes
@@ -510,12 +404,12 @@ Calibration/Homing:
 
 ---
 
-# 🧾 16. DXR25 Quick‑Start Checklist
+## 16. DXR25 Quick-Start Checklist
 
 Before starting
 - [ ] Room ventilated for 5–10 min; safety area clear; plates correctly placed
 - [ ] Dryer on; PETG/PLA material available; chiller OK
-- [ ] Robot controller on; control cabinet on; login “Operator/222”
+- [ ] Robot controller on; control cabinet on; logged in as “Operator” using approved credentials
 - [ ] Notifications acknowledged; safety interlock possible; brake test performed
 
 Material & heating
@@ -543,9 +437,11 @@ Moritz Wesseler, FH Münster – MSA Robotics Lab (compilation/creation of this 
 
 ---
 
-## Appendix – DXR Code Example (complete)
+<a id="appendix-dxr-code-example-complete"></a>
 
-Note: The following example demonstrates the structure and syntax of typical DXR output. Parameters such as P1 (material factor) are set in the machine UI.
+## Appendix – DXR Code Example (excerpt)
+
+Note: The following excerpt shows a DXR header and initial movement lines, not a complete executable print program. Parameters such as P1 (material factor) are set in the machine UI.
 
 <details>
 <summary><strong>DXR Code Example (expand/collapse)</strong></summary>

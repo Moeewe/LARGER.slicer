@@ -158,7 +158,7 @@
 ## References
 
 - **LARGERslicer Plugin**: See [Plugin Documentation](../../LARGERslicer/README.md) for CNC component details
-- **HPGL Commands**: See [CNC Program Component](../../LARGERslicer/COMPONENTS_OVERVIEW.md) for command reference
+- **HPGL Commands**: See [CNC Program Component](../../LARGERslicer/documentations/COMPONENTS_OVERVIEW.md) for command reference
 - **Zünd Cut Center**: Refer to official Zünd software documentation for standard operations
 
 ---

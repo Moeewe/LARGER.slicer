@@ -10,6 +10,7 @@ Further Contributors: Fabio Koczula, Claudio Schröder
 
 ## Table of Contents
 
+- [Documentation](#documentation)
 - [Latest Updates](#latest-updates)
 - [Supported Machines](#supported-machines)
 - [Quick Start](#quick-start)
@@ -22,16 +23,17 @@ Further Contributors: Fabio Koczula, Claudio Schröder
 
 ## Latest Updates
 
-### 1.1.4 (2026-07-28)
+### 1.1.12
 
-- Added **DXR File Health Check** for operator-facing GO/NO-GO file validation before machine loading.
-- Added dedicated icon and GUID for the DXR health-check component.
-- Added printable cabinet sheets for safer shop-floor operation:
-   - [Cabinet GO-NO-GO Sheet (DE)](LARGERslicer/documentations/SCHALTSCHRANK_ZETTEL_DXR_GOCHECK_DE.md)
-   - [Cabinet NO-GO Immediate Help (DE)](LARGERslicer/documentations/SCHALTSCHRANK_ZETTEL_NOGO_HILFE_DE.md)
-- Recommended QR targets for on-machine access:
-   - https://github.com/Moeewe/LARGER.slicer
-   - https://github.com/Moeewe/LARGER.slicer/issues
+See the [plugin changelog](LARGERslicer/CHANGELOG.md) for release-specific changes.
+
+## Documentation
+
+The [documentation index](LARGERslicer/documentations/README.md) groups machine operating guides, operator references, plugin documentation, and development resources.
+
+- **New to the project?** Continue to [Quick Start](#quick-start) and [Usage Guide](#usage-guide).
+- **Operating a machine?** Start with the [machine-specific guides](LARGERslicer/documentations/README.md#machine-guides).
+- **Troubleshooting the DXR25/KUKA?** Start with the [German operator troubleshooting overview](<EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen>); an [English KUKA guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) is also available.
 
 ## Supported Machines
 
@@ -240,7 +242,7 @@ LARGER.slicer/
 - **Utilities**: File operations, timestamps, spatial indexing, and more
 - Automatic header calculation (runtime, layers, extrusion totals)
 - Sequential line numbering and proper DXR file formatting
-- Current documented release: 1.1.4
+- Current plugin release: 1.1.12
 
 **Machine Control Systems:**
 - **Ginger One**: Large-format pellet extruder with material database
@@ -262,29 +264,10 @@ LARGER.slicer/
 | DXR File Health Check returns NO GO | Invalid filename, unreadable file, or suspicious/incomplete content | Fix filename/path, re-export, and re-check until GO |
 | Preview slider inactive | Path Preview not connected | Check **Path Preview** input wiring |
 | Password-protected clusters | Components locked | Right-click component, enter **Supersizedprinting** |
-| DXR25: Roboter nicht justiert / external axis E1 not mastered (KSS01347, KSS00106 E1) | E1 mastering is unavailable; movement and program start are blocked | Follow the installation-specific [E1 recovery procedure](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-robot-not-mastered-e1), including backup prerequisites; do not rely on program resets alone |
-| KUKA Robot brake test / no start movement / no reference run / safety-fence emergency stop (multiaxial) | CNC program not selected, robot/CNC handover state inconsistent, reference switch issue, or tool/extruder enters protected braking zone near fence | Follow [KUKA Safety Stop Recovery (Fence Proximity / Multiaxial)](#kuka-safety-stop-recovery-fence-proximity--multiaxial), then see [KUKA Robot Troubleshooting Guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) or [Weber DXR25 Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) Section 13 |
-
-### KUKA Safety Stop Recovery (Fence Proximity / Multiaxial)
-
-Use this when the robot stops near the fence, brakes audibly engage, and movement is blocked with safety/brake-test related messages on HMI/switch cabinet.
-
-1. **Confirm status message** on HMI/Smartpad or cabinet display (safety stop, brake test required, movement blocked).
-2. **Switch to setup path on KRC5**:
-   - Turn key from **Remote** to **Gear** position.
-   - Ensure mode is **EXT**, then switch to **T1**.
-   - Turn key back; Smartpad/Fernbedienung may reboot.
-3. **Manually move robot out of safety zone**:
-   - Press and hold a rear dead-man switch (Totmannschalter).
-   - Move axis-by-axis (or with SpaceMouse, if enabled) until the TCP/extruder is clearly outside the protected area.
-   - Motion icons only turn green while dead-man is pressed.
-4. **Return to automatic operation**:
-   - Turn key to **Gear**, switch from **T1** back to **EXT**.
-   - Turn key back to **Remote**/operating mode.
-5. **If start still fails**:
-   - Re-open and reselect the **cnc** program on Smartpad.
-   - Run **Programm zurücksetzen** and re-reference if requested.
-   - See [KUKA Robot Troubleshooting Guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) and [Weber DXR25 Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) (Section 13).
+| DXR25: Roboter nicht justiert / externe Achse E1 (KSS01347, KSS00106, KSS15047) | Bewegung und Programmstart gesperrt; Justage angefordert | Den installationsspezifischen Ablauf in der [deutschen KUKA-Fehlerbehebung](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-nicht-justiert-e1) einschließlich Backup-Voraussetzungen befolgen; Programm-Reset allein hilft nicht |
+| DXR25: Bremstest / Startbewegung beginnt nicht | Antriebe-Knopf blinkt, Abbruch bei XYZ 0 oder Meldung „Active-Status erforderlich“ | [Deutsche Anleitung: Bremstest / Startbewegung](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-führt-bremstest--startbewegung-nach-dem-start-nicht-aus) |
+| DXR25: Notstopp nahe Sicherheitszaun | Roboter stoppt nahe dem Zaun, besonders bei multiaxialen Bahnen | [Deutsche Anleitung: Notstopp am Sicherheitszaun](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-notstop-nahe-sicherheitszaun-multiaxialer-druck) |
+| DXR25: Roboter reagiert nicht / Start- oder Referenzfahrt beginnt nicht | Keine Bewegung trotz geladenem Auftrag, Abbruch bei XYZ 0 oder Referenz-/Startfahrt wird nicht ausgeführt | [Deutsche Anleitung: fehlende Bewegung / Referenzfahrt](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-reagiert-nicht--start--referenz--oder-justagefahrt-wird-nicht-ausgeführt) |
 
 **Tip for path planning (important for 45° multiaxial prints):**
 - Prefer extruder tilt toward the wall / largest free area, not toward the safety door.
@@ -293,7 +276,7 @@ Use this when the robot stops near the fence, brakes audibly engage, and movemen
 
 ### Getting Help
 
-1. Check machine-specific Quick Start Guides
+1. Check the [documentation index](LARGERslicer/documentations/README.md) for machine-specific guides
 2. Review troubleshooting table above
 3. Verify all prerequisites are installed
 4. Ensure Rhino file is set to millimeter units

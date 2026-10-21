@@ -1,45 +1,75 @@
 ---
 title: Inbetriebnahme & Bedienanleitung – 3D-Druck-Robotersystem DXR25 (Weber Additive)
 subtitle: Fachbereich Architektur – FH Münster / MSA Robotics Lab
-version: 1.1
-last_updated: 2026-08-04
+version: 1.3
+last_updated: 2026-10-21
 ---
 
 # Inbetriebnahme & Bedienanleitung – 3D-Druck-Robotersystem DXR25 (Weber Additive)
 Fachbereich Architektur – FH Münster / MSA Robotics Lab
 
-Diese Anleitung fasst die Einweisung, Transkripte und Meeting-Notizen zusammen. Sie dient als verbindliche Referenz für alle eingewiesenen Nutzerinnen und Nutzer des DXR25.
+Diese Anleitung beschreibt den Druckbetrieb des DXR25 auf Grundlage der dokumentierten Einweisung, Anlagenhinweise und Betriebserfahrungen: Anlage vorbereiten und einschalten, Druckdatei laden, Druck starten und überwachen sowie anschließend sicher abschalten. Sie richtet sich an eingewiesene Nutzerinnen und Nutzer. Betriebsanweisung und Herstellervorgaben bleiben maßgeblich.
+
+Bezeichnungen in Anführungszeichen entsprechen den Anzeigen und Bedienelementen der Anlage. Wo nötig, steht die deutsche Erläuterung direkt dabei.
+
+## Einstieg: Vom Einschalten zum Druck
+
+Für einen regulären Druck die folgenden Schritte der Reihe nach durchgehen. Einrichtung des eigenen Rechners, Materialwechsel und Wartung sind gesondert gekennzeichnet und nicht vor jedem Druck erforderlich. Die Übersicht ersetzt weder die vollständigen Abschnitte noch die Einweisung.
+
+| Schritt | Hier weiterlesen |
+|---|---|
+| 1. Sicherheit und Anlage vorbereiten | [Sicherheit](#2-sicherheit-und-vorbereitung) und [Vorbereitungen vor dem Start](#4-vorbereitungen-vor-dem-start-schnellcheck) |
+| 2. Anlage einschalten | [Einschaltreihenfolge](#5-einschalten-der-anlage-reihenfolge) |
+| 3. Bedienoberfläche starten und Anlage betriebsbereit machen | [Software, Sicherheit, Bremstest und Grundstellung](#6-software-start-und-grundkonfiguration) |
+| 4. Material, Extruder, Düse und Druckbett vorbereiten | [Material und Temperaturen](#7-material-und-temperaturprofile), [Extruderreinigung](#8-extruderreinigung-und-materialwechsel) und [Düse / Druckbett](#9-düse-und-druckbett) |
+| 5. Druckdatei übertragen und laden | [G-Code / DXR laden und Datei prüfen](#10-g-code--und-dxr-dateien-laden) |
+| 6. Druck vorbereiten, starten und überwachen | [Vorschau, Offsets und Druckstart](#11-druck-starten-vorschau-offsets-startgeschwindigkeit) |
+| 7. Druck beenden und Anlage abschalten | [Nachbereitung und Abschalten](#12-nachbereitung-und-abschalten) |
+
+**Wo wird bedient?** Druckdateien, Material, Temperaturen und Druckaufträge werden an der **Weber-Bedieneinheit (HMI am Schaltschrank)** bedient. Das **KUKA-Smartpad** dient der Robotersteuerung, Betriebsartenwahl und den beschriebenen Wiederanlaufabläufen. Das Roboterprogramm **cnc** am Smartpad ist nicht die zu ladende **DXR-Druckdatei**. Zum Standort der Komponenten siehe [Aufbau und Stellplan](#3-aufbau-und-komponentenüberblick).
+
+Bereits eingewiesen und mit dem Ablauf vertraut? Die [Schnellstart-Checkliste](#16-schnellstart-checkliste-dxr25) hilft beim Abhaken.
+
+## Schnelle Hilfe: Was funktioniert nicht?
+
+Bei Gefahr den [Notfall-Merkkasten](#2-sicherheit-und-vorbereitung) beachten. Vor Reset oder Bewegung die tatsächlichen Meldungen lesen und den passenden Ablauf vollständig prüfen.
+
+| Anzeige / Problem | Direkt zur deutschen Hilfe |
+|---|---|
+| **Keine Bewegung**, obwohl die Datei geladen ist; Start- oder Referenzfahrt beginnt nicht | [Status und Startfreigabe prüfen](#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen) |
+| **Bremstest startet nicht**, Antriebe-Knopf blinkt oder „Druck abgebrochen bei XYZ jeweils 0“ | [Bremstest / Startbewegung](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-führt-bremstest--startbewegung-nach-dem-start-nicht-aus) |
+| Roboter stoppt **nahe dem Sicherheitszaun** | [Sicherheitsstopp am Zaun](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-notstop-nahe-sicherheitszaun-multiaxialer-druck) |
+| **Datei fehlt oder lädt nicht**, „NC“ nicht verbunden, keine Extrusion oder anderes Druckerproblem | [Fehlerbehebung an Drucker und Extruder](#weitere-fehlerbilder-an-drucker-und-extruder); zur Dateivorbereitung siehe [Dateien laden](#10-g-code--und-dxr-dateien-laden) |
+| Seltener Sonderfall: **„Roboter nicht justiert“ / E1**, **KSS01347**, **KSS00106** oder **KSS15047** | [Installationsspezifische E1-Wiederherstellung](#fehlerbehebung-roboter-nicht-justiert-e1), nur bei passenden Justagemeldungen |
+
+[Alle Fehlerbilder und weiteren Hinweise](#13-fehlerbehebung) · [Vollständige deutsche KUKA-Fehlerbehebung](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md)
 
 ## Inhaltsverzeichnis
-1. Zweck und Geltungsbereich
-2. Sicherheit & Vorbereitung
-   - Allgemeines, Lüftung & Türpolicy
-   - Persönliche Schutzausrüstung (PSA)
-   - Temperatur-/Verbrennungsgefahr
-   - Not-Aus
-3. Aufbau & Komponentenüberblick
-4. Vorbereitungen vor dem Start (Schnellcheck)
-5. Einschalten der Anlage (Reihenfolge)
-6. Software-Start & Grundkonfiguration
-7. Material & Temperaturprofile
-8. Extruderreinigung & Materialwechsel
-9. Nozzle & Druckbett
-10. G-Code/DXR-Dateien laden
-11. Druck starten (inkl. Vorschau, Offsets, Startgeschwindigkeit)
-12. Nachbereitung & Abschalten
-13. Fehlerbehebung (Troubleshooting)
-14. Wartung & regelmäßige Checks
-15. Hinweise & offene Punkte
-16. Quick-Start-Checkliste DXR25
- 17. Credits
- 18. Anhang – DXR‑Code‑Beispiel (vollständig)
+1. [Zweck und Geltungsbereich](#1-zweck-und-geltungsbereich)
+2. [Sicherheit und Vorbereitung](#2-sicherheit-und-vorbereitung)
+3. [Aufbau und Komponentenüberblick](#3-aufbau-und-komponentenüberblick)
+4. [Vorbereitungen vor dem Start (Schnellcheck)](#4-vorbereitungen-vor-dem-start-schnellcheck)
+5. [Einschalten der Anlage (Reihenfolge)](#5-einschalten-der-anlage-reihenfolge)
+6. [Software-Start und Grundkonfiguration](#6-software-start-und-grundkonfiguration)
+7. [Material und Temperaturprofile](#7-material-und-temperaturprofile)
+8. [Extruderreinigung und Materialwechsel](#8-extruderreinigung-und-materialwechsel)
+9. [Düse und Druckbett](#9-düse-und-druckbett)
+10. [G-Code- und DXR-Dateien laden](#10-g-code--und-dxr-dateien-laden)
+11. [Druck starten (Vorschau, Offsets, Startgeschwindigkeit)](#11-druck-starten-vorschau-offsets-startgeschwindigkeit)
+12. [Nachbereitung und Abschalten](#12-nachbereitung-und-abschalten)
+13. [Fehlerbehebung](#13-fehlerbehebung)
+14. [Wartung und regelmäßige Checks](#14-wartung-und-regelmäßige-checks)
+15. [Hinweise und offene Punkte](#15-hinweise-und-offene-punkte)
+16. [Schnellstart-Checkliste DXR25](#16-schnellstart-checkliste-dxr25)
+17. [Mitwirkende](#mitwirkende)
+18. [Anhang – DXR-Code-Beispiel (Auszug)](#appendix-dxr-code-example)
 
 ---
 
 ## 1. Zweck und Geltungsbereich
 Der DXR25 ist ein industrieller 6-Achs-KUKA-Roboter mit Weber-Pellet-Extruder für großformatigen 3D-Druck. Diese Anleitung beschreibt sichere Inbetriebnahme, Bedienung, typische Fehlerbilder und Pflegemaßnahmen. Betrieb ausschließlich durch eingewiesene Personen.
 
-## 🧱 2. Sicherheit & Vorbereitung
+## 2. Sicherheit und Vorbereitung
 
 > Notfall-Kurzanleitung (Merkkasten)
 > 1) Sofort stoppen: „Druck stoppen“ → wenn Gefahr: Not‑Aus drücken (Display, Zaun oder Smartpad)
@@ -48,20 +78,20 @@ Der DXR25 ist ein industrieller 6-Achs-KUKA-Roboter mit Weber-Pellet-Extruder f�
 > 4) Ursachenanalyse: Meldungstext lesen, Antriebsbelastung prüfen, Offsets/Programm überprüfen
 > 5) Wiederanlauf: Nur nach Fehlerbehebung und erneuter Sicht- und Kollisionskontrolle
 
-### 2.1 Allgemeines, Lüftung & Türpolicy
-- Vor jeder Nutzung den Raum lüften (Arbeitsschutzvorgabe, 5–10 Minuten). Während der Anwesenheit darf die Tür offen bleiben; beim Verlassen stets schließen (Sicherheitsbereich!).
+### 2.1 Raumlüftung und Zugang zur Roboterzelle
+- Vor jeder Nutzung den Raum lüften (Arbeitsschutzvorgabe, 5–10 Minuten). Die dokumentierte Regel „Tür darf während der Anwesenheit offen bleiben, beim Verlassen schließen“ ist keine Freigabe für einen Betrieb mit offener Schutztür: Vor Automatikbewegungen muss die Zellentür geschlossen und verriegelt sein.
 - Sicherheitsbereich nicht unbeaufsichtigt offen lassen. Zugang in die Roboterzelle nur für eingewiesene Personen.
 - Bei ungewöhnlichen Geräuschen, Geruch, Vibrationen oder Auffälligkeiten Druck sofort stoppen; wenn nötig Not-Aus betätigen.
- - Druck nur mit direkter Sichtlinie zum Roboter starten; Druckbereich freihalten (keine Hindernisse im Arbeitsraum).
- - In Rhino/Grasshopper (Robot‑Plugin) Sicherheitszäune und Kollisionsobjekte passend konfigurieren, besonders bei multiaxialen Jobs.
+- Druck nur mit direkter Sichtlinie zum Roboter starten; Druckbereich freihalten (keine Hindernisse im Arbeitsraum).
+- In Rhino/Grasshopper mit dem Robots-Plugin Sicherheitszäune und Kollisionsobjekte passend konfigurieren, besonders bei multiaxialen Druckaufträgen.
 
 ### 2.2 Persönliche Schutzausrüstung (PSA)
-- Brandschutzhandschuhe beim Arbeiten am Extruder/Nozzle verwenden (liegen im Labor bei den Ginger-Druckern).
+- Brandschutzhandschuhe beim Arbeiten am Extruder und an der Düse verwenden (liegen im Labor bei den Ginger-Druckern).
 - Haare zusammenbinden, keine losen Kleidungsstücke oder Schmuck/Metall im Sicherheitsbereich.
 
 ### 2.3 Temperatur- und Verbrennungsgefahr
-- Heizbett: bis 150 °C. Nozzle/Extruder: bis 250–280 °C.
-- Heiße Bereiche niemals berühren. Temperatur ggf. mit Handrücken vorsichtig prüfen (nicht Handinnenfläche!).
+- Heizbett: bis 150 °C. Düse/Extruder: bis 250–280 °C.
+- Heiße Bereiche niemals berühren. Temperaturen an der Bedieneinheit prüfen, nicht durch Berühren mit der Hand.
 - Magnetische Heizbett-Platten bei eingeschaltetem Heizbett aufliegen lassen (Dämpfe vermeiden). Platten ohne Lücken/Überlappungen ausrichten.
 
 ### 2.4 Not-Aus-Schalter
@@ -72,8 +102,7 @@ Der DXR25 ist ein industrieller 6-Achs-KUKA-Roboter mit Weber-Pellet-Extruder f�
 
 ---
 
-## ⚙️ 3. Aufbau & Komponentenüberblick
-Sicherheitszaun
+## 3. Aufbau und Komponentenüberblick
 ### Stellplan der Anlage
 
 ![Weber DXR25 Stellplan](../../../LARGERslicer/Documentation/DXR25_Stellplan.svg)
@@ -102,72 +131,85 @@ Zusatzhinweise aus der Einweisung:
 
 ---
 
-## ✅ 4. Vorbereitungen vor dem Start (Schnellcheck)
+## 4. Vorbereitungen vor dem Start (Schnellcheck)
 - Raum gelüftet, Bereich frei, Platten korrekt aufgelegt.
 - Kühlung/Chiller optisch prüfen (Füllstand plausibel). Aktivkohlefilter bei Bedarf einschalten.
 - Material: Nur PETG/PLA (freigegeben). Trockner einschalten und Füllstand prüfen.
 - Sicherheitsbereich schließen: Türmechanik prüfen; Verriegelung erst bei Start aktivieren.
-- Sichtprüfung Extruder/Nozzle: keine Beschädigungen, Überdrucksicherung intakt, Düse fest.
+- Sichtprüfung von Extruder und Düse: keine Beschädigungen, Überdrucksicherung intakt, Düse fest.
 
 ---
 
-## 🔌 5. Einschalten der Anlage (Reihenfolge)
+## 5. Einschalten der Anlage (Reihenfolge)
 1. Lüften & Sichtprüfung abschließen.
 2. Robotersteuerung (KUKA-Controller) einschalten.
 3. Schaltschrank am Hauptschalter einschalten; Kontrollanzeigen prüfen.
 4. Display hochfahren lassen → Windows startet → Weber-Software lädt automatisch.
 
-Login an der Software: Benutzer „Operator“, Passwort „222“.
+Anmeldung an der Software: Benutzer „Operator“. Das aktuell freigegebene Passwort bei der Werkstattleitung erfragen; Zugangsdaten nicht in dieser öffentlichen Anleitung hinterlegen.
 
 ---
 
-## 🧭 6. Software-Start & Grundkonfiguration
-Nach dem Login:
-- Benachrichtigungen prüfen und quittieren (rote/gelbe Symbole oben rechts).
-- Sicherheit aktivieren: Tür schließen → weißer Knopf blinkt → drücken → System verriegelt.
-- Bremstest durchführen: Antriebe → Grundstellung → Bremstest. Bereich freihalten.
+## 6. Software-Start und Grundkonfiguration
+### 6.1 Anlage am Weber-Display betriebsbereit machen
 
-KUKA in externen Betriebsmodus schalten (falls erforderlich):
-- Zellentür schließen und quittieren, Anlage-Ein-Taster betätigen (leuchtet), Antriebe einschalten.
-- Am Smartpad Programm „cnc“ anwählen; beliebigen Zustimmschalter auf Mittelstellung halten.
-- Beliebige Start-Taste drücken und halten; SAK-Fahrt beobachten.
-- Schlüsselschalter betätigen; Betriebsmodus auf EXT einstellen.
-- Bremstest/Referenzfahrt durchführen; Grundstellung anfahren.
+1. Nach der Anmeldung Benachrichtigungen prüfen (rote/gelbe Symbole oben rechts). Ursachen klären und behobene Meldungen quittieren.
+2. Zellentür schließen. Wenn der weiße Knopf blinkt, drücken; die Anlage verriegelt.
+3. Den Anlage-Ein-Taster betätigen; die Anzeige leuchtet.
+4. Am Weber-Display **Antriebe → Grundstellung → Bremstest** nach dem eingewiesenen Ablauf durchführen. Den Bewegungsbereich frei halten.
+
+### 6.2 Robotersteuerung und Betriebsart
+
+Für den Automatikbetrieb muss die Robotersteuerung in **EXT** bereitstehen. Am Smartpad gehört dazu das Roboterprogramm **cnc**; die Druckdatei wird später am Weber-Display geladen.
+
+Ist nach dem Einschalten, einem Abbruch oder manuellem Verfahren eine erneute Programmanwahl bzw. eine SAK-/Startfahrt erforderlich, den [passenden vollständigen Wiederanlauf](#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen) verwenden. Manuelle Wiederanlauffahrten erfolgen nur durch autorisiertes Personal in **T1** mit Zustimmschalter und Hardware-Starttaste; anschließend wird wieder auf **EXT** gewechselt. Eine Programmanwahl oder ein Reset ist kein routinemäßig vor jedem Druck erforderlicher Arbeitsschritt.
+
+**Kontrolle:** Die Statusanzeigen **S, O, R und Ext** am Smartpad sind grün; der erforderliche Bremstest ist abgeschlossen und der Roboter steht in Grundstellung. Bei fehlender Bewegung oder blockiertem Bremstest nicht zum Druckstart übergehen, sondern [Status und Startfreigabe prüfen](#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen).
 
 ---
 
-## 🔥 7. Material & Temperaturprofile
+## 7. Material und Temperaturprofile
 Zugelassene Materialien: PETG, PLA. Andere (z. B. recycelte) nur nach schriftlicher Freigabe.
+
+### 7.1 Rezept und Materialversorgung
 
 Heizzonen in der Software:
 - Einfüll-/Förderzone (oben, ggf. aktiv gekühlt)
 - Prozesszone (mittig)
-- Düsenadapter/Nozzle (unten)
+- Düsenadapter (unten)
 
 Empfehlungen:
-- Rezept „PETG 3 mm“ laden (typisch ca. 230 °C, material- und nozzleabhängig).
+- Rezept „PETG 3 mm“ laden (typisch ca. 230 °C, material- und düsenabhängig).
 - Bauteilkühlung/Lüfter zu Beginn deaktivieren (bessere Haftung), später nach Bedarf aktivieren.
 - Trockner während des gesamten Drucks laufen lassen. Wenn der Trockner leer läuft, stoppt der Materialfluss; ein Wiederanlauf ist ohne Nachfüllen nicht möglich. Ein Software-Update zur Pausenfunktion ist angekündigt.
 
-Materialfaktor (P1):
-- Extrusionsmengen in DXR können mit einem Materialfaktor P1 skaliert werden (z. B. PETG ~3.1, PLA ~3.5 als Ausgangswerte, je nach Rezept/Nozzle). Die Anpassung erfolgt in der Maschinen‑UI, nicht im Grasshopper‑Skript. Änderungen dokumentieren und bei Gelegenheit kalibrieren.
+### 7.2 Materialfaktor und Bedienelemente
 
-Tuning-/HMI-Überblick (Weber-Software):
+Materialfaktor (P1):
+- Extrusionsmengen in DXR können mit einem Materialfaktor P1 skaliert werden (z. B. PETG ~3.1, PLA ~3.5 als Ausgangswerte, je nach Rezept und Düse). Die Anpassung erfolgt an der Maschinensteuerung, nicht im Grasshopper‑Skript. Änderungen dokumentieren und bei Gelegenheit kalibrieren.
+
+Bedienübersicht (Weber-Software):
 - Linke Paneele: Extruder-Heizzonen (Einfüllzone/Prozess/Düsenadapter), Extruder säubern, Schnecke freifahren.
 - Rechte Paneele: Drucktisch (Mastertemperatur, Zonen 1–4, Vakuum Soll/Ist), Roboterstatus (Position X/Y/Z, TCP Override 10–200%).
 - Untermenü (rechte Bildschirmleiste): Startbildschirm, Prozesseinstellungen, Düsenliste, Druckplattenliste, Formelsammlung, Rezepte, G‑Code, Bildschirmreinigung, Explorer, Trend‑Graphen.
 - Hinweis: Das G‑Code/DXR‑Programm kann je nach Systempfad in `C:\\ProgramData\\Weber\\GCode\\` oder `D:\\Data\\Gcode` liegen.
 
-Basis‑Temperaturen (Richtwerte für erste Drucke – je nach Düse/Material feinjustieren):
+### 7.3 Temperatur-Richtwerte
+
+Die folgenden Werte stammen aus den dokumentierten Materialhinweisen. Sie sind keine universellen Sollwerte: Das freigegebene Rezept sowie die Material- und Herstellerangaben sind maßgeblich.
+
+Basis‑Temperaturen (je nach Düse/Material feinjustieren):
 - Einfüllzone: 35–60 °C (Materialabhängig)
 - Heizzone 1/2/3: 160–235 °C (PLA eher niedriger, rPETG/Carbon‑P höher; Herstellerangaben beachten)
 - Düsentemperatur: ca. 180–240 °C (Materialabhängig)
 - Drucktisch: 60–100 °C (Haftung je nach Unterlage)
 - Materialtrocknung: 4–6 h bei ~60–65 °C (Materialabhängig)
 
+### 7.4 Kalibrierung und Druckqualität bei Bedarf
+
 Materialfaktor ermitteln (Praxisleitfaden):
 1. Einwandige Geometrie drucken; Linienbreite leicht über Düsen‑Ø anlegen (z. B. 1.2×).
-2. SOLL‑ vs. IST‑Linienbreite messen/vergleich.
+2. SOLL‑ und IST‑Linienbreite messen und vergleichen.
 3. Faktor anpassen: neuer Faktor = (SOLLbreite / ISTbreite) × aktueller Faktor.
 4. Erneut drucken und prüfen; bei Änderungen von Düse/Temperatur/Kühlung erneut validieren.
 
@@ -183,12 +225,14 @@ Einflüsse und Korrekturen (Kurzreferenz):
 
 ---
 
-## ♻️ 8. Extruderreinigung & Materialwechsel
-Vor jedem Druck:
+## 8. Extruderreinigung und Materialwechsel
+### 8.1 Vor jedem Druck: Materialfluss prüfen
 1. Extruder vollständig aufheizen (mind. 15 Minuten, bis Soll erreicht).
 2. „Extruder säubern“ ausführen.
 3. Anzeige „Antriebsbelastung“ beobachten: blau = OK, orange/rot = sofort stoppen (Überdruckgefahr).
 4. Materialfluss prüfen: gleichmäßige, plastische Extrusion.
+
+### 8.2 Bei Materialwechsel oder Störung
 
 Materialwechsel:
 - Roboter in Wartungsposition fahren.
@@ -208,33 +252,43 @@ Woywod‑Trockner entleeren/reinigen (bei Materialwechsel):
 
 ---
 
-## 🧰 9. Nozzle & Druckbett
-Nozzlewechsel:
+## 9. Düse und Druckbett
+### 9.1 Düsenwechsel bei Bedarf
+
+Ein Düsenwechsel ist kein regulärer Schritt vor jedem Druck. Nur im Rahmen der Einweisung und nach Herstellervorgaben durchführen.
+
+Düsenwechsel:
 - Nur bei Betriebstemperatur durchführen (Material weich). 13er-Schlüssel verwenden.
-- Alte Nozzle gegen den Uhrzeigersinn lösen; neue Nozzle mit geeigneter Metallpaste einsetzen.
+- Alte Düse gegen den Uhrzeigersinn lösen; neue Düse mit geeigneter Metallpaste einsetzen.
 - Anziehen: handfest + ¼ Drehung (Richtwert). Dichtheit nach erstem Aufheizen prüfen.
-- Schichtbreite: ca. 1,2–2× Nozzledurchmesser (z. B. Ø 3 mm → 3,5–6 mm).
+- Schichtbreite: ca. 1,2–2× Düsendurchmesser (z. B. Ø 3 mm → 3,5–6 mm).
 
 Zusatz (Herstellerangabe):
 - Düse im aufgeheizten Zustand wechseln; Dichtflächen/Gewinde der neuen Düse mit hitzefester Metall‑Gleitpaste versehen.
 - Geringes Drehmoment (~15 Nm) genügt; bei spürbarem Widerstand stoppen.
 
-Druckbett:
+### 9.2 Druckbett vor dem Druck prüfen
 - Magnetische Platten aufliegen lassen (Geruchs-/Dampfentwicklung vermeiden). Keine offenen Lücken/Überlappungen.
-- Typische Bett-Temperatur: 60–90 °C. Nicht berühren; Handrückentest nur vorsichtig.
+- Typische Bett-Temperatur: 60–90 °C. Nicht berühren; Temperatur an der Bedieneinheit prüfen.
 
 ---
 
-## 💾 10. G-Code/DXR-Dateien laden
-1. Weber-Software → „G‑Code‑Tisch“: verfügbare Druckdateien prüfen.
-2. Datenübertrag: per USB-Stick oder TeamViewer.
-3. Dateipfad: `D:\\Data\\Gcode`.
-4. Falls Datei nicht erscheint: Runtime beenden → Explorer öffnen → Netzwerkverbindung „NC“ prüfen. Wenn Symbol rot, anklicken, um Verbindung wiederherzustellen.
-5. DXR-Dateien aus Post-Processor in den G‑Code‑Ordner kopieren.
+## 10. G-Code- und DXR-Dateien laden
+### 10.1 Druckdatei vorbereiten und übertragen
 
-Hinweise zur Dateikonvertierung (DXR):
-- Die Maschine verarbeitet DXR-Dateien, nicht direkt G‑Code. Empfohlen ist die automatische Umwandlung via Rhino/Grasshopper-Skript (LargerSlicer.gh bzw. LargerSlicerMultiaxial.gh) mit Roboter‑Plugin.
+1. Eine **DXR-Datei** für die Anlage vorbereiten. Liegt nur G-Code vor, zuerst wie unten beschrieben konvertieren.
+2. Datei per USB-Stick oder TeamViewer an den Anlagen-PC übertragen. Am Schaltschrank ist nur der **rechte USB-Port** nutzbar.
+3. Die erzeugte DXR-Datei in den G-Code-Ordner kopieren; dokumentierter Anlagenpfad: `D:\\Data\\Gcode`.
+4. In der Weber-Software den **„G‑Code‑Tisch“** öffnen und die gewünschte Druckdatei laden.
+5. Vor dem Start die Vorschau, Bauteilmaße und Offsets nach [Abschnitt 11](#11-druck-starten-vorschau-offsets-startgeschwindigkeit) prüfen.
+
+**Kontrolle:** Die gewünschte Datei erscheint in der Weber-Software und lässt sich zur Vorbereitung des Druckauftrags laden. Fehlt sie oder bleibt der Ladevorgang hängen, zunächst [Datei und NC-Verbindung prüfen](#datei-lädt-nicht-oder-nc-verbindung-fehlt), nicht wiederholt den Druck starten.
+
+### 10.2 G-Code bei Bedarf in DXR konvertieren
+- Die Maschine verarbeitet DXR-Dateien, nicht direkt G‑Code. Für die Umwandlung die aktuelle [Grasshopper-Definition LARGERslicer Weber Robot and Ginger.gh](<../LARGERslicer Weber Robot and Ginger.gh>) mit Roboter-Plugin verwenden. Sie enthält die Arbeitsabläufe Easy Slicer, Path Creator (Multiaxial) und Custom Paths; die archivierte Multiaxial-Datei ist dafür nicht erforderlich.
 - Alternative am Schaltschrank: Weber‑Konverter nutzen (Taskleisten‑Icon → schwarzes Fenster). G‑Code per Drag‑and‑Drop ins Fenster ziehen, Enter drücken. Das erzeugte .dxr muss anschließend in den G‑Code‑Ordner kopiert werden, sonst wird es in der Weber‑Software nicht angezeigt.
+
+### 10.3 Übertragung und Ladeprobleme
 
 Remotezugriff:
 - TeamViewer ist für kurze Sessions verfügbar (keine Pro‑Lizenz; typischerweise ~5 Minuten). Zugangsdaten sind auf dem Windows‑System (TeamViewer-App/Explorer) einsehbar.
@@ -252,7 +306,14 @@ Wichtige HMI-/Dateihandling-Hinweise:
    3. Verbindungsdaten/Passwort eingeben.
    4. Innerhalb der verfügbaren Session-Zeit (typisch ca. 5 Minuten) Dateien übertragen.
 
-Voraussetzungen für Rhino/Grasshopper‑Workflow:
+### 10.4 Einmalige Einrichtung am eigenen Rechner
+
+Dieser Teil wird benötigt, wenn Druckdateien selbst mit Rhino/Grasshopper erstellt werden. Für eine bereits vorbereitete DXR-Datei mit [Abschnitt 11](#11-druck-starten-vorschau-offsets-startgeschwindigkeit) fortfahren.
+
+<details>
+<summary>Rhino/Grasshopper, Plugin und KUKA-Roboterbibliothek einrichten</summary>
+
+Voraussetzungen für den Rhino-/Grasshopper‑Arbeitsablauf:
  - Rhino 8 oder höher mit Robot‑Plugin installiert. Achtung: Läuft nur auf Rhino 8+ wegen Python‑2‑Skripten.
  - **Plugin installieren (zwei Möglichkeiten):**
    
@@ -268,9 +329,9 @@ Voraussetzungen für Rhino/Grasshopper‑Workflow:
      - Newtonsoft.Json.dll
      - Optional: LargerSlicer.pdb (Debug‑Symbole)
 
- - .gh‑Dateien je nach Anwendungsfall herunterladen/öffnen (LargerSlicer.gh bzw. LargerSlicerMultiaxial.gh). Wichtig: Diese Grasshopper‑Dateien benötigen das Plugin (GHA + DLL), sonst laufen sie nicht.
+ - Die aktuelle [Grasshopper-Definition](<../LARGERslicer Weber Robot and Ginger.gh>) herunterladen und öffnen. Wichtig: Sie benötigt das Plugin (GHA + DLL), sonst läuft sie nicht.
 
-### ⚠️ Erstmalige Einrichtung: Robot Library Installation (KUKA KR120)
+#### Roboterbibliothek installieren (KUKA KR120)
 
 **Wichtig:** Wenn Sie das Weber Grasshopper-Skript zum ersten Mal öffnen, **wird kein Roboter angezeigt**. Das liegt daran, dass die KUKA KR120 Roboter-Bibliothek von der FH Münster MSA im Robots Plugin installiert werden muss.
 
@@ -290,12 +351,16 @@ Voraussetzungen für Rhino/Grasshopper‑Workflow:
 **Weitere Einrichtungsschritte:**
  - In den Skripten Sicherheitszäune/Kollisionsobjekte korrekt setzen.
 
+</details>
+
+### 10.5 DXR-Kurzreferenz und Ablage
+
 DXR‑Kurzreferenz:
 - DXR spiegelt G‑Code‑Zeilen mit N‑Nummern, XYZ, G90/G91 und Orientierungen A/B/C wider.
-- Extrusion wird skaliert mit `XE=[Wert*P1]`, P1 ist der Materialfaktor in der Maschinen‑UI.
+- Extrusion wird mit `XE=[Wert*P1]` skaliert; P1 ist der Materialfaktor in der Maschinensteuerung.
 - Beispiel: `N24 G1 X911.817 Y952.527 Z32.000 A0.000 B0.000 C0.000 G91 XE=[64.430*P1] G90`
 
-Ein vollständiges DXR‑Beispiel befindet sich im Anhang.
+Ein DXR-Beispielauszug befindet sich im [Anhang](#appendix-dxr-code-example).
 
 HMI/G‑Code-Listen & Pfade:
 - Über das rechte HMI‑Menü sind u. a. zugänglich: Rezepte, Düsenliste, Druckunterlagen, Formelsammlung, G‑Code‑Übersicht.
@@ -303,29 +368,40 @@ HMI/G‑Code-Listen & Pfade:
 
 ---
 
-## ▶️ 11. Druck starten (Vorschau, Offsets, Startgeschwindigkeit)
-Vor dem Start prüfen:
+## 11. Druck starten (Vorschau, Offsets, Startgeschwindigkeit)
+Wenn die Datei nicht geladen werden kann, zuerst die [Hinweise zum Laden](#10-g-code--und-dxr-dateien-laden) und die [Fehlerbehebung](#weitere-fehlerbilder-an-drucker-und-extruder) prüfen. Ist die Datei geladen, aber der Roboter bewegt sich nicht, die [schnelle Hilfe](#schnelle-hilfe-was-funktioniert-nicht) nutzen.
+
+### 11.1 Voraussetzungen
 - Rezept geladen, Material korrekt, Extruder gereinigt.
 - Tür verriegelt (weiß → gedrückt), Sicherheit aktiv.
 - Heizbett- und Düsentemperatur erreicht.
 
-Ablauf:
-1. Jobs werden am Schaltschrank/Display gestartet und überwacht, nicht am KUKA‑Pendant.
+### 11.2 Druckauftrag vorbereiten und starten
+
+Ablauf am Weber-Display:
+1. Druckaufträge werden am Schaltschrank/Display gestartet und überwacht, nicht am KUKA-Smartpad.
 2. Wartungsposition → Grundstellung.
 3. „Druck starten“ drücken.
 4. Startfenster: Bauteilmaße prüfen; XY-/Z‑Verschiebung setzen; Extruderausrichtung (Neigungs-/Drehwinkel) einstellen; „Auto Düsenoffset“ bei Bedarf aktivieren; „Abfahren des Bauraums“ aktivieren (min./max. Grenzen abfahren); „Abstreifen vor Druckstart/Schichtwechsel“ nach Bedarf aktivieren.
 5. Vorschau prüfen; Offsets vorsichtig setzen. Z‑Kollisionsrisiko beachten.
 6. Start mit reduziertem Override (10–50 %) beginnen; nach Stabilisierung schrittweise erhöhen. Nach Düsen-/Plattenwechsel Abstand Düse–Tisch nachmessen.
 
-Hinweise zu Multi‑Axial Druck:
+### 11.3 Druck überwachen
+
+- Den Druck mit direkter Sichtlinie zum Roboter beginnen und besonders den Düsenabstand, die erste Materialablage und die Antriebsbelastung beobachten.
+- Den reduzierten Override erst nach stabilisiertem Druck schrittweise erhöhen.
+- Trockner und Materialversorgung während des Drucks prüfen. Bei auffälligen Geräuschen, Geruch, Vibrationen oder orange/roter Antriebsbelastung stoppen; bei Gefahr Not-Aus betätigen.
+- Nach Druckende mit [Nachbereitung und Abschalten](#12-nachbereitung-und-abschalten) fortfahren.
+
+### 11.4 Zusätzliche Prüfungen für multiaxiale Druckaufträge
 - Multi‑axiales Drucken nutzt zusätzliche Orientierungen (A/B/C‑Achsen). Bei A=B=C=0 steht der Extruder senkrecht für horizontales Drucken. Orientierungen werden im Multiaxial‑Grasshopper‑Skript über Ebenen vorgegeben.
-- Vor Multiaxial‑Jobs mögliche Kollisionen zwischen Extruder und Roboterarm prüfen; ggf. mit erhöhtem Tisch/Fixture arbeiten.
-- Extruderneigung möglichst zur Wand bzw. in den größten freien Bereich ausrichten (weg von der Sicherheits-/Eingangstür), besonders bei 45‑Grad‑Jobs.
+- Vor multiaxialen Druckaufträgen mögliche Kollisionen zwischen Extruder und Roboterarm prüfen; gegebenenfalls mit erhöhtem Tisch oder einer Vorrichtung arbeiten.
+- Extruderneigung möglichst zur Wand bzw. in den größten freien Bereich ausrichten (weg von der Sicherheits-/Eingangstür), besonders bei 45-Grad-Druckaufträgen.
 - Zusätzlichen Abstand zum Zaun einplanen; der Sicherheits-/Bremsbereich beginnt bereits vor der physischen Barriere.
 
 ---
 
-## 🧯 12. Nachbereitung & Abschalten
+## 12. Nachbereitung und Abschalten
 1. Druckprozess beenden und abkühlen lassen; Werkstück erst < 50 °C vom Bett lösen.
 2. Heizungen ausschalten; Kühlung/Chiller bis < 50 °C weiterlaufen lassen.
 3. Roboter in Grundstellung fahren.
@@ -334,194 +410,106 @@ Hinweise zu Multi‑Axial Druck:
 
 ---
 
-## 🧩 13. Fehlerbehebung (Troubleshooting)
+## 13. Fehlerbehebung
 
-Für die gepflegte Master-Version (DE/EN) siehe auch: [KUKA Robot Troubleshooting Guide](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md).
+### Roboter bewegt sich nicht: Status und Startfreigabe prüfen
 
-### Fehlerbehebung: Roboter nicht justiert (E1)
+„Keine Bewegung“ beschreibt zunächst nur das Verhalten, nicht die Ursache. Die dokumentierten Fälle betreffen unter anderem Sicherheitsfreigabe, Bremstest, Programmanwahl und die Roboter/CNC-Übergabe nach einem Abbruch oder manuellem Verfahren.
 
-**Fehlerbild:** Keine Bewegung und kein Programmstart; **KSS01347** (Roboter nicht justiert), **KSS00106** (Justage durchführen E1) oder **KSS15047** (Justagereferenzierung angefordert).
+1. **Meldungen lesen:** Am Weber-Display, Smartpad und gegebenenfalls Schaltschrankdisplay den genauen Text prüfen. Bei Gefahr stoppen; Sicherheitsfunktionen nicht umgehen.
+2. **Freigabe prüfen:** Ist die Zellentür geschlossen und verriegelt? Sind Sicherheit und Antriebe freigegeben? Steht die Robotersteuerung für den Automatikbetrieb in **EXT**? Die Statusanzeigen **S, O, R und Ext** am Smartpad prüfen. Eine fehlende Freigabe nicht durch wiederholte Startversuche ersetzen.
+3. **Fehlerbild zuordnen:** Bei blinkendem Antriebe-Knopf, Bremstest-Anforderung oder „Active-Status erforderlich“ den [Bremstest-/Startablauf](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-führt-bremstest--startbewegung-nach-dem-start-nicht-aus) lesen. Nach einem Stopp nahe dem Zaun zuerst den [Sicherheitsstopp-Ablauf](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-notstop-nahe-sicherheitszaun-multiaxialer-druck) verwenden.
+4. **Nach Abbruch oder Handverfahren:** Ist die Sicherheitsfreigabe wiederhergestellt, aber Start-/Referenzfahrt oder Bewegung bleibt aus, den [Wiederanlauf bei fehlender Reaktion](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-reagiert-nicht--start--referenz--oder-justagefahrt-wird-nicht-ausgeführt) verwenden. Dort sind Programmanwahl, Roboter/CNC-Übergabe und Referenzprüfung beschrieben.
 
-**Voraussetzungen:** Eingewiesenes, autorisiertes Personal, freier Fahrweg und geschlossener Sicherheitszaun. Das einzige Projekt mit **BACKUP** im Namen aus **2023** ist das dokumentierte Backup, nicht die anderen Dateien vom Juli. Eignung und Projektstand vor dem Aktivieren mit dem Anlagenverantwortlichen prüfen.
+Nur bei ausdrücklichen **E1-Justagemeldungen** gilt stattdessen der unten aufgeführte Sonderfall. Bleibt die Ursache unklar oder wird der beschriebene Zustand nicht erreicht, abbrechen und die Werkstattleitung informieren.
 
-**Ablauf:** Die vollständige [E1-Fehlerbehebung mit Sicherheitshinweisen, drei Schritten und Kontrolle](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#problem-roboter-nicht-justiert-e1) vor Beginn lesen. Sie umfasst T1/Experte, Backup-Aktivierung und Steuerungsneustart sowie die vollständige Wiederanlauffahrt bis **SAK erreicht**. Danach das Programm nicht erneut zurücksetzen.
+### KUKA-Roboter: Fehlerbilder schnell finden
 
-**Kontrolle:** **S, O, R und Ext** sind grün, der Roboter steht in Grundstellung und die Justagemeldung ist behoben. Bleibt sie bestehen, abbrechen und den Anlagenverantwortlichen informieren.
+Die Meldungen am Smartpad und an der Anlage sind deutsch. Die vollständigen, anlagenspezifischen Abläufe stehen in der [deutschen KUKA-Anleitung](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md). Fehlerbild auswählen und vor einem Eingriff den verlinkten Ablauf vollständig lesen.
 
-### Weitere Fehlerbilder
+| Fehlerbild / Erkennungsmerkmale | Direkt zum Ablauf |
+|---|---|
+| Roboter reagiert nicht oder Start-, Referenz- bzw. Justagefahrt wird nicht ausgeführt; keine Bewegung trotz geladenem Auftrag oder Abbruch bei **0,0,0** | [Fehlende Bewegung / Referenzfahrt](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-reagiert-nicht--start--referenz--oder-justagefahrt-wird-nicht-ausgeführt) |
+| Bremstest oder Startbewegung beginnt nicht; Antriebe-Knopf blinkt, Druckabbruch bei **XYZ jeweils 0**, Meldungen wie **Neu Starten** oder **Active-Status erforderlich** | [Bremstest / Startbewegung](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-führt-bremstest--startbewegung-nach-dem-start-nicht-aus) |
+| Roboter stoppt nahe dem Sicherheitszaun, besonders bei multiaxialen Bahnen; Sicherheitsstopp oder Bremstest-Meldung | [Notstopp am Sicherheitszaun](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-notstop-nahe-sicherheitszaun-multiaxialer-druck) |
+| Seltener Sonderfall: Roboter nicht justiert, externe Achse **E1**; **KSS01347**, **KSS00106** oder **KSS15047**; Bewegung und Programmstart gesperrt | [E1-Wiederherstellung](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-nicht-justiert-e1) |
+
+Die Abläufe sind installationsspezifisch. Keine allgemeinen Reset- oder manuellen Fahrversuche an die Stelle der beschriebenen Sicherheitsvoraussetzungen setzen.
+
+### Weitere Fehlerbilder an Drucker und Extruder
 
 | Problem | Mögliche Ursache | Maßnahme |
 |---|---|---|
 | Keine Extrusion | Extruder nicht heiß genug / noch nicht durchgewärmt | Weiter aufheizen (> 15 min), dann „Extruder säubern“ |
 | Antriebsbelastung orange/rot | Überdruck durch kaltes Material/Verstopfung | Sofort stoppen, Temperatur prüfen, Extruder säubern |
-| Überdrucksicherung platzt | Materialstau, zu kalt, falsches Material, Nozzle-Kollision | Druck stoppen, Extruderkopf prüfen, alle Sicherungsschrauben ersetzen |
-| Nozzle kollidiert mit Bett | Falscher Z-Offset/Programmfehler | Sofort stoppen/Not-Aus, Offsets prüfen, Bett/Nozzle inspizieren |
+| Überdrucksicherung platzt | Materialstau, zu kalt, falsches Material, Düsenkollision | Druck stoppen, Extruderkopf prüfen, alle Sicherungsschrauben ersetzen |
+| Düse kollidiert mit Bett | Falscher Z-Offset/Programmfehler | Sofort stoppen/Not-Aus, Offsets prüfen, Bett und Düse inspizieren |
 | Verbindung „NC“ fehlt | Netzwerkpfad getrennt | Explorer öffnen, „NC“ neu verbinden, Datei erneut laden |
-| Endloses Laden beim Job-Start | Startreihenfolge/NC‑Verbindung fehlerhaft | In der Anzeige oben rechts: Runtime beenden → Explorer öffnen → „NC‑Laufwerk“ in der Seitenleiste anklicken (Symbol wechselt von rot auf grün) → Job erneut laden |
+| Endloses Laden beim Druckauftragsstart | Startreihenfolge/NC‑Verbindung fehlerhaft | In der Anzeige oben rechts: Runtime beenden → Explorer öffnen → „NC‑Laufwerk“ in der Seitenleiste anklicken (Symbol wechselt von rot auf grün) → Druckauftrag erneut laden |
 | Temperaturanzeige rot/Fehler | Heizelement/Sensorfehler | Nicht weiterdrucken; Werkstatt/Hersteller informieren |
 | Anlage bläst/kühlt ungewöhnlich laut | Robotikraum zu warm / thermische Last hoch | Robotikraum lüften, Luftaustausch erhöhen, Temperatur stabilisieren |
 | Starker Geruch | Platten abgenommen / Filter aus | Platten auflegen; Aktivkohlefilter einschalten; lüften |
 | Druck stoppt bei leerem Trockner | Trockner leer; kein Pausenmodus | Material nachfüllen; Druck kann ohne Update nicht fortgesetzt werden |
-| Referenzfahrt schlägt fehl, Startpunkt wird nicht gefunden | Referenzschalter verstellt/verbogen oder locker | In Referenzposition prüfen, ob beide Lampen korrekt schalten; Referenzschalter vorsichtig nachjustieren bzw. neu befestigen, bis die Justagefahrt wieder zuverlässig funktioniert |
+| Referenzfahrt schlägt fehl, Startpunkt wird nicht gefunden | Referenzschalter schaltet möglicherweise nicht korrekt | Schalter nicht selbst verstellen; [KUKA-Fehlerbehebung](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-reagiert-nicht--start--referenz--oder-justagefahrt-wird-nicht-ausgeführt) beachten und Anlagenverantwortliche bzw. qualifiziertes Wartungspersonal informieren |
 
-KUKA‑Controller/Programm hängt (z. B. Singularität):
-- Versuche den Roboter zunächst manuell aus der Situation zu fahren (Teach‑In, langsam, Bereich frei!).
-- Prüfe Statusanzeigen am KUKA‑Pendant (alle LEDs oben rechts sollten grün sein). Falls nicht, den Bildschirmhinweisen folgen, bis grün.
-- CNC/Programm neu laden oder neu starten (nicht löschen). Bei Bedarf zwischen externer/interner Steuerung umschalten (Schlüsselschalter oben rechts) und erneut versuchen.
+### Datei lädt nicht oder NC-Verbindung fehlt
 
-### Problem: Roboter führt Bremstest / Startbewegung nach dem Start nicht aus
+Zuerst Dateiformat, Namen, Inhalt und Ablage nach [Abschnitt 10](#10-g-code--und-dxr-dateien-laden) prüfen. Wird die Datei nicht angezeigt, die Runtime beenden, den Explorer öffnen und die Netzwerkverbindung **„NC“** prüfen. Bei rotem Symbol anklicken, um die Verbindung wiederherzustellen.
 
-**Symptome:**
-- Roboter führt den erforderlichen Bremstest / Die Startbewegung nach dem Start nicht aus
-- Roboter kann sich nicht in Grundstellung verfahren
-- Antriebe-Knopf blinkt die ganze Zeit
-- Fehlermeldung: "Druck abgebrochen bei XYZ jeweils 0"
-- Display des Schaltschrankes zeigt an: "Neu Starten" oder "Warnschwelle für Bremstest erreicht mit 0 Stunden Restlaufzeit"
-- Entsprechende Anzeigeleuchte leuchtet Rot
-
-**KUKA Smart Fernbedienung / Smartpad zeigt an:**
-- "Quitt Fahrtfreigabe gesamt Verursacher KS"
-- "Active-Status erforderlich"
-- Status-Anzeigen "S" "O" "R" "Ext" zeigen: Grün, Grau, Gelb, Grün (o.ä.)
-- **Erwartet:** Alle Anzeigen sollten auf dem Smartpad grün sein!
-
-**Ursache:**
-Das CNC Programm des Roboters muss manuell neu angewählt werden.
-
-**Lösung (Nur auf dem Smartpad arbeiten):**
-
-1. **Schlüssel umdrehen:**
-   - Schlüssel oben umdrehen von "Remote" auf "Zahnrad"
-
-2. **T1 Modus:**
-   - Auf T1 tippen
-   - Dann wieder zurück: Schlüssel drehen auf "Remote"
-
-3. **Navigation öffnen:**
-   - Links auf das blaue Zahnrad auf dem Touchbildschirm tippen
-   - "Öffnen" klicken
-   - Links auf das orangene "X" tippen
-   - Es öffnet sich die Übersicht mit Dateien
-
-4. **CNC Programm anwählen:**
-   - Mehrere Dateien und Ordner sind angezeigt
-   - "CNC" anklicken
-   - Unten auf dem Touch Display auf "Anwählen" klicken
-
-5. **Programm zurücksetzen:**
-   - Oben auf dem Touch Screen des Smartpads beim gelben Quadrat "R" drauftippen
-   - Es öffnet sich ein Fenster
-   - "Programm zurücksetzen" klicken
-
-6. **Zurück in externen Modus:**
-   - Schlüssel umdrehen auf das Zahnrad
-   - Externen Modus "EXT" auswählen wie beim Start auswählen
-   - Schlüssel wieder umdrehen auf "Fernbedienung"
-
-7. **Verifikation:**
-   - Roboter sollte sich jetzt wieder bewegen können
-   - Alle Status-Anzeigen auf dem Smartpad sollten grün sein
-
-### Problem: Notstop nahe Sicherheitszaun bei multiaxialem Druck
-
-**Symptome:**
-- Roboter stoppt abrupt, sobald Tool/Extruder in zaunnahe Bereiche kommt
-- Bremsen greifen hörbar, Roboter wird außer Betrieb gesetzt
-- HMI/Schaltschrank zeigt sicherheitsbezogene Stopps oder Bremstest-Hinweise
-- Automatikfahrt bleibt blockiert, bis der Roboter manuell aus dem Schutzbereich gefahren wird
-
-**Ursache:**
-TCP-/Extruder-Neigung gelangt in multiaxialen Bahnabschnitten (häufig bei 45‑Grad‑Ausrichtungen) in den Sicherheits-/Bremsbereich.
-
-**Wiederanlauf (KRC5 / Smartpad):**
-
-1. **Statusmeldung zuerst lesen:**
-   - Stop-Ursache auf HMI/Smartpad oder am Schaltschrank prüfen.
-
-2. **In den Einrichtbetrieb wechseln:**
-   - Schlüssel von "Remote" auf "Zahnrad" drehen.
-   - Sicherstellen, dass "EXT" anliegt, dann auf "T1" wechseln.
-   - Schlüssel zurückdrehen; Smartpad kann neu starten.
-
-3. **Roboter manuell aus Sicherheitsbereich fahren:**
-   - Totmannschalter auf der Rückseite gedrückt halten.
-   - Achsweise verfahren (oder SpaceMouse, falls freigegeben), bis TCP/Extruder klar außerhalb des Schutzbereichs ist.
-   - Verfahr-Icons werden nur mit gedrücktem Totmannschalter grün.
-
-4. **Zurück in den Automatikbetrieb:**
-   - Schlüssel auf "Zahnrad", von "T1" zurück auf "EXT".
-   - Schlüssel zurück auf "Remote" (Betriebsmodus).
-
-5. **Falls Start weiter blockiert ist:**
-   - Navigation öffnen und "cnc" neu anwählen.
-   - "Programm zurücksetzen" ausführen und Roboter ggf. neu referenzieren.
-
-### Problem: Roboter reagiert nicht / Start- oder Referenzfahrt beginnt nicht
-
-Diesen Ablauf nutzen, wenn der Roboter nach dem Wiederanlauf weiter nicht reagiert, der Druck bei 0,0,0 abbricht oder die Start-, Referenz- oder Justagefahrt nicht beginnt.
-
-1. Prüfen, dass alle Status-LEDs oben rechts am Smartpad grün sind.
-2. Navigation öffnen, "cnc" erneut auswählen und "Anwählen" tippen.
-3. Auf das gelbe "R" tippen und "Programm zurücksetzen" ausführen.
-4. Unter "PrgView" das EMI zurücksetzen; danach in der oberen Rahmenleiste das Roboterprogramm zurücksetzen und neu starten.
-5. Betriebsmodus prüfen und wieder auf EXT gehen; falls nötig kurz zwischen externer/interner Steuerung umschalten.
-6. Bremstest, Referenzfahrt oder Startbewegung erneut auslösen.
-7. Falls Referenz-/Justagefahrt weiter fehlschlägt, Referenzschalter prüfen und kontrollieren, ob beide Lampen in Referenzposition korrekt schalten.
-
-Nach Not-Aus: Anlage neu initialisieren, Verriegelung prüfen, Bremstest erneut durchführen, Achswege und Offsets verifizieren.
-
-G‑Code/DXR lädt nicht:
+G‑Code/DXR lädt weiterhin nicht:
 - Beim Laden wird Gcode als `Gcode.nc` auf ein mit dem Roboter geteiltes Laufwerk kopiert. Bei Ladeproblemen: Im Explorer Laufwerk `nc (Z:)` öffnen und `Gcode.nc` löschen; Druckprogramm erneut laden.
 
-Probleme nach Programmabbruch oder manuellem Verfahren:
+### Probleme nach Programmabbruch oder manuellem Verfahren
 - Beim Wechsel vom Roboterprogramm zur CNC‑Steuerung übernimmt diese die Lageregelung. Stimmen Positionen nicht überein, stoppt der Roboter mit Fehlermeldungen.
-- Unter Softkey „PrgView“ das EMI (External Motion Interface) mit „Reset“ zurücksetzen; oben in der Rahmenleiste das Roboterprogramm zurücksetzen und neu starten.
+- Für den vollständigen Wiederanlauf nach Programmabbruch oder manuellem Verfahren die passende [KUKA-Wiederherstellungsanleitung](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-reagiert-nicht--start--referenz--oder-justagefahrt-wird-nicht-ausgeführt) verwenden.
+
+### Fehlerbehebung: Roboter nicht justiert (E1)
+
+**Seltener Sonderfall, kein Standard-Wiederanlauf:** Keine Bewegung und kein Programmstart mit **KSS01347** (Roboter nicht justiert), **KSS00106** (Justage durchführen E1) oder **KSS15047** (Justagereferenzierung angefordert).
+
+Die Wiederherstellung ist installationsspezifisch und setzt die Prüfung eines Backups voraus. Vor jedem Eingriff die vollständige [E1-Fehlerbehebung samt Voraussetzungen und Kontrolle](../../../LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-nicht-justiert-e1) lesen.
 
 ---
 
-## 🧼 14. Wartung & regelmäßige Checks
+## 14. Wartung und regelmäßige Checks
 - Chiller-Füllstand alle paar Wochen/Monate prüfen (geschl. Kreislauf, selten Nachfüllen nötig; Reserve im schwarzen Behälter).
 - Überdrucksicherung visuell prüfen; bei Auslösung alle Schrauben ersetzen (Ersatz im Regal über KUKA-Steuerung). Bestände monatlich kontrollieren und ggf. nachbestellen.
 - Ordnung im Raum sicherstellen; Materialsäcke entsorgen; Arbeitsfläche sauber halten.
 - Materialfaktoren (Durchfluss) für PETG/PLA bei Gelegenheit kalibrieren und dokumentieren.
-
-
-
-Kalibrierung/Homing:
+### Kalibrierung und Referenzierung
 - Die aktuelle Installation ist mechanisch fix; regelmäßige Kalibrierung (TCP/Base/Bett) ist im Normalbetrieb nicht erforderlich.
 - Nach mechanischen Änderungen (Düse/Adapter getauscht, Extruderkopf neu ausgerichtet, Bett neu positioniert) sind TCP/Base zu prüfen und ggf. neu einzumessen.
 
 ---
 
-## 💡 15. Hinweise & offene Punkte
+## 15. Hinweise und offene Punkte
 
 ### Kamera – Liveansicht
-- Link: http://fb05-dxr25-cam.fh-muenster.de
+- Adresse: http://fb05-dxr25-cam.fh-muenster.de
 - Erreichbar im FH‑Netzwerk oder per VPN. Zugriff in der Regel nur, wenn der Roboter aktiv ist.
-- Logins:
-   - Admin: Benutzer „Admin“, Passwort „#DXR(standardpassworteinfügen)2025“
-   - Student: Benutzer „student“, Passwort „DXR(standardpassworteinfügen)“
+- Zugangsdaten:
+   - Konten: „Admin“ und „student“. Das jeweils freigegebene Konto und Passwort bei der Werkstattleitung erfragen.
  - Der Stream wird nicht aufgezeichnet und nicht online gespeichert.
 
 ### Weitere Hinweise
-- Geplantes Softwareupdate für verbesserten Materialfluss/Pausenfunktion (Herstellerangabe, tbd).
+- Geplantes Softwareupdate für verbesserten Materialfluss und Pausenfunktion (Herstellerangabe, Termin noch offen).
 - Hochpreisige Masterbatches nur in Abstimmung mit der Werkstattleitung verwenden.
 - Änderungen am Schaltschrank/Verkabelung ausschließlich in Abstimmung mit Hersteller/Werkstatt.
 
 ---
 
-# 🧾 16. Quick-Start-Checkliste DXR25
+## 16. Schnellstart-Checkliste DXR25
 
 Vor dem Start
 - [ ] Raum 5–10 Min. gelüftet; Sicherheitsbereich frei; Platten korrekt aufgelegt
 - [ ] Trockner an; Material PETG/PLA vorhanden; Chiller plausibel
-- [ ] Robotersteuerung an; Schaltschrank an; Login „Operator/222“
+- [ ] Robotersteuerung an; Schaltschrank an; als „Operator“ mit freigegebenen Zugangsdaten angemeldet
 - [ ] Benachrichtigungen quittiert; Sicherheit verriegelbar; Bremstest durchgeführt
 
-Material & Heizung
+Material und Heizung
 - [ ] Rezept geladen (z. B. „PETG 3 mm“); Heizzonen auf Soll; 15 Min. durchwärmen
 - [ ] Extruder säubern; Antriebsbelastung blau
-- [ ] Nozzle fest; Überdrucksicherung intakt; Handschuhe bereit
+- [ ] Düse fest; Überdrucksicherung intakt; Handschuhe bereit
 
 Druck
 - [ ] Datei im „G‑Code‑Tisch“; ggf. „NC“ verbunden; Vorschau/Offsets geprüft
@@ -538,17 +526,23 @@ Nach dem Druck
 
 Kontakt/Fragen: Werkstattleitung MSA Robotics Lab. Änderungen/Ergänzungen bitte versioniert in dieser Datei dokumentieren (Version, Datum, Kurznotiz).
 
-## Credits
+**Dokumentationsänderung 1.3 (21.10.2026):** Regulären Druckablauf, Bedienstellen und Erfolgskontrollen gegliedert; einmalige Einrichtung vom laufenden Betrieb getrennt. Fehlerhilfe auf fehlende Bewegung, Freigabe, Bremstest und Wiederanlauf ausgerichtet; E1 als seltenen Sonderfall erhalten. Grundlage bleiben die vorhandenen Einweisungs- und Anlagenhinweise.
+
+**Dokumentationsänderung 1.2 (21.10.2026):** Geführten Einstieg vom Einschalten bis zum Abschalten sowie direkte deutsche Fehlerhilfe für fehlende Bewegung, Bremstest, Zaunstopp, Ladeprobleme und E1 ergänzt; ausführliche Abläufe bleiben in den verlinkten Abschnitten erhalten.
+
+## Mitwirkende
 Moritz Wesseler, FH Münster – MSA Robotics Lab (Zusammenstellung/Erstellung dieser Anleitung und Beispiele)
 
 ---
 
-## Anhang – DXR‑Code‑Beispiel (vollständig)
+<a id="appendix-dxr-code-example"></a>
 
-Hinweis: Das folgende Beispiel demonstriert Struktur und Syntax typischer DXR‑Ausgaben. Parameter wie P1 (Materialfaktor) werden in der Maschinen‑UI gesetzt.
+## Anhang – DXR-Code-Beispiel (Auszug)
+
+Hinweis: Das folgende Beispiel zeigt den Dateikopf und die ersten Bewegungszeilen einer DXR-Ausgabe. Es ist kein vollständiges, direkt ausführbares Druckprogramm. Parameter wie P1 (Materialfaktor) werden an der Maschinensteuerung eingestellt.
 
 <details>
-<summary><strong>DXR Code Example (vollständig ein-/ausklappen)</strong></summary>
+<summary><strong>DXR-Beispielauszug ein-/ausklappen</strong></summary>
 
 ```dxr
 ;ProgRunTimeTotal = [6501]

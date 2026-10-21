@@ -426,8 +426,7 @@ Output:
 
 ### Issue: KUKA Robot brake test / start movement problems
 - **Symptoms:** Robot does not perform brake test, drive button blinks, error "Druck abgebrochen bei XYZ jeweils 0"
-- **Solution:** See detailed troubleshooting guide in `documentations/KUKA_ROBOT_TROUBLESHOOTING.md`
-- **Quick Fix:** Reselect CNC program on robot controller via Smartpad (see troubleshooting guide for step-by-step instructions)
+- **Solution:** Follow the matching procedure in the [German KUKA troubleshooting guide](KUKA_ROBOT_TROUBLESHOOTING_DE.md). An [English version](KUKA_ROBOT_TROUBLESHOOTING.md) is also available. Do not use a generic reset sequence in place of the documented safety procedure.
 
 ---
 
@@ -463,8 +462,6 @@ For issues, questions, or feature requests, please visit:
 ---
 
 *Last updated: Version 1.0.16*
-
-
 
 
 

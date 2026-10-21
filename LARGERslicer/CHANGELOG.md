@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.11] - 2026-07-29
+### Documentation
+- Added a central documentation index and separate German and English KUKA recovery guides.
+- Reorganized the German DXR25 manual around normal operation, file loading, printing, and symptom-based troubleshooting; retained E1 recovery as a special case.
+- Updated machine-guide links and references to the current combined Grasshopper definition.
+
+## [1.1.12] - 2026-07-29
 
 ### Changed
 - Refined utility component icons to better match function semantics at 24x24 and align with the established dark-blue icon style.
 - Harmonized remaining mixed-language input/output labels and descriptions in newly added utility components to English.
+
+## [1.1.11] - 2026-07-29
 
 ### Added
 - Added `Curve Pattern Split` utility component for modular fixed/variable curve segmentation.
@@ -20,17 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `GCode E Remap MultiPart` utility component for XE recalculation with multi-part mapping and optional outline handling.
 - Added `Overlap Tester Var Width` utility component for variable-width overlap analysis and heatmap output.
 - Added `Surface Thickness Heatmap` utility component for per-part thickness sampling, rebuild surfaces, and heatmap mesh generation.
-
-### Added
-- Added `G-Code Diff Check` utility component for line-by-line coordinate integrity checks between original and remapped code.
-- Added `Overlap Tester Var Width` utility component for per-vertex overlap heatmap analysis with optional part-driven variable widths.
-- Added `Fast GCode DXR Preview` utility component with cached parsing/display and safe 3D preview architecture.
-- Added `GCode E Remap MultiPart` utility component for multi-part XE recalculation with transform-aware mapping and outline handling.
-- Added `Surface Thickness Heatmap` utility component for sampled thickness coloring, rebuilt fit surfaces, and downstream mapping metadata.
-- Added `Curve Pattern Split` utility component for repeat-based fixed/variable segment decomposition along a curve.
-
-### Changed
-- Standardized input/output names, descriptions, and component-facing text for the new utility components to consistent English terminology.
 
 ## [1.1.10] - 2026-07-28
 
@@ -470,5 +466,3 @@ Each version entry follows this structure:
 ### Security
 - Security fixes
 ```
-
-

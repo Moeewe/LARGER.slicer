@@ -6,13 +6,14 @@ If you’re looking for the machine-specific Grasshopper definitions (`.gh`) and
 
 ## Documentation
 
-Project documentation lives in `documentations/`:
+The [documentation index](documentations/README.md) provides a task-based entry point to operator guides, component references, and development documents. Key references:
 
 - [Components Overview](documentations/COMPONENTS_OVERVIEW.md)
 - [Component Inputs/Outputs](documentations/COMPONENT_INPUTS_OUTPUTS.md)
 - [DXR Format Documentation](documentations/DXR_FORMAT_DOCUMENTATION.md)
 - [Machine Settings Documentation](documentations/MACHINE_SETTINGS_DOCUMENTATION.md)
-- [KUKA Robot Troubleshooting](documentations/KUKA_ROBOT_TROUBLESHOOTING.md)
+- [KUKA-Roboter: Fehlerbehebung (DE)](documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md)
+- [KUKA Robot Troubleshooting (EN)](documentations/KUKA_ROBOT_TROUBLESHOOTING.md)
 - [CNC Program README](documentations/CNC_PROGRAM_README.md)
 
 ## Build
