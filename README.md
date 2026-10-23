@@ -83,6 +83,18 @@ For UR5 workflows, use the dedicated `UR5slicer.gh` script.
 - **macOS**: macOS 11 Big Sur or newer  
 - **Rhino**: Version 8 or newer with Grasshopper and Python 3
 
+### Automatic Setup (recommended)
+
+The [`Setup/`](Setup/) folder installs everything needed for the Weber/Ginger script in one step: the latest **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager, plus the **KR120_R2700_2** robot system (copied to `Documents/Robots`, where the Robots plugin looks for it).
+
+1. Close Rhino
+2. Run the installer:
+   - **macOS**: double-click `Setup/Install Mac.command` (first time: right-click → Open, because macOS blocks downloaded scripts)
+   - **Windows**: double-click `Setup/Install Windows.bat`
+3. Start Rhino 8 and open the `.gh` file
+
+To pin a plugin version, write it after the package name in the `PACKAGES` list at the top of the script (e.g. `"Robots 2.4.4"`).
+
 ### Installation Steps
 
 1. **Install LARGERslicer Plugin** (if using DXR/CNC components):
