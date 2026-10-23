@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added `DXR Variable Width` utility component: scales the XE extrusion values of a DXR program along X, Y or Z so the line width runs from Width Start to Width End (Linear, Smooth or Gamma transition, optional fixed range, factor cap and skirt-aware range). Outputs the scaled code plus segments, widths, factors, colors and layer indices, and draws a colored width preview. When placed on the canvas it creates and connects sliders for the widths and value lists for Axis and Mode. Replaces the `Python 3 Script` in the Weber/Ginger definition and works in Rhino 7 and Rhino 8 (output verified identical to the script).
+
 ### Documentation
 - Added a central documentation index and separate German and English KUKA recovery guides.
 - Reorganized the German DXR25 manual around normal operation, file loading, printing, and symptom-based troubleshooting; retained E1 recovery as a special case.
