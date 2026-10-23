@@ -1,337 +1,185 @@
-# LARGER SLICER
+<div align="center">
 
-A complete ecosystem for large-format additive manufacturing, featuring the LARGER Slicer - a two-stage Grasshopper algorithm for generating large-format toolpaths and G-code directly in Rhino/Grasshopper.
+<img alt="LARGER.slicer logo" src="LARGERslicer/icon.png" width="128" height="128">
 
-**BY MORITZ WESSELER - FH MÜNSTER 2025**  
-*Originally inspired by Ginger.Additive; now fully reimplemented with expanded machine support.*
+# LARGER.slicer
 
-Further Contributors: Fabio Koczula, Claudio Schröder
+**Large-format 3D printing and CNC toolpaths in Rhino / Grasshopper**<br>
+Slicer, robot code (DXR / KUKA) and machine guides for Weber DXR25, Ginger One, UR5 and Zünd – in one package.
 
-## ⬇️ Download for students (Weber DXR25 / Ginger)
+[![Latest release](https://img.shields.io/github/v/release/Moeewe/LARGER.slicer?label=release&color=2c6aa6)](https://github.com/Moeewe/LARGER.slicer/releases/latest) [![Rhino](https://img.shields.io/badge/Rhino-8%20%7C%207-2c6aa6)](https://www.rhino3d.com/) [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2c6aa6)](#quick-start) [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 
-[![Download LARGERslicer SETUP](https://img.shields.io/badge/Download-LARGERslicer--SETUP.zip-2c6aa6?style=for-the-badge&logo=github)](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip)
+<a href="https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip"><img alt="Download LARGERslicer-SETUP.zip" src="https://img.shields.io/badge/Download-LARGERslicer--SETUP.zip-2c6aa6?style=for-the-badge&logo=rhinoceros&logoColor=white"></a>
 
-**[LARGERslicer-SETUP.zip](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip)** contains everything you need: the Grasshopper definition, the installer and the KUKA KR120 robot library.
+[Release notes](https://github.com/Moeewe/LARGER.slicer/releases/latest) · [Documentation](LARGERslicer/documentations/README.md) · [Changelog](LARGERslicer/CHANGELOG.md)
 
-1. Install Rhino 8, close Rhino, download the ZIP and unzip it.
-2. Run the installer in the `SETUP` folder – **Mac:** right-click `Install Mac.command` → *Open* · **Windows:** double-click `Install Windows.bat`
-3. Start Rhino (millimeters) and open `LARGERslicer Weber Robot and Ginger.gh` from the `SETUP` folder.
+**English** · [Deutsch](README.de.md)
 
-Help and troubleshooting: [SETUP guide (DE/EN)](SETUP/README.md)
+</div>
 
+---
 
-## Table of Contents
+## Features
 
-- [Documentation](#documentation)
-- [Latest Updates](#latest-updates)
-- [Supported Machines](#supported-machines)
-- [Quick Start](#quick-start)
-- [Installation](#installation)
-- [Setup](#setup)
-- [Usage Guide](#usage-guide)
-- [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
-- [License](#license)
+- **One Grasshopper definition, three workflows** – *Easy Slicer* slices surfaces automatically, *Path Creator (multiaxial)* turns prepared toolpaths into robot paths, *Custom Paths* exports your own paths as robot code.
+- **Robot code for Weber DXR25 (KUKA)** – DXR Generator and G-code → DXR postprocessor with automatic header (runtime, layers, extrusion totals) and line numbering.
+- **Variable line widths** – `DXR Variable Width` scales the extrusion along X, Y or Z with a colored width preview.
+- **Preflight safety** – `DXR File Health Check` validates file name, readability and content before printing (GO / NO GO).
+- **CNC toolpaths** – zigzag (boustrophedon) toolpaths with HPGL/PLT output for the Zünd G3.
+- **One-click setup** – the installer sets up all plugins and the KUKA KR120 robot library on Windows and macOS.
+- **Machine guides** – operating and troubleshooting guides for every supported machine (German and English).
 
-## Latest Updates
+## Download
 
-### 1.1.13
+📥 **[LARGERslicer-SETUP.zip](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip)** – always the latest release.
+Contains the Grasshopper definition, the installer for Windows and macOS and the KUKA KR120 robot library.
 
-See the [plugin changelog](LARGERslicer/CHANGELOG.md) for release-specific changes.
-
-## Documentation
-
-The [documentation index](LARGERslicer/documentations/README.md) groups machine operating guides, operator references, plugin documentation, and development resources.
-
-- **New to the project?** Continue to [Quick Start](#quick-start) and [Usage Guide](#usage-guide).
-- **Operating a machine?** Start with the [machine-specific guides](LARGERslicer/documentations/README.md#machine-guides).
-- **Troubleshooting the DXR25/KUKA?** Start with the [German operator troubleshooting overview](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen>); an [English KUKA guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) is also available.
-
-## Supported Machines
-
-The LARGER Slicer ecosystem supports multiple large-format additive manufacturing platforms:
-
-| Platform | Status | Control Script | Documentation |
-|----------|--------|----------------|---------------|
-| **Ginger One Printer** | Production Ready | `LARGERslicer Weber Robot and Ginger.gh` | [Ginger Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20GINGER%20-%20ONE%20-%20README/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
-| **Universal Robots UR5** | Production Ready | `UR5slicer.gh` | [UR5 Quick Start Guide](EXAMPLE%20FILES/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/README%20UR5%2000%20QUICK%20START%20GUIDE.md) |
-| **Weber DXR25 Robot** | Multi-Axial Ready | `LARGERslicer Weber Robot and Ginger.gh` | [Weber DXR25 German Guide](EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20GERMAN.md) \| [English Guide](EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) |
-
-### Recommended Workflow
-
-Use the merged starter definition `LARGERslicer Weber Robot and Ginger.gh` and choose one of these three workflows inside the file:
-
-1. **Easy Slicer**: Slices surfaces and creates the toolpath automatically.
-2. **Path Creator (Multiaxial)**: Converts a prepared toolpath to multiaxial robot paths.
-3. **Custom Paths**: Uses only conversion/export components to generate DXR-specific robot code from your own paths.
-
-Legacy note: `LARGERslicer Multiaxial Weber Robot.gh` is archived and not required for the current workflow.
-
-For UR5 workflows, use the dedicated `UR5slicer.gh` script.
+🧩 **Plugin only:** search for **LARGERslicer** in the Rhino Package Manager (`PackageManager` command).
 
 ## Quick Start
 
-### Prerequisites
+**Requirements:** Rhino 8 (recommended) or Rhino 7 · Windows 11 or macOS 11+ · internet connection during setup
 
-- **Operating System**: Windows 11+ or macOS 11 Big Sur+
-- **Software**: Rhino 8+ with Grasshopper and Python 3
-- **Required Grasshopper Plugins** (installed automatically by [`SETUP/`](SETUP/)):
-  - LARGERslicer (Rhino Package Manager)
-  - Robots, with the KUKA KR120 robot library `KR120_R2700_2`
-  - Pufferfish
+1. Download **[LARGERslicer-SETUP.zip](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip)** and unzip it.
+2. Close Rhino and run the installer in the `SETUP` folder:
 
-### Get Started in 3 Steps
+   | Windows | macOS |
+   |---|---|
+   | Double-click `Install Windows.bat` | Right-click `Install Mac.command` → **Open** → **Open** |
 
-1. **Download**: [LARGERslicer-SETUP.zip](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip) (only the [`SETUP/`](SETUP/) folder, always the latest release) and unzip it.
-2. **Install**: Close Rhino and run the installer in [`SETUP/`](SETUP/) (`Install Mac.command` or `Install Windows.bat`) – it installs the plugins and the KUKA KR120 robot library ([details](SETUP/README.md)).
-3. **Open**: Launch Rhino (set to mm), open Grasshopper and open [LARGERslicer Weber Robot and Ginger.gh](SETUP/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) from the `SETUP/` folder, then follow the [Usage Guide](#usage-guide) below
+3. Start Rhino, create a file in **millimeters**, open Grasshopper and open `LARGERslicer Weber Robot and Ginger.gh` from the `SETUP` folder.
 
-## Installation
+The installer installs **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager and copies the KUKA KR120 robot library (`KR120_R2700_2`) to the folder the Robots plugin reads. It can be run again at any time and then only updates what is outdated.
 
-### System Requirements
+<details>
+<summary><b>Installer details and troubleshooting</b></summary>
 
-- **Windows**: Windows 11 or newer
-- **macOS**: macOS 11 Big Sur or newer  
-- **Rhino**: Version 8 or newer with Grasshopper and Python 3
+- **Existing installations:** current plugins are kept, older ones are updated, newer ones (e.g. beta builds) are kept.
+- **Old manual installations:** `.gha` files copied into the Grasshopper Libraries folder are detected and can be moved to a backup folder (otherwise components load twice).
+- **Robot library:** a differing existing file is saved as `*.bak-<date>` before it is replaced.
+- **macOS blocks the installer** (“unidentified developer”): right-click `Install Mac.command` → **Open**.
+- **Robot system `KR120_R2700_2` missing:** run the installer again, or click **Libraries** on the *Load Robot System* component and download the online library **FH Muenster MSA**.
+- **Rhino 7:** gets Robots 1.9 (Robots 2.x requires Rhino 8). The definition is tested in Rhino 8.
+- **Pin a plugin version:** add the version after the package name in the `PACKAGES` list at the top of the installer, e.g. `"Robots 2.4.4"`.
 
-### Automatic Setup (recommended)
+More: [SETUP guide](SETUP/README.md)
 
-The [`SETUP/`](SETUP/) folder installs everything needed for the Weber/Ginger script in one step, for Rhino 8 and Rhino 7 (whichever is installed): the latest compatible **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager, plus the **KR120_R2700_2** robot system (copied to the folder the Robots plugin reads: `Documents/Robots`, on macOS with Rhino 7 `~/Robots`).
+</details>
 
-1. Close Rhino
-2. Run the installer:
-   - **macOS**: double-click `SETUP/Install Mac.command` (first time: right-click → Open, because macOS blocks downloaded scripts)
-   - **Windows**: double-click `SETUP/Install Windows.bat`
-3. Start Rhino and open the `.gh` file
+## Supported Machines
 
-The installer can be run again at any time: up-to-date plugins are left alone, older ones are updated, newer ones (e.g. beta builds) are kept. Old manually copied `.gha` files in the Grasshopper Libraries folder are detected and can be moved to a backup folder, and an existing robot library file that differs is saved as `*.bak-<date>` before it is replaced.
-
-To pin a plugin version for Rhino 8, write it after the package name in the `PACKAGES` list at the top of the script (e.g. `"Robots 2.4.4"`).
-
-**Rhino 7 note**: Rhino 7 gets Robots 1.9.0 (Robots 2.x is Rhino 8 only) and the latest LARGERslicer published for Rhino 7. The Weber/Ginger script no longer contains script components (the variable-width step is the native `DXR Variable Width` component since LARGERslicer 1.1.13), but it is only tested in Rhino 8.
-
-### Installation Steps
-
-1. **Install LARGERslicer Plugin** (if using DXR/CNC components):
-   
-   **Rhino Package Manager (Required)**
-   - In Rhino, run the command `PackageManager` (or `PaketManager` in German)
-   - Search for "LARGERslicer"
-   - Click "Install" (or "Anwenden" in German)
-   - Restart Rhino/Grasshopper
-   
-   ~~**Option 2: Manual Installation**~~ *(Deprecated - No longer supported)*
-   - ~~Copy `LARGERslicer.gha`, `LARGERslicer.pdb`, and `Newtonsoft.Json.dll` from `LARGERslicer/Plugin Installation Files/LARGERSlicer/` to your Grasshopper Libraries folder~~
-   - ~~Restart Rhino/Grasshopper~~
-   - ~~Plugin components will appear under the **LARGER** category~~
-   - **Note**: Manual installation is no longer supported. Please use the Package Manager for automatic updates and compatibility.
-
-   **Upgrading from Manual Installation (Old Version)**
-   
-   If you previously installed LARGERslicer by manually copying `.gha` files to the Components folder, follow these steps to upgrade to the Package Manager version:
-   
-   1. **Open Grasshopper** and navigate to the Components folder
-   2. **Delete old plugin files**: Remove all LARGERslicer-related files (`.gha`, `.pdb`, `Newtonsoft.Json.dll`) from the Components folder
-   3. **Open Rhino Package Manager**:
-      - In Rhino, type `PackageManager` (or `PaketManager` in German) in the command line
-      - Search for "LARGERslicer"
-      - Click "Install" (or "Anwenden" in German)
-   4. **Restart your computer** (not just Rhino) - this ensures all plugin references are cleared
-   5. **Re-slice your files**: After restart, open your Grasshopper files and regenerate toolpaths with the new version
-   
-   **Note**: The Package Manager version enables automatic updates, so you'll always have the latest features and bug fixes without manual file management.
-
-2. **Download or clone the `.gh` files** from this repository:
-   - [LARGERslicer Weber Robot and Ginger.gh](SETUP/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) — Merged starter file with Easy Slicer, Path Creator, and Custom Path workflows
-   - [UR5slicer.gh](EXAMPLE%20FILES/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/UR5slicer.gh) — Dedicated UR5 robotic workflow
-
-3. **Open Rhino** and create a new file in **millimeter** measurement units
-
-4. **Launch Grasshopper** within Rhino
-
-5. **File → Open** → select your desired `.gh` file
-
-6. Unlock custom clusters if needed: right-click any password-protected component and enter **Supersizedprinting**
-
-**Note**: Pufferfish is included with Rhino 8+ and will load automatically. If you encounter missing components, install them via Rhino's PackageManager.
-
-## Setup
-
-### Verify Installation
-
-1. Ensure all plugins appear in the Grasshopper toolbar
-2. Verify clusters appear in **Input**, **Path Maker**, and **G-Code Maker** stages
-3. Check that custom components are unlocked and functional
-
-### Initial Configuration
-
-The LARGER Slicer is organized into two main stages:
-
-- **Part 1**: 3D Print Path Maker - Generates toolpath curves
-- **Part 2**: G-Code Maker - Exports machine-ready G-code
+| Machine | Type | Grasshopper definition | Guide |
+|---|---|---|---|
+| **Weber DXR25** | KUKA robot, multiaxial | `LARGERslicer Weber Robot and Ginger.gh` | [English](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) · [Deutsch](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) |
+| **Ginger One** | Large-format pellet printer | `LARGERslicer Weber Robot and Ginger.gh` | [Quick Start](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
+| **Universal Robots UR5** | Collaborative robot | `UR5slicer.gh` | [Quick Start](<EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/README UR5 00 QUICK START GUIDE.md>) |
+| **Zünd G3 L-2500** | CNC milling / cutting | `ZündHGPL PLT MSA.gh` | [Quick Start](<EXAMPLE FILES/00 - ZUENDT - 3D CNC MILLING/README Zünd G3 L-2500 CNC MILLING QUICK START GUIDE.md>) |
 
 ## Usage Guide
 
-### Part 1: 3D Print Path Maker
+`LARGERslicer Weber Robot and Ginger.gh` contains three workflows – copy the one you need into a new Grasshopper file:
 
-**Basic Setup:**
-1. **Input Geometry**: Right-click **Set One Surface** → pick your surface
-2. **Enable Features**: Toggle **Skirt** and **Brim** with True/False buttons
-3. **Configure Parameters**:
-   - **Corner Fillet Radius (mm)**: Round off corners
-   - **Min/Max Extrusion Width (mm)**: Standard and adaptive widths
-   - **Layer Height (mm)**: Control Z-step sizes
-   - **Point Spacing (mm)**: Sets point interval (default 2-5 mm)
+1. **Easy Slicer** – slices surfaces and creates the toolpath automatically.
+2. **Path Creator (multiaxial)** – converts a prepared toolpath into multiaxial robot paths.
+3. **Custom Paths** – uses only the conversion/export components to create DXR robot code from your own paths.
 
-**Output**: Generates **Toolpath Curves** along the midline of each layer
+Password-protected clusters: right-click the component and enter **Supersizedprinting**.
 
-### Part 2: G-Code Maker
+<details>
+<summary><b>Part 1: 3D Print Path Maker</b></summary>
 
-**Setup Process:**
-1. **Preview Toolpath**: Use **Preview Slider (0→1)** to scrub through toolpath animation
-2. **Select Printer Profile**: Choose **Ginger One** or **Weber DXR** (for UR5, use separate `UR5slicer.gh` in the UR5 folder)
-3. **Run Preflight Check**: Validate the output file with **DXR File Health Check** and continue only with **GO**
-4. **Set Output Location**: 
-   - Use integrated desktop path finder, OR
-   - Add your own filepath component with desired save location
-5. **Configure Settings**:
-   - **Job Name**: Enter desired filename (e.g., "Testobject")
-   - **Feedrate/Speed**: Adjust print speed as needed
-   - **Flow (%)**: Set extrusion multiplier
+1. **Input geometry:** right-click **Set One Surface** → pick your surface.
+2. **Skirt / Brim:** switch on or off with the True/False toggles.
+3. **Parameters:**
+   - **Corner Fillet Radius (mm)** – rounds off corners
+   - **Min/Max Extrusion Width (mm)** – standard and adaptive widths
+   - **Layer Height (mm)** – Z step
+   - **Point Spacing (mm)** – point interval (default 2–5 mm)
 
-**Generate G-Code (Important 2-Step Process):**
-1. **Click "1. Slice Data"** - This calculates weight, time, and generates coordinates
-2. **Click "2. Export G-Code"** - This exports the final G-code file
+**Output:** toolpath curves along the midline of each layer.
 
-**Note**: You MUST click "Slice Data" first, otherwise you'll only get standard start/end G-code without coordinates, weight, or time calculations. This two-step process keeps the script running efficiently.
+</details>
 
-**Outputs**:
-- **Weight in kg**: Displays estimated material usage
-- **Time**: Shows estimated print time
-- **G-Code**: Generated machine-ready code with coordinates
+<details>
+<summary><b>Part 2: G-Code / DXR Maker</b></summary>
 
-## Project Structure
+1. **Preview:** scrub through the toolpath with the **Preview Slider (0 → 1)**.
+2. **Printer profile:** choose **Ginger One** or **Weber DXR** (UR5: use `UR5slicer.gh`).
+3. **Preflight check:** validate the file with **DXR File Health Check** and continue only on **GO**.
+4. **Output location:** use the integrated desktop path or your own file path.
+5. **Settings:** job name, feedrate / speed, flow (%).
 
-```
-LARGER.slicer/
-├── LICENSE                                           # Licensed under [CC BY-NC 4.0]
-├── README.md                                         # This documentation
-├── SETUP/                                            # Start here: installer + Weber/Ginger definition
-│   ├── LARGERslicer Weber Robot and Ginger.gh        # Merged starter definition
-│   ├── Install Mac.command / Install Windows.bat     # Installs plugins + robot library
-│   ├── RobotLibrary/                                 # KUKA KR120 (FH Muenster MSA) for the Robots plugin
-│   └── README.md                                     # Setup guide (German / English)
-├── LARGERslicer/                                     # Grasshopper plugin source code
-│   ├── README.md                                     # Plugin documentation
-│   ├── LARGERslicer.csproj                           # .NET project file
-│   ├── Components/                                   # Plugin components
-│   │   ├── CNC/                                      # CNC toolpath components
-│   │   ├── Export/                                   # DXR export components
-│   │   └── Utils/                                    # Utility components
-│   ├── Types/                                        # Custom data types
-│   ├── Utils/                                        # Helper classes
-│   ├── Resources/                                    # Icons and assets
-│   ├── documentations/                               # Documentation (Markdown)
-│   └── Plugin Installation Files/                    # Pre-built plugin files for manual install (deprecated)
-│       └── LARGERSlicer/                             # Contains .gha/.pdb + Newtonsoft.Json.dll
-└── EXAMPLE FILES/                                    # Machine-specific scripts and docs
-   ├── 00 - UNIVERSAL ROBOTS - UR5/
-   │   ├── README UR5 00 QUICK START GUIDE.md
-   │   └── UR5slicer.gh
-   ├── 00 - WEBER - GINGER [Robotic] 3D Printing/
-   │   ├── LARGERslicer Multiaxial Weber Robot.gh (legacy / archived, no longer primary)
-   │   ├── 00 - GINGER - ONE - README/
-   │   └── 00 - WEBER - DXR25 - README/
-   └── 00 - ZUENDT - 3D CNC MILLING/
-      ├── README Zünd G3 L-2500 CNC MILLING QUICK START GUIDE.md
-      └── ZündHGPL PLT MSA.gh
-```
+**Export in two steps:**
 
-### Key Components
+1. Click **1. Slice Data** – calculates weight, time and coordinates.
+2. Click **2. Export G-Code** – writes the file.
 
-- **Grasshopper Plugin**: `LARGERslicer.gha` — Custom Grasshopper components for DXR generation, CNC toolpaths, and utilities (see `LARGERslicer/` directory)
-- **Primary Slicer**: `LARGERslicer Weber Robot and Ginger.gh` — Merged starter script with Easy Slicer, Path Creator (multiaxial), and Custom Path conversion workflows (repo path: `SETUP/`, together with the installer and the robot library)
-- **Machine Documentation**: Complete setup and operation guides for each platform (German & English) under `EXAMPLE FILES/`
-- **UR5 Dedicated Script**: `UR5slicer.gh` — Specialized control for Universal Robots UR5 (`EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/`)
-- **Development Area**: WIP folder contains experimental features and new developments
+If you skip *Slice Data*, only the standard start/end code is written – without coordinates, weight or time.
 
-## System Overview
+**Outputs:** weight (kg), print time, machine-ready code.
 
-### Core Features
+</details>
 
-**LARGER Slicer Algorithm:**
-- One merged starter file with three workflows: Easy Slicer, Path Creator (multiaxial), and Custom Paths
-- Two-stage toolpath generation (Path Maker → G-Code Maker)
-- Adaptive layer widths and live previews
-- Support for skirts, brims with flip option
-- Direct integration with multiple machine platforms
+## Documentation
 
-**LARGERslicer Grasshopper Plugin:**
-- **DXR Processing**: DXR Generator and GCode Postprocessor for robot control systems
-- **Preflight Safety**: DXR File Health Check with explicit readable/filename/content rule status
-- **CNC Toolpaths**: Boustrophedon (zigzag) toolpath generation with Zünd PLT output
-- **Utilities**: File operations, timestamps, spatial indexing, and more
-- Automatic header calculation (runtime, layers, extrusion totals)
-- Sequential line numbering and proper DXR file formatting
-- Current plugin release: 1.1.13
-
-**Machine Control Systems:**
-- **Ginger One**: Large-format pellet extruder with material database
-- **UR5 Robot**: Complete Grasshopper workflow for Universal Robots systems  
-- **Weber DXR**: Specialized control for Weber robotic platforms with DXR file generation
-
-**Documentation & Support:**
-- Comprehensive setup guides for all platforms
-- Troubleshooting resources and operation manuals
-- Active development with regular updates
+| Topic | Link |
+|---|---|
+| Overview of all guides | [Documentation index](LARGERslicer/documentations/README.md) |
+| Operate a machine | [Machine guides](LARGERslicer/documentations/README.md#machine-guides) |
+| KUKA / DXR25 robot errors | [English](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) · [Deutsch](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md) |
+| Plugin components | [Component overview](LARGERslicer/documentations/COMPONENTS_OVERVIEW.md) · [Inputs/outputs](LARGERslicer/documentations/COMPONENT_INPUTS_OUTPUTS.md) |
+| What's new | [Changelog](LARGERslicer/CHANGELOG.md) |
 
 ## Troubleshooting
 
-| Problem | Cause | Solution |
-|---------|--------|----------|
-| Missing plugin components | Plugins not installed | Install via Rhino's PackageManager |
-| Surface not accepted | Wrong geometry type | Use **Set One Surface** on valid Brep surface |
-| G-Code file not appearing | Write command not triggered | Click **Export G-Code** and confirm save path |
-| DXR File Health Check returns NO GO | Invalid filename, unreadable file, or suspicious/incomplete content | Fix filename/path, re-export, and re-check until GO |
-| Preview slider inactive | Path Preview not connected | Check **Path Preview** input wiring |
-| Password-protected clusters | Components locked | Right-click component, enter **Supersizedprinting** |
-| DXR25: Roboter nicht justiert / externe Achse E1 (KSS01347, KSS00106, KSS15047) | Bewegung und Programmstart gesperrt; Justage angefordert | Den installationsspezifischen Ablauf in der [deutschen KUKA-Fehlerbehebung](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-nicht-justiert-e1) einschließlich Backup-Voraussetzungen befolgen; Programm-Reset allein hilft nicht |
-| DXR25: Bremstest / Startbewegung beginnt nicht | Antriebe-Knopf blinkt, Abbruch bei XYZ 0 oder Meldung „Active-Status erforderlich“ | [Deutsche Anleitung: Bremstest / Startbewegung](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-führt-bremstest--startbewegung-nach-dem-start-nicht-aus) |
-| DXR25: Notstopp nahe Sicherheitszaun | Roboter stoppt nahe dem Zaun, besonders bei multiaxialen Bahnen | [Deutsche Anleitung: Notstopp am Sicherheitszaun](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-notstop-nahe-sicherheitszaun-multiaxialer-druck) |
-| DXR25: Roboter reagiert nicht / Start- oder Referenzfahrt beginnt nicht | Keine Bewegung trotz geladenem Auftrag, Abbruch bei XYZ 0 oder Referenz-/Startfahrt wird nicht ausgeführt | [Deutsche Anleitung: fehlende Bewegung / Referenzfahrt](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING_DE.md#problem-roboter-reagiert-nicht--start--referenz--oder-justagefahrt-wird-nicht-ausgeführt) |
+| Problem | Solution |
+|---|---|
+| Plugin components missing or red | Run the installer again, then restart Rhino |
+| Robot system `KR120_R2700_2` missing | Run the installer again, or download the **FH Muenster MSA** online library via **Libraries** on *Load Robot System* |
+| Surface not accepted | Use **Set One Surface** with a valid Brep surface |
+| G-code file does not appear | Click **Export G-Code** and check the save path |
+| DXR File Health Check returns **NO GO** | Fix file name / path, export again and check until **GO** |
+| Preview slider inactive | Check the **Path Preview** input wiring |
+| DXR25: robot not mastered / external axis E1 (KSS01347, KSS00106, KSS15047) | [Robot Not Mastered (E1)](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-robot-not-mastered-e1) – a program reset alone does not help |
+| DXR25: brake test / start movement does not begin | [Brake test / start movement](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-robot-does-not-perform-brake-test--start-movement-after-startup) |
+| DXR25: emergency stop near the safety fence | [Emergency stop near safety fence](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-emergency-stop-triggered-near-safety-fence-multiaxial-printing) |
+| DXR25: robot does not move / reference run does not start | [Robot does not move](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md#issue-robot-does-not-move--start-reference-or-calibration-run-cannot-be-executed) |
 
-**Tip for path planning (important for 45° multiaxial prints):**
-- Prefer extruder tilt toward the wall / largest free area, not toward the safety door.
-- Keep extra clearance before the fence because the braking zone begins before the physical barrier (approx. 10-15 cm depending on setup).
-- Orient 45° jobs so the extruder points to the side opposite the entry/safety door.
+> [!TIP]
+> **45° multiaxial prints:** tilt the extruder toward the wall or the largest free area, not toward the safety door, and keep extra clearance from the fence – the braking zone starts about 10–15 cm before the physical barrier.
 
-### Getting Help
+## Development
 
-1. Check the [documentation index](LARGERslicer/documentations/README.md) for machine-specific guides
-2. Review troubleshooting table above
-3. Verify all prerequisites are installed
-4. Ensure Rhino file is set to millimeter units
+<details>
+<summary><b>Repository structure</b></summary>
 
-## License
+```
+LARGER.slicer/
+├── SETUP/                     # Start here: installer, Weber/Ginger definition, robot library
+├── LARGERslicer/              # Grasshopper plugin (C#)
+│   ├── Components/            # CNC, Export and Utility components
+│   ├── Resources/             # Component icons
+│   ├── documentations/        # Guides and references
+│   └── build-package.sh/.bat  # Builds the Rhino 7 and Rhino 8 Yak packages
+└── EXAMPLE FILES/             # Machine-specific definitions and guides
+    ├── 00 - UNIVERSAL ROBOTS - UR5/
+    ├── 00 - WEBER - GINGER [Robotic] 3D Printing/
+    └── 00 - ZUENDT - 3D CNC MILLING/
+```
 
-Licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) —  
-non-commercial use only.  
-© 2025 Moritz Wesseler.
----
+</details>
 
-**Note**: Weber DXR25 now supports multi-axial printing through Grasshopper script with automatic G-code to DXR conversion via the LARGERslicer plugin. The plugin provides DXR Generator and DXR GCode Postprocessor components for seamless conversion. Safety fence configuration and collision object setup are currently in development.
-
-## Plugin Development
-
-The LARGERslicer Grasshopper plugin source code is located in the `LARGERslicer/` directory. For plugin development, building, and component documentation, see:
-- [Plugin README](LARGERslicer/README.md) — Plugin overview and development guide
-- [Component Overview](LARGERslicer/documentations/COMPONENTS_OVERVIEW.md) — Complete component reference
-
-### Building the Plugin
+**Build the plugin:**
 
 ```bash
 cd LARGERslicer
-dotnet build
+./build-package.sh          # or build-package.bat on Windows; optional: new version, e.g. 1.1.14
 ```
 
-The build generates `.gha` files for all target frameworks in `bin/Debug/`.
+Creates `dist/largerslicer-<version>-rh8_0-any.yak` and `dist/largerslicer-<version>-rh7_0-any.yak`. More: [Plugin README](LARGERslicer/README.md).
+
+## License
+
+© 2025 Moritz Wesseler, FH Münster · Licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) – non-commercial use only.
+
+Contributors: Fabio Koczula, Claudio Schröder · Originally inspired by Ginger.Additive, fully reimplemented with expanded machine support.

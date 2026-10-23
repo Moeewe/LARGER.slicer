@@ -1,58 +1,50 @@
-# LARGERslicer SETUP – Weber DXR25 / Ginger
+# LARGER.slicer – SETUP
 
-*English version below.*
+**English** · [Deutsch](README.de.md)
 
-Dieser Ordner enthält alles, um die Grasshopper-Definition **`LARGERslicer Weber Robot and Ginger.gh`** auf einem neuen Rechner zum Laufen zu bringen.
+This folder contains everything needed to set up the Grasshopper definition **`LARGERslicer Weber Robot and Ginger.gh`** for the Weber DXR25 and the Ginger One.
 
-| Datei | Zweck |
+| File | Purpose |
 |---|---|
-| `LARGERslicer Weber Robot and Ginger.gh` | Die Grasshopper-Definition (Easy Slicer, Path Creator Multiaxial, Custom Paths) |
-| `Install Mac.command` | Installer für macOS |
-| `Install Windows.bat` (+ `setup-windows.ps1`) | Installer für Windows |
-| `RobotLibrary/` | KUKA-KR120-Roboterbibliothek der FH Münster MSA (`KR120_R2700_2`) |
+| `LARGERslicer Weber Robot and Ginger.gh` | Grasshopper definition with Easy Slicer, Path Creator (multiaxial) and Custom Paths |
+| `Install Windows.bat` (+ `setup-windows.ps1`) | Installer for Windows |
+| `Install Mac.command` | Installer for macOS |
+| `RobotLibrary/` | KUKA KR120 robot library of FH Münster MSA (`KR120_R2700_2`) |
 
 ## Installation
 
-1. Rhino **8** installieren (empfohlen). Rhino 7 wird ebenfalls eingerichtet, ist mit dieser Definition aber nicht getestet.
-2. Rhino schließen.
-3. Installer starten:
-   - **macOS:** Doppelklick auf `Install Mac.command`. Beim ersten Mal blockiert macOS heruntergeladene Skripte: Rechtsklick → *Öffnen* → *Öffnen*.
-   - **Windows:** Doppelklick auf `Install Windows.bat`.
-4. Rhino starten, Grasshopper öffnen und `LARGERslicer Weber Robot and Ginger.gh` aus diesem Ordner öffnen. Rhino-Dokument in **Millimetern** anlegen.
+**Requirements:** Rhino 8 (recommended) or Rhino 7 · internet connection
 
-Eine Internetverbindung ist nötig, weil die Plugins vom Rhino Package Manager geladen werden.
+1. Close Rhino.
+2. Run the installer:
 
-## Was der Installer macht
+   | Windows | macOS |
+   |---|---|
+   | Double-click `Install Windows.bat` | Right-click `Install Mac.command` → **Open** → **Open** |
 
-- Installiert über den Rhino Package Manager die neueste passende Version von **Robots**, **LARGERslicer** und **Pufferfish** – für Rhino 8 und/oder Rhino 7, je nachdem, was installiert ist.
-- Kopiert die Roboterbibliothek **KR120_R2700_2** in den Ordner, in dem das Robots-Plugin sucht (`Dokumente/Robots`, unter macOS mit Rhino 7 zusätzlich `~/Robots`).
-- Kann beliebig oft ausgeführt werden:
-  - aktuelle Plugins bleiben unverändert, ältere werden aktualisiert, neuere (z. B. Beta) bleiben erhalten,
-  - alte, manuell kopierte `.gha`-Dateien im Grasshopper-Libraries-Ordner werden erkannt und auf Wunsch in einen Backup-Ordner verschoben,
-  - eine abweichende vorhandene Bibliotheksdatei wird als `*.bak-<Datum>` gesichert, bevor sie ersetzt wird.
+3. Start Rhino, create a file in **millimeters**, open Grasshopper and open `LARGERslicer Weber Robot and Ginger.gh` from this folder.
 
-## Probleme?
+## What the installer does
 
-| Problem | Lösung |
+- Installs the latest compatible **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager – for Rhino 8 and/or Rhino 7, whichever is installed.
+- Copies the **KR120_R2700_2** robot library to the folder the Robots plugin reads (`Documents/Robots`, on macOS with Rhino 7 also `~/Robots`).
+- Can be run again at any time:
+  - current plugins are kept, older ones are updated, newer ones (e.g. beta builds) are kept,
+  - old `.gha` files copied by hand into the Grasshopper Libraries folder are detected and can be moved to a backup folder,
+  - a differing existing library file is saved as `*.bak-<date>` before it is replaced.
+
+## Troubleshooting
+
+| Problem | Solution |
 |---|---|
-| macOS: „kann nicht geöffnet werden, da es von einem nicht verifizierten Entwickler stammt“ | Rechtsklick auf `Install Mac.command` → *Öffnen* |
-| Installer meldet „Package-Server nicht erreichbar“ | Internetverbindung prüfen und erneut ausführen |
-| In Grasshopper: Robot System **KR120_R2700_2 missing** | Installer erneut ausführen. Alternativ in der *Load Robot System*-Komponente auf **Libraries** klicken und die Online-Bibliothek **FH Muenster MSA** herunterladen |
-| Komponenten fehlen oder sind doppelt | Installer erneut ausführen und alte manuelle Kopien verschieben lassen, danach Rhino neu starten |
-| Rhino lief während der Installation | Rhino neu starten – Plugins werden erst beim Start geladen |
+| macOS: “cannot be opened because it is from an unidentified developer” | Right-click `Install Mac.command` → **Open** |
+| “Package-Server nicht erreichbar” (package server not reachable) | Check the internet connection and run the installer again |
+| Grasshopper: robot system **KR120_R2700_2 missing** | Run the installer again, or click **Libraries** on *Load Robot System* and download the online library **FH Muenster MSA** |
+| Components missing or loaded twice | Run the installer again, let it move old manual copies, restart Rhino |
+| Rhino was running during the installation | Restart Rhino – plugins are only loaded at startup |
 
-Weitere Hinweise zur Maschine: [Weber DXR25 Anleitung (Deutsch)](https://github.com/Moeewe/LARGER.slicer/blob/main/EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20GERMAN.md) · [Ginger Quick Start](https://github.com/Moeewe/LARGER.slicer/blob/main/EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20GINGER%20-%20ONE%20-%20README/README%20GINGER%2000%20QUICK%20START%20GUIDE.md)
+## More guides
 
----
-
-## English
-
-This folder contains everything needed to run **`LARGERslicer Weber Robot and Ginger.gh`** on a new computer.
-
-1. Install Rhino **8** (recommended; Rhino 7 is set up too but not tested with this definition) and close Rhino.
-2. Run the installer: **macOS** `Install Mac.command` (first time: right-click → *Open*), **Windows** `Install Windows.bat`.
-3. Start Rhino (millimeters), open Grasshopper and open `LARGERslicer Weber Robot and Ginger.gh` from this folder.
-
-The installer installs the latest compatible **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager and copies the **KR120_R2700_2** robot library to the folder the Robots plugin reads. It can be run again at any time: current plugins are kept, older ones updated, newer ones kept, old manual `.gha` copies can be moved to a backup, and a differing library file is backed up before it is replaced.
-
-If the robot system shows as *missing*, run the installer again, or click **Libraries** on the *Load Robot System* component and download the online library **FH Muenster MSA**.
+- [Weber DXR25 – Commissioning and Operating Manual](https://github.com/Moeewe/LARGER.slicer/blob/main/EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md)
+- [Ginger One – Quick Start](https://github.com/Moeewe/LARGER.slicer/blob/main/EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20GINGER%20-%20ONE%20-%20README/README%20GINGER%2000%20QUICK%20START%20GUIDE.md)
+- [LARGER.slicer on GitHub](https://github.com/Moeewe/LARGER.slicer)

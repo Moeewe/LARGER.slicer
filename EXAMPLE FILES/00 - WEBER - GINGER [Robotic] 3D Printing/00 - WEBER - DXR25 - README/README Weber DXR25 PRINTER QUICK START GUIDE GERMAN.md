@@ -315,13 +315,13 @@ Dieser Teil wird benötigt, wenn Druckdateien selbst mit Rhino/Grasshopper erste
 
 **Einrichtung mit dem SETUP-Ordner (empfohlen):**
 1. Rhino 8 installieren (empfohlen) und Rhino schließen.
-2. Im Ordner [`SETUP`](<../../../SETUP/README.md>) des Repositories den Installer starten:
+2. Im Ordner [`SETUP`](<../../../SETUP/README.de.md>) des Repositories den Installer starten:
    - macOS: Doppelklick auf `Install Mac.command` (beim ersten Mal: Rechtsklick → *Öffnen*)
    - Windows: Doppelklick auf `Install Windows.bat`
 3. Der Installer installiert **Robots**, **LARGERslicer** und **Pufferfish** über den Rhino Package Manager und kopiert die Roboterbibliothek **KUKA KR120** (`KR120_R2700_2`) in den Ordner, den das Robots-Plugin liest. Er kann jederzeit erneut ausgeführt werden und aktualisiert dann nur, was veraltet ist.
 4. Rhino starten und die [Grasshopper-Definition](<../../../SETUP/LARGERslicer Weber Robot and Ginger.gh>) aus dem `SETUP`-Ordner öffnen.
 
-Details und Fehlerbehebung: [SETUP-Anleitung](<../../../SETUP/README.md>).
+Details und Fehlerbehebung: [SETUP-Anleitung](<../../../SETUP/README.de.md>).
 
 #### Falls der Roboter trotzdem fehlt (KUKA KR120)
 
