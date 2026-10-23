@@ -93,6 +93,8 @@ The [`SETUP/`](SETUP/) folder installs everything needed for the Weber/Ginger sc
    - **Windows**: double-click `SETUP/Install Windows.bat`
 3. Start Rhino and open the `.gh` file
 
+The installer can be run again at any time: up-to-date plugins are left alone, older ones are updated, newer ones (e.g. beta builds) are kept. Old manually copied `.gha` files in the Grasshopper Libraries folder are detected and can be moved to a backup folder, and an existing robot library file that differs is saved as `*.bak-<date>` before it is replaced.
+
 To pin a plugin version for Rhino 8, write it after the package name in the `PACKAGES` list at the top of the script (e.g. `"Robots 2.4.4"`).
 
 **Rhino 7 note**: Rhino 7 gets Robots 1.9.0 (Robots 2.x is Rhino 8 only) and the latest LARGERslicer published for Rhino 7. The Weber/Ginger script contains a *Python 3 Script* component, which only exists in Rhino 8.
