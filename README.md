@@ -23,7 +23,7 @@ Further Contributors: Fabio Koczula, Claudio Schröder
 
 ## Latest Updates
 
-### 1.1.12
+### 1.1.13
 
 See the [plugin changelog](LARGERslicer/CHANGELOG.md) for release-specific changes.
 
@@ -258,7 +258,7 @@ LARGER.slicer/
 - **Utilities**: File operations, timestamps, spatial indexing, and more
 - Automatic header calculation (runtime, layers, extrusion totals)
 - Sequential line numbering and proper DXR file formatting
-- Current plugin release: 1.1.12
+- Current plugin release: 1.1.13
 
 **Machine Control Systems:**
 - **Ginger One**: Large-format pellet extruder with material database
