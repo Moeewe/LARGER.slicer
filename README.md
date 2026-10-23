@@ -85,15 +85,17 @@ For UR5 workflows, use the dedicated `UR5slicer.gh` script.
 
 ### Automatic Setup (recommended)
 
-The [`Setup/`](Setup/) folder installs everything needed for the Weber/Ginger script in one step: the latest **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager, plus the **KR120_R2700_2** robot system (copied to `Documents/Robots`, where the Robots plugin looks for it).
+The [`SETUP/`](SETUP/) folder installs everything needed for the Weber/Ginger script in one step, for Rhino 8 and Rhino 7 (whichever is installed): the latest compatible **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager, plus the **KR120_R2700_2** robot system (copied to the folder the Robots plugin reads: `Documents/Robots`, on macOS with Rhino 7 `~/Robots`).
 
 1. Close Rhino
 2. Run the installer:
-   - **macOS**: double-click `Setup/Install Mac.command` (first time: right-click → Open, because macOS blocks downloaded scripts)
-   - **Windows**: double-click `Setup/Install Windows.bat`
-3. Start Rhino 8 and open the `.gh` file
+   - **macOS**: double-click `SETUP/Install Mac.command` (first time: right-click → Open, because macOS blocks downloaded scripts)
+   - **Windows**: double-click `SETUP/Install Windows.bat`
+3. Start Rhino and open the `.gh` file
 
-To pin a plugin version, write it after the package name in the `PACKAGES` list at the top of the script (e.g. `"Robots 2.4.4"`).
+To pin a plugin version for Rhino 8, write it after the package name in the `PACKAGES` list at the top of the script (e.g. `"Robots 2.4.4"`).
+
+**Rhino 7 note**: Rhino 7 gets Robots 1.9.0 (Robots 2.x is Rhino 8 only) and the latest LARGERslicer published for Rhino 7. The Weber/Ginger script contains a *Python 3 Script* component, which only exists in Rhino 8.
 
 ### Installation Steps
 
