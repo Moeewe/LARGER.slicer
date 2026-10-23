@@ -33,7 +33,7 @@ The [documentation index](LARGERslicer/documentations/README.md) groups machine 
 
 - **New to the project?** Continue to [Quick Start](#quick-start) and [Usage Guide](#usage-guide).
 - **Operating a machine?** Start with the [machine-specific guides](LARGERslicer/documentations/README.md#machine-guides).
-- **Troubleshooting the DXR25/KUKA?** Start with the [German operator troubleshooting overview](<EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen>); an [English KUKA guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) is also available.
+- **Troubleshooting the DXR25/KUKA?** Start with the [German operator troubleshooting overview](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen>); an [English KUKA guide](LARGERslicer/documentations/KUKA_ROBOT_TROUBLESHOOTING.md) is also available.
 
 ## Supported Machines
 
@@ -41,11 +41,9 @@ The LARGER Slicer ecosystem supports multiple large-format additive manufacturin
 
 | Platform | Status | Control Script | Documentation |
 |----------|--------|----------------|---------------|
-| **Ginger One Printer** | Production Ready | `LARGERslicer Weber Robot and Ginger.gh` | [Ginger Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20GINGER%20-%20ONE%20-%20README/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
+| **Ginger One Printer** | Production Ready | `LARGERslicer Weber Robot and Ginger.gh` | [Ginger Quick Start Guide](EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20GINGER%20-%20ONE%20-%20README/README%20GINGER%2000%20QUICK%20START%20GUIDE.md) |
 | **Universal Robots UR5** | Production Ready | `UR5slicer.gh` | [UR5 Quick Start Guide](EXAMPLE%20FILES/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/README%20UR5%2000%20QUICK%20START%20GUIDE.md) |
-| **Weber DXR25 Robot** | Multi-Axial Ready | `LARGERslicer Weber Robot and Ginger.gh` | [Weber DXR25 German Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20GERMAN.md) \| [English Guide](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) |
-
-Folder naming note: In this README, `00 - WEBER : GINGER` is labeled as **00 - WEBER : GINGER [Robotic] 3D Printing** for clarity.
+| **Weber DXR25 Robot** | Multi-Axial Ready | `LARGERslicer Weber Robot and Ginger.gh` | [Weber DXR25 German Guide](EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20GERMAN.md) \| [English Guide](EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20ENGLISH.md) |
 
 ### Recommended Workflow
 
@@ -228,7 +226,7 @@ LARGER.slicer/
    ├── 00 - UNIVERSAL ROBOTS - UR5/
    │   ├── README UR5 00 QUICK START GUIDE.md
    │   └── UR5slicer.gh
-   ├── 00 - WEBER : GINGER [Robotic] 3D Printing/
+   ├── 00 - WEBER - GINGER [Robotic] 3D Printing/
    │   ├── LARGERslicer Multiaxial Weber Robot.gh (legacy / archived, no longer primary)
    │   ├── 00 - GINGER - ONE - README/
    │   └── 00 - WEBER - DXR25 - README/

@@ -41,7 +41,7 @@ Eine Internetverbindung ist nötig, weil die Plugins vom Rhino Package Manager g
 | Komponenten fehlen oder sind doppelt | Installer erneut ausführen und alte manuelle Kopien verschieben lassen, danach Rhino neu starten |
 | Rhino lief während der Installation | Rhino neu starten – Plugins werden erst beim Start geladen |
 
-Weitere Hinweise zur Maschine: [Weber DXR25 Anleitung (Deutsch)](<../EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) · [Ginger Quick Start](<../EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>)
+Weitere Hinweise zur Maschine: [Weber DXR25 Anleitung (Deutsch)](<../EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) · [Ginger Quick Start](<../EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>)
 
 ---
 

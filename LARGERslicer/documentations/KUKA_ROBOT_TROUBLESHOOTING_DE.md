@@ -2,7 +2,7 @@
 
 Wiederherstellungsabläufe für den Weber DXR25 mit KUKA KRC5 / Smartpad.
 
-[Zur Roboter-Bedienanleitung: Einschalten, Datei laden und drucken](<../../EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md#einstieg-vom-einschalten-zum-druck>).
+[Zur Roboter-Bedienanleitung: Einschalten, Datei laden und drucken](<../../EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md#einstieg-vom-einschalten-zum-druck>).
 
 > Bedienelemente und Steuerungsmeldungen sind in der Sprache wiedergegeben, in der sie an der Anlage erscheinen. Wo hilfreich, steht die Übersetzung dabei.
 
@@ -10,7 +10,7 @@ Englische Version: [KUKA Robot Troubleshooting Guide](KUKA_ROBOT_TROUBLESHOOTING
 
 ## Passendes Fehlerbild auswählen
 
-„Keine Bewegung“ allein ist keine eindeutige Fehlerursache. Zuerst Meldungen, Sicherheitsfreigabe und Betriebsart prüfen; die [Fehlersuche in der Bedienanleitung](<../../EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen>) hilft bei der Zuordnung. Danach den passenden Ablauf vollständig lesen.
+„Keine Bewegung“ allein ist keine eindeutige Fehlerursache. Zuerst Meldungen, Sicherheitsfreigabe und Betriebsart prüfen; die [Fehlersuche in der Bedienanleitung](<../../EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md#roboter-bewegt-sich-nicht-status-und-startfreigabe-prüfen>) hilft bei der Zuordnung. Danach den passenden Ablauf vollständig lesen.
 
 - [Roboter reagiert nicht / Referenzfahrt beginnt nicht](#problem-roboter-reagiert-nicht--start--referenz--oder-justagefahrt-wird-nicht-ausgeführt)
 - [Bremstest / Startbewegung beginnt nicht](#problem-roboter-führt-bremstest--startbewegung-nach-dem-start-nicht-aus)

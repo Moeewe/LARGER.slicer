@@ -15,8 +15,8 @@ Use this page to find the guide that matches your task. The repository [README](
 
 | Machine | Guide |
 |---|---|
-| Weber DXR25 | [Deutsch: Inbetriebnahme und Bedienanleitung](<../../EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) · [English: Commissioning and Operating Manual](<../../EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) |
-| Ginger One | [Quick Start Guide](<../../EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
+| Weber DXR25 | [Deutsch: Inbetriebnahme und Bedienanleitung](<../../EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) · [English: Commissioning and Operating Manual](<../../EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) |
+| Ginger One | [Quick Start Guide](<../../EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
 | Universal Robots UR5 | [Quick Start Guide](<../../EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/README UR5 00 QUICK START GUIDE.md>) |
 | Zünd G3 L-2500 | [CNC Milling Quick Start Guide](<../../EXAMPLE FILES/00 - ZUENDT - 3D CNC MILLING/README Zünd G3 L-2500 CNC MILLING QUICK START GUIDE.md>) |
 
