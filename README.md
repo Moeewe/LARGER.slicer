@@ -70,7 +70,7 @@ For UR5 workflows, use the dedicated `UR5slicer.gh` script.
 
 ### Get Started in 3 Steps
 
-1. **Download**: Download this repository (or at least the [`SETUP/`](SETUP/) folder).
+1. **Download**: [LARGERslicer-SETUP.zip](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip) (only the [`SETUP/`](SETUP/) folder, always the latest release) and unzip it.
 2. **Install**: Close Rhino and run the installer in [`SETUP/`](SETUP/) (`Install Mac.command` or `Install Windows.bat`) – it installs the plugins and the KUKA KR120 robot library ([details](SETUP/README.md)).
 3. **Open**: Launch Rhino (set to mm), open Grasshopper and open [LARGERslicer Weber Robot and Ginger.gh](SETUP/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) from the `SETUP/` folder, then follow the [Usage Guide](#usage-guide) below
 
