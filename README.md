@@ -6,7 +6,19 @@ A complete ecosystem for large-format additive manufacturing, featuring the LARG
 *Originally inspired by Ginger.Additive; now fully reimplemented with expanded machine support.*
 
 Further Contributors: Fabio Koczula, Claudio Schröder
- 
+
+## ⬇️ Download for students (Weber DXR25 / Ginger)
+
+[![Download LARGERslicer SETUP](https://img.shields.io/badge/Download-LARGERslicer--SETUP.zip-2c6aa6?style=for-the-badge&logo=github)](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip)
+
+**[LARGERslicer-SETUP.zip](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip)** contains everything you need: the Grasshopper definition, the installer and the KUKA KR120 robot library.
+
+1. Install Rhino 8, close Rhino, download the ZIP and unzip it.
+2. Run the installer in the `SETUP` folder – **Mac:** right-click `Install Mac.command` → *Open* · **Windows:** double-click `Install Windows.bat`
+3. Start Rhino (millimeters) and open `LARGERslicer Weber Robot and Ginger.gh` from the `SETUP` folder.
+
+Help and troubleshooting: [SETUP guide (DE/EN)](SETUP/README.md)
+
 
 ## Table of Contents
 
