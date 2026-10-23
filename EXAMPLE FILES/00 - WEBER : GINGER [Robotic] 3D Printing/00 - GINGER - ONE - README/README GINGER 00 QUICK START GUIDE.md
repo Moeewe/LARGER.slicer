@@ -48,7 +48,7 @@ Use it as both a step-by-step guide and a quick reference during your print runs
 
 Inspired by Ginger.Additive.
 
-The merged file `LARGERslicer Weber Robot and Ginger.gh` now includes three ways to prepare a part for a Ginger 3D printer or a Weber DXR 3D printing robot:
+The merged file [`LARGERslicer Weber Robot and Ginger.gh`](<../../../SETUP/LARGERslicer Weber Robot and Ginger.gh>) (in the `SETUP` folder) now includes three ways to prepare a part for a Ginger 3D printer or a Weber DXR 3D printing robot:
 
 1. **Easy Slicer**  
    Slices surfaces and creates the toolpath automatically.
@@ -61,7 +61,7 @@ The merged file `LARGERslicer Weber Robot and Ginger.gh` now includes three ways
 ### General Additional Instructions (Grasshopper Workflow)
 
 1. Open the merged script and duplicate the workflow section you need into a new Grasshopper file.
-2. Verify that the robot software and the LARGERslicer plugin are installed.
+2. Make sure the plugins and the robot library are installed: run the installer in the [`SETUP`](<../../../SETUP/README.md>) folder once per computer (it can be run again at any time).
 3. Select the correct machine and set machine/print parameters.
 4. Connect your geometry and validate accepted input types (for example, surfaces where required).
 5. Prepare and slice, then export via the corresponding save/export button.

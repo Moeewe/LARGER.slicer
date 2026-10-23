@@ -65,15 +65,16 @@ For UR5 workflows, use the dedicated `UR5slicer.gh` script.
 
 - **Operating System**: Windows 11+ or macOS 11 Big Sur+
 - **Software**: Rhino 8+ with Grasshopper and Python 3
-- **Required Grasshopper Plugins**:
-  - LARGERslicer (install from `LARGERslicer/Plugin Installation Files/` or via PackageManager)
-  - Pufferfish (included in Rhino 8+)
+- **Required Grasshopper Plugins** (installed automatically by [`SETUP/`](SETUP/)):
+  - LARGERslicer (Rhino Package Manager)
+  - Robots, with the KUKA KR120 robot library `KR120_R2700_2`
+  - Pufferfish
 
 ### Get Started in 3 Steps
 
-1. **Download**: Get [LARGERslicer Weber Robot and Ginger.gh](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) from this repository.
-2. **Open**: Launch Rhino (set to mm), open Grasshopper, drag and drop the .gh file
-3. **Start**: Follow the [Usage Guide](#usage-guide) below
+1. **Download**: Download this repository (or at least the [`SETUP/`](SETUP/) folder).
+2. **Install**: Close Rhino and run the installer in [`SETUP/`](SETUP/) (`Install Mac.command` or `Install Windows.bat`) – it installs the plugins and the KUKA KR120 robot library ([details](SETUP/README.md)).
+3. **Open**: Launch Rhino (set to mm), open Grasshopper and open [LARGERslicer Weber Robot and Ginger.gh](SETUP/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) from the `SETUP/` folder, then follow the [Usage Guide](#usage-guide) below
 
 ## Installation
 
@@ -97,7 +98,7 @@ The installer can be run again at any time: up-to-date plugins are left alone, o
 
 To pin a plugin version for Rhino 8, write it after the package name in the `PACKAGES` list at the top of the script (e.g. `"Robots 2.4.4"`).
 
-**Rhino 7 note**: Rhino 7 gets Robots 1.9.0 (Robots 2.x is Rhino 8 only) and the latest LARGERslicer published for Rhino 7. The Weber/Ginger script contains a *Python 3 Script* component, which only exists in Rhino 8.
+**Rhino 7 note**: Rhino 7 gets Robots 1.9.0 (Robots 2.x is Rhino 8 only) and the latest LARGERslicer published for Rhino 7. The Weber/Ginger script no longer contains script components (the variable-width step is the native `DXR Variable Width` component since LARGERslicer 1.1.13), but it is only tested in Rhino 8.
 
 ### Installation Steps
 
@@ -131,7 +132,7 @@ To pin a plugin version for Rhino 8, write it after the package name in the `PAC
    **Note**: The Package Manager version enables automatic updates, so you'll always have the latest features and bug fixes without manual file management.
 
 2. **Download or clone the `.gh` files** from this repository:
-   - [LARGERslicer Weber Robot and Ginger.gh](EXAMPLE%20FILES/00%20-%20WEBER%20%3A%20GINGER%20%5BRobotic%5D%203D%20Printing/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) — Merged starter file with Easy Slicer, Path Creator, and Custom Path workflows
+   - [LARGERslicer Weber Robot and Ginger.gh](SETUP/LARGERslicer%20Weber%20Robot%20and%20Ginger.gh) — Merged starter file with Easy Slicer, Path Creator, and Custom Path workflows
    - [UR5slicer.gh](EXAMPLE%20FILES/00%20-%20UNIVERSAL%20ROBOTS%20-%20UR5/UR5slicer.gh) — Dedicated UR5 robotic workflow
 
 3. **Open Rhino** and create a new file in **millimeter** measurement units
@@ -205,6 +206,11 @@ The LARGER Slicer is organized into two main stages:
 LARGER.slicer/
 ├── LICENSE                                           # Licensed under [CC BY-NC 4.0]
 ├── README.md                                         # This documentation
+├── SETUP/                                            # Start here: installer + Weber/Ginger definition
+│   ├── LARGERslicer Weber Robot and Ginger.gh        # Merged starter definition
+│   ├── Install Mac.command / Install Windows.bat     # Installs plugins + robot library
+│   ├── RobotLibrary/                                 # KUKA KR120 (FH Muenster MSA) for the Robots plugin
+│   └── README.md                                     # Setup guide (German / English)
 ├── LARGERslicer/                                     # Grasshopper plugin source code
 │   ├── README.md                                     # Plugin documentation
 │   ├── LARGERslicer.csproj                           # .NET project file
@@ -223,7 +229,6 @@ LARGER.slicer/
    │   ├── README UR5 00 QUICK START GUIDE.md
    │   └── UR5slicer.gh
    ├── 00 - WEBER : GINGER [Robotic] 3D Printing/
-   │   ├── LARGERslicer Weber Robot and Ginger.gh
    │   ├── LARGERslicer Multiaxial Weber Robot.gh (legacy / archived, no longer primary)
    │   ├── 00 - GINGER - ONE - README/
    │   └── 00 - WEBER - DXR25 - README/
@@ -235,7 +240,7 @@ LARGER.slicer/
 ### Key Components
 
 - **Grasshopper Plugin**: `LARGERslicer.gha` — Custom Grasshopper components for DXR generation, CNC toolpaths, and utilities (see `LARGERslicer/` directory)
-- **Primary Slicer**: `LARGERslicer Weber Robot and Ginger.gh` — Merged starter script with Easy Slicer, Path Creator (multiaxial), and Custom Path conversion workflows (repo path: `EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/`, labeled here as **00 - WEBER : GINGER [Robotic] 3D Printing**)
+- **Primary Slicer**: `LARGERslicer Weber Robot and Ginger.gh` — Merged starter script with Easy Slicer, Path Creator (multiaxial), and Custom Path conversion workflows (repo path: `SETUP/`, together with the installer and the robot library)
 - **Machine Documentation**: Complete setup and operation guides for each platform (German & English) under `EXAMPLE FILES/`
 - **UR5 Dedicated Script**: `UR5slicer.gh` — Specialized control for Universal Robots UR5 (`EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/`)
 - **Development Area**: WIP folder contains experimental features and new developments

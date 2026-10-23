@@ -197,7 +197,9 @@ if (-not (Copy-Library $lib)) { $err = $true }
 
 Write-Host ""
 if (-not $err) {
-  Write-Host "Fertig! Rhino starten und `"$gh`" oeffnen."
+  Write-Host "Fertig! Rhino starten und `"$gh`" aus diesem SETUP-Ordner oeffnen."
+  $ghPath = Join-Path $here $gh
+  if (Test-Path $ghPath) { Start-Process explorer.exe "/select,`"$ghPath`"" }
   Write-Host "Robot System: KR120_R2700_2"
 } else {
   Write-Host "Es gab Fehler (siehe oben). Internetverbindung pruefen und erneut ausfuehren."

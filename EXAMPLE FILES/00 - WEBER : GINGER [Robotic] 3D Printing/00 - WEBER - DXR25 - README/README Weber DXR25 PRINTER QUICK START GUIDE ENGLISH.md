@@ -233,7 +233,7 @@ Build plate:
 5. Copy DXR files from the post‑processor into the G‑code folder.
 
 Notes on file conversion (DXR):
-- The machine processes DXR files, not G-code directly. Use the current [LARGERslicer Weber Robot and Ginger.gh definition](<../LARGERslicer Weber Robot and Ginger.gh>) with the robot plugin. It includes Easy Slicer, Path Creator (Multiaxial), and Custom Paths; the archived multiaxial definition is not required.
+- The machine processes DXR files, not G-code directly. Use the current [LARGERslicer Weber Robot and Ginger.gh definition](<../../../SETUP/LARGERslicer Weber Robot and Ginger.gh>) with the robot plugin. It includes Easy Slicer, Path Creator (Multiaxial), and Custom Paths; the archived multiaxial definition is not required.
 - Alternative at the control cabinet: use the Weber converter (taskbar icon → black window). Drag and drop G‑code into the window, press Enter. The generated .dxr must then be copied into the G‑code folder, otherwise it will not appear in the Weber software.
 
 Remote access:
@@ -252,40 +252,24 @@ Important HMI/file-handling notes:
    3. Enter connection credentials/password.
    4. Transfer files within the available short session window (typically about 5 minutes).
 
-Requirements for the Rhino/Grasshopper workflow:
- - Rhino 8 or newer with robot plugin installed. Note: Runs only on Rhino 8+ due to Python‑2 scripts.
- - **Install the plugin (two options):**
-   
-   **Option 1: Rhino Package Manager (recommended)**
-   1. In Rhino, run the command `PackageManager`
-   2. Search for "LARGERslicer"
-   3. Click "Install"
-   4. Restart Rhino/Grasshopper
-   
-   **Option 2: Manual Installation**
-   - Copy the following files into the Grasshopper Components folder, then restart Rhino/Grasshopper:
-     - LargerSlicer.gha
-     - Newtonsoft.Json.dll
-     - Optional: LargerSlicer.pdb (debug symbols)
+**Setup with the SETUP folder (recommended):**
+1. Install Rhino 8 (recommended) and close Rhino.
+2. Run the installer in the repository's [`SETUP`](<../../../SETUP/README.md>) folder:
+   - macOS: double-click `Install Mac.command` (first time: right-click → *Open*)
+   - Windows: double-click `Install Windows.bat`
+3. The installer installs **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager and copies the **KUKA KR120** robot library (`KR120_R2700_2`) to the folder the Robots plugin reads. It can be run again at any time and then only updates what is outdated.
+4. Start Rhino and open the [Grasshopper definition](<../../../SETUP/LARGERslicer Weber Robot and Ginger.gh>) from the `SETUP` folder.
 
- - Download and open the [current Grasshopper definition](<../LARGERslicer Weber Robot and Ginger.gh>). It requires the plugin (GHA + DLL) installed to run.
+Details and troubleshooting: [SETUP guide](<../../../SETUP/README.md>).
 
-### ⚠️ First-Time Setup: Robot Library Installation (KUKA KR120)
+### ⚠️ If the robot is still missing (KUKA KR120)
 
-**Important:** When you open the Weber Grasshopper script for the first time, **no robot will be displayed**. This is because the KUKA KR120 robot library from FH Münster MSA needs to be installed in the Robots plugin.
+If the *Load Robot System* component shows **KR120_R2700_2 missing** (component is red), run the installer again. Alternatively, load the library directly in the Robots plugin:
+1. Click **Libraries** on the *Load Robot System* component
+2. Download the online library **FH Muenster MSA**
+3. Save, close and reopen the Grasshopper file – the component turns green and the KUKA KR120 appears in the simulation
 
-**The Robot component will appear red/broken** – this makes it easy to find!
-
-**Steps to install the KUKA KR120 robot:**
-1. Locate the **red Robot component** in your Grasshopper canvas (it's broken/red because the library is missing)
-2. **Double-click** the **Libraries** button on the Robot component
-3. In the library browser window, navigate to the **FH Münster MSA** tab
-4. **Download and install** the **KUKA KR120** robot library
-5. **Save** your Grasshopper definition
-6. **Close** and **reopen** the Grasshopper file
-7. The KUKA KR120 robot should now be visible in the simulation and the component will turn green
-
-> **Note:** The robot library only needs to be installed once per Rhino installation. After the first setup, the KUKA KR120 will be available for all future Weber DXR25 projects.
+> **Note:** The setup is only needed once per computer.
 
 **Additional setup steps:**
  - Set safety fences/collision objects correctly in the scripts.

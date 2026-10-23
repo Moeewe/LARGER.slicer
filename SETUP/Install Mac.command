@@ -20,7 +20,7 @@ PACKAGES=(
 
 cd "$(dirname "$0")" || exit 1
 HERE="$(pwd)"
-GH="$HERE/../EXAMPLE FILES/00 - WEBER : GINGER [Robotic] 3D Printing/LARGERslicer Weber Robot and Ginger.gh"
+GH="$HERE/LARGERslicer Weber Robot and Ginger.gh"
 PKGROOT="$HOME/Library/Application Support/McNeel/Rhinoceros/packages"
 MCNEEL="$HOME/Library/Application Support/McNeel/Rhinoceros"
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -216,7 +216,8 @@ if [ -n "$HAS7" ]; then copy_library "$HOME/Robots" || ERR=1; fi
 
 echo
 if [ $ERR -eq 0 ]; then
-  echo "Fertig! Rhino starten und \"$(basename "$GH")\" öffnen."
+  echo "Fertig! Rhino starten und \"$(basename "$GH")\" aus diesem SETUP-Ordner öffnen."
+  [ -f "$GH" ] && open -R "$GH" 2>/dev/null
   echo "Robot System: KR120_R2700_2"
 else
   echo "Es gab Fehler (siehe oben). Internetverbindung prüfen und erneut ausführen."

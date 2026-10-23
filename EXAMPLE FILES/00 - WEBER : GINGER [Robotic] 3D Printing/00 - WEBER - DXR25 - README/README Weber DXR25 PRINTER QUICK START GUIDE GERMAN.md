@@ -285,7 +285,7 @@ Zusatz (Herstellerangabe):
 **Kontrolle:** Die gewünschte Datei erscheint in der Weber-Software und lässt sich zur Vorbereitung des Druckauftrags laden. Fehlt sie oder bleibt der Ladevorgang hängen, zunächst [Datei und NC-Verbindung prüfen](#datei-lädt-nicht-oder-nc-verbindung-fehlt), nicht wiederholt den Druck starten.
 
 ### 10.2 G-Code bei Bedarf in DXR konvertieren
-- Die Maschine verarbeitet DXR-Dateien, nicht direkt G‑Code. Für die Umwandlung die aktuelle [Grasshopper-Definition LARGERslicer Weber Robot and Ginger.gh](<../LARGERslicer Weber Robot and Ginger.gh>) mit Roboter-Plugin verwenden. Sie enthält die Arbeitsabläufe Easy Slicer, Path Creator (Multiaxial) und Custom Paths; die archivierte Multiaxial-Datei ist dafür nicht erforderlich.
+- Die Maschine verarbeitet DXR-Dateien, nicht direkt G‑Code. Für die Umwandlung die aktuelle [Grasshopper-Definition LARGERslicer Weber Robot and Ginger.gh](<../../../SETUP/LARGERslicer Weber Robot and Ginger.gh>) mit Roboter-Plugin verwenden. Sie enthält die Arbeitsabläufe Easy Slicer, Path Creator (Multiaxial) und Custom Paths; die archivierte Multiaxial-Datei ist dafür nicht erforderlich.
 - Alternative am Schaltschrank: Weber‑Konverter nutzen (Taskleisten‑Icon → schwarzes Fenster). G‑Code per Drag‑and‑Drop ins Fenster ziehen, Enter drücken. Das erzeugte .dxr muss anschließend in den G‑Code‑Ordner kopiert werden, sonst wird es in der Weber‑Software nicht angezeigt.
 
 ### 10.3 Übertragung und Ladeprobleme
@@ -313,40 +313,24 @@ Dieser Teil wird benötigt, wenn Druckdateien selbst mit Rhino/Grasshopper erste
 <details>
 <summary>Rhino/Grasshopper, Plugin und KUKA-Roboterbibliothek einrichten</summary>
 
-Voraussetzungen für den Rhino-/Grasshopper‑Arbeitsablauf:
- - Rhino 8 oder höher mit Robot‑Plugin installiert. Achtung: Läuft nur auf Rhino 8+ wegen Python‑2‑Skripten.
- - **Plugin installieren (zwei Möglichkeiten):**
-   
-   **Option 1: Rhino Package Manager (empfohlen)**
-   1. In Rhino den Befehl `PackageManager` ausführen
-   2. Nach "LARGERslicer" suchen
-   3. Auf "Install" klicken
-   4. Rhino/Grasshopper neu starten
-   
-   **Option 2: Manuelle Installation**
-   - Folgende Dateien in den Grasshopper‑Komponenten‑Ordner kopieren und Rhino/Grasshopper neu starten:
-     - LargerSlicer.gha
-     - Newtonsoft.Json.dll
-     - Optional: LargerSlicer.pdb (Debug‑Symbole)
+**Einrichtung mit dem SETUP-Ordner (empfohlen):**
+1. Rhino 8 installieren (empfohlen) und Rhino schließen.
+2. Im Ordner [`SETUP`](<../../../SETUP/README.md>) des Repositories den Installer starten:
+   - macOS: Doppelklick auf `Install Mac.command` (beim ersten Mal: Rechtsklick → *Öffnen*)
+   - Windows: Doppelklick auf `Install Windows.bat`
+3. Der Installer installiert **Robots**, **LARGERslicer** und **Pufferfish** über den Rhino Package Manager und kopiert die Roboterbibliothek **KUKA KR120** (`KR120_R2700_2`) in den Ordner, den das Robots-Plugin liest. Er kann jederzeit erneut ausgeführt werden und aktualisiert dann nur, was veraltet ist.
+4. Rhino starten und die [Grasshopper-Definition](<../../../SETUP/LARGERslicer Weber Robot and Ginger.gh>) aus dem `SETUP`-Ordner öffnen.
 
- - Die aktuelle [Grasshopper-Definition](<../LARGERslicer Weber Robot and Ginger.gh>) herunterladen und öffnen. Wichtig: Sie benötigt das Plugin (GHA + DLL), sonst läuft sie nicht.
+Details und Fehlerbehebung: [SETUP-Anleitung](<../../../SETUP/README.md>).
 
-#### Roboterbibliothek installieren (KUKA KR120)
+#### Falls der Roboter trotzdem fehlt (KUKA KR120)
 
-**Wichtig:** Wenn Sie das Weber Grasshopper-Skript zum ersten Mal öffnen, **wird kein Roboter angezeigt**. Das liegt daran, dass die KUKA KR120 Roboter-Bibliothek von der FH Münster MSA im Robots Plugin installiert werden muss.
+Wird in der *Load Robot System*-Komponente **KR120_R2700_2 missing** angezeigt (Komponente rot), den Installer erneut ausführen. Alternativ die Bibliothek direkt im Robots-Plugin laden:
+1. In der *Load Robot System*-Komponente auf **Libraries** klicken
+2. Die Online-Bibliothek **FH Muenster MSA** herunterladen
+3. Grasshopper-Datei speichern, schließen und erneut öffnen – die Komponente wird grün und der KUKA KR120 erscheint in der Simulation
 
-**Die Robot-Komponente erscheint rot/kaputt** – so ist sie leicht zu finden!
-
-**Schritte zur Installation des KUKA KR120:**
-1. Lokalisieren Sie die **rote Robot-Komponente** in Ihrer Grasshopper-Arbeitsfläche (sie ist rot/kaputt, weil die Bibliothek fehlt)
-2. **Doppelklicken** Sie auf den **Libraries** Button der Robot-Komponente
-3. Im Library-Browser-Fenster navigieren Sie zum **FH Münster MSA** Tab
-4. **Laden Sie den KUKA KR120** herunter und installieren Sie die Roboter-Bibliothek
-5. **Speichern** Sie Ihre Grasshopper-Definition
-6. **Schließen** und **öffnen** Sie die Grasshopper-Datei erneut
-7. Der KUKA KR120 Roboter sollte nun in der Simulation sichtbar sein und die Komponente wird grün
-
-> **Hinweis:** Die Roboter-Bibliothek muss nur einmal pro Rhino-Installation installiert werden. Nach der ersten Einrichtung ist der KUKA KR120 für alle zukünftigen Weber DXR25 Projekte verfügbar.
+> **Hinweis:** Die Einrichtung ist nur einmal pro Rechner nötig.
 
 **Weitere Einrichtungsschritte:**
  - In den Skripten Sicherheitszäune/Kollisionsobjekte korrekt setzen.
