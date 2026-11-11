@@ -1,17 +1,17 @@
 <div align="center">
 
-<img alt="LARGER.slicer logo" src="LARGERslicer/icon.png" width="128" height="128">
+<a href="https://parametricsolutions.de/larger-slicer/"><img alt="LARGER.slicer: one continuous line for large-format 3D printing" src="docs/social-preview.png" width="100%"></a>
 
 # LARGER.slicer
 
-**Large-format 3D printing and CNC toolpaths in Rhino / Grasshopper**<br>
-Slicer, robot code (DXR / KUKA) and machine guides for Weber DXR25, Ginger One, UR5 and Zünd – in one package.
+**Model in. One line. Print.**<br>
+The slicer for large-format 3D printing with robots and pellet extruders, in Rhino and Grasshopper.
 
-[![Latest release](https://img.shields.io/github/v/release/Moeewe/LARGER.slicer?label=release&color=2c6aa6)](https://github.com/Moeewe/LARGER.slicer/releases/latest) [![Rhino](https://img.shields.io/badge/Rhino-9%20%7C%208%20%7C%207-2c6aa6)](https://www.rhino3d.com/) [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2c6aa6)](#quick-start) [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
+[![Latest release](https://img.shields.io/github/v/release/Moeewe/LARGER.slicer?label=release&color=0a84ff)](https://github.com/Moeewe/LARGER.slicer/releases/latest) [![Rhino](https://img.shields.io/badge/Rhino-9%20%7C%208%20%7C%207-14203a)](https://www.rhino3d.com/) [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-14203a)](#quick-start) [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 
-<a href="https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip"><img alt="Download LARGERslicer-SETUP.zip" src="https://img.shields.io/badge/Download-LARGERslicer--SETUP.zip-2c6aa6?style=for-the-badge&logo=rhinoceros&logoColor=white"></a>
+<a href="https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip"><img alt="Download LARGERslicer-SETUP.zip" src="https://img.shields.io/badge/Download-LARGERslicer--SETUP.zip-0a84ff?style=for-the-badge&logo=rhinoceros&logoColor=white"></a>
 
-[Release notes](https://github.com/Moeewe/LARGER.slicer/releases/latest) · [Documentation](LARGERslicer/documentations/README.md) · [Changelog](LARGERslicer/CHANGELOG.md)
+[Product page](https://parametricsolutions.de/larger-slicer/) · [Release notes](https://github.com/Moeewe/LARGER.slicer/releases/latest) · [Documentation](LARGERslicer/documentations/README.md) · [Changelog](LARGERslicer/CHANGELOG.md)
 
 **English** · [Deutsch](README.de.md)
 
@@ -19,14 +19,70 @@ Slicer, robot code (DXR / KUKA) and machine guides for Weber DXR25, Ginger One, 
 
 ---
 
-## Features
+## One line, from skirt to last layer
 
-- **One continuous print line** – the new *Slicer* tab turns any geometry (open or closed Breps, surfaces, SubDs, meshes) into a single toolpath: walls, bottom fill and infill (ribs, honeycomb, grid) in one move that never crosses itself, with rounded corners, a soft seam, skirt and exit move.
-- **Flat, tilted, non-planar and multi-axis layers** – slice at an angle, along a guide surface or square to a guide curve; `Path Check` tests support, crossings and bead shape before you print.
+A pellet extruder cannot stop cleanly: every travel move pulls strings and every halt leaves a blob. LARGER.slicer therefore plans the whole print as **one continuous path** and checks it before it reaches the robot.
+
+| | |
+|---|---|
+| **One line** | Walls, bottom and infill are joined into a single path. Infill is spliced into the wall, not printed beside it. |
+| **Never crosses itself** | A crossing means the nozzle ploughs through fresh material. If a pattern cannot be printed without one, the slicer picks another. |
+| **Flat layers** | Every layer lies flat. The path climbs to the next layer over a short ramp, always in the same place. |
+| **Supported** | A bead may overhang the one below by half a bead width at most. `Path Check` reports where a part exceeds that. |
+
+## Infill from one line
+
+Every drawing is a real layer from the slicer (part 300 × 190 mm, bead 5 mm). Size, stretch, angle and position are adjustable.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme-infill-dark.png">
+  <img alt="Eight infill patterns as single continuous toolpaths: ribs, meeting ribs, honeycomb, stretched honeycomb, grid, wave, truss, meander" src="docs/readme-infill-light.png" width="100%">
+</picture>
+
+**Draw your own infill:** sketch curves over the part in top view and `Infill Sketch` turns each one into a rib that follows it from wall to wall, as part of the same line.
+
+## Bottoms without stopping
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme-bottom-dark.png">
+  <img alt="Four bottom fills as single continuous toolpaths: zigzag, zigzag at 45 degrees, contour, contour around a hole" src="docs/readme-bottom-light.png" width="100%">
+</picture>
+
+## The Slicer tab
+
+Components connect in this order. `Quick Start` places the whole chain with an example part.
+
+| Step | Component | What it does |
+|---|---|---|
+| 1 | `Machine Profile` | How your printer wants its extrusion values: volume, filament length, or a factor for the controller |
+| 2 | `Print Settings` | Bead width, layer height, overlap, speed, minimum radius |
+| 3 | `Slice` | Breps, surfaces, SubDs, meshes. Flat, tilted, non-planar (guide surface) or multi-axis (guide curve) |
+| 4 | `Walls` | Bead inside, centred on or outside the geometry |
+| 5 | `Bottom Fill` | Closed bottom as one line: zigzag or contour |
+| 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` | Infill spliced into the wall path |
+| 7 | `Continuous Path` | Flat layers with a short ramp at a fixed seam, or a spiral for single walls |
+| 8 | `Round Corners` | Every corner becomes an arc |
+| 9 | `Start and End` | Skirt first, a move off the part at the end |
+| 10 | `Path Check` | Support, self-crossings, bead shape, travel moves |
+| 11 | `Extrusion and Speed` | Plane, E and F per point for the DXR Generator or G-code |
+| | `Desktop Test Print` | The same path scaled down as G-code for a desktop filament printer |
+
+## Machines
+
+| | |
+|---|---|
+| **Proven in use** | Weber Additive DXR25 (KUKA robot, DXR code) · Ginger Additive Ginger One (G-code) |
+| **Scaled test prints** | Bambu Lab, Prusa, Creality, Elegoo and other Marlin or Klipper printers, via `Desktop Test Print` |
+| **Other pellet and robot systems** | Not tested. The generic pellet profile outputs position, tool axis, E and F per point; controller format and extrusion factor have to be matched on the machine. |
+
+All brands named belong to their respective owners. LARGER.slicer is an independent project and is not affiliated with these manufacturers.
+
+## Also in the package
+
 - **One Grasshopper definition, three workflows** – *Easy Slicer* slices surfaces automatically, *Path Creator (multiaxial)* turns prepared toolpaths into robot paths, *Custom Paths* exports your own paths as robot code.
 - **Robot code for Weber DXR25 (KUKA)** – DXR Generator and G-code → DXR postprocessor with automatic header (runtime, layers, extrusion totals) and line numbering.
 - **Variable line widths** – `DXR Variable Width` scales the extrusion along X, Y or Z with a colored width preview.
-- **Preflight safety** – `DXR File Health Check` validates file name, readability and content before printing (GO / NO GO).
+- **Preflight safety** – `DXR File Health Check` validates file name, readability and content before printing, and fails any move with feed rate 0.
 - **CNC toolpaths** – zigzag (boustrophedon) toolpaths with HPGL/PLT output for the Zünd G3.
 - **One-click setup** – the installer sets up all plugins and the KUKA KR120 robot library on Windows and macOS.
 - **Machine guides** – operating and troubleshooting guides for every supported machine (German and English).
