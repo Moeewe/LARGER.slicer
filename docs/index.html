@@ -7,7 +7,7 @@
    each block. One dark band carries the key numbers. */
 :root{
   --bg:#ffffff; --band:#f1f4f7; --ink:#14203a; --muted:#5d6a7e; --faint:#97a1b0; --line:#dfe4ea;
-  --bead-wall:#e3e8ef; --bead-fill:#d6e8ff; --cl-wall:#14203a; --cl-fill:#0a84ff;
+  --bead-wall:#e6eaf0; --bead-fill:#cfe3ff; --cl-wall:#14203a; --cl-fill:#0a84ff;
   --marker:#0a84ff; --on-marker:#ffffff; --marker-soft:#dcecff; --alert:#d23f45; --ok:#138a5e;
   --night:#121a2b; --night-2:#0a0e18; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#26334f;
   --win:#ffffff; --win-side:#eef1f5; --win-bar:#e7ebf0;
@@ -139,16 +139,18 @@ h2{font-size:clamp(40px,6.4vw,80px);line-height:.98}
 .filters{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:40px}
 .filters button{font:600 14px var(--body);padding:9px 18px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
 .filters button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:36px 18px;margin-top:40px;text-align:left}
-.tile{min-width:0}
-.tile svg{width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--line)}
-.tile .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:14px}
-.tile h3{font-size:22px;letter-spacing:-.03em}
-.chip{font-size:12px;font-weight:600;padding:3px 8px;white-space:nowrap}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:40px;text-align:left}
+.tile{min-width:0;background:var(--bg);border:1px solid var(--line);display:flex;flex-direction:column;padding:0 0 20px}
+.fig{position:relative;border-bottom:1px solid var(--line);padding:18px 18px 14px}
+.fig svg{width:100%;height:auto;display:block}
+.chip{position:absolute;top:0;left:0;font-size:12px;font-weight:600;padding:5px 10px;white-space:nowrap}
 .chip.built{background:var(--marker);color:var(--on-marker)}
-.chip.idea{background:var(--band);color:var(--muted)}
-.tile p{color:var(--muted);font-size:15px;margin-top:4px}
-.tile .rule{font:12px var(--mono);color:var(--ink);margin-top:10px}
+.chip.idea{background:var(--band);color:var(--muted);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.tile h3{font-size:26px;letter-spacing:-.03em;margin:18px 22px 0}
+.tile p{color:var(--muted);font-size:15px;margin:6px 22px 0}
+.tile .rule{margin-top:auto;padding-top:14px;font-size:13px;font-weight:600;color:var(--ink)}
+.tile .rule::before{content:"";display:inline-block;width:14px;height:4px;background:var(--marker);margin-right:8px;vertical-align:middle}
+.tile[data-kind="idea"] .rule::before{background:var(--faint)}
 .scale{font:13px var(--mono);color:var(--faint);margin-top:14px}
 
 /* machines */
@@ -199,14 +201,14 @@ h2{font-size:clamp(40px,6.4vw,80px);line-height:.98}
 footer{padding-block:28px 44px;font-size:13px;color:var(--faint)}
 footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
 
-@media (max-width:900px){ .mpanel{grid-template-columns:minmax(0,1fr)} .minfo{border-right:0;border-bottom:1px solid var(--line)} .fields,.out{grid-template-columns:repeat(2,minmax(0,1fr))} .steps,.four{grid-template-columns:repeat(2,minmax(0,1fr))} .claim{grid-template-columns:minmax(0,1fr)} .split{grid-template-columns:minmax(0,1fr);gap:56px} }
+@media (max-width:900px){ .tiles{grid-template-columns:repeat(2,minmax(0,1fr))} .mpanel{grid-template-columns:minmax(0,1fr)} .minfo{border-right:0;border-bottom:1px solid var(--line)} .fields,.out{grid-template-columns:repeat(2,minmax(0,1fr))} .steps,.four{grid-template-columns:repeat(2,minmax(0,1fr))} .claim{grid-template-columns:minmax(0,1fr)} .split{grid-template-columns:minmax(0,1fr);gap:56px} }
 @media (max-width:760px){
   .hero{padding-block:72px 0} .stage{padding-block:44px 80px} section,.night{padding-block:88px}
   .app{grid-template-columns:minmax(0,1fr)} .side{display:none}
   .links{display:none}
   .steps,.four{margin-top:48px} .claim{padding-block:40px}
 }
-@media (max-width:480px){ .seg button{padding:10px 12px;font-size:14px} .fields,.out{grid-template-columns:minmax(0,1fr)} .steps,.four{grid-template-columns:minmax(0,1fr)} .step svg{margin-bottom:24px} }
+@media (max-width:480px){ .tiles{grid-template-columns:minmax(0,1fr)} .seg button{padding:10px 12px;font-size:14px} .fields,.out{grid-template-columns:minmax(0,1fr)} .steps,.four{grid-template-columns:minmax(0,1fr)} .step svg{margin-bottom:24px} }
 
 @media (prefers-reduced-motion:no-preference){
   .btn,.side span i,.side span i svg{transition:background .2s,border-color .2s,color .2s,opacity .2s}
@@ -473,7 +475,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
     var a = {}, b = {}, k;
     for (k in base) { a[k] = base[k]; b[k] = base[k]; }
     a.stroke = kind === 'wall' ? 'var(--bead-wall)' : 'var(--bead-fill)'; a['stroke-width'] = w;
-    b.stroke = kind === 'wall' ? 'var(--cl-wall)' : 'var(--cl-fill)'; b['stroke-width'] = (extra && extra.lw) || 1.4;
+    b.stroke = kind === 'wall' ? 'var(--cl-wall)' : 'var(--cl-fill)'; b['stroke-width'] = (extra && extra.lw) || (kind === 'wall' ? 2 : 1.6);
     if (extra && extra.clip) { a['clip-path'] = extra.clip; b['clip-path'] = extra.clip; }
     if (extra && extra.opacity != null) { a.opacity = extra.opacity; b.opacity = extra.opacity; }
     el('path', a, svg); return el('path', b, svg);
@@ -525,10 +527,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
         fill: function (dd, col, clipped, sw) { beadPath(svg, dd, 'fill', { w: sw || B, clip: clipped ? api.clip : null }); }
       };
       draw(api);
-      var row = document.createElement('div'); row.className = 'row';
-      var h3 = document.createElement('h3'); h3.textContent = name; row.appendChild(h3);
-      var c = document.createElement('span'); c.className = 'chip ' + (built ? 'built' : 'idea'); c.textContent = built ? 'Eingebaut' : 'Idee'; row.appendChild(c);
-      d.appendChild(row);
+      var fig = document.createElement('div'); fig.className = 'fig'; d.insertBefore(fig, svg); fig.appendChild(svg);
+      var c = document.createElement('span'); c.className = 'chip ' + (built ? 'built' : 'idea'); c.textContent = built ? 'Eingebaut' : 'Idee'; fig.appendChild(c);
+      var h3 = document.createElement('h3'); h3.textContent = name; d.appendChild(h3);
       var p = document.createElement('p'); p.textContent = text; d.appendChild(p);
       var r = document.createElement('p'); r.className = 'rule'; r.textContent = rule; d.appendChild(r);
       host.appendChild(d);
@@ -545,36 +546,36 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       return out;
     }
 
-    tile('Stege', true, 'Jeder Steg ist eine Haarnadel: zwei Schenkel im Bahnabstand, die verschmelzen. Die Spitze endet eine Bahn vor der Gegenwand.', 'Abstand gleichmäßig · Fußpunkte von unten geerbt', function (t) {
+    tile('Stege', true, 'Haarnadel aus zwei Schenkeln, die verschmelzen. Endet eine Bahn vor der Gegenwand.', 'Gleicher Abstand · steht auf dem Steg darunter', function (t) {
       var ribs = [60, 120, 180].map(function (x) { return { x: x, side: 'b', tip: Y0 + B + H }; });
       t.wall(wallPath(X0, Y0, X1, Y1, R, ribs, H)); t.fill(ribOnly(ribs, Y0, Y1, H));
     });
-    tile('Stege, die sich treffen', true, 'Von beiden Wänden kommt ein Steg, die Fuge liegt innen und wechselt von Lage zu Lage die Seite. So verzahnen sich die Stege.', 'Fuge abwechselnd versetzt, höchstens ½ Bahn', function (t) {
+    tile('Treffende Stege', true, 'Von beiden Wänden kommt ein Steg. Die Fuge wechselt je Lage die Seite und verzahnt sich.', 'Fuge höchstens ½ Bahn versetzt', function (t) {
       var ribs = [];
       [60, 120, 180].forEach(function (x, i) { var m = 75 + (i % 2 ? 14 : -14); ribs.push({ x: x, side: 'b', tip: m + B * 0.75 }, { x: x, side: 't', tip: m - B * 0.75 }); });
       t.wall(wallPath(X0, Y0, X1, Y1, R, ribs, H)); t.fill(ribOnly(ribs, Y0, Y1, H));
     });
-    tile('Gezeichnete Stege', true, 'Eine Kurve in der Draufsicht zeichnen, der Steg folgt ihr von Wand zu Wand. Für Kraftverläufe, die kein Raster trifft.', 'Kurve = Mittellinie · Radius ≥ Bahnbreite', function (t) {
+    tile('Gezeichnete Stege', true, 'Kurve in der Draufsicht zeichnen, der Steg folgt ihr von Wand zu Wand.', 'Radius ≥ Bahnbreite', function (t) {
       t.wall(plain);
       var c1 = 'M52 137C70 100 40 60 78 13', c2 = 'M150 137C120 95 190 70 170 13';
       [c1, c2].forEach(function (c) {
         beadPath(t.svg, c, 'fill', { w: 2 * B, clip: t.clip, lw: 1.2 }); el('path', { d: c, fill: 'none', stroke: 'var(--surface)', 'stroke-width': 1, 'stroke-dasharray': '3 4', 'clip-path': t.clip }, t.svg);
       });
     });
-    tile('Waben', true, 'Jede Zelle ist eine geschlossene Schleife. Nachbarschleifen verschmelzen zu Doppelwänden, kurze Brücken verbinden alles zu einer Linie.', 'Zelle ≥ 4 Bahnabstände · fester Ursprung', function (t) {
+    tile('Waben', true, 'Jede Zelle ist eine Schleife. Nachbarn verschmelzen zu Doppelwänden, Brücken verbinden alles.', 'Zelle ≥ 4 Bahnabstände · fester Ursprung', function (t) {
       t.wall(plain); t.fill(hexes(0, 46, 0, 240), null, true);
     });
-    tile('Gitter', true, 'Wie die Waben, nur mit quadratischen Zellen. Einfacher zu bemaßen, in zwei Richtungen gleich steif.', 'Zelle ≥ 4 Bahnabstände · drehbar', function (t) {
+    tile('Gitter', true, 'Wie Waben, mit quadratischen Zellen. In zwei Richtungen gleich steif.', 'Zelle ≥ 4 Bahnabstände · drehbar', function (t) {
       t.wall(plain); var d = '';
       for (var x = -8; x < 240; x += 42) for (var y = -10; y < 150; y += 42) d += 'M' + (x + H + 4) + ' ' + (y + H) + 'h' + (42 - B - 8) + 'a4 4 0 0 1 4 4v' + (42 - B - 8) + 'a4 4 0 0 1 -4 4h-' + (42 - B - 8) + 'a4 4 0 0 1 -4 -4v-' + (42 - B - 8) + 'a4 4 0 0 1 4 -4Z';
       t.fill(d, null, true);
     });
-    tile('Zickzack-Boden', true, 'Geschlossener Boden in parallelen Bahnen mit runden Wenden. Schnell und gleichmäßig, solange jede Bahn die Form nur einmal quert.', 'Sonst automatisch Kontur-Spirale', function (t) {
+    tile('Zickzack-Boden', true, 'Geschlossener Boden in parallelen Bahnen mit runden Wenden.', 'Nur wenn jede Bahn die Form einmal quert', function (t) {
       t.wall(plain); var d = '', y = Y0 + B, dir = 1, a = X0 + B + 4, b = X1 - B - 4, first = true;
       for (; y <= Y1 - B + 0.1; y += B) { d += (first ? 'M' : 'L') + (dir > 0 ? a : b) + ' ' + y + 'L' + (dir > 0 ? b : a) + ' ' + y; dir = -dir; first = false; }
       t.fill(d, null, true);
     });
-    tile('Kontur-Spirale', true, 'Die Linie folgt dem Umriss nach innen, Runde für Runde im Bahnabstand. Füllt auch Formen mit Buchten und Löchern in einem Zug.', 'Verbundene Fermat-Spirale · umläuft Löcher', function (t) {
+    tile('Kontur-Spirale', true, 'Folgt dem Umriss nach innen. Füllt auch Buchten und umläuft Löcher.', 'Runde für Runde im Bahnabstand', function (t) {
       t.wall(plain);
       // point on the outline inset by o, at parameter u (0..1) around it, starting on the left side
       function at(o, u) {
@@ -593,17 +594,17 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       }
       t.fill(d, null, false);
     });
-    tile('Welle', false, 'Eine Innenbahn schwingt zwischen den Wänden und legt sich an jedem Scheitel ein Stück an. Keine einzige Ecke, der Roboter fährt mit voller Geschwindigkeit durch.', 'Wellenlänge ≥ 6 Bahnbreiten · Radius ≥ Bahnbreite', function (t) {
+    tile('Welle', true, 'Eine Bahn schwingt zwischen den Wänden. Keine Ecke, volle Geschwindigkeit.', 'Wellenlänge ≥ 6 Bahnbreiten', function (t) {
       t.wall(plain); var d = '', a = (Y1 - Y0) / 2 - B - 1.5, first = true;
       for (var x = X0 + B + 3; x <= X1 - B - 3; x += 2) { d += (first ? 'M' : 'L') + x + ' ' + f(75 - a * Math.sin((x - X0 - B - 3) / 52 * 2 * Math.PI)); first = false; }
       t.fill(d);
     });
-    tile('Fachwerk', false, 'Eine Zickzack-Bahn spannt Dreiecke zwischen zwei Wände. Sehr steif gegen Schub, aber jeder Knoten ist eine Ecke, die verrundet werden muss.', 'Knoten verrundet · jede Lage gleich, kein Phasenwechsel', function (t) {
+    tile('Fachwerk', true, 'Zickzack spannt Dreiecke zwischen zwei Wände. Sehr steif gegen Schub.', 'Knoten verrundet · jede Lage gleich', function (t) {
       t.wall(plain); var d = 'M' + (X0 + B + 6) + ' ' + (Y1 - B), up = true;
       for (var x = X0 + B + 6 + 33; x <= X1 - B - 4; x += 33) { d += 'L' + x + ' ' + (up ? Y0 + B : Y1 - B); up = !up; }
       t.fill(d);
     });
-    tile('Mäander', false, 'Einzelne Stege statt Haarnadeln: Die Bahn läuft quer, ein Stück an der Wand entlang und wieder zurück. Halbes Material gegenüber Doppelstegen.', 'Anlage an der Wand ≥ 2 Bahnbreiten', function (t) {
+    tile('Mäander', true, 'Einzelstege statt Haarnadeln, mit einem Stück Anlage an der Wand. Halbes Material.', 'Anlage ≥ 2 Bahnbreiten', function (t) {
       t.wall(plain); var d = 'M' + (X0 + B + 8) + ' ' + (Y1 - B), x = X0 + B + 8, top = false, r = 7;
       while (x + 30 <= X1 - B - 6) {
         var ya = top ? Y0 + B : Y1 - B, yb = top ? Y1 - B : Y0 + B, s = top ? 1 : -1;
@@ -613,7 +614,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       d += 'L' + Math.min(x + 12, X1 - B - 4) + ' ' + (top ? Y0 + B : Y1 - B);
       t.fill(d);
     });
-    tile('Speichen mit Kernring', false, 'Für runde Teile wie Säulen und Hocker: Die Stege laufen auf einen Ring in der Mitte zu, statt sich dort ungeordnet zu treffen. Alle Stege sind gleich lang.', 'Ring ≥ 3 Bahnbreiten Radius · Stege enden 1 Bahn davor', function (t) {
+    tile('Speichen', false, 'Für runde Teile: Die Stege laufen auf einen Kernring zu und sind alle gleich lang.', 'Ring-Radius ≥ 3 Bahnbreiten', function (t) {
       beadPath(t.svg, 'M58 75a62 62 0 1 0 124 0a62 62 0 1 0 -124 0', 'wall', { w: B });
       beadPath(t.svg, 'M103 75a17 17 0 1 0 34 0a17 17 0 1 0 -34 0', 'fill', { w: B });
       var d = '';
@@ -623,7 +624,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       }
       t.fill(d);
     }, true);
-    tile('Gestufte Waben', false, 'Kleine Zellen dort, wo Last eingeleitet wird, große in der Fläche. Die Dichte ändert sich nur in der Draufsicht und bleibt über die Höhe gleich.', 'Übergang entlang einer Zellreihe · über die Höhe konstant', function (t) {
+    tile('Gestufte Waben', false, 'Kleine Zellen an der Lasteinleitung, große in der Fläche.', 'Über die Höhe konstant', function (t) {
       t.wall(plain);
       var c1 = el('clipPath', { id: 'half-a' + id }, el('defs', {}, t.svg)); el('rect', { x: X0 + B, y: Y0 + B, width: 92, height: Y1 - Y0 - 2 * B, rx: R - B }, c1);
       var c2 = el('clipPath', { id: 'half-b' + id }, el('defs', {}, t.svg)); el('rect', { x: X0 + B + 97, y: Y0 + B, width: X1 - X0 - 2 * B - 97, height: Y1 - Y0 - 2 * B, rx: R - B }, c2);

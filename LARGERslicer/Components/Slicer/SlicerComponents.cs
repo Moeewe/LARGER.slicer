@@ -664,7 +664,8 @@ namespace LARGERslicer.Components.Slicer
             p.AddIntegerParameter("Pattern", "P", "0 = Honeycomb\n1 = Grid", GH_ParamAccess.item, 0);
             p.AddNumberParameter("Cell Size", "Sz", "Distance between the middles of two neighbouring cells (mm). At least four bead spacings.", GH_ParamAccess.item, 60.0);
             p.AddNumberParameter("Angle", "A", "Turns the pattern (degrees)", GH_ParamAccess.item, 0.0);
-            p.AddPointParameter("Origin", "O", "Fixed point of the pattern: the middle of one cell. The cells stand exactly above each other in all layers. Empty = world origin.", GH_ParamAccess.item);
+            p.AddPointParameter("Origin", "O", "Fixed point of the pattern: the middle of one cell. Move it to shift the whole pattern. The cells stand exactly above each other in all layers. Empty = world origin.", GH_ParamAccess.item);
+            p.AddNumberParameter("Stretch", "St", "Stretches the cells along the pattern direction (1 = regular, 2 = twice as long). Turn the direction with Angle.", GH_ParamAccess.item, 1.0);
             p[1].Optional = true; p[5].Optional = true;
         }
 
@@ -691,12 +692,14 @@ namespace LARGERslicer.Components.Slicer
             int pattern = 0; double size = 60, angle = 0; Point3d origin = Point3d.Unset;
             da.GetData(2, ref pattern); da.GetData(3, ref size); da.GetData(4, ref angle);
             bool hasOrigin = da.GetData(5, ref origin) && origin.IsValid;
+            double stretch = 1.0;
+            if (Params.Input.Count > 6) da.GetData(6, ref stretch);
             if (size < 4 * settings.BeadSpacing)
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"Cell Size raised to {4 * settings.BeadSpacing:0.#} mm: a cell needs room for two beads and an opening.");
 
             var log = new List<string>();
             var sw = Stopwatch.StartNew();
-            var result = FillEngine.Cells(layers, settings, pattern, size, angle, hasOrigin ? (Point3d?)origin : null, log, out int cells);
+            var result = FillEngine.Cells(layers, settings, pattern, size, angle, hasOrigin ? (Point3d?)origin : null, log, out int cells, stretch);
             sw.Stop();
             foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
             if (cells == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No cells fit. Reduce Cell Size or check that the layers have a closed wall.");
@@ -704,6 +707,71 @@ namespace LARGERslicer.Components.Slicer
             da.SetDataList(0, result.Select(l => new GH_SliceLayer(l)));
             da.SetDataList(1, result.SelectMany(l => l.RealContours()).Select(c => new PolylineCurve(c)));
             da.SetData(2, $"up to {cells} cells per layer, bead spacing {settings.BeadSpacing:0.##} mm, {sw.ElapsedMilliseconds} ms");
+        }
+    }
+
+    // ============================================================== 2e Infill Wave
+    public class InfillWaveComponent : SlicerComponent
+    {
+        public InfillWaveComponent()
+            : base("Infill Wave", "Wave",
+                  "A single inner line that swings between the wall and a set depth: as a smooth wave, a truss (straight flanks) or a meander (steep flanks). At every crest it runs along the wall for two bead widths and fuses with it. The line is part of the one continuous wall path. Wavelength and Depth scale the pattern, Origin moves it.") { }
+
+        public override Guid ComponentGuid => new Guid("80A0FC23-1A1C-44EA-89C1-EEF889BA2507");
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerWaveIcon.png");
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddGenericParameter("Layers", "L", "Layers from Walls or Bottom Fill", GH_ParamAccess.list);
+            p.AddGenericParameter("Settings", "S", "Print Settings", GH_ParamAccess.item);
+            p.AddIntegerParameter("Shape", "Sh", "0 = Wave (smooth, no corners)\n1 = Truss (straight flanks, triangles)\n2 = Meander (steep flanks, long contact with the wall)", GH_ParamAccess.item, 0);
+            p.AddNumberParameter("Wavelength", "WL", "Distance from crest to crest along the wall (mm). The slicer fits a whole number of waves around the part.", GH_ParamAccess.item, 80.0);
+            p.AddNumberParameter("Depth", "D", "How far the line reaches into the part, measured from crest to trough (mm). Reduced automatically where the part is too narrow.", GH_ParamAccess.item, 60.0);
+            p.AddPointParameter("Origin", "O", "A crest sits at the wall point nearest to this point. Move it to shift the pattern along the wall. Empty = the right-most side of the part.", GH_ParamAccess.item);
+            p[1].Optional = true; p[5].Optional = true;
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddValueList(doc, 2, "Shape", "Wave", "Truss", "Meander");
+            AddSlider(doc, 3, "Wavelength", 30, 400, 80, 0);
+            AddSlider(doc, 4, "Depth", 10, 400, 60, 0);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddGenericParameter("Layers", "L", "Layers with the wave joined into the wall path", GH_ParamAccess.list);
+            p.AddCurveParameter("Contours", "C", "Paths as curves (for checking)", GH_ParamAccess.list);
+            p.AddTextParameter("Info", "I", "Statistics", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            var goos = new List<IGH_Goo>();
+            if (!da.GetDataList(0, goos)) return;
+            var layers = goos.OfType<GH_SliceLayer>().Select(g => g.Value).Where(l => l != null).ToList();
+            if (layers.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect the Layers output of Walls or Bottom Fill."); return; }
+            var settings = SlicerIO.Get<PrintSettings>(da, 1) ?? new PrintSettings();
+            int shape = 0; double wavelength = 80, depth = 60; Point3d origin = Point3d.Unset;
+            da.GetData(2, ref shape); da.GetData(3, ref wavelength); da.GetData(4, ref depth);
+            bool hasOrigin = da.GetData(5, ref origin) && origin.IsValid;
+            if (depth < 2 * settings.BeadWidth)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Depth must be at least {2 * settings.BeadWidth:0.#} mm (two bead widths).");
+                return;
+            }
+
+            var log = new List<string>();
+            var sw = Stopwatch.StartNew();
+            var result = FillEngine.Waves(layers, settings, Math.Max(0, Math.Min(2, shape)), wavelength, depth, hasOrigin ? (Point3d?)origin : null, log, out int waves);
+            sw.Stop();
+            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
+            if (waves == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No wave fits. Reduce Depth or Wavelength, or check that the layers have a closed wall.");
+            Message = waves == 0 ? "No wave" : (shape == 1 ? "Truss" : shape == 2 ? "Meander" : "Wave");
+            da.SetDataList(0, result.Select(l => new GH_SliceLayer(l)));
+            da.SetDataList(1, result.SelectMany(l => l.RealContours()).Select(c => new PolylineCurve(c)));
+            da.SetData(2, $"up to {waves} waves per layer, {sw.ElapsedMilliseconds} ms");
         }
     }
 

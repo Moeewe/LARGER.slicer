@@ -147,6 +147,11 @@ def _(g):
         g.line(hexagon(cx, cy, 3.0), TEAL, 1.6, closed=True)
 
 
+@icon('SlicerWaveIcon')
+def _(g):
+    frame(g)
+    g.line([(6 + i * 0.25, 12 - 3.4 * math.sin(i * 0.25 / 12 * 2 * math.pi * 2.5)) for i in range(49)], BLUE, 1.9)
+
 @icon('SlicerPathIcon')
 def _(g):
     pts = [(12 + 7.5 * math.cos(t * 5 * math.pi), 19.5 - t * 14 + 1.6 * math.sin(t * 5 * math.pi)) for t in [i / 150 for i in range(151)]]
