@@ -152,6 +152,17 @@ h2{font-size:clamp(40px,6.4vw,80px);line-height:.98}
 .scale{font:13px var(--mono);color:var(--faint);margin-top:14px}
 
 /* machines */
+.profiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:64px;text-align:left}
+.pf{background:var(--band);border-top:4px solid var(--ink);padding:24px 22px 26px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.pf-own{background:var(--marker);border-top-color:var(--ink);color:var(--on-marker)}
+.pf-k{font-size:12px;font-weight:600;color:var(--faint)}
+.pf-own .pf-k,.pf-own p,.pf-own dd,.pf-own dt{color:var(--on-marker)}
+.pf h3{font-size:28px;letter-spacing:-.03em}
+.pf p{margin:0;color:var(--muted);font-size:15px}
+.pf dl{margin:auto 0 0;padding-top:14px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:14px;border-top:1px solid var(--line)}
+.pf-own dl{border-top-color:color-mix(in srgb,var(--on-marker) 35%,transparent)}
+.pf dt{color:var(--faint)}
+.pf dd{margin:0;font-weight:600}
 .sources{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 40px;margin-top:56px;font-family:var(--display);font-weight:600;font-size:clamp(22px,2.8vw,34px);letter-spacing:-.02em;line-height:1.2}
 .sources span{white-space:nowrap}
 .sources .later{color:var(--faint)}
@@ -280,9 +291,15 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
   </div></section>
 
   <section><div class="wrap center">
-    <h2>Druckt auf deiner Maschine.</h2>
+    <h2>Ein Profil pro Drucker.</h2>
     <p class="sub">Ein Maschinenprofil sagt, wie der Drucker seinen E-Wert haben will. Eine neue Anlage braucht nur Zahlen.</p>
-    <div class="sources"><span>Weber DXR25</span><span>Ginger One</span><span>KUKA</span><span>Granulat</span><span>Filament 1,75</span><span>Filament 2,85</span><span class="later">Deine Anlage</span></div>
+    <div class="profiles">
+      <div class="pf"><span class="pf-k">Großformat, Roboter</span><h3>Weber DXR</h3><p>Granulat-Extruder am KUKA-Industrieroboter. Der Slicer schreibt DXR, die Steuerung multipliziert E noch mit ihrem Förderwert P1.</p><dl><dt>Ausgabe</dt><dd>DXR · <span class="num">XE=[E*P1]</span></dd><dt>Faktor</dt><dd class="num">1,128</dd></dl></div>
+      <div class="pf"><span class="pf-k">Großformat, eigener Drucker</span><h3>Ginger One</h3><p>Granulat-Drucker mit eigener Steuerung. E ist die Drehung der Förderschnecke.</p><dl><dt>Ausgabe</dt><dd>G-code</dd><dt>Faktor</dt><dd class="num">0,21</dd></dl></div>
+      <div class="pf"><span class="pf-k">Granulat allgemein</span><h3>Volumen</h3><p>Für jede Anlage, die E als Materialvolumen erwartet. Startpunkt für neue Extruder.</p><dl><dt>Ausgabe</dt><dd>E in mm³</dd><dt>Faktor</dt><dd class="num">1</dd></dl></div>
+      <div class="pf"><span class="pf-k">Desktop, Filament</span><h3>Filamentdrucker</h3><p>Zum Testen im Kleinen: E wird in Filamentlänge umgerechnet.</p><dl><dt>Ausgabe</dt><dd>G-code</dd><dt>Filament</dt><dd class="num">1,75 · 2,85 mm</dd></dl></div>
+      <div class="pf pf-own"><span class="pf-k">Eigene Anlage</span><h3>Dein Profil</h3><p>Vorlage wählen, eine bekannte Bahn drucken, wiegen. Neuer Faktor = alter Faktor × Soll ÷ Ist.</p><dl><dt>Komponente</dt><dd>Machine Profile</dd></dl></div>
+    </div>
     <div class="calc" aria-label="Bahnrechner">
       <div class="fields">
         <div class="field wide"><label for="in-m">Maschinenprofil</label><select id="in-m"></select></div>
