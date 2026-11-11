@@ -734,7 +734,7 @@ namespace LARGERslicer.Toolpaths
             var ordered = layers.OrderBy(l => l.Index).ToList();
             var result = new List<SliceLayer>(ordered.Count);
             filled = 0;
-            int failed = 0;
+            int failed = 0, uncrossed = 0;
             Point3d lastEnd = Point3d.Unset; // where the fill of the layer below stops
             // Layers with the same outline get exactly the same fill line. Recomputing it would give
             // almost the same line, but small differences in the outline (a round hole is cut into
@@ -841,6 +841,17 @@ namespace LARGERslicer.Toolpaths
                 if (fills.Count == 0) { failed++; result.Add(src); continue; }
                 if (usedContour)
                 {
+                    // Safety net: where the contour line is joined around several openings a link
+                    // can end up across a bead. Never cross is the first rule, so such a place is
+                    // re-joined the other way round (the line stays one line).
+                    for (int f = 0; f < fills.Count; f++)
+                    {
+                        if (fills[f].Count < 4 || fills[f].Count > 20000) continue;
+                        var pl0 = new Polyline(fills[f].Select(q => new Point3d(q.X, q.Y, 0)));
+                        if (PathTools.CountCrossings(pl0) == 0) continue;
+                        var fixedLine = PathTools.Uncross(pl0, 1e-6, out int moves, out _);
+                        if (moves > 0 && PathTools.CountCrossings(fixedLine) == 0) { fills[f] = fixedLine.Select(q => new Point2d(q.X, q.Y)).ToList(); uncrossed++; }
+                    }
                     previousRings = regionRings; previousFills = fills.Select(f => new List<Point2d>(f)).ToList();
                     previousEntries = new List<Point2d>(fermatEntries); previousAbsorbed = new List<int>(absorbed);
                 }
@@ -883,6 +894,7 @@ namespace LARGERslicer.Toolpaths
                 filled++;
                 result.Add(dst);
             }
+            if (uncrossed > 0) log?.Add($"{uncrossed} bottom layer(s): the fill line was re-joined at a place where it would have crossed itself.");
             if (failed > 0) log?.Add($"{failed} bottom layer(s) could not be filled (no closed wall, or too narrow for a fill line).");
             return result;
         }

@@ -31,6 +31,7 @@ namespace LARGERslicer.Toolpaths
             double w = st.BeadWidth, spacing = st.BeadSpacing;
 
             // ---- skirt
+            double linkLength = -1, skirtUsed = skirtDistance;
             if (skirtLoops > 0)
             {
                 int firstLayer = tp.Layers[0];
@@ -46,6 +47,7 @@ namespace LARGERslicer.Toolpaths
                 if (hull.Count >= 3)
                 {
                     if (skirtDistance <= 0) skirtDistance = 3 * w;
+                    skirtUsed = skirtDistance;
                     var path = new PathD(hull.Count);
                     foreach (var p in hull) path.Add(new PointD(p.X, p.Y));
                     Point2d start2 = pts2[0];
@@ -56,18 +58,20 @@ namespace LARGERslicer.Toolpaths
                         PathsD ring = Clipper.InflatePaths(new PathsD { path }, skirtDistance + k * spacing, JoinType.Round, EndType.Polygon, 2.0, 3, 0.05);
                         if (ring == null || ring.Count == 0 || ring[0].Count < 3) continue;
                         var loop = ring[0].Select(p => new Point2d(p.x, p.y)).ToList();
-                        // start next to the first point of the part
-                        int nearest = 0; double best = double.MaxValue;
-                        for (int i = 0; i < loop.Count; i++)
+                        // The loop starts one bead spacing after the point that lies exactly
+                        // opposite the first point of the part and ends on that point. So the end
+                        // of the skirt does not run into its own beginning, and the way across to
+                        // the part is the shortest one: square to the wall, never alongside it.
+                        var cum = FillEngine.Cumulative(loop);
+                        double len = cum[loop.Count];
+                        if (len < 4 * spacing) continue;
+                        double s0 = FillEngine.ClosestS(loop, cum, start2, out double away);
+                        if (k == 0) linkLength = away;
+                        foreach (Point2d q in FillEngine.Sub(loop, cum, s0 + spacing, s0 + len))
                         {
-                            double d = loop[i].DistanceTo(start2);
-                            if (d < best) { best = d; nearest = i; }
-                        }
-                        for (int i = 0; i <= loop.Count; i++)
-                        {
-                            Point2d q = loop[(nearest + i) % loop.Count];
                             Point3d p3 = plane.Origin + plane.XAxis * q.X + plane.YAxis * q.Y;
                             if (last.IsValid && p3.DistanceTo(last) < 1e-6) continue;
+                            // the short step from one loop to the next prints, the first point does not
                             result.Add(p3, n, tp.Heights[0] > 0 ? tp.Heights[0] : st.LayerHeight, w, 1, PathRole.Skirt, firstLayer);
                             last = p3;
                         }
@@ -83,7 +87,12 @@ namespace LARGERslicer.Toolpaths
             for (int i = 0; i < tp.Count; i++) result.AddFrom(tp, i);
             if (offset > 0)
             {
-                result.Flows[offset] = 1; // the move that arrives at the part's first point prints
+                // The move across to the part prints only if the part starts on its outside, right
+                // opposite the skirt. If it starts further in (a bottom fill, an inner wall), a
+                // printed line would lie where other beads are still to come: then it is a travel.
+                bool direct = linkLength >= 0 && linkLength <= skirtUsed + 0.75 * w;
+                result.Flows[offset] = direct ? 1 : 0;
+                if (!direct) { result.Roles[offset] = PathRole.Travel; log?.Add("The part does not start on its outer wall: the move from the skirt to the start is a travel move."); }
                 result.Heights[offset] = tp.Heights[0] > 0 ? tp.Heights[0] : st.LayerHeight;
             }
 
@@ -210,7 +219,7 @@ namespace LARGERslicer.Toolpaths
                 list.Add(i);
             }
 
-            List<Point2d[]> below = null;
+            List<Point2d[]> below = null; bool belowSolid = false;
             Plane plane = Plane.WorldXY;
             bool havePlane = false;
             int unsupported = 0, checkedPoints = 0;
@@ -237,6 +246,8 @@ namespace LARGERslicer.Toolpaths
                     foreach (int i in idx)
                     {
                         if (tp.Flows[i] <= 0) continue;
+                        // infill on top of a solid bottom layer lies on material everywhere
+                        if (belowSolid && tp.Roles[i] == PathRole.Infill) { checkedPoints++; continue; }
                         Point2d p = Flat(plane, tp.Points[i]);
                         double d = Nearest(below, p, ref hint, 40);
                         if (d > limit) { int full = -1; d = Nearest(below, p, ref full, int.MaxValue); if (full >= 0) hint = full; }
@@ -249,7 +260,7 @@ namespace LARGERslicer.Toolpaths
                     }
                 }
                 if (hangCount > Math.Max(3, idx.Count / 50)) hangLayers.Add(kv.Key);
-                if (segs.Count > 0) below = segs;
+                if (segs.Count > 0) { below = segs; belowSolid = idx.Any(i => tp.Roles[i] == PathRole.Bottom && tp.Flows[i] > 0); }
             }
 
             // ---- the path must never cross itself within a layer

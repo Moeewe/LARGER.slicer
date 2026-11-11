@@ -1,0 +1,58 @@
+# LARGER.slicer for Grasshopper 2
+
+First version (0.1.0) of the slicer for Grasshopper 2 in Rhino 9. It uses the same slicer
+core as the Grasshopper 1 plug-in: the files in `../LARGERslicer/Toolpaths` are compiled into
+this assembly, so both versions cut, fill and check in exactly the same way.
+
+## Components
+
+**LARGER > Slicer**
+
+| Component | What it does |
+|---|---|
+| Print Settings | Bead width, layer height, speed, machine profile |
+| Slice | Flat, angled, non-planar (guide surface) or multi-axis (guide curve) layers |
+| Walls | Wall centre lines, one bead spacing apart |
+| Bottom Fill | Solid bottom as one line |
+| Infill | Ribs, honeycomb, grid, wave, truss, meander, chamber wall, truss wall |
+| Continuous Path | All layers as one path; layered with a short ramp, or spiral |
+| Round and Lead | Rounded corners, skirt before the part, exit move after it |
+| Path Check | No crossing, every bead supported |
+| Extrusion and Speed | Points, planes, extrusion, speed, role and layer per point |
+
+**LARGER > DXR**
+
+| Component | What it does |
+|---|---|
+| Machine Settings | Temperatures and cooling for the start and end sequence |
+| Toolpath to Robot Lines | One PTP line per path point with one fixed tool orientation |
+| DXR Generator | Robot lines, extrusion and speed to a DXR file for the Weber DXR |
+
+## Build
+
+```bash
+dotnet build -c Release
+```
+
+The result is `bin/Release/net8.0/LARGERslicerGH2.rhp` (plus `Clipper2Lib.dll`). The project
+looks for Rhino 9 in its default folder; pass `-p:Rhino9=<folder with RhinoCommon.dll>` if it
+is somewhere else.
+
+## Load it
+
+Grasshopper 2 reads extra plug-ins from the file `CustomPluginInclude.txt` in its settings
+folder (macOS: `~/Library/Application Support/Grasshopper2/Settings`, Windows:
+`%APPDATA%\Grasshopper2\Settings`). Add the full path of `LARGERslicerGH2.rhp` as one line
+and restart Rhino.
+
+## Status
+
+Tested in Grasshopper 2 (Rhino 9.1) on a box: slice, walls, bottom, honeycomb infill,
+continuous path, check and DXR all compute. Not yet tested: non-planar and multi-axis
+slicing in Grasshopper 2, Windows, installation through the package manager, and a real print.
+
+`Toolpath to Robot Lines` writes one fixed tool orientation (A, B, C). Check it against your
+robot cell before the first run. For tilted tool axes use the planes from `Extrusion and Speed`.
+
+Not ported yet: Infill Sketch, Machine Profile with own factors, Desktop Test Print, Quick Start,
+the curve-based Toolpaths tab, and the DXR health check and post-processor.
