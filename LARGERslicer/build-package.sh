@@ -1,8 +1,9 @@
 #!/bin/bash
-# Build script for LARGERslicer Yak packages (Rhino 8 + Rhino 7)
+# Build script for LARGERslicer Yak packages (Rhino 9 + Rhino 8 + Rhino 7)
 # Usage: ./build-package.sh [version]
 #
-# Builds all target frameworks and creates two clean packages in dist/:
+# Builds all target frameworks and creates three clean packages in dist/:
+#   largerslicer-<version>-rh9_0-any.yak  (net48 + net8.0 + net8.0-windows)
 #   largerslicer-<version>-rh8_0-any.yak  (net48 + net7.0 + net7.0-windows)
 #   largerslicer-<version>-rh7_0-any.yak  (net48 only, from manifest-rh7.yml)
 # Each package is built from its own staging folder, so only the manifest,
@@ -56,14 +57,16 @@ for m in manifest.yml manifest-rh7.yml; do
     fi
 done
 
-# Find yak: PATH first, then the one shipped with Rhino 8
+# Find yak: PATH first, then the one shipped with Rhino 9 or Rhino 8
 YAK=$(command -v yak || true)
-if [ -z "$YAK" ] && [ -x "/Applications/Rhino 8.app/Contents/Resources/bin/yak" ]; then
-    YAK="/Applications/Rhino 8.app/Contents/Resources/bin/yak"
-fi
+for R in 9 8; do
+    if [ -z "$YAK" ] && [ -x "/Applications/Rhino $R.app/Contents/Resources/bin/yak" ]; then
+        YAK="/Applications/Rhino $R.app/Contents/Resources/bin/yak"
+    fi
+done
 if [ -z "$YAK" ]; then
     echo -e "${RED}Error: yak command not found${NC}"
-    echo "Install Rhino 8 or the Yak CLI: https://www.rhino3d.com/download/yak"
+    echo "Install Rhino 9/8 or the Yak CLI: https://www.rhino3d.com/download/yak"
     exit 1
 fi
 
@@ -113,7 +116,16 @@ echo ""
 echo "Staging Yak packages..."
 STAGE=obj/yak-staging
 rm -rf "$STAGE"
-mkdir -p "$STAGE/rh8" "$STAGE/rh7"
+mkdir -p "$STAGE/rh9" "$STAGE/rh8" "$STAGE/rh7"
+
+# Rhino 9: built against Grasshopper 9 (.NET 8, runs on Rhino 9's .NET 10).
+# Yak tags a package by the newest Grasshopper it references, so the net8.0
+# folders must stay out of the Rhino 8 package.
+for TFM in net48 net8.0 net8.0-windows; do
+    mkdir -p "$STAGE/rh9/$TFM"
+    cp -R "bin/Release/$TFM/." "$STAGE/rh9/$TFM/"
+done
+cp manifest.yml "$STAGE/rh9/manifest.yml"
 
 # Rhino 8: one subfolder per target framework, Rhino picks the matching one
 for TFM in net48 net7.0 net7.0-windows; do
@@ -126,7 +138,7 @@ cp manifest.yml "$STAGE/rh8/manifest.yml"
 cp -R bin/Release/net48/. "$STAGE/rh7/"
 cp manifest-rh7.yml "$STAGE/rh7/manifest.yml"
 
-for P in rh8 rh7; do
+for P in rh9 rh8 rh7; do
     cp icon.png README.md "$STAGE/$P/"
     [ -f ../LICENSE ] && cp ../LICENSE "$STAGE/$P/"
     find "$STAGE/$P" -name "*.pdb" -delete
@@ -136,7 +148,7 @@ done
 echo ""
 echo "Creating Yak packages..."
 YAK_FILES=()
-for P in rh8 rh7; do
+for P in rh9 rh8 rh7; do
     if ! (cd "$STAGE/$P" && "$YAK" build --platform any); then
         echo -e "${RED}Package creation failed (${P})!${NC}"
         exit 1
@@ -144,6 +156,11 @@ for P in rh8 rh7; do
     FILE=$(ls -t "$STAGE/$P"/*.yak 2>/dev/null | head -1)
     if [ -z "$FILE" ]; then
         echo -e "${RED}Error: No .yak file created (${P})${NC}"
+        exit 1
+    fi
+    # The tag comes from yak, so make sure each package targets the right Rhino
+    if [[ "$FILE" != *"-${P}_0-"* ]]; then
+        echo -e "${RED}Error: $(basename "$FILE") is not tagged ${P}_0 (use the yak shipped with Rhino 9)${NC}"
         exit 1
     fi
     mv -f "$FILE" dist/
@@ -158,7 +175,7 @@ done
 echo ""
 echo "Next steps:"
 echo "  1. Test locally: drag the .yak file for your Rhino version onto the Rhino window"
-echo "  2. Publish both:"
+echo "  2. Publish all three:"
 for F in "${YAK_FILES[@]}"; do
     echo "     \"$YAK\" push $F"
 done

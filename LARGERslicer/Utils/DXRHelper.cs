@@ -346,6 +346,24 @@ namespace LARGERslicer.Utils
                 }
             }
 
+            // A movement must never be written with feed rate 0: the machine would stop at that line.
+            // A speed list often starts with 0 (the first point has no move before it). Every 0 is
+            // replaced by the next real speed in the list, or the one before it.
+            {
+                int replaced = 0;
+                for (int i = 0; i < F1_list.Count && i < movementLines.Count; i++)
+                {
+                    if (F1_list[i] > 0) continue;
+                    double use = 0;
+                    for (int k = i + 1; k < F1_list.Count && use <= 0; k++) if (F1_list[k] > 0) use = F1_list[k];
+                    for (int k = i - 1; k >= 0 && use <= 0; k--) if (F1_list[k] > 0) use = F1_list[k];
+                    F1_list[i] = use > 0 ? use : 1000.0;
+                    replaced++;
+                }
+                if (replaced > 0)
+                    processInfo.Add($"WARNING: {replaced} speed value(s) were 0 and were replaced by the neighbouring speed (a move with F0 would stop the machine). Check the speed list, usually its first value.");
+            }
+
             // Process movements with correct DXR format
             // Track last known values for X, Y, Z to ensure they are always present
             double lastX = 0.0, lastY = 0.0, lastZ = 0.0;

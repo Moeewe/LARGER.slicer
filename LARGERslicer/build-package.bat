@@ -1,8 +1,9 @@
 @echo off
-REM Build script for LARGERslicer Yak packages (Rhino 8 + Rhino 7, Windows)
+REM Build script for LARGERslicer Yak packages (Rhino 9 + Rhino 8 + Rhino 7, Windows)
 REM Usage: build-package.bat [version]
 REM
-REM Builds all target frameworks and creates two clean packages in dist\:
+REM Builds all target frameworks and creates three clean packages in dist\:
+REM   largerslicer-<version>-rh9_0-any.yak  (net48 + net8.0 + net8.0-windows)
 REM   largerslicer-<version>-rh8_0-any.yak  (net48 + net7.0 + net7.0-windows)
 REM   largerslicer-<version>-rh7_0-any.yak  (net48 only, from manifest-rh7.yml)
 REM Each package is built from its own staging folder, so only the manifest,
@@ -41,13 +42,14 @@ for %%m in (manifest.yml manifest-rh7.yml) do (
     )
 )
 
-REM Find yak: PATH first, then the one shipped with Rhino 8
+REM Find yak: PATH first, then the one shipped with Rhino 9 or Rhino 8
 set "YAK="
 for /f "delims=" %%y in ('where yak 2^>nul') do if not defined YAK set "YAK=%%y"
+if not defined YAK if exist "C:\Program Files\Rhino 9\System\Yak.exe" set "YAK=C:\Program Files\Rhino 9\System\Yak.exe"
 if not defined YAK if exist "C:\Program Files\Rhino 8\System\Yak.exe" set "YAK=C:\Program Files\Rhino 8\System\Yak.exe"
 if not defined YAK (
     echo Error: yak command not found
-    echo Install Rhino 8 or the Yak CLI: https://www.rhino3d.com/download/yak
+    echo Install Rhino 9/8 or the Yak CLI: https://www.rhino3d.com/download/yak
     exit /b 1
 )
 
@@ -97,8 +99,15 @@ echo.
 echo Staging Yak packages...
 set "STAGE=obj\yak-staging"
 if exist "%STAGE%" rmdir /S /Q "%STAGE%"
+mkdir "%STAGE%\rh9"
 mkdir "%STAGE%\rh8"
 mkdir "%STAGE%\rh7"
+
+REM Rhino 9: built against Grasshopper 9 (.NET 8, runs on Rhino 9's .NET 10).
+REM Yak tags a package by the newest Grasshopper it references, so the net8.0
+REM folders must stay out of the Rhino 8 package.
+for %%t in (net48 net8.0 net8.0-windows) do xcopy /E /I /Y bin\Release\%%t\* "%STAGE%\rh9\%%t\" >nul
+copy /Y manifest.yml "%STAGE%\rh9\manifest.yml" >nul
 
 REM Rhino 8: one subfolder per target framework, Rhino picks the matching one
 for %%t in (net48 net7.0 net7.0-windows) do xcopy /E /I /Y bin\Release\%%t\* "%STAGE%\rh8\%%t\" >nul
@@ -108,7 +117,7 @@ REM Rhino 7: net48 binaries at the package root
 xcopy /E /I /Y bin\Release\net48\* "%STAGE%\rh7\" >nul
 copy /Y manifest-rh7.yml "%STAGE%\rh7\manifest.yml" >nul
 
-for %%p in (rh8 rh7) do (
+for %%p in (rh9 rh8 rh7) do (
     copy /Y icon.png "%STAGE%\%%p\" >nul
     copy /Y README.md "%STAGE%\%%p\" >nul
     if exist ..\LICENSE copy /Y ..\LICENSE "%STAGE%\%%p\" >nul
@@ -118,7 +127,7 @@ for %%p in (rh8 rh7) do (
 REM Create Yak packages
 echo.
 echo Creating Yak packages...
-for %%p in (rh8 rh7) do (
+for %%p in (rh9 rh8 rh7) do (
     pushd "%STAGE%\%%p"
     "%YAK%" build --platform any
     if errorlevel 1 (
@@ -141,12 +150,14 @@ for %%p in (rh8 rh7) do (
 
 echo.
 echo Packages created:
+echo   !YAK_rh9!
 echo   !YAK_rh8!
 echo   !YAK_rh7!
 echo.
 echo Next steps:
 echo   1. Test locally: drag the .yak file for your Rhino version onto the Rhino window
-echo   2. Publish both:
+echo   2. Publish all three:
+echo      "%YAK%" push !YAK_rh9!
 echo      "%YAK%" push !YAK_rh8!
 echo      "%YAK%" push !YAK_rh7!
 echo.

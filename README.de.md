@@ -1,17 +1,17 @@
 <div align="center">
 
-<img alt="LARGER.slicer Logo" src="LARGERslicer/icon.png" width="128" height="128">
+<a href="https://parametricsolutions.de/de/larger-slicer/"><img alt="LARGER.slicer: eine durchgehende Linie für großformatigen 3D-Druck" src="docs/social-preview.png" width="100%"></a>
 
 # LARGER.slicer
 
-**Großformatiger 3D-Druck und CNC-Werkzeugbahnen in Rhino / Grasshopper**<br>
-Slicer, Robotercode (DXR / KUKA) und Maschinenanleitungen für Weber DXR25, Ginger One, UR5 und Zünd – in einem Paket.
+**Modell rein. Eine Linie. Drucken.**<br>
+Der Slicer für großformatigen 3D-Druck mit Roboter und Granulatextruder, in Rhino und Grasshopper.
 
-[![Neueste Version](https://img.shields.io/github/v/release/Moeewe/LARGER.slicer?label=version&color=2c6aa6)](https://github.com/Moeewe/LARGER.slicer/releases/latest) [![Rhino](https://img.shields.io/badge/Rhino-8%20%7C%207-2c6aa6)](https://www.rhino3d.com/de/) [![Plattform](https://img.shields.io/badge/plattform-Windows%20%7C%20macOS-2c6aa6)](#schnellstart) [![Lizenz: CC BY-NC 4.0](https://img.shields.io/badge/lizenz-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/deed.de)
+[![Neueste Version](https://img.shields.io/github/v/release/Moeewe/LARGER.slicer?label=version&color=0a84ff)](https://github.com/Moeewe/LARGER.slicer/releases/latest) [![Rhino](https://img.shields.io/badge/Rhino-9%20%7C%208%20%7C%207-14203a)](https://www.rhino3d.com/de/) [![Plattform](https://img.shields.io/badge/plattform-Windows%20%7C%20macOS-14203a)](#schnellstart) [![Lizenz: CC BY-NC 4.0](https://img.shields.io/badge/lizenz-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/deed.de)
 
-<a href="https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip"><img alt="LARGERslicer-SETUP.zip herunterladen" src="https://img.shields.io/badge/Download-LARGERslicer--SETUP.zip-2c6aa6?style=for-the-badge&logo=rhinoceros&logoColor=white"></a>
+<a href="https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip"><img alt="LARGERslicer-SETUP.zip herunterladen" src="https://img.shields.io/badge/Download-LARGERslicer--SETUP.zip-0a84ff?style=for-the-badge&logo=rhinoceros&logoColor=white"></a>
 
-[Versionshinweise](https://github.com/Moeewe/LARGER.slicer/releases/latest) · [Dokumentation](LARGERslicer/documentations/README.md) · [Changelog](LARGERslicer/CHANGELOG.md)
+[Produktseite](https://parametricsolutions.de/de/larger-slicer/) · [Versionshinweise](https://github.com/Moeewe/LARGER.slicer/releases/latest) · [Dokumentation](LARGERslicer/documentations/README.md) · [Changelog](LARGERslicer/CHANGELOG.md)
 
 [English](README.md) · **Deutsch**
 
@@ -19,7 +19,65 @@ Slicer, Robotercode (DXR / KUKA) und Maschinenanleitungen für Weber DXR25, Ging
 
 ---
 
-## Funktionen
+## Eine Linie, vom Skirt bis zur letzten Lage
+
+Ein Granulatextruder lässt sich nicht sauber stoppen: Jede Leerfahrt zieht Fäden, jeder Halt hinterlässt einen Tropfen. LARGER.slicer plant deshalb den ganzen Druck als **eine durchgehende Bahn** und prüft sie, bevor sie den Roboter erreicht.
+
+| | |
+|---|---|
+| **Eine Linie** | Wände, Boden und Infill werden zu einer einzigen Bahn verbunden. Das Infill ist in die Wand eingebunden, nicht daneben gedruckt. |
+| **Kreuzt sich nie** | Bei einer Kreuzung fährt die Düse durch frisch gelegtes Material. Lässt sich ein Muster nicht ohne Kreuzung drucken, wählt der Slicer ein anderes. |
+| **Flache Lagen** | Jede Lage liegt flach. Zur nächsten Lage steigt die Bahn über eine kurze Rampe, immer an derselben Stelle. |
+| **Aufgelegt** | Eine Bahn darf die darunter um höchstens eine halbe Bahnbreite überragen. `Path Check` meldet, wo ein Teil das überschreitet. |
+
+## Infill aus einer Linie
+
+Jede Zeichnung ist eine echte Lage aus dem Slicer (Bauteil 300 × 190 mm, Bahn 5 mm). Größe, Streckung, Winkel und Lage sind einstellbar.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme-infill-dark.png">
+  <img alt="Zehn Infill-Muster als durchgehende Bahnen: Stege, treffende Stege, Waben, gestreckte Waben, Gitter, Welle, Fachwerk, Mäander, Kammerwand, Fachwerkwand" src="docs/readme-infill-light.png" width="100%">
+</picture>
+
+**Infill selbst zeichnen:** Kurven in der Draufsicht über das Bauteil zeichnen, und `Infill Sketch` macht aus jeder einen Steg, der ihr von Wand zu Wand folgt, als Teil derselben Linie.
+
+## Böden ohne Absetzen
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme-bottom-dark.png">
+  <img alt="Vier Bodenfüllungen als durchgehende Bahnen: Zickzack, Zickzack 45 Grad, Kontur, Kontur um ein Loch" src="docs/readme-bottom-light.png" width="100%">
+</picture>
+
+## Der Tab „Slicer“
+
+Die Komponenten werden in dieser Reihenfolge verbunden. `Quick Start` legt die ganze Kette samt Beispielteil auf die Leinwand.
+
+| Schritt | Komponente | Aufgabe |
+|---|---|---|
+| 1 | `Machine Profile` | Wie dein Drucker die Extrusionswerte erwartet: Volumen, Filamentlänge oder Faktor für die Steuerung |
+| 2 | `Print Settings` | Bahnbreite, Lagenhöhe, Überlappung, Geschwindigkeit, kleinster Radius |
+| 3 | `Slice` | Breps, Flächen, SubDs, Meshes. Flach, gekippt, non-planar (Führungsfläche) oder multiaxial (Führungskurve) |
+| 4 | `Walls` | Bahn innen, mittig oder außen an der Geometrie |
+| 5 | `Bottom Fill` | Geschlossener Boden als eine Linie: Zickzack oder Kontur |
+| 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill, in die Wandlinie eingebunden |
+| 7 | `Continuous Path` | Flache Lagen mit kurzer Rampe an fester Naht, oder Spirale für einfache Wände |
+| 8 | `Round Corners` | Jede Ecke wird ein Bogen |
+| 9 | `Start and End` | Skirt zuerst, am Ende vom Bauteil wegfahren |
+| 10 | `Path Check` | Auflage, Selbstkreuzung, Bahnform, Leerfahrten |
+| 11 | `Extrusion and Speed` | Ebene, E und F pro Punkt für DXR Generator oder G-Code |
+| | `Desktop Test Print` | Derselbe Pfad verkleinert als G-Code für einen Filamentdrucker |
+
+## Maschinen
+
+| | |
+|---|---|
+| **Im Einsatz erprobt** | Weber Additive DXR25 (KUKA-Roboter, DXR-Code) · Ginger Additive Ginger One (G-Code) |
+| **Testdrucke im kleinen Maßstab** | Bambu Lab, Prusa, Creality, Elegoo und andere Marlin- oder Klipper-Drucker, über `Desktop Test Print` |
+| **Andere Granulat- und Robotersysteme** | Nicht getestet. Das allgemeine Granulat-Profil gibt Position, Werkzeugachse, E und F pro Punkt aus; Format der Steuerung und Extrusionsfaktor müssen an der Maschine abgeglichen werden. |
+
+Alle genannten Marken gehören ihren jeweiligen Inhabern. LARGER.slicer ist ein unabhängiges Projekt und steht in keiner Verbindung zu diesen Herstellern.
+
+## Außerdem im Paket
 
 - **Eine Grasshopper-Definition, drei Arbeitsabläufe** – *Easy Slicer* schneidet Flächen automatisch, *Path Creator (multiaxial)* macht aus vorbereiteten Werkzeugbahnen Roboterbahnen, *Custom Paths* exportiert eigene Bahnen als Robotercode.
 - **Robotercode für den Weber DXR25 (KUKA)** – DXR-Generator und G-Code → DXR-Postprozessor mit automatischem Header (Laufzeit, Schichten, Extrusionssummen) und Zeilennummerierung.
@@ -160,7 +218,7 @@ LARGER.slicer/
 │   ├── Components/            # CNC-, Export- und Utility-Komponenten
 │   ├── Resources/             # Komponenten-Icons
 │   ├── documentations/        # Anleitungen und Referenzen
-│   └── build-package.sh/.bat  # Baut die Yak-Pakete für Rhino 7 und Rhino 8
+│   └── build-package.sh/.bat  # Baut die Yak-Pakete für Rhino 7, 8 und 9
 └── EXAMPLE FILES/             # Maschinenspezifische Definitionen und Anleitungen
     ├── 00 - UNIVERSAL ROBOTS - UR5/
     ├── 00 - WEBER - GINGER [Robotic] 3D Printing/
@@ -176,7 +234,7 @@ cd LARGERslicer
 ./build-package.sh          # unter Windows build-package.bat; optional neue Version, z. B. 1.1.14
 ```
 
-Erzeugt `dist/largerslicer-<version>-rh8_0-any.yak` und `dist/largerslicer-<version>-rh7_0-any.yak`. Mehr: [Plugin-README](LARGERslicer/README.md).
+Erzeugt `dist/largerslicer-<version>-rh9_0-any.yak`, `dist/largerslicer-<version>-rh8_0-any.yak` und `dist/largerslicer-<version>-rh7_0-any.yak`. Mehr: [Plugin-README](LARGERslicer/README.md).
 
 ## Lizenz
 
