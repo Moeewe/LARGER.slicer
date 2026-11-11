@@ -2,502 +2,53 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Grasshopper.Kernel;
-using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
+using LARGERslicer.Toolpaths;
 using LARGERslicer.Utils;
 
 namespace LARGERslicer.Components.Export
 {
     /// <summary>
-    /// Continuous Path from Boundary - Generates a single continuous 3D printing path from a boundary curve.
-    /// Automatically generates infill curves, offsets boundary by layer width, trims infill at boundary,
-    /// and combines all segments into one continuous path. Similar to Nautilus plugin functionality.
+    /// Wall loop plus zigzag infill as one line.
+    /// Rewritten on the fill engine of the Slicer tab: one line, bead width apart, no crossings.
     /// </summary>
     public class ContinuousPathFromCurvesComponent : BottomLayerPatternBase
     {
         public ContinuousPathFromCurvesComponent()
             : base("Continuous Path from Boundary", "ContPath",
-                  "Generates a single continuous 3D printing path from a boundary curve. Automatically creates infill, offsets boundary by layer width, trims at intersections, and optimizes order for minimal travel.")
+                  "One continuous print line from a boundary: one wall loop along the outline, then a zigzag infill at the chosen angle inside it. The curve is the outside of the print.")
         {
         }
+
+        public override string Category => "LARGER";
+        public override string SubCategory => "Toolpaths";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             base.RegisterInputParams(pManager);
-            pManager.AddNumberParameter("Angle", "Angle", "Infill line direction angle in degrees (0 = horizontal lines)", GH_ParamAccess.item, 0.0);
-            pManager.AddBooleanParameter("Random Bridges", "Random", "Use random bridge placement between disconnected segments to prevent overfill.", GH_ParamAccess.item, true);
-            pManager.AddNumberParameter("Bridge Density", "BridgeD", "Density of bridges between segments (0-1). Higher = more bridges.", GH_ParamAccess.item, 0.3);
+            pManager.AddNumberParameter("Angle", "Angle", "Direction of the infill lines in degrees (0 = along X)", GH_ParamAccess.item, 0.0);
+            pManager.AddBooleanParameter("Random Bridges", "Random", "No longer needed: the fill is always one continuous line. Kept so that old definitions still open.", GH_ParamAccess.item, true);
+            pManager.AddNumberParameter("Bridge Density", "BridgeD", "No longer needed: the fill is always one continuous line. Kept so that old definitions still open.", GH_ParamAccess.item, 0.3);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Validate minimal common inputs
-            Curve boundary;
-            double printWidth;
-            List<Curve> holes;
-
-            if (!ValidateInputs(DA, out boundary, out printWidth, out holes))
-                return;
-
-            // Get additional pattern-specific parameters
+            if (!ValidateInputs(DA, out Curve boundary, out double printWidth, out List<Curve> holes)) return;
             double angle = 0.0;
-            bool randomBridges = true;
-            double bridgeDensity = 0.3;
-            DA.GetData(3, ref angle);  // Index 3 after base inputs (0-2)
-            DA.GetData(4, ref randomBridges);
-            DA.GetData(5, ref bridgeDensity);
-
-            double spacing = printWidth;
-            double boundaryOffset = 0.0;
-
-            if (bridgeDensity < 0 || bridgeDensity > 1)
+            DA.GetData(3, ref angle);
+            var fill = FillEngine.FillRegion(boundary, holes, printWidth, false, angle, true, 0.0, null);
+            if (fill.Path == null || fill.Path.Count < 2)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Bridge density should be between 0 and 1. Clamping.");
-                bridgeDensity = Math.Max(0, Math.Min(1, bridgeDensity));
-            }
-
-            // Prepare boundary with offset (direction auto-detected)
-            Curve closedBoundary = PrepareBoundary(boundary, boundaryOffset, out List<Curve> offsetHoles, holes, spacing);
-            holes.AddRange(offsetHoles);
-
-            // Get seam position (auto-calculate)
-            var (seamPosition, seamParam) = GetSeamPosition(closedBoundary, null);
-
-            // Convert angle to radians
-            angle = angle * Math.PI / 180.0;
-
-            // Generate pattern-specific path
-            var (pathPoints, segments) = GeneratePattern(closedBoundary, seamPosition, seamParam, spacing, angle, randomBridges, bridgeDensity, holes);
-
-            if (pathPoints == null || pathPoints.Count < 2)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Pattern generation resulted in insufficient points. Count: {pathPoints?.Count ?? 0}");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, fill.Info.Length > 0 ? fill.Info : "No fill could be made.");
                 return;
             }
-
-            // Create output curves using base class method
-            CreateOutputCurves(pathPoints, segments, out Curve pathCurve, out List<Curve> segmentCurves);
-
-            if (pathCurve == null)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Failed to create output curve. Path points: {pathPoints.Count}, Segments: {segments?.Count ?? 0}");
-                return;
-            }
-
-            // Separate closed and open patterns
-            var patternsClosed = new List<Curve>();
-            var patternsOpened = new List<Curve>();
-            var bridges = new List<Curve>();
-            var polylines = new List<Curve>();
-
-            // Add main path as polyline
-            if (pathCurve != null)
-            {
-                polylines.Add(pathCurve);
-            }
-
-            // Categorize segments
-            foreach (var seg in segmentCurves)
-            {
-                if (seg != null && seg.IsValid)
-                {
-                    if (seg.IsClosed)
-                        patternsClosed.Add(seg);
-                    else
-                        patternsOpened.Add(seg);
-                }
-            }
-
-            // Create planes for each segment
-            var planes = new List<Plane>();
-            foreach (var seg in segmentCurves)
-            {
-                if (seg != null && seg.IsValid && seg.PointAtStart.IsValid)
-                {
-                    Point3d pt = seg.PointAtStart;
-                    planes.Add(new Plane(pt, Vector3d.ZAxis));
-                }
-            }
-
-            // Set outputs according to new structure
-            DA.SetDataList(0, polylines);  // Polylines
-            DA.SetDataList(1, planes);      // Planes
-            DA.SetDataList(2, patternsClosed);  // Patterns Closed
-            DA.SetDataList(3, patternsOpened);  // Patterns Opened
-            DA.SetDataList(4, bridges);     // Bridges
-            DA.SetData(5, pathCurve);      // Single Line Fill
-        }
-
-        private (List<Point3d> pathPoints, List<List<Point3d>> segments) GeneratePattern(
-            Curve boundary,
-            Point3d seamPosition,
-            double seamParameter,
-            double spacing,
-            double angle,
-            bool randomBridges,
-            double bridgeDensity,
-            List<Curve> holes)
-        {
-            var pathPoints = new List<Point3d>();
-            var segments = new List<List<Point3d>>();
-
-            // Step 1: Generate offset curves inward (like ContinuousToolpathComponent)
-            // FIXED: Generate offset curves first, not just infill lines
-            // User feedback: "nur eine Offset-Linie sichtbar" - need to generate all offset curves
-            List<Curve> offsetCurves = PathHelper.GenerateOffsetCurves(boundary, spacing, 50, holes);
-            
-            // Step 2: Generate infill lines that cover the entire bounding box
-            BoundingBox bbox = boundary.GetBoundingBox(true);
-            Point3d centerPoint = bbox.Center;
-
-            // Generate parallel infill lines (rotated around center point)
-            // These lines extend beyond the boundary
-            var infillLines = PathHelper.GenerateParallelLines(boundary, spacing, angle, centerPoint, bbox);
-
-            if (infillLines.Count == 0 && offsetCurves.Count == 0)
-            {
-                // Fallback: just return seam position
-                pathPoints.Add(seamPosition);
-                segments.Add(new List<Point3d> { seamPosition });
-                return (pathPoints, segments);
-            }
-
-            // Step 3: Trim infill lines at boundary AND offset curves, find intersection points
-            // FIXED: Also trim at offset curves, not just boundary
-            // This ensures all offset curves are visible and used
-            var trimmedInfillSegments = new List<Curve>();
-            var boundarySegments = new List<Curve>();
-            var allIntersectionPoints = new List<Point3d>();
-
-            // Combine boundary and offset curves for intersection testing
-            var allBoundaries = new List<Curve> { boundary };
-            allBoundaries.AddRange(offsetCurves);
-
-            // Find all intersections between infill lines and all boundaries (boundary + offset curves)
-            foreach (var infillLine in infillLines)
-            {
-                // Find intersections with all boundaries (boundary + offset curves)
-                var allIntersections = new List<Rhino.Geometry.Intersect.IntersectionEvent>();
-                foreach (var boundaryCurve in allBoundaries)
-                {
-                    var curveIntersections = Rhino.Geometry.Intersect.Intersection.CurveCurve(
-                        infillLine, boundaryCurve, 0.01, 0.01);
-                    if (curveIntersections != null)
-                    {
-                        allIntersections.AddRange(curveIntersections);
-                    }
-                }
-                
-                // Use all intersections for trimming
-                var intersections = allIntersections;
-
-                if (intersections != null && intersections.Count > 0)
-                {
-                    // Sort intersection parameters along the infill line
-                    var intersectionParams = intersections
-                        .Select(ix => ix.ParameterA)
-                        .OrderBy(t => t)
-                        .ToList();
-
-                    // Trim infill line at boundary intersections
-                    for (int i = 0; i < intersectionParams.Count - 1; i += 2)
-                    {
-                        double t1 = intersectionParams[i];
-                        double t2 = intersectionParams[i + 1];
-
-                        // Only create segment if it's long enough
-                        if (Math.Abs(t2 - t1) > spacing * 0.1)
-                        {
-                            Curve trimmed = infillLine.Trim(t1, t2);
-                            if (trimmed != null && trimmed.IsValid && trimmed.GetLength() > spacing * 0.1)
-                            {
-                                // Filter points that are inside holes
-                                Point3d midPt = trimmed.PointAt(0.5);
-                                // Check against all boundaries (boundary + offset curves)
-                                bool isValid = false;
-                                foreach (var boundaryCurve in allBoundaries)
-                                {
-                                    if (boundaryCurve.Contains(midPt, Plane.WorldXY, 0.01) == PointContainment.Inside)
-                                    {
-                                        isValid = true;
-                                        break;
-                                    }
-                                }
-                                if (isValid && IsPointValid(midPt, boundary, holes))
-                                {
-                                    trimmedInfillSegments.Add(trimmed);
-                                }
-                            }
-                        }
-                    }
-
-                    // Collect intersection points for boundary segmentation
-                    foreach (var intersection in intersections)
-                    {
-                        Point3d pt = infillLine.PointAt(intersection.ParameterA);
-                        allIntersectionPoints.Add(pt);
-                    }
-                }
-            }
-
-            // Step 4: Add offset curves as segments (so they're visible in output)
-            // FIXED: Add offset curves directly so they appear in the path
-            foreach (var offsetCurve in offsetCurves)
-            {
-                if (offsetCurve != null && offsetCurve.IsValid)
-                {
-                    // Sample offset curve as segment
-                    var offsetPoints = PathHelper.SampleCurve(offsetCurve, spacing * 0.5, true);
-                    if (offsetPoints.Count >= 2)
-                    {
-                        trimmedInfillSegments.Add(offsetCurve);
-                    }
-                }
-            }
-
-            // Step 5: Segment boundary at intersection points
-            if (allIntersectionPoints.Count > 0)
-            {
-                // Find intersection parameters on boundary
-                var boundaryIntersectionParams = new List<double>();
-                foreach (var intersectionPt in allIntersectionPoints)
-                {
-                    double t;
-                    if (boundary.ClosestPoint(intersectionPt, out t))
-                    {
-                        double dist = boundary.PointAt(t).DistanceTo(intersectionPt);
-                        if (dist <= 0.01)
-                        {
-                            boundaryIntersectionParams.Add(t);
-                        }
-                    }
-                }
-
-                // Add start and end points
-                boundaryIntersectionParams.Add(boundary.Domain.T0);
-                boundaryIntersectionParams.Add(boundary.Domain.T1);
-
-                // Sort and remove duplicates
-                boundaryIntersectionParams = boundaryIntersectionParams.Distinct().OrderBy(t => t).ToList();
-
-                // Create boundary segments
-                for (int i = 0; i < boundaryIntersectionParams.Count - 1; i++)
-                {
-                    double t1 = boundaryIntersectionParams[i];
-                    double t2 = boundaryIntersectionParams[i + 1];
-
-                    // Handle wrap-around for closed curves
-                    if (i == boundaryIntersectionParams.Count - 2 && boundary.IsClosed)
-                    {
-                        // Last segment wraps around
-                        Curve seg1 = boundary.Trim(t1, boundary.Domain.T1);
-                        Curve seg2 = boundary.Trim(boundary.Domain.T0, t2);
-                        if (seg1 != null && seg1.IsValid && seg1.GetLength() > spacing * 0.1)
-                        {
-                            boundarySegments.Add(seg1);
-                        }
-                        if (seg2 != null && seg2.IsValid && seg2.GetLength() > spacing * 0.1)
-                        {
-                            boundarySegments.Add(seg2);
-                        }
-                    }
-                    else
-                    {
-                        Curve segment = boundary.Trim(t1, t2);
-                        if (segment != null && segment.IsValid && segment.GetLength() > spacing * 0.1)
-                        {
-                            boundarySegments.Add(segment);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // No intersections, use entire boundary
-                boundarySegments.Add(boundary.DuplicateCurve());
-            }
-
-            // Step 6: Combine all segments (infill + boundary + offset curves) into one list
-            var allSegments = new List<Curve>();
-            allSegments.AddRange(trimmedInfillSegments);
-            allSegments.AddRange(boundarySegments);
-
-            if (allSegments.Count == 0)
-            {
-                pathPoints.Add(seamPosition);
-                segments.Add(new List<Point3d> { seamPosition });
-                return (pathPoints, segments);
-            }
-
-            // Step 7: Optimize segment order for minimal travel (greedy nearest-neighbor)
-            var orderedSegments = OptimizeSegmentOrder(allSegments, seamPosition);
-
-            // Step 8: Add random bridges between disconnected segments (if enabled)
-            if (randomBridges)
-            {
-                orderedSegments = AddRandomBridges(orderedSegments, bridgeDensity, spacing);
-            }
-
-            // Step 9: Convert segments to point lists and create continuous path
-            var segmentPointLists = new List<List<Point3d>>();
-            foreach (var seg in orderedSegments)
-            {
-                var segPoints = PathHelper.SampleCurve(seg, spacing * 0.5, true);
-                if (segPoints.Count >= 2)
-                {
-                    segmentPointLists.Add(segPoints);
-                }
-            }
-
-            segments = segmentPointLists;
-
-            // Step 10: Build continuous path starting from seam position
-            pathPoints.Add(seamPosition);
-            
-            if (segments.Count == 0)
-            {
-                // If no segments, create a minimal path with at least 2 points
-                // Add a point slightly offset from seam position
-                Vector3d offset = new Vector3d(spacing * 0.1, 0, 0);
-                pathPoints.Add(seamPosition + offset);
-                segments.Add(new List<Point3d> { seamPosition, seamPosition + offset });
-            }
-            else
-            {
-                foreach (var seg in segments)
-                {
-                    if (pathPoints.Count > 0 && seg.Count > 0)
-                    {
-                        Point3d lastPt = pathPoints[pathPoints.Count - 1];
-                        Point3d firstPt = seg[0];
-                        if (lastPt.DistanceTo(firstPt) > spacing * 0.1)
-                        {
-                            int steps = Math.Max(2, (int)Math.Ceiling(lastPt.DistanceTo(firstPt) / spacing));
-                            for (int s = 1; s < steps; s++)
-                            {
-                                double t = (double)s / steps;
-                                pathPoints.Add(lastPt + (firstPt - lastPt) * t);
-                            }
-                        }
-                    }
-                    pathPoints.AddRange(seg);
-                }
-            }
-
-            // Ensure we have at least 2 points
-            if (pathPoints.Count < 2)
-            {
-                // Add a second point if we only have one
-                Vector3d offset = new Vector3d(spacing * 0.1, 0, 0);
-                pathPoints.Add(seamPosition + offset);
-            }
-
-            // Do NOT return to seam position - end at last point of pattern
-            // This prevents unwanted retraction/travel moves across the geometry
-
-            return (pathPoints, segments);
-        }
-
-        /// <summary>
-        /// Optimizes segment order to minimize travel distance (greedy nearest-neighbor).
-        /// </summary>
-        private List<Curve> OptimizeSegmentOrder(List<Curve> segments, Point3d startPoint)
-        {
-            if (segments.Count == 0)
-                return segments;
-
-            var ordered = new List<Curve>();
-            var remaining = new HashSet<Curve>(segments);
-            Point3d currentPoint = startPoint;
-
-            while (remaining.Count > 0)
-            {
-                Curve bestSegment = null;
-                double bestDistance = double.MaxValue;
-                bool reverseBest = false;
-
-                foreach (var segment in remaining)
-                {
-                    Point3d segStart = segment.PointAtStart;
-                    Point3d segEnd = segment.PointAtEnd;
-
-                    double distToStart = currentPoint.DistanceTo(segStart);
-                    double distToEnd = currentPoint.DistanceTo(segEnd);
-
-                    if (distToStart < bestDistance)
-                    {
-                        bestDistance = distToStart;
-                        bestSegment = segment;
-                        reverseBest = false;
-                    }
-
-                    if (distToEnd < bestDistance)
-                    {
-                        bestDistance = distToEnd;
-                        bestSegment = segment;
-                        reverseBest = true;
-                    }
-                }
-
-                if (bestSegment != null)
-                {
-                    Curve segmentToAdd = bestSegment.DuplicateCurve();
-                    if (reverseBest)
-                    {
-                        segmentToAdd.Reverse();
-                    }
-                    ordered.Add(segmentToAdd);
-                    remaining.Remove(bestSegment);
-                    currentPoint = segmentToAdd.PointAtEnd;
-                }
-                else
-                {
-                    // Fallback: add remaining segments
-                    ordered.AddRange(remaining.Select(s => s.DuplicateCurve()));
-                    break;
-                }
-            }
-
-            return ordered;
-        }
-
-        /// <summary>
-        /// Adds random bridges between disconnected segments to prevent overfill.
-        /// </summary>
-        private List<Curve> AddRandomBridges(List<Curve> segments, double bridgeDensity, double spacing)
-        {
-            if (segments.Count < 2)
-                return segments;
-
-            var result = new List<Curve> { segments[0] };
-            Random random = new Random(42); // Fixed seed for reproducibility
-
-            for (int i = 1; i < segments.Count; i++)
-            {
-                Curve prevSeg = segments[i - 1];
-                Curve currSeg = segments[i];
-
-                Point3d prevEnd = prevSeg.PointAtEnd;
-                Point3d currStart = currSeg.PointAtStart;
-                double distance = prevEnd.DistanceTo(currStart);
-
-                // Add bridge if segments are disconnected
-                if (distance > spacing * 0.1)
-                {
-                    // Random decision: add bridge based on density
-                    if (random.NextDouble() < bridgeDensity)
-                    {
-                        // Create bridge curve (straight line)
-                        Line bridgeLine = new Line(prevEnd, currStart);
-                        Curve bridge = new LineCurve(bridgeLine);
-                        result.Add(bridge);
-                    }
-                }
-
-                result.Add(currSeg);
-            }
-
-            return result;
+            if (fill.Links.Count > 0)
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Links.Count + " link(s) join separate parts of the fill across open space. The contour fill (Single Line Fill with Offsets) avoids this on shapes with bays or holes.");
+            if (holes.Count > 0 && fill.Note.Length == 0)
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Holes are left open but get no wall of their own here. Continuous Toolpath prints a wall around holes.");
+            if (fill.Note.Length > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Note);
+            Message = (fill.Path.Length / 1000.0).ToString("0.00") + " m";
+            DA.SetData(0, new PolylineCurve(fill.Path));
         }
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("ContinuousPathFromCurvesIcon.png");

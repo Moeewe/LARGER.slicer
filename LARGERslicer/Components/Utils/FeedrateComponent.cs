@@ -54,28 +54,18 @@ namespace LARGERslicer.Components.Utils
             // Convert speed (mm/s) to feedrate (mm/min)
             double targetFeedrate = targetSpeed * 60.0;
 
-            // Calculate average segment length
-            double avgLength = segmentLengths.Average();
+            // G1 F is the speed along the path in mm/min. It does not depend on how long a segment
+            // is, so a constant print speed means the same F for every move. (Scaling F with the
+            // segment length, as this component did before, made the speed fluctuate wherever the
+            // points were unevenly spaced, and gave F0 for zero-length segments.)
+            double constant = Math.Max(1.0, Math.Round(targetFeedrate));
+            feedrates = segmentLengths.Select(_ => constant).ToList();
 
-            // Debugging: Show base values
             debugging.Add($"Target feedrate (mm/min): {targetFeedrate:F2}");
             debugging.Add($"Number of segments: {segmentLengths.Count}");
-            debugging.Add($"Average segment length: {avgLength:F3}");
+            debugging.Add("Constant speed: every move gets the same feedrate.");
 
-            // Safety check for avg_length = 0
-            if (Math.Abs(avgLength) < 1e-10)
-            {
-                feedrates = segmentLengths.Select(_ => Math.Round(targetFeedrate)).ToList();
-                debugging.Add("WARNING: Average segment length is 0. Using standard feedrate.");
-            }
-            else
-            {
-                // Adjust feedrate for each segment and round to whole number
-                feedrates = segmentLengths.Select(segLen => Math.Round(targetFeedrate * (segLen / avgLength))).ToList();
-            }
-
-            // Debugging: Add calculated feedrates
-            debugging.Add($"Calculated feedrates (rounded): [{string.Join(", ", feedrates.Select(f => f.ToString("F0")))}]");
+            debugging.Add($"Feedrate for all moves: {constant:F0} mm/min");
 
             DA.SetDataList(0, feedrates);
             DA.SetDataList(1, debugging);

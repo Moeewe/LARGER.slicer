@@ -7,7 +7,7 @@
 **Large-format 3D printing and CNC toolpaths in Rhino / Grasshopper**<br>
 Slicer, robot code (DXR / KUKA) and machine guides for Weber DXR25, Ginger One, UR5 and Zünd – in one package.
 
-[![Latest release](https://img.shields.io/github/v/release/Moeewe/LARGER.slicer?label=release&color=2c6aa6)](https://github.com/Moeewe/LARGER.slicer/releases/latest) [![Rhino](https://img.shields.io/badge/Rhino-8%20%7C%207-2c6aa6)](https://www.rhino3d.com/) [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2c6aa6)](#quick-start) [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
+[![Latest release](https://img.shields.io/github/v/release/Moeewe/LARGER.slicer?label=release&color=2c6aa6)](https://github.com/Moeewe/LARGER.slicer/releases/latest) [![Rhino](https://img.shields.io/badge/Rhino-9%20%7C%208%20%7C%207-2c6aa6)](https://www.rhino3d.com/) [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2c6aa6)](#quick-start) [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 
 <a href="https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip"><img alt="Download LARGERslicer-SETUP.zip" src="https://img.shields.io/badge/Download-LARGERslicer--SETUP.zip-2c6aa6?style=for-the-badge&logo=rhinoceros&logoColor=white"></a>
 
@@ -21,6 +21,8 @@ Slicer, robot code (DXR / KUKA) and machine guides for Weber DXR25, Ginger One, 
 
 ## Features
 
+- **One continuous print line** – the new *Slicer* tab turns any geometry (open or closed Breps, surfaces, SubDs, meshes) into a single toolpath: walls, bottom fill and infill (ribs, honeycomb, grid) in one move that never crosses itself, with rounded corners, a soft seam, skirt and exit move.
+- **Flat, tilted, non-planar and multi-axis layers** – slice at an angle, along a guide surface or square to a guide curve; `Path Check` tests support, crossings and bead shape before you print.
 - **One Grasshopper definition, three workflows** – *Easy Slicer* slices surfaces automatically, *Path Creator (multiaxial)* turns prepared toolpaths into robot paths, *Custom Paths* exports your own paths as robot code.
 - **Robot code for Weber DXR25 (KUKA)** – DXR Generator and G-code → DXR postprocessor with automatic header (runtime, layers, extrusion totals) and line numbering.
 - **Variable line widths** – `DXR Variable Width` scales the extrusion along X, Y or Z with a colored width preview.
@@ -160,7 +162,7 @@ LARGER.slicer/
 │   ├── Components/            # CNC, Export and Utility components
 │   ├── Resources/             # Component icons
 │   ├── documentations/        # Guides and references
-│   └── build-package.sh/.bat  # Builds the Rhino 7 and Rhino 8 Yak packages
+│   └── build-package.sh/.bat  # Builds the Rhino 7, 8 and 9 Yak packages
 └── EXAMPLE FILES/             # Machine-specific definitions and guides
     ├── 00 - UNIVERSAL ROBOTS - UR5/
     ├── 00 - WEBER - GINGER [Robotic] 3D Printing/
@@ -176,7 +178,7 @@ cd LARGERslicer
 ./build-package.sh          # or build-package.bat on Windows; optional: new version, e.g. 1.1.14
 ```
 
-Creates `dist/largerslicer-<version>-rh8_0-any.yak` and `dist/largerslicer-<version>-rh7_0-any.yak`. More: [Plugin README](LARGERslicer/README.md).
+Creates `dist/largerslicer-<version>-rh9_0-any.yak`, `dist/largerslicer-<version>-rh8_0-any.yak` and `dist/largerslicer-<version>-rh7_0-any.yak`. More: [Plugin README](LARGERslicer/README.md).
 
 ## License
 

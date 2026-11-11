@@ -23,7 +23,7 @@ tags:
   - pattern
 
 # Rhino version compatibility
-rhino_version: "8.0"
+rhino_version: "9.0"
 minimum_rhino_version: "7.0"
 
 # Package icon (optional, 256x256 PNG recommended)

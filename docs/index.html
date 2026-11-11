@@ -1,0 +1,824 @@
+<title>LARGER.slicer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..800&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Concept: the page is built like the logo. A dark rounded stage (the logo's square) holds the
+   live print; everything around it is cool paper with navy ink. One line - the bead - runs
+   through the page: it links the pipeline steps and underlines each section. Blue appears only
+   where the logo uses it: the newest layer, the nozzle, the one action that matters. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --sunk: #eaeef3; --fg: #141a26; --muted: #5b6577; --faint: #8a93a3; --line: #dde2ea;
+  --accent: #0a84ff; --accent-text: #0a6fe0; --accent-ink: #ffffff;
+  --coil-front: #141a26; --coil-back: #a9b1bf; --coil-new: #0a84ff;
+  --stage: #1c2436; --stage-2: #0a0e18; --stage-fg: #eef1f6; --stage-muted: #8d97a9; --stage-line: #2a3348;
+  --wall: #0a84ff; --infill: #e8870c; --bottom: #0f9e8e; --travel: #e5484d; --skirt: #b46be0;
+  --ok: #138a5e; --bad: #d23f45;
+  --chip-built: #e2edf9; --chip-built-fg: #0b4f99; --chip-idea: #eceff4; --chip-idea-fg: #5b6577;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b0f18; --surface: #121927; --sunk: #0f1520; --fg: #eef1f6; --muted: #98a2b4; --faint: #6c7689; --line: #222b3b;
+  --accent: #3d9bff; --accent-text: #6cb3ff; --accent-ink: #06121f;
+  --coil-front: #eef1f6; --coil-back: #4b5568; --coil-new: #3d9bff;
+  --stage: #1a2234; --stage-2: #070a12; --stage-fg: #eef1f6; --stage-muted: #8d97a9; --stage-line: #2a3348;
+  --wall: #4aa3ff; --infill: #f5a13a; --bottom: #35c2b1; --travel: #ff6b70; --skirt: #c792ee;
+  --ok: #45c48f; --bad: #ff6b70;
+  --chip-built: #12304f; --chip-built-fg: #9ccbff; --chip-idea: #1b2332; --chip-idea-fg: #98a2b4; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0b0f18; --surface: #121927; --sunk: #0f1520; --fg: #eef1f6; --muted: #98a2b4; --faint: #6c7689; --line: #222b3b;
+  --accent: #3d9bff; --accent-text: #6cb3ff; --accent-ink: #06121f;
+  --coil-front: #eef1f6; --coil-back: #4b5568; --coil-new: #3d9bff;
+  --stage: #1a2234; --stage-2: #070a12; --stage-fg: #eef1f6; --stage-muted: #8d97a9; --stage-line: #2a3348;
+  --wall: #4aa3ff; --infill: #f5a13a; --bottom: #35c2b1; --travel: #ff6b70; --skirt: #c792ee;
+  --ok: #45c48f; --bad: #ff6b70;
+  --chip-built: #12304f; --chip-built-fg: #9ccbff; --chip-idea: #1b2332; --chip-idea-fg: #98a2b4; color-scheme: dark }
+
+* { box-sizing: border-box }
+html { scroll-behavior: smooth; scroll-padding-top: 76px }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto } }
+body { background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--body); -webkit-font-smoothing: antialiased }
+.wrap { max-width: 1200px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+a { color: var(--accent-text); text-underline-offset: 3px }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px }
+h1, h2, h3 { margin: 0; text-wrap: balance }
+p { margin: 0 }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums }
+
+/* type scale: 12 / 14 / 16 / 20 / 28 / 44 / 88 */
+.eyebrow { font: 500 .75rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted) }
+.h2 { font: 560 clamp(1.9rem, 4.4vw, 2.85rem)/1 var(--display); letter-spacing: -0.045em }
+.lead { color: var(--muted); max-width: 58ch; font-size: 1.06rem }
+.bead { display: block; width: 72px; height: 6px; border-radius: 3px; background: var(--fg) }
+.bead.blue { background: var(--accent) }
+
+/* nav */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg) }
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 19; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid transparent }
+header.scrolled { border-bottom-color: var(--line) }
+.bar { display: flex; align-items: center; gap: 10px 28px; flex-wrap: wrap; padding-block: 12px }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--fg); font: 640 1.08rem var(--display); letter-spacing: -0.035em }
+.mark { display: block; flex: none }
+.brand .mark { width: 34px; height: 34px }
+nav { display: flex; gap: 2px 22px; flex-wrap: wrap }
+nav a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: .93rem }
+nav a:hover { color: var(--fg) }
+.bar .btn { margin-left: auto; padding: 9px 16px }
+
+.btn { display: inline-flex; align-items: center; gap: 10px; padding: 13px 22px; border-radius: 999px; font: 600 .95rem var(--body); text-decoration: none; color: var(--fg); border: 1.5px solid var(--line); background: transparent; transition: border-color .15s, background .15s }
+.btn:hover { border-color: var(--fg) }
+.btn.primary { background: var(--fg); border-color: var(--fg); color: var(--bg) }
+.btn.primary:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
+.btn.on-stage { color: var(--stage-fg); border-color: var(--stage-line) }
+.btn.on-stage:hover { border-color: var(--stage-fg) }
+.btn.on-stage.primary { background: var(--stage-fg); color: #0a0e18; border-color: var(--stage-fg) }
+.btn.on-stage.primary:hover { background: var(--accent); border-color: var(--accent); color: #ffffff }
+.btn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent) }
+
+/* hero: the logo's square, opened up */
+.hero { padding-block: 18px 0 }
+.stage { position: relative; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 10px 24px; align-items: center; background: radial-gradient(120% 90% at 70% 10%, var(--stage) 0%, var(--stage-2) 70%); border-radius: 32px; padding: clamp(26px, 4.5vw, 60px); color: var(--stage-fg); overflow: hidden }
+.stage h1 { font: 560 clamp(3rem, 8.6vw, 6.4rem)/.88 var(--display); letter-spacing: -0.06em }
+.stage h1 span { color: var(--accent) }
+.stage .sub { color: #b9c2d2; max-width: 44ch; margin-top: 22px; font-size: 1.08rem }
+.stage .cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px }
+.stage .meta { display: flex; gap: 6px 20px; flex-wrap: wrap; margin-top: 28px; font: .78rem var(--mono); color: var(--stage-muted) }
+.stage .meta b { color: var(--stage-fg); font-weight: 500 }
+.viz { min-width: 0; position: relative }
+.viz canvas { width: 100%; height: auto; display: block; aspect-ratio: 1120 / 800 }
+.readout { display: flex; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; border-top: 1px solid var(--stage-line); padding-top: 10px; font: .74rem var(--mono); color: var(--stage-muted); font-variant-numeric: tabular-nums }
+.readout b { color: var(--stage-fg); font-weight: 500 }
+
+/* facts strip */
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--line); margin-top: 0 }
+.facts div { padding: 22px 18px 22px 0; min-width: 0 }
+.facts b { display: block; font: 560 1.7rem/1.1 var(--display); letter-spacing: -0.04em; font-variant-numeric: tabular-nums }
+.facts span { color: var(--muted); font-size: .9rem }
+
+section { padding-block: 88px 8px }
+.head { display: grid; gap: 14px; margin-bottom: 40px }
+.head .bead { margin-bottom: 6px }
+
+/* principles */
+.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px }
+.pr { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 22px 22px 24px; display: grid; gap: 14px; align-content: start }
+.pr svg { width: 100%; height: auto; display: block; border-radius: 14px; background: var(--sunk) }
+.pr h3 { font: 600 1.25rem/1.15 var(--display); letter-spacing: -0.03em }
+.pr p { color: var(--muted); font-size: .95rem }
+
+/* pipeline: one line through all steps */
+.flow { position: relative; display: grid; grid-template-columns: repeat(10, minmax(96px, 1fr)); gap: 0; overflow-x: auto; padding-block: 6px 4px; scrollbar-width: thin }
+.flow::before { content: ""; position: absolute; left: 30px; right: 30px; top: 34px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--fg) 0 82%, var(--accent) 82% 100%) }
+.step { position: relative; display: grid; justify-items: start; gap: 8px; padding-right: 14px; min-width: 96px }
+.step .ic { width: 62px; height: 62px; border-radius: 16px; background: #fbfcfd; border: 1px solid var(--line); display: grid; place-items: center; position: relative; z-index: 1 }
+.step .ic img { width: 42px; height: 42px; display: block }
+.step i { font: 500 .7rem var(--mono); color: var(--faint); font-style: normal }
+.step b { font-weight: 600; font-size: .92rem; line-height: 1.25 }
+.step span { color: var(--muted); font-size: .82rem; line-height: 1.4 }
+
+/* modes */
+.four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px }
+.mode { min-width: 0 }
+.mode svg { width: 100%; height: auto; display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 18px }
+.mode h3 { font: 600 1.05rem var(--body); margin-top: 12px }
+.mode p { color: var(--muted); font-size: .9rem; margin-top: 2px }
+
+/* patterns */
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px }
+.filters button { font: 600 .85rem var(--body); padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: transparent; color: var(--muted); cursor: pointer }
+.filters button[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg) }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 28px 20px }
+.tile { min-width: 0 }
+.tile svg { width: 100%; height: auto; display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 18px }
+.tile .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px }
+.tile h3 { font: 600 1rem var(--body) }
+.chip { font: 500 .66rem var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; white-space: nowrap }
+.chip.built { background: var(--chip-built); color: var(--chip-built-fg) }
+.chip.idea { background: var(--chip-idea); color: var(--chip-idea-fg) }
+.tile p { color: var(--muted); font-size: .9rem; margin-top: 4px }
+.tile .rule { font: .74rem var(--mono); color: var(--fg); margin-top: 8px }
+.scale { font: .74rem var(--mono); color: var(--muted) }
+
+/* rules */
+.calc { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.3fr); gap: 26px 44px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: clamp(20px, 3vw, 34px) }
+.fields { display: grid; gap: 12px; align-content: start }
+.fields h3 { font: 600 1.35rem/1.1 var(--display); letter-spacing: -0.035em; margin-bottom: 6px }
+.field { display: grid; grid-template-columns: minmax(0, 1fr) 116px; align-items: center; gap: 10px }
+.field.wide { grid-template-columns: minmax(0, 1fr) }
+.field label { font-size: .92rem }
+.field input, .field select { width: 100%; font: 500 .92rem var(--mono); padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg) }
+.out { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 20px 22px; align-content: start }
+.out div { min-width: 0 }
+.out b { display: block; font: 560 1.65rem/1.15 var(--display); letter-spacing: -0.035em; font-variant-numeric: tabular-nums }
+.out div:first-child b { color: var(--accent-text) }
+.out span { color: var(--muted); font-size: .84rem }
+.verdict { grid-column: 1 / -1; font-size: .92rem; padding-top: 14px; border-top: 1px solid var(--line) }
+.rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 44px 40px; margin-top: 56px }
+.group h3 { font: 600 1.3rem/1.1 var(--display); letter-spacing: -0.035em; display: grid; gap: 12px }
+.group dl { margin: 0 }
+.group dt { font-weight: 600; margin-top: 16px }
+.group dd { margin: 3px 0 0; color: var(--muted); font-size: .94rem }
+.group dd .mono { color: var(--fg); font-size: .82rem }
+
+/* open source */
+.oss { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 30px 50px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: clamp(24px, 4vw, 48px) }
+.oss ul { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 10px }
+.oss li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; color: var(--muted) }
+.oss li::before { content: ""; width: 14px; height: 5px; border-radius: 3px; background: var(--accent); margin-top: 10px }
+.code { font: .86rem/1.9 var(--mono); background: var(--sunk); border-radius: 14px; padding: 16px 18px; overflow-x: auto; white-space: pre }
+.code b { color: var(--accent-text); font-weight: 500 }
+.big-mark { width: 120px; height: 120px }
+
+footer { margin-top: 88px; border-top: 1px solid var(--line); color: var(--muted); font-size: .86rem }
+footer .wrap { padding-block: 26px 36px; display: flex; gap: 10px 24px; flex-wrap: wrap; align-items: center; justify-content: space-between }
+footer .brand { font-size: .95rem }
+footer .brand .mark { width: 26px; height: 26px }
+
+@media (max-width: 980px) {
+  .three, .four { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+  .rules { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+}
+@media (max-width: 760px) {
+  .stage, .calc, .oss { grid-template-columns: minmax(0, 1fr) }
+  .three, .four, .rules { grid-template-columns: minmax(0, 1fr) }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+  nav { order: 3; width: 100% }
+  section { padding-block: 64px 4px }
+}
+</style>
+
+<header id="top">
+  <div class="wrap bar">
+    <a class="brand" href="#start"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"></svg>LARGER.slicer</a>
+    <nav aria-label="Abschnitte">
+      <a href="#prinzip">Prinzip</a>
+      <a href="#ablauf">Ablauf</a>
+      <a href="#muster">Muster</a>
+      <a href="#regeln">Regeln</a>
+      <a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a>
+    </nav>
+    <a class="btn primary" href="https://github.com/Moeewe/LARGER.slicer/releases/latest">Download</a>
+  </div>
+</header>
+
+<main id="start">
+  <div class="wrap hero">
+    <div class="stage">
+      <div>
+        <p class="eyebrow" style="color:var(--stage-muted)">Slicer für Rhino und Grasshopper</p>
+        <h1 style="margin-top:18px">Eine Linie<span>.</span><br>Ein Bauteil<span>.</span></h1>
+        <p class="sub">LARGER.slicer macht aus jeder Rhino-Geometrie einen einzigen, durchgehenden Druckpfad für Granulat-Extruder am Roboter. Wand, Boden und Infill in einem Zug, flache Lagen, keine Kreuzung.</p>
+        <div class="cta">
+          <a class="btn on-stage primary" href="https://github.com/Moeewe/LARGER.slicer/releases/latest"><span class="dot"></span>Herunterladen</a>
+          <a class="btn on-stage" href="https://github.com/Moeewe/LARGER.slicer">Quellcode auf GitHub</a>
+        </div>
+        <div class="meta"><span><b>Rhino</b> 7 · 8 · 9</span><span><b>OS</b> Windows · macOS</span><span><b>Ausgabe</b> DXR · G-code</span></div>
+      </div>
+      <div class="viz">
+        <canvas id="print" width="1120" height="800" role="img" aria-label="Animation: ein Bauteil entsteht Lage für Lage aus einer einzigen Linie, die Düse fährt die neueste Lage ab"></canvas>
+        <div class="readout"><span id="ro-layer">Lage <b>1</b> / 16</span><span>Bahn 5 mm · Lage 2 mm · Rampe 20 mm</span><span id="ro-len"><b>0,00 m</b></span></div>
+      </div>
+    </div>
+    <div class="facts">
+      <div><b class="mono">1</b><span>durchgehende Linie vom Skirt bis zur letzten Lage</span></div>
+      <div><b class="mono">0</b><span>Selbstkreuzungen, geprüft vor jedem Druck</span></div>
+      <div><b class="mono">10–150 ms</b><span>zum Schneiden eines Bauteils</span></div>
+      <div><b class="mono">4</b><span>Lagenarten: flach, gekippt, non-planar, multiaxial</span></div>
+    </div>
+  </div>
+
+  <section id="prinzip">
+    <div class="wrap">
+      <div class="head">
+        <span class="bead"></span>
+        <p class="eyebrow">Das Prinzip</p>
+        <h2 class="h2">Drei Regeln, die nicht verhandelbar sind</h2>
+        <p class="lead">Ein Granulat-Extruder lässt sich nicht sauber stoppen. Deshalb plant der Slicer den ganzen Druck als eine Bahn und prüft sie, bevor sie den Roboter erreicht.</p>
+      </div>
+      <div class="three">
+        <article class="pr">
+          <svg id="pr-one" viewBox="0 0 300 170" role="img" aria-label="Draufsicht: Wand mit eingebundenen Stegen als eine geschlossene Linie"></svg>
+          <h3>Eine Linie</h3>
+          <p>Stege und Waben werden in die Wand eingebunden, nicht daneben gedruckt. Kein Absetzen, keine Fäden, kein Tropfen.</p>
+        </article>
+        <article class="pr">
+          <svg id="pr-cross" viewBox="0 0 300 170" role="img" aria-label="Links eine Bahn, die sich kreuzt, rechts dieselben Schleifen mit Brücken verbunden"></svg>
+          <h3>Nie kreuzen</h3>
+          <p>Kreuzt sich die Bahn, pflügt die Düse durch frisches Material. Geht ein Muster nicht ohne Kreuzung, hat die Kreuzungsfreiheit Vorrang.</p>
+        </article>
+        <article class="pr">
+          <svg id="pr-flat" viewBox="0 0 300 170" role="img" aria-label="Seitenansicht: flache Lagen, der Wechsel über eine kurze Rampe an derselben Stelle"></svg>
+          <h3>Flache Lagen</h3>
+          <p>Jede Lage liegt flach auf der darunter. Der Wechsel passiert über eine kurze Rampe, immer an derselben Stelle und nie auf einer Ecke.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="ablauf">
+    <div class="wrap">
+      <div class="head">
+        <span class="bead"></span>
+        <p class="eyebrow">Ablauf in Grasshopper · Tab LARGER › Slicer</p>
+        <h2 class="h2">Vom Modell zum Robotercode</h2>
+        <p class="lead">Zehn Komponenten in einer Reihe. Bahnbreite, Lagenhöhe, Geschwindigkeit und Maschine stehen an genau einer Stelle, alles andere leitet sich daraus ab. Quick Start legt die ganze Kette mit einem Beispielteil auf die Leinwand.</p>
+      </div>
+      <div class="flow" role="list">
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,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" alt=""></span><i>01</i><b>Machine Profile</b><span>Wie dein Drucker E haben will</span></div>
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAFnElEQVR42u2cTWxUVRiG3/ecO7e/gFg11CghaKgpCzR1RSJbg64vC3cYheja4AaYDJgYiTsNBjSyc8HsJSouUCI28SeEgCmkjUIUMTQWpC3M3HM+F51aFurc6TDMubffk9xFMzPpud/5P8/9LqAoiqIoiqIoiqIoiqIoiqIoStHhyrhNIcogNjfu9zwEFQhA0SbQScpiUJbofz6PUBajPaATJGJRpQMAHBc7OIVNQqwDAAp+v7URF7Gj8fnd39UKuEctv0IfH5CRKMar4rGdghGWYAFA6nBCTNDgRFrDh7X9nFj8jVZAuxwXix10/W/JK4jxLiOskRqAFACwGGCDCGAMSIobqOGNub38aPG3eaiAxd9JkME/IIc5iNdkHoBHCsI0ynx3uQUCD4OIfYDcwgdz+/n6Mith2fFotQKYJImpVqvun5aEcgCRrwC7jlgc3V3vPyg7OYCPZQ4pBBZsco8CAeHYj0hm8fLcPh7DriMlHN3tst9bpdGzEguMytLf97YCuFjDY2Nj/dfTwfiXs6dmQuoAPYfkCetwFoJeeHChgWTCw0BA3HYWW+7s4WQr/3d4bKz/kXQwPrsUD2btDWwl+CMjWx9FiRVQnveCAQrOCcV3PfKmRDs/7a9vO7RxdvSFDZx1AmNb693eiQxYDlz49OeHvtoz5fqGDHw9axCfBDhAY7729frbl34aHwfKJktPYNZKWv/Uc+t6S+5ba0vrvVuY0UiDIPaSFEAEV7d/gtqax4Ve2ProKhBDiW9c4fCJlwASkGwNWUQgEFhj4L2kHth+6dzpk0gSi6Xh+l+Jmq+nE4Nq1fVE6UFr4vWuXrsDMgYA8Wn3Wz8NmM6jNjSK+uph0otZ3tqCoBfWVw/7O6s2SDx9ARL1AVk6OEkATJ2rW2NjOPfe6OjolgvV4/VmZTFNS1WtupGRrasIvOh9Ko3gL6woSBvCRXHW9w1ZsZGBtLEwE4HYyPi+IUtx2cuwEEcSiL1PvTVmpC4PPgNQkCS2nQoAAMzHJoKgR882snYmwhjfn2n6ajowIrGXz52eEXKcNBRIPaxzNkBMBDM/DabpQjtsI3BMU5j5aYiJWl/VizjSiPPpdL23/4fGCOLb6wHlUQEgBtgn4r01Nl7YUUogl/fexj6amfTRzatOLGVpw9vSMghiKdHNqy6amfTexh7wLZWFxlhrSxZeKlPfn7yBJDHNZnHbtFynTgkATv9x5bcHHn5snOAW0qwzxpI0QVzGlhjVbjJdu9HcHt5M1jzQ6grNe0iv4aqpz83g5S/JnlUk0EI5SIC/ik/3Xjx/5n2UywaHDzdtCVH2jg4zef7MZwC+2PT0tjFIOtg4XwlhFKIXwM5eG2INxxCxr9EJsm/EIoI1zNvZaztTwTS8A53LPAgZI05q/HFi4pu/ABCVbLvhFgfMxAJVF/L8d0+OIto6Bm++9m/3MI5AYpAEGP21bxocfbbe1mHcru9K+POd5e1vFiZc0ePoFXAcHbazVSHTQqAAgwrT/3S2gF9WYFRJBhCgTlZwrivgvg8R4T6WQp0k81kBy3Og3XO29yuOEqgT7raz7TQ5ccLdcradJnwn3GVnex/Gn5CdcPedbce3kUE74RCcbecNWNhOuOvOttOXOmF1wvlwtp2fDEJ0wuE4205fwTrhMJxtp6+AnXAIzrbT5MYJd93ZdvyYPWQn3G1n22ly4YT1OLqIQia/ecD5VpI5UI7FlfI5ke7FfCwlR4+dFO/BrIJN4vnKEw7XKRc9Tzh0p7xC8oRDdcrFzxMO3CkXPE84fKdc7DzhPDjloucJB++U1QmrE14ZecArM084P065sHnC+XDKBc4TzoNTXjF5wsE75ULnCYfulFdEnrAeR0NfzKovbi2OkoS+nFt7gL6eXlEURVEURVEURVEURVEURVGUQvM3/veXo0IjJ+gAAAAASUVORK5CYII=" alt=""></span><i>02</i><b>Print Settings</b><span>Bahn, Lage, Geschwindigkeit</span></div>
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAEQUlEQVR42u2cTW8bVRSGn3OvP1onEZVYULooCwpFgSogr4oE7Igq1sMf6J8AocgYCVVRFyy67S9o/kJ2jap6QbsI9INILJC6LCQK4CT23MPCbpMgaNzWUWfs95GsaGzlenzuvWfO3DvvC0IIIYQQQgghhBBCCCGEEKLU2PCl83/GFxxLu1mWhZWVlXx4HKBVwvi30+BvFmHe94+LP2oAaDabjbcWPjtV1uH/ZrPZWDh8/lb0GWCAnz//8Rmq1sZ8MTkz5qy7eaJ8+ecc2IyFcDP1elc27nc60ArjnAk27s48+94np09U89sxVs+mvD/4wEIpZ4C74zgxBFLyfoJLG+trq2RZZD+9FqQDhif1zgcXr1di7XLe39vFrDb8JamUPWBmgDn0Yoi1PM8fVH1z4d69n3uDt4vTAU9Sz5xX/Rez8Ia7U/IK6N/zIQWLlve5uHF/rTOuWTDW3NCthQpOfXKLaiOE1Bhnk+PqAIcs/ra+tulmHbNgjvcmZ/B7bhY8T/3HvRONO4CxspKK1AHQmnfAAyy5pxRDrAEJvPQvCyHGWI0kb//64+oWWRYGg66gZejb719cjBaumtmFwXWs1MMfdx7hafnhT7eu0WoF2sUsQw/OqgSEdz/8tGnen6Vf3vCH4Hnas7sPH97afjLASnDaWZy4C3B2PL/pOPODQRbIJiD4gwuuI4QQQhSgNjbcTXF4+XjYc96SGysEvrTBIlTLg4IPtG1wY5Z5ZB5/ejzm9ZD9zmp547WWn1LkD8TjhwPxeI7ZYCMH38xPtvwMddpmLHrOjMG6O2na42/GOYwZKtz0Ha50W9ah5WGUmWCjjvzG95zGuG0Nznp3+M9VDX4A7w9u06wGnujbLpf+WrJVbnh8mq5fuAOGjZz8zq+HOS77n+wCteGnSeEHbPj4itOzOrW0y4NunwW+pYc9e+esMkLqyV9f9rm/9/jCuzhQG34hQFT0D3VEzfdIVuX8XOSjbbPOUbNgpCqmn6gAda2GMPJ6cHIaL78hY+ZkHre+ZhOjY3UM6CnC/7t1kBNx3+NxLXIH3MienaYrRzY6jw+eAPAl7/M5dWrsKff/J5FoDfBt2n98ZVvc8Ii97EX4QBnaaPui17lqcMGC1mcPBdLBnUees9z9xq6Nrwzdv9kYNNjycHKWZkjMsjPSHJoK8kC+8zt3uWrb4Dau54YOk7mqnlHK9uPdEXMjYzJ2usY+QElH1f1CCCHEtGu/ChMPm07tF6XUkk2M9osCacmMKdR+FUlLZtOo/aJAWjKbSu1XgbRkJu3Xq9WSBWm/Xq2WLEy19qsAWrIwzdqvImjJbHq1X8XQktm0ar8op5Ys047YmLVkL5JHJkf7hbRkQgghtFOEXBPlmohcE5FrolwT5ZqIXBPlmijXRLkmItdEuSbKNRG5Jso1Ua6Jck2Ua6JcE+WaqJ0uIYQQQgghhBBCTAD/AFcP/ccN7U8IAAAAAElFTkSuQmCC" alt=""></span><i>03</i><b>Slice</b><span>Geometrie in Lagen</span></div>
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,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" alt=""></span><i>04</i><b>Walls</b><span>Bahn innen, mittig, außen</span></div>
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,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" alt=""></span><i>05</i><b>Bottom Fill</b><span>Boden als eine Linie</span></div>
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,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" alt=""></span><i>06</i><b>Ribs · Cells</b><span>Infill in der Wand</span></div>
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,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" alt=""></span><i>07</i><b>Continuous Path</b><span>Flache Lagen, kurze Rampe</span></div>
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,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" alt=""></span><i>08</i><b>Round Corners</b><span>Jede Ecke ein Bogen</span></div>
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,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" alt=""></span><i>09</i><b>Path Check</b><span>Auflage, Kreuzung, Form</span></div>
+        <div class="step" role="listitem"><span class="ic"><img src="data:image/png;base64,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" alt=""></span><i>10</i><b>Extrusion and Speed</b><span>Ebene, E und F</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="lagen">
+    <div class="wrap">
+      <div class="head">
+        <span class="bead"></span>
+        <p class="eyebrow">Lagenarten</p>
+        <h2 class="h2">Lagen müssen nicht waagerecht sein</h2>
+        <p class="lead">Für gebogene Lagen wird das Modell intern geradegebogen, normal geschnitten und der fertige Pfad zurück abgebildet. Wände, Infill, Naht und Prüfung arbeiten so auf jeder Lagenform gleich.</p>
+      </div>
+      <div class="four" id="modes"></div>
+    </div>
+  </section>
+
+  <section id="muster">
+    <div class="wrap">
+      <div class="head">
+        <span class="bead"></span>
+        <p class="eyebrow">Infill für eine einzige Linie</p>
+        <h2 class="h2">Muster, die sich in einem Zug drucken lassen</h2>
+        <p class="lead">Jedes Muster ist Teil der einen Linie, kreuzt sich nie, hält genau einen Bahnabstand zum Nachbarn und steht Lage für Lage an derselben Stelle.</p>
+        <p class="scale">Maßstab 1 px = 1 mm · Bauteil 240 × 150 mm · Bahn 5 mm</p>
+      </div>
+      <div class="filters" role="group" aria-label="Muster filtern">
+        <button type="button" id="flt-all" data-f="all" aria-pressed="true">Alle</button>
+        <button type="button" id="flt-built" data-f="built" aria-pressed="false">Eingebaut</button>
+        <button type="button" id="flt-idea" data-f="idea" aria-pressed="false">Ideen</button>
+      </div>
+      <div class="tiles" id="tiles"></div>
+    </div>
+  </section>
+
+  <section id="regeln">
+    <div class="wrap">
+      <div class="head">
+        <span class="bead"></span>
+        <p class="eyebrow">Regeln für großformatigen 3D-Druck</p>
+        <h2 class="h2">Wonach der Slicer rechnet und prüft</h2>
+        <p class="lead">Die Bahn ist breit, das Material schwer und lange weich. Diese Regeln stecken in den Komponenten und im Path Check. Hausstandard der Werkstatt: 3 mm Düse, 5 mm Bahn, 2 mm Lage.</p>
+      </div>
+
+      <div class="calc" aria-label="Bahnrechner">
+        <div class="fields">
+          <h3>Bahnrechner</h3>
+          <div class="field wide"><label for="in-m">Maschinenprofil</label><select id="in-m"></select></div>
+          <div class="field"><label for="in-w">Bahnbreite (mm)</label><input id="in-w" type="number" min="1" max="40" step="0.5" value="5" inputmode="decimal"></div>
+          <div class="field"><label for="in-h">Lagenhöhe (mm)</label><input id="in-h" type="number" min="0.2" max="20" step="0.1" value="2" inputmode="decimal"></div>
+          <div class="field"><label for="in-o">Überlappung (%)</label><input id="in-o" type="number" min="0" max="60" step="1" value="15" inputmode="decimal"></div>
+          <div class="field"><label for="in-f">Geschwindigkeit F (mm/min)</label><input id="in-f" type="number" min="60" max="20000" step="100" value="3000" inputmode="decimal"></div>
+          <div class="field"><label for="in-k">Extrusionsfaktor</label><input id="in-k" type="number" min="0.01" max="20" step="0.001" value="1" inputmode="decimal"></div>
+          <div class="field"><label for="in-d">Dichte (g/cm³), Beispiel</label><input id="in-d" type="number" min="0.5" max="3" step="0.01" value="1.25" inputmode="decimal"></div>
+        </div>
+        <div class="out" id="calc-out"></div>
+      </div>
+
+      <div class="rules">
+        <div class="group">
+          <h3><span class="bead"></span>Die Bahn</h3>
+          <dl>
+            <dt>Die Kurve ist die Mitte der Bahn</dt>
+            <dd>Links und rechts davon liegt je eine halbe Bahnbreite Material. „Walls" legt fest, ob die Bahn innen, mittig oder außen an der Geometrie liegt.</dd>
+            <dt>Alles Erzeugte richtet sich nach der Bahnbreite</dt>
+            <dd>Wände, Stege, Waben und Bodenlinien liegen im Bahnabstand, damit sie verschmelzen. <span class="mono">Abstand = Breite × (1 − Überlappung)</span></dd>
+            <dt>Die Bahn muss gequetscht werden</dt>
+            <dd>Über etwa 80 % Lagenhöhe zu Bahnbreite wird die Bahn kaum angedrückt und haftet schlecht.</dd>
+          </dl>
+        </div>
+        <div class="group">
+          <h3><span class="bead"></span>Auflage</h3>
+          <dl>
+            <dt>Höchstens eine halbe Bahnbreite Versatz</dt>
+            <dd>Jede Bahn außer der ersten braucht die Bahn darunter. <span class="mono">max. Überhang = atan(½ Breite ÷ Lagenhöhe)</span></dd>
+            <dt>Infill steht übereinander</dt>
+            <dd>Stege erben ihre Fußpunkte von der Lage darunter, Zellen haben einen festen Ursprung.</dd>
+            <dt>Kuppeln schließen zu schnell</dt>
+            <dd>Eine Kugel ist nur im mittleren Bereich druckbar. Abhilfe: Führungsfläche, gekippte Ebene, flachere Lagen oder das Teil dort teilen.</dd>
+          </dl>
+        </div>
+        <div class="group">
+          <h3><span class="bead"></span>Die Linie</h3>
+          <dl>
+            <dt>Kein Absetzen</dt>
+            <dd>Jede Leerfahrt zieht Fäden, jeder Halt hinterlässt einen Tropfen.</dd>
+            <dt>Keine harten Ecken</dt>
+            <dd>Der Roboter bremst an jeder Ecke, der Extruder fördert weiter. Kleinster Radius ist standardmäßig die Bahnbreite.</dd>
+            <dt>Die Außenwand wird nur einmal geöffnet</dt>
+            <dd>Infill hängt an einer Stelle an der Wand, alles Weitere läuft von Zelle zu Zelle.</dd>
+          </dl>
+        </div>
+        <div class="group">
+          <h3><span class="bead"></span>Naht, Start, Ende</h3>
+          <dl>
+            <dt>Rampe an fester Stelle</dt>
+            <dd>Der Pfad steigt über eine kurze Strecke zur nächsten Lage, immer an derselben Stelle. Die Spirale gibt es nur für einfache Wände ohne Infill.</dd>
+            <dt>Skirt zuerst</dt>
+            <dd>Der Skirt bringt den Extruder auf gleichmäßigen Fluss und geht in einem Zug in die Außenwand über.</dd>
+            <dt>Weg vom Bauteil</dt>
+            <dd>Eine letzte Bewegung ohne Extrusion führt die Düse weg, damit kein Tropfen bleibt.</dd>
+          </dl>
+        </div>
+        <div class="group">
+          <h3><span class="bead"></span>Maschine und Extrusion</h3>
+          <dl>
+            <dt>Jede Maschine will E anders</dt>
+            <dd>Als Volumen, als Filamentlänge oder als Wert, den die Steuerung noch skaliert (Weber: <span class="mono">XE=[E*P1]</span>). Das Maschinenprofil beschreibt nur diese Umrechnung.</dd>
+            <dt>Kalibrieren statt umbauen</dt>
+            <dd><span class="mono">E = Querschnitt × Länge × Flow × Faktor</span>. Ginger 0,21 und Weber 1,128 bei 100 % Flow sind als Vorlagen hinterlegt.</dd>
+            <dt>Auslitern</dt>
+            <dd>Bekannte Bahn drucken, wiegen, durch die Dichte teilen. Neuer Faktor = alter Faktor × Soll ÷ Ist.</dd>
+          </dl>
+        </div>
+        <div class="group">
+          <h3><span class="bead"></span>Geschwindigkeit</h3>
+          <dl>
+            <dt>F ist die Geschwindigkeit entlang der Bahn</dt>
+            <dd>Gleichmäßig heißt gleiches F in jeder Zeile, unabhängig von der Segmentlänge.</dd>
+            <dt>Nie F0</dt>
+            <dd>Eine Bewegung mit F0 wird nie fertig. Der DXR File Health Check lässt so eine Datei nicht durch.</dd>
+            <dt>Kleine Lagen brauchen Zeit</dt>
+            <dd>Eine Lage muss fest genug sein, bevor die nächste kommt. Die Beispieldefinition bremst Lagen unter 30 s.</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="code">
+    <div class="wrap">
+      <div class="oss">
+        <div>
+          <svg class="mark big-mark" viewBox="0 0 64 64" aria-hidden="true"></svg>
+          <h2 class="h2" style="margin-top:22px">Offen auf GitHub</h2>
+          <p class="lead" style="margin-top:14px">Entwickelt an der FH Münster von Moritz Wesseler für Lehre und Werkstatt. Fehler melden, Muster vorschlagen und Pull Requests sind willkommen.</p>
+          <ul>
+            <li>C#-Quellcode aller Komponenten, auch der Slicing- und Füll-Algorithmen</li>
+            <li>Maschinenprofile statt fest eingebauter Maschinen</li>
+            <li>Beispieldefinition für Weber DXR25 und Ginger One, Installer für Windows und macOS</li>
+            <li>Lizenz laut Repository: CC BY-NC 4.0, frei für nicht kommerzielle Nutzung</li>
+          </ul>
+        </div>
+        <div>
+          <p class="eyebrow">In drei Schritten startklar</p>
+          <div class="code" style="margin-top:12px">1  Rhino        <b>PackageManager</b>
+2  Suche        <b>LARGERslicer</b>
+3  Grasshopper  LARGER › Slicer › <b>Quick Start</b></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+            <a class="btn primary" href="https://github.com/Moeewe/LARGER.slicer">Repository öffnen</a>
+            <a class="btn" href="https://github.com/Moeewe/LARGER.slicer/blob/main/LARGERslicer/CHANGELOG.md">Changelog</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#start"><svg class="mark" viewBox="0 0 64 64" aria-hidden="true"></svg>LARGER.slicer</a>
+    <span>FH Münster · Moritz Wesseler</span>
+    <a href="https://github.com/Moeewe/LARGER.slicer">github.com/Moeewe/LARGER.slicer</a>
+  </div>
+</footer>
+
+<script>
+
+
+(function () {
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, parent) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+  function f(n) { return Math.round(n * 100) / 100; }
+
+  // ---- a wall (rounded rectangle) with hairpin ribs spliced in: truly one closed line
+  // ribs: [{x, side: 'b'|'t', tip}]  -> returns path data
+  function wallPath(x0, y0, x1, y1, r, ribs, h) {
+    var d = 'M' + (x0 + r) + ' ' + y1;
+    ribs.filter(function (q) { return q.side === 'b'; }).sort(function (a, b) { return a.x - b.x; }).forEach(function (q) {
+      d += 'L' + (q.x - h) + ' ' + y1 + 'L' + (q.x - h) + ' ' + q.tip + 'A' + h + ' ' + h + ' 0 0 1 ' + (q.x + h) + ' ' + q.tip + 'L' + (q.x + h) + ' ' + y1;
+    });
+    d += 'L' + (x1 - r) + ' ' + y1 + 'A' + r + ' ' + r + ' 0 0 0 ' + x1 + ' ' + (y1 - r) + 'L' + x1 + ' ' + (y0 + r) + 'A' + r + ' ' + r + ' 0 0 0 ' + (x1 - r) + ' ' + y0;
+    ribs.filter(function (q) { return q.side === 't'; }).sort(function (a, b) { return b.x - a.x; }).forEach(function (q) {
+      d += 'L' + (q.x + h) + ' ' + y0 + 'L' + (q.x + h) + ' ' + q.tip + 'A' + h + ' ' + h + ' 0 0 1 ' + (q.x - h) + ' ' + q.tip + 'L' + (q.x - h) + ' ' + y0;
+    });
+    d += 'L' + (x0 + r) + ' ' + y0 + 'A' + r + ' ' + r + ' 0 0 0 ' + x0 + ' ' + (y0 + r) + 'L' + x0 + ' ' + (y1 - r) + 'A' + r + ' ' + r + ' 0 0 0 ' + (x0 + r) + ' ' + y1;
+    return d;
+  }
+  function ribOnly(ribs, y0, y1, h) {
+    return ribs.map(function (q) {
+      var base = q.side === 'b' ? y1 : y0;
+      return q.side === 'b'
+        ? 'M' + (q.x - h) + ' ' + base + 'L' + (q.x - h) + ' ' + q.tip + 'A' + h + ' ' + h + ' 0 0 1 ' + (q.x + h) + ' ' + q.tip + 'L' + (q.x + h) + ' ' + base
+        : 'M' + (q.x + h) + ' ' + base + 'L' + (q.x + h) + ' ' + q.tip + 'A' + h + ' ' + h + ' 0 0 1 ' + (q.x - h) + ' ' + q.tip + 'L' + (q.x - h) + ' ' + base;
+    }).join('');
+  }
+
+  // ---- logo mark: one continuous line climbing in loops, newest loop blue, nozzle at the end
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function drawMarks() {
+    document.querySelectorAll('svg.mark').forEach(function (svg) {
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      var steps = 240, prev = null, segs = [];
+      for (var i = 0; i <= steps; i++) {
+        var t = i / steps, a = 2 * Math.PI * 3 * t - Math.PI * 0.25;
+        var p = { x: 32 + 23 * Math.cos(a), y: 49 - 31 * t + 6.4 * Math.sin(a), d: Math.sin(a), t: t };
+        if (prev) segs.push([prev, p]); prev = p;
+      }
+      [false, true].forEach(function (front) {
+        segs.forEach(function (sg) {
+          if ((sg[1].d >= 0) !== front) return;
+          var col = sg[1].t > 2 / 3 ? 'var(--coil-new)' : (front ? 'var(--coil-front)' : 'var(--coil-back)');
+          el('path', { d: 'M' + f(sg[0].x) + ' ' + f(sg[0].y) + 'L' + f(sg[1].x) + ' ' + f(sg[1].y), stroke: col, 'stroke-width': 4.6, 'stroke-linecap': 'round', fill: 'none', opacity: (!front && sg[1].t > 2 / 3) ? 0.55 : 1 }, svg);
+        });
+      });
+      el('circle', { cx: f(prev.x), cy: f(prev.y), r: 4.4, fill: 'var(--coil-new)' }, svg);
+      el('circle', { cx: f(prev.x), cy: f(prev.y), r: 1.9, fill: 'var(--bg)' }, svg);
+    });
+  }
+  drawMarks();
+
+  // ---- hero: a part grows from one line. Flat layers, short ramp at a fixed seam, nozzle on top.
+  (function () {
+    var cv = document.getElementById('print'); if (!cv || !cv.getContext) return;
+    var ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+    var LAYERS = 16, N = 220, RAMP = 0.07;           // ramp as a share of one round
+    // outline: rounded "pebble" (superellipse) that slowly turns and bulges with height
+    function outline(layer, u) {
+      var th = u * 2 * Math.PI, k = layer / (LAYERS - 1);
+      var c = Math.cos(th), s = Math.sin(th), e = 2 / 3.2;
+      var x = Math.sign(c) * Math.pow(Math.abs(c), e), y = Math.sign(s) * Math.pow(Math.abs(s), e);
+      var sc = 1 + 0.09 * Math.sin(k * Math.PI), rot = 0.32 * k;
+      x *= 300 * sc; y *= 185 * sc;
+      return { x: x * Math.cos(rot) - y * Math.sin(rot), y: x * Math.sin(rot) + y * Math.cos(rot) };
+    }
+    // the path: every layer flat; in the first RAMP of a round it climbs from the layer below
+    var pts = [], LH = 23;
+    for (var L = 0; L < LAYERS; L++) for (var i = 0; i <= N; i++) {
+      if (L > 0 && i === 0) continue;
+      var u = i / N, q = outline(L, u), z = L * LH;
+      if (L > 0 && u < RAMP) { var r = u / RAMP; r = r * r * (3 - 2 * r); z = (L - 1 + r) * LH; var qb = outline(L - 1, u); q = { x: qb.x + (q.x - qb.x) * r, y: qb.y + (q.y - qb.y) * r }; }
+      pts.push({ x: q.x, y: q.y, z: z, L: L });
+    }
+    // projection: slight top view, like the logo
+    function P(p) { return { x: W / 2 + p.x * 1.22, y: H * 0.80 - p.z * 1.0 - p.y * 0.40, depth: p.y }; }
+    var proj = pts.map(P), segLen = [0];
+    for (var j = 1; j < pts.length; j++) segLen.push(segLen[j - 1] + Math.hypot(pts[j].x - pts[j - 1].x, pts[j].y - pts[j - 1].y, pts[j].z - pts[j - 1].z));
+    var total = segLen[segLen.length - 1], mm = 5 / 14;   // drawing units to mm (bead 26 px wide ≈ 5 mm)
+    var blue = css('--coil-new') || '#0a84ff';
+    function frame(upto) {
+      ctx.clearRect(0, 0, W, H);
+      var cur = 0; while (cur < pts.length - 1 && segLen[cur + 1] <= upto) cur++;
+      var top = pts[cur].L;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // back halves first, then front halves (like the logo)
+      for (var pass = 0; pass < 2; pass++) {
+        for (var k = 1; k <= cur; k++) {
+          var front = pts[k].y < 0;
+          if ((pass === 1) !== front) continue;
+          var a = proj[k - 1], b = proj[k], L = pts[k].L, age = top - L;
+          var col;
+          if (L === top) col = blue;
+          else { var v = front ? Math.max(118, 236 - age * 9) : Math.max(70, 118 - age * 5); col = 'rgb(' + v + ',' + v + ',' + Math.min(255, v + 8) + ')'; }
+          ctx.strokeStyle = col; ctx.globalAlpha = (L === top && !front) ? 0.6 : 1;
+          ctx.lineWidth = 11;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      // nozzle: thin tool line and the white dot, as in the logo
+      var n = proj[cur];
+      ctx.strokeStyle = 'rgba(238,241,246,.55)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(n.x, n.y - 16); ctx.lineTo(n.x, n.y - 70); ctx.stroke();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(n.x, n.y, 11, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = blue; ctx.beginPath(); ctx.arc(n.x, n.y, 4.5, 0, 2 * Math.PI); ctx.fill();
+      var lay = document.getElementById('ro-layer'), len = document.getElementById('ro-len');
+      if (lay) { lay.textContent = 'Lage '; var bb = document.createElement('b'); bb.textContent = top + 1; lay.appendChild(bb); lay.appendChild(document.createTextNode(' / ' + LAYERS)); }
+      if (len) { len.textContent = ''; var lb = document.createElement('b'); lb.textContent = (upto * mm / 1000).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' m'; len.appendChild(lb); len.appendChild(document.createTextNode(' in einer Linie')); }
+    }
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { frame(total); return; }
+    var speed = total / 16000, hold = 2600, start = null;   // 16 s for the part, then a pause
+    function tick(t) {
+      if (start === null) start = t;
+      var e = t - start, d = e * speed;
+      if (d > total) { d = total; if (e > total / speed + hold) start = t; }
+      frame(d);
+      requestAnimationFrame(tick);
+    }
+    frame(total * 0.62);
+    requestAnimationFrame(tick);
+  })();
+
+  // ---- slicing modes (side views)
+  (function () {
+    var host = document.getElementById('modes');
+    function mode(title, text, draw) {
+      var d = document.createElement('div'); d.className = 'mode';
+      var svg = el('svg', { viewBox: '0 0 240 150', role: 'img', 'aria-label': title }); d.appendChild(svg);
+      el('line', { x1: 14, y1: 136, x2: 226, y2: 136, stroke: 'var(--muted)', 'stroke-width': 2, 'stroke-linecap': 'round' }, svg);
+      draw(svg);
+      var h3 = document.createElement('h3'); h3.textContent = title; d.appendChild(h3);
+      var p = document.createElement('p'); p.textContent = text; d.appendChild(p);
+      host.appendChild(d);
+    }
+    function bead(svg, d, top) { el('path', { d: d, fill: 'none', stroke: top ? 'var(--wall)' : 'var(--fg)', 'stroke-width': 5, 'stroke-linecap': 'round', opacity: top ? 1 : 0.55 }, svg); }
+    mode('Planar', 'Flache Lagen senkrecht zur Bauplatte. Der Normalfall.', function (s) {
+      for (var i = 0; i < 9; i++) bead(s, 'M60 ' + (130 - i * 11) + 'L180 ' + (130 - i * 11), i === 8);
+    });
+    mode('Gekippt, z. B. 45°', 'Die Lagen stehen schräg. So lassen sich lange Teile ohne Stützen in die Länge drucken.', function (s) {
+      for (var i = 0; i < 9; i++) { var x = 44 + i * 13; bead(s, 'M' + (x + 62) + ' 66L' + x + ' 128', i === 8); }
+    });
+    mode('Non-planar', 'Die Lagen folgen einer Führungsfläche: unten flach, oben gewölbt, oder durchgehend parallel zu einer Form.', function (s) {
+      for (var i = 0; i < 9; i++) { var y = 130 - i * 11, a = i * 3.2; bead(s, 'M56 ' + y + 'Q120 ' + (y - 2 * a) + ' 184 ' + y, i === 8); }
+    });
+    mode('Multiaxial', 'Die Lagen stehen senkrecht zu einer Führungskurve. Das Werkzeug dreht mit, das Teil wächst um die Kurve.', function (s) {
+      for (var i = 0; i < 10; i++) {
+        var t = i / 9 * 1.25, cx = 70 + 150 * (1 - Math.cos(t)), cy = 130 - 150 * Math.sin(t) * 0.72, nx = Math.cos(t), ny = Math.sin(t) * 0.72, l = 30;
+        var len = Math.sqrt(nx * nx + ny * ny); nx /= len; ny /= len;
+        bead(s, 'M' + f(cx - nx * l) + ' ' + f(cy - ny * l) + 'L' + f(cx + nx * l) + ' ' + f(cy + ny * l), i === 9);
+      }
+    });
+  })();
+
+  // ---- infill pattern tiles, 1 px = 1 mm, bead 5
+  (function () {
+    var host = document.getElementById('tiles'), id = 0;
+    var X0 = 10, Y0 = 10, X1 = 230, Y1 = 140, R = 16, B = 5, H = 2.5;
+    function tile(name, built, text, rule, draw, round) {
+      var d = document.createElement('div'); d.className = 'tile'; d.setAttribute('data-kind', built ? 'built' : 'idea');
+      var svg = el('svg', { viewBox: '0 0 240 150', role: 'img', 'aria-label': name + ', Draufsicht' }); d.appendChild(svg);
+      var clip = el('clipPath', { id: 'clip' + (++id) }, el('defs', {}, svg));
+      if (round) el('circle', { cx: 120, cy: 75, r: 56.5 }, clip); else el('rect', { x: X0 + B, y: Y0 + B, width: X1 - X0 - 2 * B, height: Y1 - Y0 - 2 * B, rx: R - B }, clip);
+      var api = {
+        svg: svg, clip: 'url(#clip' + id + ')',
+        wall: function (dd) { el('path', { d: dd, fill: 'none', stroke: 'var(--wall)', 'stroke-width': B, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg); },
+        fill: function (dd, col, clipped, sw) { var a = { d: dd, fill: 'none', stroke: col || 'var(--infill)', 'stroke-width': sw || B, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }; if (clipped) a['clip-path'] = api.clip; el('path', a, svg); }
+      };
+      draw(api);
+      var row = document.createElement('div'); row.className = 'row';
+      var h3 = document.createElement('h3'); h3.textContent = name; row.appendChild(h3);
+      var c = document.createElement('span'); c.className = 'chip ' + (built ? 'built' : 'idea'); c.textContent = built ? 'Eingebaut' : 'Idee'; row.appendChild(c);
+      d.appendChild(row);
+      var p = document.createElement('p'); p.textContent = text; d.appendChild(p);
+      var r = document.createElement('p'); r.className = 'rule'; r.textContent = rule; d.appendChild(r);
+      host.appendChild(d);
+    }
+    var plain = wallPath(X0, Y0, X1, Y1, R, [], H);
+    function hexes(a, size, xa, xb) {
+      var r = size / Math.sqrt(3), dx = 1.5 * r, out = '';
+      for (var i = -1; i * dx < 260; i++) for (var j = -1; j * size < 180; j++) {
+        var cx = i * dx, cy = (j + (i & 1 ? 0.5 : 0)) * size;
+        if (cx < xa - r || cx > xb + r) continue;
+        for (var k = 0; k < 6; k++) { var an = k * Math.PI / 3, rr = r - H / Math.cos(Math.PI / 6); out += (k ? 'L' : 'M') + f(cx + rr * Math.cos(an)) + ' ' + f(cy + rr * Math.sin(an)); }
+        out += 'Z';
+      }
+      return out;
+    }
+
+    tile('Stege', true, 'Jeder Steg ist eine Haarnadel: zwei Schenkel im Bahnabstand, die verschmelzen. Die Spitze endet eine Bahn vor der Gegenwand.', 'Abstand gleichmäßig · Fußpunkte von unten geerbt', function (t) {
+      var ribs = [60, 120, 180].map(function (x) { return { x: x, side: 'b', tip: Y0 + B + H }; });
+      t.wall(wallPath(X0, Y0, X1, Y1, R, ribs, H)); t.fill(ribOnly(ribs, Y0, Y1, H));
+    });
+    tile('Stege, die sich treffen', true, 'Von beiden Wänden kommt ein Steg, die Fuge liegt innen und wechselt von Lage zu Lage die Seite. So verzahnen sich die Stege.', 'Fuge abwechselnd versetzt, höchstens ½ Bahn', function (t) {
+      var ribs = [];
+      [60, 120, 180].forEach(function (x, i) { var m = 75 + (i % 2 ? 14 : -14); ribs.push({ x: x, side: 'b', tip: m + B * 0.75 }, { x: x, side: 't', tip: m - B * 0.75 }); });
+      t.wall(wallPath(X0, Y0, X1, Y1, R, ribs, H)); t.fill(ribOnly(ribs, Y0, Y1, H));
+    });
+    tile('Gezeichnete Stege', true, 'Eine Kurve in der Draufsicht zeichnen, der Steg folgt ihr von Wand zu Wand. Für Kraftverläufe, die kein Raster trifft.', 'Kurve = Mittellinie · Radius ≥ Bahnbreite', function (t) {
+      t.wall(plain);
+      var c1 = 'M52 137C70 100 40 60 78 13', c2 = 'M150 137C120 95 190 70 170 13';
+      [c1, c2].forEach(function (c) {
+        el('path', { d: c, fill: 'none', stroke: 'var(--infill)', 'stroke-width': 10, 'stroke-linecap': 'butt', 'clip-path': t.clip }, t.svg);
+        el('path', { d: c, fill: 'none', stroke: 'var(--surface)', 'stroke-width': 1.2, 'stroke-dasharray': '4 4', 'clip-path': t.clip }, t.svg);
+      });
+    });
+    tile('Waben', true, 'Jede Zelle ist eine geschlossene Schleife. Nachbarschleifen verschmelzen zu Doppelwänden, kurze Brücken verbinden alles zu einer Linie.', 'Zelle ≥ 4 Bahnabstände · fester Ursprung', function (t) {
+      t.wall(plain); t.fill(hexes(0, 46, 0, 240), null, true);
+    });
+    tile('Gitter', true, 'Wie die Waben, nur mit quadratischen Zellen. Einfacher zu bemaßen, in zwei Richtungen gleich steif.', 'Zelle ≥ 4 Bahnabstände · drehbar', function (t) {
+      t.wall(plain); var d = '';
+      for (var x = -8; x < 240; x += 42) for (var y = -10; y < 150; y += 42) d += 'M' + (x + H + 4) + ' ' + (y + H) + 'h' + (42 - B - 8) + 'a4 4 0 0 1 4 4v' + (42 - B - 8) + 'a4 4 0 0 1 -4 4h-' + (42 - B - 8) + 'a4 4 0 0 1 -4 -4v-' + (42 - B - 8) + 'a4 4 0 0 1 4 -4Z';
+      t.fill(d, null, true);
+    });
+    tile('Zickzack-Boden', true, 'Geschlossener Boden in parallelen Bahnen mit runden Wenden. Schnell und gleichmäßig, solange jede Bahn die Form nur einmal quert.', 'Sonst automatisch Kontur-Spirale', function (t) {
+      t.wall(plain); var d = '', y = Y0 + B, dir = 1, a = X0 + B + 4, b = X1 - B - 4, first = true;
+      for (; y <= Y1 - B + 0.1; y += B) { d += (first ? 'M' : 'L') + (dir > 0 ? a : b) + ' ' + y + 'L' + (dir > 0 ? b : a) + ' ' + y; dir = -dir; first = false; }
+      t.fill(d, 'var(--bottom)', true, B * 0.62);
+    });
+    tile('Kontur-Spirale', true, 'Die Linie folgt dem Umriss nach innen, Runde für Runde im Bahnabstand. Füllt auch Formen mit Buchten und Löchern in einem Zug.', 'Verbundene Fermat-Spirale · umläuft Löcher', function (t) {
+      t.wall(plain);
+      // point on the outline inset by o, at parameter u (0..1) around it, starting on the left side
+      function at(o, u) {
+        var x0 = X0 + o, y0 = Y0 + o, x1 = X1 - o, y1 = Y1 - o, r = Math.max(1, R - o);
+        var w = x1 - x0 - 2 * r, h = y1 - y0 - 2 * r, arc = Math.PI * r / 2, L = 2 * w + 2 * h + 4 * arc, d = u * L;
+        var segs = [[h, function (v) { return [x0, y1 - r - v]; }], [arc, function (v) { var a = Math.PI + v / r; return [x0 + r + r * Math.cos(a), y0 + r + r * Math.sin(a)]; }],
+          [w, function (v) { return [x0 + r + v, y0]; }], [arc, function (v) { var a = 1.5 * Math.PI + v / r; return [x1 - r + r * Math.cos(a), y0 + r + r * Math.sin(a)]; }],
+          [h, function (v) { return [x1, y0 + r + v]; }], [arc, function (v) { var a = v / r; return [x1 - r + r * Math.cos(a), y1 - r + r * Math.sin(a)]; }],
+          [w, function (v) { return [x1 - r - v, y1]; }], [arc, function (v) { var a = 0.5 * Math.PI + v / r; return [x0 + r + r * Math.cos(a), y1 - r + r * Math.sin(a)]; }]];
+        for (var i = 0; i < segs.length; i++) { if (d <= segs[i][0] || i === segs.length - 1) return segs[i][1](Math.min(d, segs[i][0])); d -= segs[i][0]; }
+      }
+      var d = '', first = true, max = (Y1 - Y0) / 2 - 4;
+      for (var k = 0; ; k += 0.004) {
+        var o = 2 * B + B * k; if (o > max) break;
+        var q = at(o, k % 1); d += (first ? 'M' : 'L') + f(q[0]) + ' ' + f(q[1]); first = false;
+      }
+      t.fill(d, 'var(--bottom)', false, B * 0.62);
+    });
+    tile('Welle', false, 'Eine Innenbahn schwingt zwischen den Wänden und legt sich an jedem Scheitel ein Stück an. Keine einzige Ecke, der Roboter fährt mit voller Geschwindigkeit durch.', 'Wellenlänge ≥ 6 Bahnbreiten · Radius ≥ Bahnbreite', function (t) {
+      t.wall(plain); var d = '', a = (Y1 - Y0) / 2 - B - 1.5, first = true;
+      for (var x = X0 + B + 3; x <= X1 - B - 3; x += 2) { d += (first ? 'M' : 'L') + x + ' ' + f(75 - a * Math.sin((x - X0 - B - 3) / 52 * 2 * Math.PI)); first = false; }
+      t.fill(d);
+    });
+    tile('Fachwerk', false, 'Eine Zickzack-Bahn spannt Dreiecke zwischen zwei Wände. Sehr steif gegen Schub, aber jeder Knoten ist eine Ecke, die verrundet werden muss.', 'Knoten verrundet · jede Lage gleich, kein Phasenwechsel', function (t) {
+      t.wall(plain); var d = 'M' + (X0 + B + 6) + ' ' + (Y1 - B), up = true;
+      for (var x = X0 + B + 6 + 33; x <= X1 - B - 4; x += 33) { d += 'L' + x + ' ' + (up ? Y0 + B : Y1 - B); up = !up; }
+      t.fill(d);
+    });
+    tile('Mäander', false, 'Einzelne Stege statt Haarnadeln: Die Bahn läuft quer, ein Stück an der Wand entlang und wieder zurück. Halbes Material gegenüber Doppelstegen.', 'Anlage an der Wand ≥ 2 Bahnbreiten', function (t) {
+      t.wall(plain); var d = 'M' + (X0 + B + 8) + ' ' + (Y1 - B), x = X0 + B + 8, top = false, r = 7;
+      while (x + 30 <= X1 - B - 6) {
+        var ya = top ? Y0 + B : Y1 - B, yb = top ? Y1 - B : Y0 + B, s = top ? 1 : -1;
+        d += 'L' + (x + 16 - r) + ' ' + ya + 'Q' + (x + 16) + ' ' + ya + ' ' + (x + 16) + ' ' + (ya + s * r) + 'L' + (x + 16) + ' ' + (yb - s * r) + 'Q' + (x + 16) + ' ' + yb + ' ' + (x + 16 + r) + ' ' + yb;
+        x += 30; top = !top;
+      }
+      d += 'L' + Math.min(x + 12, X1 - B - 4) + ' ' + (top ? Y0 + B : Y1 - B);
+      t.fill(d);
+    });
+    tile('Speichen mit Kernring', false, 'Für runde Teile wie Säulen und Hocker: Die Stege laufen auf einen Ring in der Mitte zu, statt sich dort ungeordnet zu treffen. Alle Stege sind gleich lang.', 'Ring ≥ 3 Bahnbreiten Radius · Stege enden 1 Bahn davor', function (t) {
+      el('circle', { cx: 120, cy: 75, r: 62, fill: 'none', stroke: 'var(--wall)', 'stroke-width': B }, t.svg);
+      el('circle', { cx: 120, cy: 75, r: 17, fill: 'none', stroke: 'var(--infill)', 'stroke-width': B }, t.svg);
+      var d = '';
+      for (var k = 0; k < 6; k++) {
+        var a = k * Math.PI / 3 + 0.2, ux = Math.cos(a), uy = Math.sin(a), px = -uy * H, py = ux * H, ro = 62, ri = 17 + B + H;
+        d += 'M' + f(120 + ux * ro + px) + ' ' + f(75 + uy * ro + py) + 'L' + f(120 + ux * ri + px) + ' ' + f(75 + uy * ri + py) + 'A' + H + ' ' + H + ' 0 0 1 ' + f(120 + ux * ri - px) + ' ' + f(75 + uy * ri - py) + 'L' + f(120 + ux * ro - px) + ' ' + f(75 + uy * ro - py);
+      }
+      t.fill(d);
+    }, true);
+    tile('Gestufte Waben', false, 'Kleine Zellen dort, wo Last eingeleitet wird, große in der Fläche. Die Dichte ändert sich nur in der Draufsicht und bleibt über die Höhe gleich.', 'Übergang entlang einer Zellreihe · über die Höhe konstant', function (t) {
+      t.wall(plain);
+      var c1 = el('clipPath', { id: 'half-a' + id }, el('defs', {}, t.svg)); el('rect', { x: X0 + B, y: Y0 + B, width: 92, height: Y1 - Y0 - 2 * B, rx: R - B }, c1);
+      var c2 = el('clipPath', { id: 'half-b' + id }, el('defs', {}, t.svg)); el('rect', { x: X0 + B + 97, y: Y0 + B, width: X1 - X0 - 2 * B - 97, height: Y1 - Y0 - 2 * B, rx: R - B }, c2);
+      el('path', { d: hexes(0, 30, 0, 120), fill: 'none', stroke: 'var(--infill)', 'stroke-width': B, 'stroke-linejoin': 'round', 'clip-path': 'url(#half-a' + id + ')' }, t.svg);
+      el('path', { d: hexes(0, 58, 90, 240), fill: 'none', stroke: 'var(--infill)', 'stroke-width': B, 'stroke-linejoin': 'round', 'clip-path': 'url(#half-b' + id + ')' }, t.svg);
+    });
+  })();
+
+  // ---- calculator with machine profiles (same presets as the Machine Profile component)
+  (function () {
+    var M = [
+      { n: 'Generic pellet extruder (volume)', k: 1, rect: false, fil: 0, u: 'mm³' },
+      { n: 'Filament printer 1.75 mm', k: 1, rect: false, fil: 1.75, u: 'mm Filament' },
+      { n: 'Filament printer 2.85 mm', k: 1, rect: false, fil: 2.85, u: 'mm Filament' },
+      { n: "Weber DXR robot (XE × P1)", k: 1.128, rect: true, fil: 0, u: '× P1' },
+      { n: 'Ginger (G-code)', k: 0.21, rect: true, fil: 0, u: 'Ginger E' }
+    ];
+    var sel = document.getElementById('in-m'), kIn = document.getElementById('in-k'), out = document.getElementById('calc-out');
+    M.forEach(function (m, i) { var o = document.createElement('option'); o.value = i; o.textContent = m.n; sel.appendChild(o); });
+    sel.addEventListener('change', function () { kIn.value = +M[sel.value].k.toFixed(4); calc(); });
+    function num(id) { var v = parseFloat(document.getElementById(id).value); return isFinite(v) ? v : 0; }
+    function de(n, d) { return n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+    function calc() {
+      var m = M[sel.value] || M[0], w = num('in-w'), h = num('in-h'), o = num('in-o') / 100, F = num('in-f'), k = num('in-k'), rho = num('in-d');
+      out.textContent = '';
+      if (w <= 0 || h <= 0 || F <= 0 || k <= 0) { var e = document.createElement('p'); e.className = 'verdict'; e.textContent = 'Bahnbreite, Lagenhöhe, Geschwindigkeit und Faktor müssen größer als 0 sein.'; out.appendChild(e); return; }
+      var area = w >= h ? (w - h) * h + Math.PI / 4 * h * h : Math.PI / 4 * w * h;
+      var sec = m.rect ? w * h : area, filA = m.fil > 0 ? Math.PI / 4 * m.fil * m.fil : 1;
+      var e10 = sec * 10 * k / filA;
+      var rows = [
+        [de(e10, e10 < 10 ? 3 : 1), 'E pro 10 mm Bahn (' + m.u + ')'],
+        [de(w * (1 - o), 2) + ' mm', 'Bahnabstand für Wände, Stege, Füllung'],
+        [de(w / 2, 2) + ' mm', 'größter Versatz zur Lage darunter'],
+        [de(Math.atan(w / 2 / h) * 180 / Math.PI, 0) + '°', 'größter Überhang aus der Senkrechten'],
+        [de(area, 1) + ' mm²', 'Bahnquerschnitt'],
+        [de(area * F / 60 / 1000, 2) + ' cm³/s', 'Volumenstrom bei F' + de(F, 0)],
+        [de(area * F * 60 / 1e6 * rho, 1) + ' kg/h', 'Austrag bei ' + de(rho, 2) + ' g/cm³'],
+        [de(h / w * 100, 0) + ' %', 'Lagenhöhe zu Bahnbreite']
+      ];
+      rows.forEach(function (r) { var d = document.createElement('div'), b = document.createElement('b'), s = document.createElement('span'); b.textContent = r[0]; s.textContent = r[1]; d.appendChild(b); d.appendChild(s); out.appendChild(d); });
+      var v = document.createElement('p'); v.className = 'verdict'; var ratio = h / w;
+      v.textContent = ratio > 0.8 ? 'Die Lage ist zu hoch für diese Bahn: Sie wird kaum gequetscht und haftet schlecht. Lagenhöhe senken oder Bahn verbreitern.'
+        : ratio < 0.2 ? 'Sehr flache Bahn: Der Extruder braucht viel Druck. Prüfen, ob er das liefert.'
+        : 'Bahnform in Ordnung. Eine Wand darf pro Lage höchstens ' + de(w / 2, 2) + ' mm nach außen wandern.';
+      out.appendChild(v);
+    }
+    ['in-w', 'in-h', 'in-o', 'in-f', 'in-k', 'in-d'].forEach(function (i) { document.getElementById(i).addEventListener('input', calc); });
+    calc();
+  })();
+
+  // ---- pattern filter
+  (function () {
+    var btns = document.querySelectorAll('.filters button');
+    btns.forEach(function (b) {
+      b.addEventListener('click', function () {
+        var f = b.getAttribute('data-f');
+        btns.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        document.querySelectorAll('#tiles .tile').forEach(function (t) { t.hidden = f !== 'all' && t.getAttribute('data-kind') !== f; });
+      });
+    });
+  })();
+
+  // ---- header border once the page scrolls
+  (function () {
+    var h = document.getElementById('top');
+    function on() { if (window.scrollY > 8) h.classList.add('scrolled'); else h.classList.remove('scrolled'); }
+    window.addEventListener('scroll', on, { passive: true }); on();
+  })();
+
+  // ---- principle drawings
+  (function () {
+    var B = 7, H = B / 2, st = { fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': B };
+    function P(svg, d, col, extra) { var a = { d: d, stroke: col }; for (var k in st) a[k] = st[k]; for (var e in extra || {}) a[e] = extra[e]; return el('path', a, svg); }
+    // one line: wall with ribs spliced in
+    var s1 = document.getElementById('pr-one');
+    if (s1) {
+      var ribs = []; [95, 150, 205].forEach(function (x, i) { var m = 85 + (i % 2 ? 12 : -12); ribs.push({ x: x, side: 'b', tip: m + B * 0.8 }, { x: x, side: 't', tip: m - B * 0.8 }); });
+      P(s1, wallPath(40, 26, 260, 144, 22, ribs, H), 'var(--wall)');
+      P(s1, ribOnly(ribs, 26, 144, H), 'var(--infill)');
+    }
+    // never cross: left crossing, right bridged
+    var s2 = document.getElementById('pr-cross');
+    if (s2) {
+      P(s2, 'M30 120C30 40 120 40 120 85C120 130 30 130 30 50', 'var(--faint)', { 'stroke-width': 6 });
+      el('circle', { cx: 75, cy: 85, r: 13, fill: 'none', stroke: 'var(--bad)', 'stroke-width': 3 }, s2);
+      el('line', { x1: 150, y1: 26, x2: 150, y2: 144, stroke: 'var(--line)', 'stroke-width': 2 }, s2);
+      // two loops joined by two short bridges: one closed line
+      P(s2, 'M178 85V48A18 18 0 0 1 196 30H222V71H229V30H254A18 18 0 0 1 272 48V122A18 18 0 0 1 254 140H229V99H222V140H196A18 18 0 0 1 178 122Z', 'var(--wall)', { 'stroke-width': 6 });
+      el('circle', { cx: 225.5, cy: 85, r: 13, fill: 'none', stroke: 'var(--ok)', 'stroke-width': 3 }, s2);
+    }
+    // flat layers with a short ramp at one place
+    var s3 = document.getElementById('pr-flat');
+    if (s3) {
+      for (var i = 0; i < 9; i++) {
+        var y = 146 - i * 14, r = 196, last = i === 8;
+        // each layer runs flat, climbs over a short ramp at the same x and runs flat again
+        var d = last ? 'M30 ' + (y + 14) + 'H' + (r - 30) + 'C' + (r - 15) + ' ' + (y + 14) + ' ' + (r - 15) + ' ' + y + ' ' + r + ' ' + y + 'H270'
+                     : 'M30 ' + y + 'H' + (r - 30) + 'C' + (r - 15) + ' ' + y + ' ' + (r - 15) + ' ' + (y - 14) + ' ' + r + ' ' + (y - 14) + 'H270';
+        if (last) break;
+        P(s3, d, i === 7 ? 'var(--coil-new)' : 'var(--fg)', { 'stroke-width': 6, opacity: i === 7 ? 1 : 0.28 + i * 0.08 });
+      }
+      el('text', { x: 196, y: 20, 'text-anchor': 'middle', fill: 'var(--muted)', 'font-family': 'IBM Plex Mono, monospace', 'font-size': 11 }, s3).textContent = 'Rampe, immer hier';
+      el('line', { x1: 188, y1: 26, x2: 188, y2: 150, stroke: 'var(--muted)', 'stroke-width': 1, 'stroke-dasharray': '3 4' }, s3);
+    }
+  })();
+})();
+
+
+</script>

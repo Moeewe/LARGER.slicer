@@ -19,6 +19,8 @@ namespace LARGERslicer.Components.Export
     {
         private static readonly Regex DxrMoveRegex = new Regex(@"^\s*N\d+\s+G1\b", RegexOptions.IgnoreCase);
         private static readonly Regex GCodeMoveRegex = new Regex(@"^\s*G0?1\b", RegexOptions.IgnoreCase);
+        // feed word: an F followed by a number, not part of a longer name
+        private static readonly Regex FeedRegex = new Regex(@"(?<![A-Za-z_.])F\s*(-?\d+(?:\.\d+)?)");
         private static readonly Regex ZValueRegex = new Regex(@"(?:^|\s)Z(?<z>[+-]?\d+(?:[\.,]\d+)?)\b", RegexOptions.IgnoreCase);
         private static readonly Regex SafeBaseNameRegex = new Regex(@"^[A-Za-z0-9_-]+$");
 
@@ -196,6 +198,9 @@ namespace LARGERslicer.Components.Export
             bool hasGCodeEndMarker = false;
             double? minDetectedZ = null;
             double? firstPositiveZ = null;
+            double? currentFeed = null;   // feed is modal: it stays until the next F word
+            int zeroFeedMoves = 0, firstZeroFeedLine = -1;
+            bool firstMoveSeen = false, firstMoveWithoutFeed = false;
 
             if (fatalIssues.Count == 0)
             {
@@ -238,6 +243,23 @@ namespace LARGERslicer.Components.Export
                         }
                     }
 
+                    Match feedMatch = FeedRegex.Match(line);
+                    if (feedMatch.Success && double.TryParse(feedMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double feed))
+                        currentFeed = feed;
+                    if (isMoveLine)
+                    {
+                        if (!firstMoveSeen)
+                        {
+                            firstMoveSeen = true;
+                            if (!currentFeed.HasValue) firstMoveWithoutFeed = true;
+                        }
+                        if (currentFeed.HasValue && currentFeed.Value <= 0.0)
+                        {
+                            zeroFeedMoves++;
+                            if (firstZeroFeedLine < 0) firstZeroFeedLine = i + 1;
+                        }
+                    }
+
                     if (isMoveLine && TryExtractZValue(line, out double z))
                     {
                         if (!minDetectedZ.HasValue || z < minDetectedZ.Value)
@@ -255,6 +277,20 @@ namespace LARGERslicer.Components.Export
                 report.Add(firstPositiveZ.HasValue
                     ? $"Detected first positive layer Z: {firstPositiveZ.Value:0.###} mm"
                     : "Detected first positive layer Z: (none)");
+
+                if (zeroFeedMoves > 0)
+                {
+                    fatalIssues.Add($"Feed rate 0: {zeroFeedMoves} movement line(s) run with F0, first in line {firstZeroFeedLine}. " +
+                                    "A move with F0 never finishes - the machine stops there or reports an error.");
+                }
+                else if (firstMoveWithoutFeed)
+                {
+                    warnings.Add("The first movement line has no feed rate (F). The machine then uses whatever feed was active before, possibly 0.");
+                }
+                else
+                {
+                    report.Add("Feed rate: every movement line has a feed above 0.");
+                }
 
                 if (movementLines < minCommandLines)
                 {
