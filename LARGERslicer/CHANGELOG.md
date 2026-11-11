@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-11
+
+Found by running the whole Slicer tab in Grasshopper (Rhino 9) on parts with openings.
+
+### Added
+- `Quick Start` now builds three labelled examples: flat layers, non-planar layers along a guide surface, multi-axis layers along a guide curve.
+
+### Fixed
+- `Start and End`: the skirt ends exactly opposite the first point of the part and stops one bead spacing before its own beginning. The move across to the part is the shortest one, square to the wall; before, it could run as a long diagonal close alongside wall and skirt. If the part starts further in (bottom fill first), that move is a travel.
+- `Infill Wave`: the wall of an opening that a dip reaches is now part of the line (no travel move to it on every layer). A meander no longer runs into an opening.
+- `Infill Cells`, `Infill Wave`, `Infill Chambers`: joints no longer jump between layers. A slicer hands every layer over with slightly different points; the joints are now placed by the shape and by where the layer below has them. The wall of an opening is opened once instead of several times.
+- `Bottom Fill`: with several openings the contour fill could cross itself at one link; such a place is re-joined.
+- `Round Corners`: travel moves stay straight.
+- `Path Check`: infill on top of a solid bottom layer counts as supported.
+
 ## [1.2.0] - 2026-11-11
 
 ### Added

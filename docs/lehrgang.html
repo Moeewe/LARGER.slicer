@@ -1,0 +1,276 @@
+<title>Lehrgang Großformatdruck</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a course read top to bottom. Numbered lessons (the order is the learning order), each a
+   statement on the left and a drawing to scale on the right; one dark panel holds the calculator. */
+:root{
+  --bg:#ffffff; --band:#f1f4f7; --ink:#14203a; --muted:#5d6a7e; --faint:#97a1b0; --line:#dfe4ea;
+  --bead-wall:#e6eaf0; --bead-fill:#cfe3ff; --cl-wall:#14203a; --cl-fill:#0a84ff;
+  --marker:#0a84ff; --on-marker:#ffffff; --marker-soft:#dcecff; --alert:#d23f45; --ok:#138a5e;
+  --night:#121a2b; --night-2:#0a0e18; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#26334f;
+  --win:#ffffff; --win-side:#eef1f5; --win-bar:#e7ebf0;
+  --coil-front:#14203a; --coil-back:#a9b1bf; --coil-new:#0a84ff;
+  --wall:#0a84ff; --infill:#e8870c; --bottom:#0f9e8e; --travel:#e5484d; --skirt:#b46be0;
+  --surface:#ffffff; --fg:#14203a;
+  --chip-built:#dcecff; --chip-built-fg:#0b4f99; --chip-idea:#f1f4f7; --chip-idea-fg:#5d6a7e;
+  --display:"Bricolage Grotesque",-apple-system,"SF Pro Display","Helvetica Neue",sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#111925; --chip-idea-fg:#a1acbb; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#111925; --chip-idea-fg:#a1acbb; color-scheme:dark }
+
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+html[data-lang="en"] [lang="de"],html[data-lang="de"] [lang="en"],html:not([data-lang]) [lang="en"]{display:none}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--marker);outline-offset:3px}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);font-weight:800;margin:0;text-wrap:balance;letter-spacing:-.035em}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:11;background:var(--bg)}
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.6) blur(16px);-webkit-backdrop-filter:saturate(1.6) blur(16px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;height:54px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-.02em;text-decoration:none}
+.brand svg{width:28px;height:28px;flex:none}
+.links{display:flex;gap:22px;font-size:14px;font-weight:600;color:var(--muted);margin-left:auto}
+.links a{text-decoration:none}.links a:hover{color:var(--ink)}
+.lang{display:flex;border:1px solid var(--line);flex:none}
+.lang button{font:600 12px var(--body);padding:6px 9px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.hero{padding-block:88px 56px}
+.eyebrow{font:500 13px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--marker);margin:0 0 20px}
+h1{font-size:clamp(44px,7.4vw,92px);line-height:1;letter-spacing:-.05em;max-width:12em}
+.hl{color:var(--on-marker);background:linear-gradient(var(--marker),var(--marker)) no-repeat left 60%/100% 72%;padding:0 .06em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.lede{font-size:clamp(19px,2.1vw,23px);color:var(--muted);margin:28px 0 0;max-width:32em}
+.toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 32px;margin-top:56px;border-top:1px solid var(--line)}
+.toc a{display:flex;gap:14px;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--line);text-decoration:none;font-weight:600}
+.toc a:hover{color:var(--marker)}
+.toc .num{font-size:13px;color:var(--faint)}
+section{padding-block:88px;border-top:1px solid var(--line)}
+section:nth-of-type(even){background:var(--band)}
+.lhead{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 28px;align-items:baseline;margin-bottom:48px}
+.lhead .no{font-size:15px;color:var(--marker);grid-row:span 2}
+.lhead h2{font-size:clamp(34px,4.8vw,60px);line-height:1.02}
+.lead{margin:12px 0 0;font-size:clamp(18px,1.9vw,21px);color:var(--muted);max-width:34em}
+.rule{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:24px 56px;align-items:center;padding-block:36px;border-top:1px solid var(--line)}
+.rule h3{font-size:clamp(23px,2.6vw,30px);letter-spacing:-.03em}
+.rule p{margin:12px 0 0;color:var(--muted);max-width:34em}
+.fig svg{display:block;width:100%;height:auto;max-width:420px}
+.cap{font-size:13px;color:var(--faint);margin:10px 0 0;max-width:32em}
+.take{margin:40px 0 0;padding:22px 26px;background:var(--marker-soft);color:var(--ink);font-size:19px;font-weight:600;max-width:44em}
+.cmp{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:16px}
+th,td{text-align:left;padding:14px 16px 14px 0;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+tbody th{font-weight:700;white-space:nowrap}
+td{color:var(--muted)} td:last-child{color:var(--ink)}
+.trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:32px 40px}
+.trio>div{border-top:2px solid var(--ink);padding-top:18px;min-width:0}
+.trio h3{font-size:22px;letter-spacing:-.02em}
+.trio p{margin:10px 0 0;color:var(--muted);font-size:16px}
+.trio .k{color:var(--marker);font-size:13px}
+.list{margin:40px 0 0;padding:0;list-style:none;display:grid;gap:0;max-width:46em}
+.list li{padding:14px 0 14px 26px;border-bottom:1px solid var(--line);position:relative}
+.list li::before{content:"";position:absolute;left:0;top:25px;width:12px;height:2px;background:var(--marker)}
+.calc{margin-top:40px;padding:32px;background:var(--night);color:var(--night-ink)}
+.calc h3{font-size:24px}
+.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px 20px;margin-top:22px}
+.inputs label{display:grid;grid-template-columns:1fr auto;gap:6px 8px;align-items:center;font-size:13px;color:var(--night-muted);min-width:0}
+.inputs label>span{grid-column:1/-1}
+.inputs input{width:100%;min-width:0;font:500 18px var(--mono);padding:10px 12px;background:var(--night-2);color:var(--night-ink);border:1px solid var(--night-line);border-radius:0}
+.inputs i{font:normal 12px var(--mono);color:var(--night-muted)}
+.outs{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px 28px;margin:28px 0 0;padding-top:24px;border-top:1px solid var(--night-line)}
+.outs div{min-width:0}
+.outs dt{font-size:13px;color:var(--night-muted)}
+.outs dd{margin:6px 0 0;font-size:clamp(20px,2.4vw,26px);color:var(--night-ink);overflow-wrap:anywhere}
+.note{margin:20px 0 0;font-size:14px;color:var(--night-muted);min-height:1.5em}
+.note.warn{color:#ffb86b}
+.flow{list-style:none;margin:0;padding:0;counter-reset:f;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 40px}
+.flow li{counter-increment:f;display:grid;grid-template-columns:28px minmax(0,1fr);gap:2px 10px;padding:16px 0;border-top:1px solid var(--line)}
+.flow li::before{content:counter(f);font:500 13px var(--mono);color:var(--faint);grid-row:span 2;padding-top:3px}
+.flow b{font-size:15px;color:var(--marker);font-weight:500}
+.flow span{color:var(--muted);font-size:16px}
+.flow span span{color:inherit}
+.checks{list-style:none;margin:0;padding:0;max-width:44em}
+.checks li{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line)}
+.checks input{width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--marker)}
+.checks label{cursor:pointer}
+.checks input:checked+label{color:var(--faint);text-decoration:line-through}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;font:600 16px var(--body);text-decoration:none;border:1px solid var(--ink);color:var(--ink)}
+.btn.solid{background:var(--ink);color:var(--bg)}
+.end{text-align:center}
+.end h2{font-size:clamp(34px,5vw,60px)}
+.end .ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+footer{padding-block:28px 44px;font-size:13px;color:var(--faint);border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
+@media (max-width:760px){.links{display:none}.rule{grid-template-columns:1fr}.lhead{grid-template-columns:1fr}.lhead .no{grid-row:auto}section{padding-block:64px}.hero{padding-block:56px 40px}.calc{padding:24px 20px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="https://parametricsolutions.de/larger-slicer/"><svg viewBox="0 0 64 64" aria-hidden="true" id="lm"></svg>LARGER.slicer</a>
+  <nav class="links" aria-label="Seiten"><a href="https://parametricsolutions.de/larger-slicer/"><span lang="de">Slicer</span><span lang="en">Slicer</span></a><a href="#entwurf"><span lang="de">Entwurf</span><span lang="en">Design</span></a><a href="#infill">Infill</a><a href="#check"><span lang="de">Checkliste</span><span lang="en">Checklist</span></a><a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a></nav>
+  <div class="lang" role="group" aria-label="Sprache / Language"><button type="button" id="lang-de" data-l="de">DE</button><button type="button" id="lang-en" data-l="en">EN</button></div>
+</div></header>
+<main>
+  <div class="hero wrap">
+    <p class="eyebrow"><span lang="de">Lehrgang</span><span lang="en">Course</span></p>
+    <h1><span lang="de">Groß drucken, <span class="hl">richtig entwerfen.</span></span><span lang="en">Print large, <span class="hl">design it right.</span></span></h1>
+    <p class="lede"><span lang="de">Was beim 3D-Druck mit Roboter und Granulatextruder zählt, in acht Lektionen: von der einzelnen Bahn über die Konstruktion des Bauteils bis zur Checkliste vor dem Start.</span><span lang="en">What matters in 3D printing with a robot and a pellet extruder, in eight lessons: from the single bead and the design of the part to the checklist before the start.</span></p>
+    <nav class="toc" aria-label="Lektionen"><a href="#anders"><span class="num">01</span><span lang="de">Was im Großformat anders ist</span><span lang="en">What changes at large scale</span></a><a href="#bahn"><span class="num">02</span><span lang="de">Die Bahn verstehen</span><span lang="en">Understand the bead</span></a><a href="#entwurf"><span class="num">03</span><span lang="de">Das Bauteil entwerfen</span><span lang="en">Design the part</span></a><a href="#waerme"><span class="num">04</span><span lang="de">Wärme, Schwinden, Verzug</span><span lang="en">Heat, shrinkage, warping</span></a><a href="#infill"><span class="num">05</span><span lang="de">Das Infill wählen</span><span lang="en">Choose the infill</span></a><a href="#lagen"><span class="num">06</span><span lang="de">Flach, schräg, gebogen</span><span lang="en">Flat, angled, curved</span></a><a href="#ablauf"><span class="num">07</span><span lang="de">Vom Modell zum Druck</span><span lang="en">From model to print</span></a><a href="#check"><span class="num">08</span><span lang="de">Checkliste vor dem Druck</span><span lang="en">Checklist before printing</span></a></nav>
+  </div>
+
+<section id="anders"><div class="wrap">
+  <div class="lhead"><span class="no num">01</span><h2><span lang="de">Was im Großformat anders ist</span><span lang="en">What changes at large scale</span></h2><p class="lead"><span lang="de">Ein Granulatextruder am Roboter legt Bahnen von 4 bis über 12 mm Breite. Das ändert fast jede Regel, die du vom Tischdrucker kennst.</span><span lang="en">A pellet extruder on a robot lays beads from 4 to more than 12 mm wide. That changes almost every rule you know from a desktop printer.</span></p></div>
+  <div class="cmp"><table><thead><tr><th></th><th><span lang="de">Tischdrucker</span><span lang="en">Desktop printer</span></th><th><span lang="de">Großformat</span><span lang="en">Large format</span></th></tr></thead><tbody><tr><th><span lang="de">Bahnbreite</span><span lang="en">Bead width</span></th><td><span lang="de">0,4 mm</span><span lang="en">0.4 mm</span></td><td><span lang="de">4–12 mm</span><span lang="en">4–12 mm</span></td></tr><tr><th><span lang="de">Material</span><span lang="en">Material</span></th><td><span lang="de">Filament</span><span lang="en">Filament</span></td><td><span lang="de">Granulat, oft mit Glas- oder Kohlefaser</span><span lang="en">Pellets, often with glass or carbon fibre</span></td></tr><tr><th><span lang="de">Absetzen</span><span lang="en">Stopping</span></th><td><span lang="de">Rückzug in Millisekunden</span><span lang="en">Retraction within milliseconds</span></td><td><span lang="de">Die Schnecke läuft nach: jedes Absetzen hinterlässt einen Tropfen</span><span lang="en">The screw keeps oozing: every stop leaves a blob</span></td></tr><tr><th><span lang="de">Abkühlen</span><span lang="en">Cooling</span></th><td><span lang="de">Sekunden</span><span lang="en">Seconds</span></td><td><span lang="de">Minuten: die Lage darunter ist noch weich</span><span lang="en">Minutes: the layer below is still soft</span></td></tr><tr><th><span lang="de">Stützmaterial</span><span lang="en">Support material</span></th><td><span lang="de">üblich</span><span lang="en">common</span></td><td><span lang="de">praktisch nie</span><span lang="en">practically never</span></td></tr><tr><th><span lang="de">Kleinstes Detail</span><span lang="en">Smallest detail</span></th><td><span lang="de">unter 1 mm</span><span lang="en">below 1 mm</span></td><td><span lang="de">eine Bahnbreite</span><span lang="en">one bead width</span></td></tr></tbody></table></div><p class="take"><span lang="de">Daraus folgen die drei Grundsätze dieses Lehrgangs: Das Bauteil wird für die Bahn entworfen. Die Bahn läuft durch, ohne abzusetzen. Jede Bahn liegt auf der Bahn darunter.</span><span lang="en">Three principles follow, and this course is built on them: the part is designed for the bead. The path runs through without stopping. Every bead rests on the bead below.</span></p>
+</div></section>
+<section id="bahn"><div class="wrap">
+  <div class="lhead"><span class="no num">02</span><h2><span lang="de">Die Bahn verstehen</span><span lang="en">Understand the bead</span></h2><p class="lead"><span lang="de">Alles am Bauteil ist ein Vielfaches der Bahn. Lege Bahnbreite und Lagenhöhe fest, bevor du konstruierst.</span><span lang="en">Everything in the part is a multiple of the bead. Fix bead width and layer height before you start modelling.</span></p></div>
+  <div class="rule"><div class="rt"><h3><span lang="de">Breite und Höhe gehören zusammen</span><span lang="en">Width and height belong together</span></h3><p><span lang="de">Die Lagenhöhe liegt bei einem Drittel bis zur Hälfte der Bahnbreite. Flachere Bahnen haften besser und tragen mehr Überhang, brauchen aber mehr Lagen. Die Bahnbreite liegt meist beim 1- bis 1,5-Fachen des Düsendurchmessers.</span><span lang="en">Layer height is a third to a half of the bead width. Flatter beads bond better and carry more overhang but need more layers. Bead width is usually 1 to 1.5 times the nozzle diameter.</span></p></div><div class="fig"><svg viewBox="0 0 320 170" role="img" aria-label="bead cross-section"><rect x="20" y="150" width="280" height="4" fill="var(--line)"/>
+<g fill="var(--bead-wall)" stroke="var(--cl-wall)" stroke-width="1.5"><rect x="60" y="118" width="100" height="32" rx="14"/><rect x="60" y="86" width="100" height="32" rx="14"/><rect x="60" y="54" width="100" height="32" rx="14"/></g>
+<g stroke="var(--marker)" stroke-width="1.5" fill="none"><path d="M60 40h100M60 34v12M160 34v12"/><path d="M176 54v32M170 54h12M170 86h12"/></g>
+<g font-family="var(--mono)" font-size="12" fill="var(--ink)"><text x="110" y="28" text-anchor="middle">b = 5 mm</text><text x="190" y="75">h = 2 mm</text></g>
+<g fill="var(--muted)" font-family="var(--mono)" font-size="11"><text x="190" y="110">h ≈ ⅓ … ½ b</text></g></svg><p class="cap"><span lang="de">Querschnitt: drei Lagen einer Wand, 5 mm breit und 2 mm hoch.</span><span lang="en">Cross-section: three layers of a wall, 5 mm wide and 2 mm high.</span></p></div></div><div class="calc" id="calc">
+  <h3><span lang="de">Deine Bahn in Zahlen</span><span lang="en">Your bead in numbers</span></h3>
+  <div class="inputs">
+   <label for="c-b"><span lang="de">Bahnbreite</span><span lang="en">Bead width</span><input id="c-b" type="number" min="1" max="30" step="0.5" value="5"><i>mm</i></label>
+   <label for="c-h"><span lang="de">Lagenhöhe</span><span lang="en">Layer height</span><input id="c-h" type="number" min="0.5" max="15" step="0.25" value="2"><i>mm</i></label>
+   <label for="c-v"><span lang="de">Geschwindigkeit</span><span lang="en">Speed</span><input id="c-v" type="number" min="5" max="400" step="5" value="50"><i>mm/s</i></label>
+   <label for="c-d"><span lang="de">Dichte</span><span lang="en">Density</span><input id="c-d" type="number" min="0.8" max="2" step="0.01" value="1.27"><i>g/cm³</i></label>
+  </div>
+  <dl class="outs">
+   <div><dt><span lang="de">Größter Überhang</span><span lang="en">Largest overhang</span></dt><dd class="num" id="o-ang">51°</dd></div>
+   <div><dt><span lang="de">Wandstärken mit 1, 2, 3 Bahnen</span><span lang="en">Wall thickness with 1, 2, 3 beads</span></dt><dd class="num" id="o-w">5 · 9,25 · 13,5 mm</dd></div>
+   <div><dt><span lang="de">Kleinster Eckenradius</span><span lang="en">Smallest corner radius</span></dt><dd class="num" id="o-r">5 mm</dd></div>
+   <div><dt><span lang="de">Materialdurchsatz</span><span lang="en">Material throughput</span></dt><dd class="num" id="o-m">2,3 kg/h</dd></div>
+  </dl>
+  <p class="note" id="o-note"></p>
+ </div>
+</div></section>
+<section id="entwurf"><div class="wrap">
+  <div class="lhead"><span class="no num">03</span><h2><span lang="de">Das Bauteil entwerfen</span><span lang="en">Design the part</span></h2><p class="lead"><span lang="de">Sechs Regeln für die Konstruktion. Wer sie im CAD einhält, muss im Slicer nichts reparieren.</span><span lang="en">Six rules for modelling. If you keep them in CAD, there is nothing to repair in the slicer.</span></p></div>
+  <div class="rule"><div class="rt"><h3><span lang="de">Wandstärken sind ganze Bahnen</span><span lang="en">Wall thickness comes in whole beads</span></h3><p><span lang="de">Eine Wand ist eine, zwei oder drei Bahnen dick, nie anderthalb. Zwei Bahnen überlappen sich leicht: bei 5 mm Bahnbreite ist die Doppelwand 9,25 mm dick. Eine Wand von 7 mm lässt sich nicht sauber drucken, es bleibt ein Spalt oder es staut sich Material.</span><span lang="en">A wall is one, two or three beads thick, never one and a half. Two beads overlap slightly: with a 5 mm bead a double wall is 9.25 mm thick. A 7 mm wall cannot be printed cleanly, it leaves a gap or piles up material.</span></p></div><div class="fig"><svg viewBox="0 0 320 170" role="img" aria-label="wall thickness"><g fill="var(--bead-wall)" stroke="var(--cl-wall)" stroke-width="1.5">
+<rect x="30" y="30" width="34" height="110" rx="12"/><rect x="120" y="30" width="34" height="110" rx="12"/><rect x="149" y="30" width="34" height="110" rx="12"/><rect x="232" y="30" width="34" height="110" rx="12"/></g>
+<rect x="266" y="30" width="18" height="110" fill="none" stroke="var(--alert)" stroke-width="1.5" stroke-dasharray="4 3"/>
+<g font-family="var(--mono)" font-size="12" fill="var(--ink)" text-anchor="middle"><text x="47" y="160">5</text><text x="152" y="160">9,25</text></g><text x="258" y="160" font-family="var(--mono)" font-size="12" fill="var(--alert)" text-anchor="middle">7 ✕</text></svg><p class="cap"><span lang="de">Eine Bahn, zwei Bahnen, und eine Wandstärke dazwischen, die nicht aufgeht.</span><span lang="en">One bead, two beads, and a thickness in between that does not work out.</span></p></div></div><div class="rule"><div class="rt"><h3><span lang="de">Überhang hat eine harte Grenze</span><span lang="en">Overhang has a hard limit</span></h3><p><span lang="de">Eine Bahn darf seitlich höchstens eine halbe Bahnbreite über die Bahn darunter hinausragen. Daraus folgt der größte Winkel gegen die Senkrechte: atan(½ Breite ÷ Lagenhöhe). Bei 5 mm Breite und 2 mm Höhe sind das 51°. Plane mit 45°, dann bleibt Reserve.</span><span lang="en">A bead may stick out sideways by at most half its width over the bead below. That gives the largest angle from vertical: atan(½ width ÷ layer height). With a 5 mm bead and 2 mm layers this is 51°. Design for 45° and keep a reserve.</span></p></div><div class="fig"><svg viewBox="0 0 320 170" role="img" aria-label="overhang"><rect x="20" y="150" width="280" height="4" fill="var(--line)"/>
+<g fill="var(--bead-wall)" stroke="var(--cl-wall)" stroke-width="1.5"><rect x="40" y="118" width="100" height="32" rx="14"/><rect x="80" y="86" width="100" height="32" rx="14"/><rect x="120" y="54" width="100" height="32" rx="14"/><rect x="160" y="22" width="100" height="32" rx="14"/></g>
+<path d="M90 134L210 38" stroke="var(--marker)" stroke-width="2" stroke-dasharray="5 4" fill="none"/><path d="M90 134V40" stroke="var(--faint)" stroke-width="1.5" fill="none"/>
+<path d="M90 96A38 38 0 0 1 119 110" stroke="var(--marker)" stroke-width="1.5" fill="none"/>
+<g font-family="var(--mono)" font-size="12" fill="var(--ink)"><text x="98" y="84">51°</text><text x="226" y="110">½ b</text></g>
+<path d="M180 100h40M180 94v12M220 94v12" stroke="var(--marker)" stroke-width="1.5" fill="none"/></svg><p class="cap"><span lang="de">Jede Lage rückt eine halbe Bahnbreite weiter. Mehr geht nicht.</span><span lang="en">Every layer moves out by half a bead width. That is the limit.</span></p></div></div><div class="rule"><div class="rt"><h3><span lang="de">Ecken bekommen einen Radius</span><span lang="en">Corners get a radius</span></h3><p><span lang="de">In einer scharfen Ecke bremst der Roboter, der Extruder fördert aber weiter: Es entsteht ein Wulst. Runde jede Ecke mindestens mit der Bahnbreite aus. Im Slicer erledigt das der Baustein „Round Corners“, besser ist es schon im Modell.</span><span lang="en">In a sharp corner the robot slows down while the extruder keeps feeding: a bulge forms. Round every corner by at least one bead width. In the slicer the Round Corners component does this, but it is better done in the model.</span></p></div><div class="fig"><svg viewBox="0 0 320 170" role="img" aria-label="corner radius"><g fill="none" stroke-linecap="round" stroke-linejoin="round">
+<path d="M30 140V40H130" stroke="var(--bead-wall)" stroke-width="26" stroke-linejoin="miter"/><path d="M30 140V40H130" stroke="var(--alert)" stroke-width="2" stroke-linejoin="miter"/>
+<path d="M190 140V70A30 30 0 0 1 220 40H290" stroke="var(--bead-wall)" stroke-width="26"/><path d="M190 140V70A30 30 0 0 1 220 40H290" stroke="var(--cl-fill)" stroke-width="2"/></g>
+<g font-family="var(--mono)" font-size="12"><text x="52" y="160" fill="var(--alert)">R = 0 ✕</text><text x="212" y="160" fill="var(--ink)">R ≥ b</text></g></svg><p class="cap"><span lang="de">Scharfe Ecke und gerundete Ecke, Mittellinie der Bahn.</span><span lang="en">Sharp corner and rounded corner, centre line of the bead.</span></p></div></div><div class="rule"><div class="rt"><h3><span lang="de">Ein Umriss, eine Linie</span><span lang="en">One outline, one line</span></h3><p><span lang="de">Jede Lage soll sich in einem Zug drucken lassen. Zwei getrennte Inseln in einer Lage bedeuten eine Leerfahrt, und auf jeder Leerfahrt tropft die Düse. Verbinde Inseln durch einen Steg oder drucke die Teile einzeln.</span><span lang="en">Every layer should print in one go. Two separate islands in a layer mean a travel move, and the nozzle drips on every travel move. Join islands with a rib or print the parts one by one.</span></p></div><div class="fig"><svg viewBox="0 0 320 170" role="img" aria-label="one line"><g fill="none" stroke-width="3" stroke-linecap="round">
+<rect x="20" y="40" width="50" height="90" rx="10" stroke="var(--cl-wall)"/><rect x="90" y="40" width="50" height="90" rx="10" stroke="var(--cl-wall)"/><path d="M70 85H90" stroke="var(--travel)" stroke-dasharray="3 5"/>
+<path d="M190 50a10 10 0 0 1 10-10h90a10 10 0 0 1 10 10v70a10 10 0 0 1-10 10h-90a10 10 0 0 1-10-10z" stroke="var(--cl-wall)"/><path d="M241 42V128M249 128V42" stroke="var(--cl-fill)"/></g>
+<g font-family="var(--mono)" font-size="12"><text x="80" y="156" text-anchor="middle" fill="var(--alert)">2 ✕</text><text x="245" y="156" text-anchor="middle" fill="var(--ink)">1</text></g></svg><p class="cap"><span lang="de">Links zwei Inseln mit Leerfahrt, rechts ein Umriss mit Steg.</span><span lang="en">Left: two islands with a travel move. Right: one outline with a rib.</span></p></div></div><div class="rule"><div class="rt"><h3><span lang="de">Öffnungen schließen sich schräg</span><span lang="en">Openings close at an angle</span></h3><p><span lang="de">Eine waagerechte Brücke hält mit schweren Bahnen nicht. Öffnungen in Wänden bekommen deshalb ein Dach, das die Überhanggrenze einhält: Tropfenform, Spitzbogen oder Fase. Decken, die flach schließen müssen, werden nicht-planar gedruckt oder als eigenes Teil aufgesetzt.</span><span lang="en">A horizontal bridge does not hold with heavy beads. Openings in walls therefore get a roof that keeps the overhang limit: teardrop, pointed arch or chamfer. Tops that have to close flat are printed non-planar or added as a separate part.</span></p></div><div class="fig"><svg viewBox="0 0 320 170" role="img" aria-label="openings"><g fill="var(--bead-wall)" stroke="var(--cl-wall)" stroke-width="1.5"><rect x="20" y="20" width="120" height="130"/><rect x="180" y="20" width="120" height="130"/></g>
+<rect x="50" y="60" width="60" height="50" fill="var(--bg)" stroke="var(--alert)" stroke-width="2"/>
+<path d="M240 52L270 86A30 30 0 1 1 210 86Z" fill="var(--bg)" stroke="var(--cl-fill)" stroke-width="2"/>
+<g font-family="var(--mono)" font-size="12"><text x="80" y="165" text-anchor="middle" fill="var(--alert)">✕</text><text x="240" y="165" text-anchor="middle" fill="var(--ink)">≤ 51°</text></g></svg><p class="cap"><span lang="de">Rechteckige Öffnung mit Brücke und Tropfenform.</span><span lang="en">Rectangular opening with a bridge, and a teardrop.</span></p></div></div><div class="rule"><div class="rt"><h3><span lang="de">Schlanke Wände brauchen Halt</span><span lang="en">Slender walls need support</span></h3><p><span lang="de">Eine einzelne hohe Wand schwingt unter der Düse und kippt, solange sie weich ist. Gib ihr Form: Krümmung, Sicken, Stege oder ein Infill, das an beiden Wänden anliegt. Gerade, lange, dünne Flächen sind die schwierigste Geometrie im Großformat.</span><span lang="en">A single tall wall sways under the nozzle and tips while it is soft. Give it shape: curvature, corrugation, ribs or an infill that touches both walls. Straight, long, thin faces are the hardest geometry at large scale.</span></p></div></div>
+</div></section>
+<section id="waerme"><div class="wrap">
+  <div class="lhead"><span class="no num">04</span><h2><span lang="de">Wärme, Schwinden, Verzug</span><span lang="en">Heat, shrinkage, warping</span></h2><p class="lead"><span lang="de">Die Bahn ist dick und bleibt lange heiß. Wie viel Zeit zwischen zwei Lagen vergeht, entscheidet über Haftung und Form.</span><span lang="en">The bead is thick and stays hot for a long time. The time between two layers decides bonding and shape.</span></p></div>
+  <div class="trio"><div><h3><span lang="de">Lagenzeit zu kurz</span><span lang="en">Layer time too short</span></h3><p><span lang="de">Kleine Querschnitte und Spitzen bekommen die nächste Lage, bevor sie tragen. Das Teil sackt ein. Abhilfe: langsamer drucken, kühlen oder zwei Teile gleichzeitig drucken.</span><span lang="en">Small cross-sections and tips get the next layer before they can carry it. The part slumps. Remedy: print slower, cool, or print two parts at once.</span></p></div><div><h3><span lang="de">Lagenzeit zu lang</span><span lang="en">Layer time too long</span></h3><p><span lang="de">Bei sehr großen Teilen ist die Lage darunter schon kalt. Die Bahnen verbinden sich schlecht, das Teil reißt zwischen den Lagen. Abhilfe: schneller drucken, Umgebung warm halten, Teil teilen.</span><span lang="en">On very large parts the layer below is already cold. The beads bond poorly and the part cracks between layers. Remedy: print faster, keep the surroundings warm, split the part.</span></p></div><div><h3><span lang="de">Schwinden</span><span lang="en">Shrinkage</span></h3><p><span lang="de">Jeder Kunststoff zieht sich beim Abkühlen zusammen. Lange gerade Kanten heben sich an den Enden von der Platte. Faserverstärkte Materialien schwinden deutlich weniger. Runde Grundrisse und Rippen halten die Form.</span><span lang="en">Every plastic contracts as it cools. Long straight edges lift off the bed at their ends. Fibre-reinforced materials shrink far less. Round footprints and ribs keep the shape.</span></p></div></div><ul class="list"><li><span lang="de">Trockne das Granulat nach Datenblatt. Feuchtes Material schäumt und die Bahnbreite schwankt.</span><span lang="en">Dry the pellets as the data sheet says. Damp material foams and the bead width varies.</span></li><li><span lang="de">Halte die Geschwindigkeit konstant. Der Extruder reagiert träge, jede Änderung des Vorschubs ändert die Bahnbreite.</span><span lang="en">Keep the speed constant. The extruder reacts slowly, and every change of feedrate changes the bead width.</span></li><li><span lang="de">Plane Aufmaß ein, wo Flächen später gefräst werden: mindestens eine halbe Bahnbreite.</span><span lang="en">Leave machining allowance where faces will be milled later: at least half a bead width.</span></li><li><span lang="de">Lege die Naht an eine Stelle, die man nicht sieht oder die ohnehin bearbeitet wird.</span><span lang="en">Put the seam where it is not seen or where the part is machined anyway.</span></li></ul>
+</div></section>
+<section id="infill"><div class="wrap">
+  <div class="lhead"><span class="no num">05</span><h2><span lang="de">Das Infill wählen</span><span lang="en">Choose the infill</span></h2><p class="lead"><span lang="de">Im Großformat ist Infill kein Füllgrad in Prozent. Es ist Tragwerk: wenige, gezielt gesetzte Bahnen, die mit der Wand eine Linie bilden.</span><span lang="en">At large scale infill is not a percentage. It is structure: a few deliberately placed beads that form one line with the wall.</span></p></div>
+  <div class="cmp"><table><thead><tr><th><span lang="de">Muster</span><span lang="en">Pattern</span></th><th><span lang="de">Wofür</span><span lang="en">Use it for</span></th><th><span lang="de">Baustein</span><span lang="en">Component</span></th></tr></thead><tbody><tr><th><span lang="de">Stege</span><span lang="en">Ribs</span></th><td><span lang="de">Hüllen und Schalen: einzelne Stege an den Stellen, an denen die Wand Halt braucht</span><span lang="en">Hulls and shells: single ribs where the wall needs support</span></td><td class="num">Infill Ribs</td></tr><tr><th><span lang="de">Eigene Linien</span><span lang="en">Your own lines</span></th><td><span lang="de">Wenn du weißt, wo die Last läuft: Linien in der Draufsicht zeichnen</span><span lang="en">When you know where the load runs: draw lines in top view</span></td><td class="num">Infill Sketch</td></tr><tr><th><span lang="de">Welle, Fachwerk, Mäander</span><span lang="en">Wave, truss, meander</span></th><td><span lang="de">Doppelwandige Teile: das Muster trifft sich in der Mitte und verbindet beide Wände</span><span lang="en">Double-walled parts: the pattern meets in the middle and ties both walls together</span></td><td class="num">Infill Wave</td></tr><tr><th><span lang="de">Kammerwand</span><span lang="en">Chamber wall</span></th><td><span lang="de">Dicke, steife Außenwand bei offenem Inneren, zum Beispiel Formen und Behälter</span><span lang="en">Thick, stiff outer wall with an open interior, for example moulds and containers</span></td><td class="num">Infill Chambers</td></tr><tr><th><span lang="de">Waben, Gitter</span><span lang="en">Honeycomb, grid</span></th><td><span lang="de">Platten und massive Körper, die Druck von oben tragen</span><span lang="en">Plates and solid bodies that carry load from above</span></td><td class="num">Infill Cells</td></tr></tbody></table></div><p class="take"><span lang="de">Faustregel: Ein Infill hilft nur, wo es beide Wände berührt. Eine Welle, die in der Luft endet, kostet Material und trägt nichts.</span><span lang="en">Rule of thumb: an infill only helps where it touches both walls. A wave that ends in mid-air costs material and carries nothing.</span></p>
+</div></section>
+<section id="lagen"><div class="wrap">
+  <div class="lhead"><span class="no num">06</span><h2><span lang="de">Flach, schräg, gebogen</span><span lang="en">Flat, angled, curved</span></h2><p class="lead"><span lang="de">Die Lagen müssen nicht waagerecht liegen. Mit einem Roboter wählst du die Richtung so, dass der Überhang verschwindet.</span><span lang="en">Layers do not have to be horizontal. With a robot you choose the direction so that the overhang disappears.</span></p></div>
+  <div class="trio"><div><h3><span lang="de">Flach</span><span lang="en">Flat</span></h3><p><span lang="de">Der Normalfall. Jede Lage liegt eben, die Bahn steigt über eine kurze Rampe an einer festen Stelle.</span><span lang="en">The normal case. Every layer is level, and the path climbs over a short ramp at a fixed place.</span></p><p class="num k">Slice</p></div><div><h3><span lang="de">Schräg, zum Beispiel 45°</span><span lang="en">Angled, for example 45°</span></h3><p><span lang="de">Für lange Teile und für Dächer: Die Lage lehnt sich an die vorige an, waagerechte Decken werden druckbar.</span><span lang="en">For long parts and for roofs: each layer leans on the previous one, so horizontal tops become printable.</span></p><p class="num k">Slice · Angle</p></div><div><h3><span lang="de">Nicht-planar</span><span lang="en">Non-planar</span></h3><p><span lang="de">Die Lagen folgen einer Leitfläche. Die oberste Lage folgt der Oberfläche des Teils, Treppenstufen verschwinden.</span><span lang="en">Layers follow a guide surface. The top layer follows the surface of the part and stair-stepping disappears.</span></p><p class="num k">Slice · Guide surface</p></div><div><h3><span lang="de">Mehrachsig</span><span lang="en">Multi-axis</span></h3><p><span lang="de">Die Lagen stehen senkrecht auf einer Leitkurve. Rohrbögen und Äste wachsen entlang ihrer Achse, ohne Überhang.</span><span lang="en">Layers stand square to a guide curve. Pipe bends and branches grow along their axis without overhang.</span></p><p class="num k">Slice · Guide curve</p></div></div>
+</div></section>
+<section id="ablauf"><div class="wrap">
+  <div class="lhead"><span class="no num">07</span><h2><span lang="de">Vom Modell zum Druck</span><span lang="en">From model to print</span></h2><p class="lead"><span lang="de">Der Ablauf im LARGER.slicer. Der Baustein „Quick Start“ legt alle drei Beispiele fertig verdrahtet auf die Arbeitsfläche.</span><span lang="en">The workflow in LARGER.slicer. The Quick Start component puts all three examples on the canvas, fully wired.</span></p></div>
+  <ol class="flow"><li><b class="num">Machine Profile</b><span><span lang="de">Maschine wählen. Der Extrusionsfaktor rechnet Bahnvolumen in Extruderwerte um.</span><span lang="en">Choose the machine. The extrusion factor turns bead volume into extruder values.</span></span></li><li><b class="num">Print Settings</b><span><span lang="de">Bahnbreite, Lagenhöhe, Geschwindigkeit festlegen.</span><span lang="en">Set bead width, layer height and speed.</span></span></li><li><b class="num">Slice</b><span><span lang="de">Das Modell in Lagen schneiden: flach, schräg, entlang einer Fläche oder Kurve.</span><span lang="en">Cut the model into layers: flat, angled, along a surface or a curve.</span></span></li><li><b class="num">Walls</b><span><span lang="de">Anzahl der Wände und ihre Lage zur Modelloberfläche.</span><span lang="en">Number of walls and their position relative to the model surface.</span></span></li><li><b class="num">Bottom Fill</b><span><span lang="de">Geschlossener Boden aus einer Bahn.</span><span lang="en">A closed bottom from one bead.</span></span></li><li><b class="num">Infill …</b><span><span lang="de">Stege, Zellen, Welle, Kammern oder eigene Linien.</span><span lang="en">Ribs, cells, wave, chambers or your own lines.</span></span></li><li><b class="num">Continuous Path</b><span><span lang="de">Alle Lagen zu einer durchgehenden Bahn verbinden.</span><span lang="en">Join all layers into one continuous path.</span></span></li><li><b class="num">Round Corners</b><span><span lang="de">Ecken auf den kleinsten Radius ausrunden.</span><span lang="en">Round corners to the smallest radius.</span></span></li><li><b class="num">Start and End</b><span><span lang="de">Skirt vor dem Teil, Ausfahrt am Ende.</span><span lang="en">Skirt before the part, exit move at the end.</span></span></li><li><b class="num">Path Check</b><span><span lang="de">Prüfen: keine Kreuzung, jede Bahn liegt auf, Überhang im Rahmen.</span><span lang="en">Check: no crossing, every bead supported, overhang within the limit.</span></span></li></ol><p class="take"><span lang="de">Vor dem großen Druck lohnt ein kleiner: „Desktop Test Print“ schreibt denselben Pfad verkleinert als G-Code für einen Tischdrucker.</span><span lang="en">Before the big print a small one pays off: Desktop Test Print writes the same path scaled down as G-code for a desktop printer.</span></p>
+</div></section>
+<section id="check"><div class="wrap">
+  <div class="lhead"><span class="no num">08</span><h2><span lang="de">Checkliste vor dem Druck</span><span lang="en">Checklist before printing</span></h2><p class="lead"><span lang="de">Zehn Fragen. Erst wenn alle mit Ja beantwortet sind, geht der Code an die Maschine.</span><span lang="en">Ten questions. The code goes to the machine only when every answer is yes.</span></p></div>
+  <ul class="checks"><li><input type="checkbox" id="ck0"><label for="ck0"><span lang="de">Sind alle Wandstärken ganze Bahnen?</span><span lang="en">Are all wall thicknesses whole beads?</span></label></li><li><input type="checkbox" id="ck1"><label for="ck1"><span lang="de">Bleibt jeder Überhang unter der Grenze?</span><span lang="en">Does every overhang stay below the limit?</span></label></li><li><input type="checkbox" id="ck2"><label for="ck2"><span lang="de">Hat jede Ecke mindestens eine Bahnbreite Radius?</span><span lang="en">Does every corner have at least one bead width of radius?</span></label></li><li><input type="checkbox" id="ck3"><label for="ck3"><span lang="de">Lässt sich jede Lage ohne Absetzen drucken?</span><span lang="en">Can every layer be printed without stopping?</span></label></li><li><input type="checkbox" id="ck4"><label for="ck4"><span lang="de">Meldet der Path Check keine Kreuzung?</span><span lang="en">Does Path Check report no crossing?</span></label></li><li><input type="checkbox" id="ck5"><label for="ck5"><span lang="de">Liegt die erste Lage vollständig auf der Platte?</span><span lang="en">Does the first layer lie fully on the bed?</span></label></li><li><input type="checkbox" id="ck6"><label for="ck6"><span lang="de">Passt die Lagenzeit zum Material?</span><span lang="en">Does the layer time suit the material?</span></label></li><li><input type="checkbox" id="ck7"><label for="ck7"><span lang="de">Ist das Granulat getrocknet?</span><span lang="en">Are the pellets dried?</span></label></li><li><input type="checkbox" id="ck8"><label for="ck8"><span lang="de">Stimmt der Extrusionsfaktor der Maschine?</span><span lang="en">Is the machine’s extrusion factor right?</span></label></li><li><input type="checkbox" id="ck9"><label for="ck9"><span lang="de">Ist der Weg des Roboters frei, auch bei Skirt und Ausfahrt?</span><span lang="en">Is the robot’s path clear, including skirt and exit move?</span></label></li></ul>
+</div></section>
+  <section class="end"><div class="wrap">
+    <h2><span lang="de">Jetzt am eigenen Teil.</span><span lang="en">Now on your own part.</span></h2>
+    <div class="ctas"><a class="btn solid" href="https://github.com/Moeewe/LARGER.slicer/releases/latest"><span lang="de">Slicer herunterladen</span><span lang="en">Download the slicer</span></a><a class="btn" href="https://parametricsolutions.de/larger-slicer/"><span lang="de">Zur Übersicht</span><span lang="en">Back to the overview</span></a></div>
+  </div></section>
+</main>
+<footer><div class="wrap"><span>LARGER.slicer · Moritz Wesseler · FH Münster</span><span><span lang="de">Richtwerte. Maschine und Material entscheiden: erst klein testen.</span><span lang="en">Guide values. Machine and material decide: test small first.</span></span></div></footer>
+<script>
+(function () {
+  var root = document.documentElement;
+  function get() { try { return localStorage.getItem('ls-lang'); } catch (e) { return null; } }
+  function set(l) {
+    root.setAttribute('data-lang', l);
+    document.getElementById('lang-de').setAttribute('aria-pressed', l === 'de' ? 'true' : 'false');
+    document.getElementById('lang-en').setAttribute('aria-pressed', l === 'en' ? 'true' : 'false');
+    document.title = l === 'en' ? 'Large-Format Printing Course' : 'Lehrgang Großformatdruck';
+    calc();
+  }
+  var lang = get();
+  if (!lang) {
+    var nav = (navigator.language || 'de').toLowerCase();
+    lang = /\/de\//.test(location.pathname) ? 'de' : (nav.indexOf('de') === 0 ? 'de' : 'en');
+  }
+  ['de', 'en'].forEach(function (l) {
+    document.getElementById('lang-' + l).addEventListener('click', function () { try { localStorage.setItem('ls-lang', l); } catch (e) {} set(l); });
+  });
+  function n(v, d) { var s = v.toFixed(d); if (root.getAttribute('data-lang') !== 'en') { s = s.replace('.', ','); } return s; }
+  function val(id, fb) { var v = parseFloat(document.getElementById(id).value); return isFinite(v) ? v : fb; }
+  function calc() {
+    var en = root.getAttribute('data-lang') === 'en';
+    var b = Math.max(0.5, val('c-b', 5)), h = Math.max(0.1, val('c-h', 2)), v = Math.max(1, val('c-v', 50)), d = Math.max(0.1, val('c-d', 1.27));
+    var sp = 0.85 * b;
+    document.getElementById('o-ang').textContent = Math.round(Math.atan(0.5 * b / h) * 180 / Math.PI) + '°';
+    document.getElementById('o-w').textContent = n(b, 2).replace(/[.,]?0+$/, '') + ' · ' + n(b + sp, 2) + ' · ' + n(b + 2 * sp, 2) + ' mm';
+    document.getElementById('o-r').textContent = n(b, 1).replace(/[.,]0$/, '') + ' mm';
+    document.getElementById('o-m').textContent = n(b * h * v * d * 3600 / 1e6, 1) + ' kg/h';
+    var r = h / b, note = document.getElementById('o-note'), msg = '', warn = false;
+    if (r > 0.6) { warn = true; msg = en ? 'The layer is too high for this bead: beads bond poorly. Stay below half the bead width.' : 'Die Lage ist für diese Bahn zu hoch: Die Bahnen haften schlecht. Bleib unter der halben Bahnbreite.'; }
+    else if (r < 0.2) { warn = true; msg = en ? 'A very flat bead: many layers and a long print. A third of the bead width is a good start.' : 'Sehr flache Bahn: viele Lagen und lange Druckzeit. Ein Drittel der Bahnbreite ist ein guter Anfang.'; }
+    else { msg = en ? 'Bead spacing 85 % of the width, bead cross-section taken as a rectangle. Guide values.' : 'Bahnabstand 85 % der Breite, Bahnquerschnitt als Rechteck gerechnet. Richtwerte.'; }
+    note.textContent = msg; note.className = warn ? 'note warn' : 'note';
+  }
+  ['c-b', 'c-h', 'c-v', 'c-d'].forEach(function (id) { document.getElementById(id).addEventListener('input', calc); });
+  // logo mark: one continuous line climbing in loops
+  (function () {
+    var svg = document.getElementById('lm'), ns = 'http://www.w3.org/2000/svg', steps = 240, prev = null, segs = [];
+    for (var i = 0; i <= steps; i++) {
+      var tt = i / steps, a = 2 * Math.PI * 3 * tt - Math.PI * 0.25;
+      var p = { x: 32 + 23 * Math.cos(a), y: 49 - 31 * tt + 6.4 * Math.sin(a), d: Math.sin(a), t: tt };
+      if (prev) { segs.push([prev, p]); } prev = p;
+    }
+    [false, true].forEach(function (front) {
+      segs.forEach(function (sg) {
+        if ((sg[1].d >= 0) !== front) { return; }
+        var e = document.createElementNS(ns, 'path');
+        e.setAttribute('d', 'M' + sg[0].x.toFixed(2) + ' ' + sg[0].y.toFixed(2) + 'L' + sg[1].x.toFixed(2) + ' ' + sg[1].y.toFixed(2));
+        e.setAttribute('stroke', sg[1].t > 2 / 3 ? 'var(--coil-new)' : (front ? 'var(--coil-front)' : 'var(--coil-back)'));
+        e.setAttribute('stroke-width', '4.6'); e.setAttribute('stroke-linecap', 'round'); e.setAttribute('fill', 'none');
+        svg.appendChild(e);
+      });
+    });
+    var c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', prev.x.toFixed(2)); c.setAttribute('cy', prev.y.toFixed(2)); c.setAttribute('r', '4.4'); c.setAttribute('fill', 'var(--coil-new)'); svg.appendChild(c);
+  })();
+  set(lang);
+})();
+</script>

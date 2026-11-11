@@ -123,7 +123,7 @@ namespace LARGERslicer.Components.Slicer
 
         public QuickStartComponent()
             : base("Quick Start", "Start",
-                  "Place this on the canvas to get a complete, working slicing setup: demo part, print settings (5 mm bead, 2 mm layer), walls, bottom, ribs, continuous path, rounding, skirt and exit, extrusion and check. Replace the demo part with your own geometry.",
+                  "Place this on the canvas to get three complete, working examples, each in its own labelled group: 1 flat layers (walls, bottom, ribs, continuous path, rounding, skirt and exit, extrusion, check), 2 non-planar layers along a guide surface, 3 multi-axis layers along a guide curve. Replace the demo parts with your own geometry.",
                   SlicerIO.Category, SlicerIO.SubCategory) { }
 
         public override Guid ComponentGuid => new Guid("5CC24A30-0D0B-4EDC-906E-F78FD264DAB3");
@@ -154,6 +154,39 @@ namespace LARGERslicer.Components.Slicer
             return joined != null && joined.Length > 0 ? Surface.CreateExtrusion(joined[0], new Vector3d(0, 0, 60)).ToBrep() : null;
         }
 
+        /// <summary>Non-planar demo: a round hull whose top edge follows a saddle surface, and that surface.</summary>
+        private static void NonPlanarDemo(Point3d c, out Brep part, out Brep guide)
+        {
+            const double r = 160; part = null; guide = null;
+            Func<double, double, double> z = (x, y) => 70 + 22 * (x * x - y * y) / (r * r);
+            var top = new List<Point3d>();
+            for (int i = 0; i < 48; i++) { double a = i * Math.PI * 2 / 48; top.Add(new Point3d(c.X + r * Math.Cos(a), c.Y + r * Math.Sin(a), z(r * Math.Cos(a), r * Math.Sin(a)))); }
+            top.Add(top[0]);
+            Curve topCurve = Curve.CreateInterpolatedCurve(top, 3, CurveKnotStyle.ChordPeriodic);
+            Curve baseCurve = new Circle(new Plane(c, Vector3d.ZAxis), r).ToNurbsCurve();
+            if (topCurve != null)
+            {
+                // seams at the same place, same direction
+                double t; if (topCurve.ClosestPoint(baseCurve.PointAtStart + new Vector3d(0, 0, 70), out t)) topCurve.ChangeClosedCurveSeam(t);
+                if (topCurve.TangentAtStart * baseCurve.TangentAtStart < 0) topCurve.Reverse();
+                var loft = Brep.CreateFromLoft(new[] { baseCurve, topCurve }, Point3d.Unset, Point3d.Unset, LoftType.Straight, false);
+                if (loft != null && loft.Length > 0) part = loft[0];
+            }
+            var grid = new List<Point3d>();
+            for (int i = 0; i < 7; i++) for (int j = 0; j < 7; j++) { double x = -1.35 * r + i * 0.45 * r, y = -1.35 * r + j * 0.45 * r; grid.Add(new Point3d(c.X + x, c.Y + y, z(x, y))); }
+            var srf = NurbsSurface.CreateThroughPoints(grid, 7, 7, 3, 3, false, false);
+            if (srf != null) guide = srf.ToBrep();
+        }
+
+        /// <summary>Multi-axis demo: a tube that grows along a bent axis, and that axis.</summary>
+        private static void MultiAxisDemo(Point3d c, out Brep part, out Curve guide)
+        {
+            part = null;
+            guide = new Arc(c, Vector3d.ZAxis, c + new Vector3d(170, 0, 260)).ToNurbsCurve();
+            var pipe = Brep.CreatePipe(guide, 90, false, PipeCapMode.None, true, 0.01, 0.01);
+            if (pipe != null && pipe.Length > 0) part = pipe[0];
+        }
+
         private void Build(GH_Document doc)
         {
             float x0 = Attributes.Pivot.X + 260f, y0 = Attributes.Pivot.Y;
@@ -164,25 +197,41 @@ namespace LARGERslicer.Components.Slicer
                 doc.AddObject(obj, false);
                 return obj;
             };
-            var part = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 0, 330);
+            Action<string, System.Drawing.Color, IGH_DocumentObject[]> group = (title, colour, members) =>
+            {
+                var g = new Grasshopper.Kernel.Special.GH_Group { NickName = title, Colour = colour };
+                g.CreateAttributes();
+                doc.AddObject(g, false);
+                foreach (var m in members) g.AddObject(m.InstanceGuid);
+                g.ExpireCaches();
+            };
+            Action<IGH_Param, int> setInt = (prm, v) => { var pi = prm as Grasshopper.Kernel.Parameters.Param_Integer; if (pi == null) return; pi.PersistentData.Clear(); pi.PersistentData.Append(new GH_Integer(v)); };
+            var all = new List<GH_Component>();
+            var hide = new List<IGH_PreviewObject>();
+
+            // ---- settings, shared by all three examples
+            var machine = (GH_Component)place(new MachineProfileComponent(), -180, -60);
+            var settings = (GH_Component)place(new PrintSettingsComponent(), 60, -60);
+            settings.Params.Input[11].AddSource(machine.Params.Output[0]);
+            IGH_Param s = settings.Params.Output[0];
+            all.Add(machine); all.Add(settings);
+            group("Settings - shared by all three examples. Set bead width and layer height here.", System.Drawing.Color.FromArgb(70, 120, 130, 145), new IGH_DocumentObject[] { machine, settings });
+
+            // ---- 1 flat layers
+            float y1 = 420;
+            var part = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y1 + 20);
             part.NickName = "Your part";
             Brep demo = DemoPart();
             if (demo != null) part.PersistentData.Append(new GH_Brep(demo));
-
-            var machine = (GH_Component)place(new MachineProfileComponent(), -180, -40);
-            var settings = (GH_Component)place(new PrintSettingsComponent(), 40, 0);
-            var slice = (GH_Component)place(new SliceComponent(), 260, 200);
-            var walls = (GH_Component)place(new WallsComponent(), 450, 200);
-            var bottom = (GH_Component)place(new BottomFillComponent(), 860, 200);
-            var ribs = (GH_Component)place(new InfillRibsComponent(), 1060, 200);
-            var path = (GH_Component)place(new ContinuousPathComponent(), 1490, 200);
-            var round = (GH_Component)place(new RoundCornersComponent(), 1690, 200);
-            var lead = (GH_Component)place(new StartEndComponent(), 1880, 200);
-            var extrude = (GH_Component)place(new ExtrusionSpeedComponent(), 2340, 120);
-            var check = (GH_Component)place(new PathCheckComponent(), 2100, 420);
-
-            settings.Params.Input[11].AddSource(machine.Params.Output[0]);
-            IGH_Param s = settings.Params.Output[0];
+            var slice = (GH_Component)place(new SliceComponent(), 300, y1);
+            var walls = (GH_Component)place(new WallsComponent(), 520, y1);
+            var bottom = (GH_Component)place(new BottomFillComponent(), 730, y1);
+            var ribs = (GH_Component)place(new InfillRibsComponent(), 950, y1);
+            var path = (GH_Component)place(new ContinuousPathComponent(), 1220, y1);
+            var round = (GH_Component)place(new RoundCornersComponent(), 1440, y1);
+            var lead = (GH_Component)place(new StartEndComponent(), 1650, y1);
+            var extrude = (GH_Component)place(new ExtrusionSpeedComponent(), 1930, y1 - 90);
+            var check = (GH_Component)place(new PathCheckComponent(), 1930, y1 + 150);
             slice.Params.Input[0].AddSource(part); slice.Params.Input[1].AddSource(s);
             walls.Params.Input[0].AddSource(slice.Params.Output[0]); walls.Params.Input[1].AddSource(s);
             bottom.Params.Input[0].AddSource(walls.Params.Output[0]); bottom.Params.Input[1].AddSource(s);
@@ -192,24 +241,73 @@ namespace LARGERslicer.Components.Slicer
             lead.Params.Input[0].AddSource(round.Params.Output[0]);
             extrude.Params.Input[0].AddSource(lead.Params.Output[0]);
             check.Params.Input[0].AddSource(lead.Params.Output[0]);
-
             // demo values: ribs every 150 mm, meeting in the middle
             var spacing = (Grasshopper.Kernel.Parameters.Param_Number)ribs.Params.Input[3];
             spacing.PersistentData.Clear(); spacing.PersistentData.Append(new GH_Number(150));
             var meet = (Grasshopper.Kernel.Parameters.Param_Boolean)ribs.Params.Input[5];
             meet.PersistentData.Clear(); meet.PersistentData.Append(new GH_Boolean(true));
+            all.AddRange(new[] { slice, walls, bottom, ribs, path, round, lead, extrude, check });
+            hide.AddRange(new IGH_PreviewObject[] { part, slice, walls, bottom, ribs, path, round, extrude });
+            group("1  Flat layers - the normal case. Replace 'Your part' with your own geometry. Swap Infill Ribs for Cells, Wave, Chambers or Sketch.", System.Drawing.Color.FromArgb(70, 10, 132, 255),
+                new IGH_DocumentObject[] { part, slice, walls, bottom, ribs, path, round, lead });
+            group("Result: Path Check says whether it can be printed, Extrusion and Speed gives the values for the machine.", System.Drawing.Color.FromArgb(70, 48, 176, 110), new IGH_DocumentObject[] { extrude, check });
+
+            // ---- 2 non-planar and 3 multi-axis: part + guide -> slice -> walls -> path -> round -> start/end -> check
+            Func<float, IGH_Param, IGH_Param, int, int, IGH_DocumentObject[]> chain = (y, partParam, guideParam, guideMode, pathMode) =>
+            {
+                var sl = (GH_Component)place(new SliceComponent(), 300, y);
+                var wa = (GH_Component)place(new WallsComponent(), 520, y);
+                var pa = (GH_Component)place(new ContinuousPathComponent(), 730, y);
+                var ro = (GH_Component)place(new RoundCornersComponent(), 950, y);
+                var le = (GH_Component)place(new StartEndComponent(), 1160, y);
+                var ch = (GH_Component)place(new PathCheckComponent(), 1440, y);
+                sl.Params.Input[0].AddSource(partParam); sl.Params.Input[1].AddSource(s); sl.Params.Input[4].AddSource(guideParam);
+                setInt(sl.Params.Input[5], guideMode);
+                wa.Params.Input[0].AddSource(sl.Params.Output[0]); wa.Params.Input[1].AddSource(s);
+                pa.Params.Input[0].AddSource(wa.Params.Output[0]); pa.Params.Input[1].AddSource(s);
+                setInt(pa.Params.Input[2], pathMode);
+                ro.Params.Input[0].AddSource(pa.Params.Output[0]);
+                le.Params.Input[0].AddSource(ro.Params.Output[0]);
+                ch.Params.Input[0].AddSource(le.Params.Output[0]);
+                all.AddRange(new[] { sl, wa, pa, ro, le, ch });
+                hide.AddRange(new IGH_PreviewObject[] { sl, wa, pa, ro });
+                return new IGH_DocumentObject[] { sl, wa, pa, ro, le, ch };
+            };
+
+            float y2 = 900;
+            Brep npPart, npGuide; NonPlanarDemo(new Point3d(650, 0, 0), out npPart, out npGuide);
+            var part2 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y2 - 20);
+            part2.NickName = "Part";
+            if (npPart != null) part2.PersistentData.Append(new GH_Brep(npPart));
+            var guide2 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y2 + 60);
+            guide2.NickName = "Guide surface";
+            if (npGuide != null) guide2.PersistentData.Append(new GH_Brep(npGuide));
+            var row2 = chain(y2, part2, guide2, 0, 1).ToList(); row2.Add(part2); row2.Add(guide2);
+            hide.Add(part2);
+            group("2  Non-planar - the layers follow a guide surface. The first layer lies flat on the bed, the last one follows the top of the part. Draw the guide surface over your part.", System.Drawing.Color.FromArgb(70, 255, 149, 0), row2.ToArray());
+
+            float y3 = 1320;
+            Brep maPart; Curve maGuide; MultiAxisDemo(new Point3d(1150, 0, 0), out maPart, out maGuide);
+            var part3 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y3 - 20);
+            part3.NickName = "Part";
+            if (maPart != null) part3.PersistentData.Append(new GH_Brep(maPart));
+            var guide3 = (Grasshopper.Kernel.Parameters.Param_Curve)place(new Grasshopper.Kernel.Parameters.Param_Curve(), 60, y3 + 60);
+            guide3.NickName = "Guide curve";
+            if (maGuide != null) guide3.PersistentData.Append(new GH_Curve(maGuide));
+            var row3 = chain(y3, part3, guide3, 0, 1).ToList(); row3.Add(part3); row3.Add(guide3);
+            hide.Add(part3);
+            group("3  Multi-axis - the layers stand square to a guide curve, for parts that grow along a bent axis (robot with tilting tool). Draw the axis of your part as the guide curve.", System.Drawing.Color.FromArgb(70, 175, 82, 222), row3.ToArray());
 
             // spell out every input and output, so nobody has to guess what "W" or "Fl" means
-            foreach (var c in new GH_Component[] { machine, settings, slice, walls, bottom, ribs, path, round, lead, extrude, check })
+            foreach (var c in all)
             {
                 foreach (var prm in c.Params.Input) prm.NickName = prm.Name;
                 foreach (var prm in c.Params.Output) prm.NickName = prm.Name;
                 c.Attributes.ExpireLayout();
             }
 
-            // show only the finished path and the check
-            foreach (var c in new GH_Component[] { slice, walls, bottom, ribs, path, round, extrude }) c.Hidden = true;
-            part.Hidden = true;
+            // show only the finished paths, the guides and the checks
+            foreach (var h in hide) h.Hidden = true;
 
             doc.RemoveObject(this, false);
         }

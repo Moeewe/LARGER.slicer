@@ -598,6 +598,8 @@ namespace LARGERslicer.Toolpaths
                 if (la < 1e-9 || lb < 1e-9) continue;
                 double angle = Vector3d.VectorAngle(a, b);
                 if (angle < 0.05) continue; // ~3 degrees
+                // travel moves stay straight: nothing is printed there
+                if (tp.Roles[i] == PathRole.Travel || tp.Roles[i + 1] == PathRole.Travel) continue;
                 bool thin = IsFill(tp.Roles[i - 1]) || IsFill(tp.Roles[i]) || IsFill(tp.Roles[i + 1]);
                 double radius = thin ? Math.Min(minRadius, ribRadius) : minRadius;
                 bool sharp = angle > 0.26; // ~15 degrees
