@@ -7,6 +7,7 @@
    each block. One dark band carries the key numbers. */
 :root{
   --bg:#ffffff; --band:#f1f4f7; --ink:#14203a; --muted:#5d6a7e; --faint:#97a1b0; --line:#dfe4ea;
+  --bead-wall:#e3e8ef; --bead-fill:#d6e8ff; --cl-wall:#14203a; --cl-fill:#0a84ff;
   --marker:#0a84ff; --on-marker:#ffffff; --marker-soft:#dcecff; --alert:#d23f45; --ok:#138a5e;
   --night:#121a2b; --night-2:#0a0e18; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#26334f;
   --win:#ffffff; --win-side:#eef1f5; --win-bar:#e7ebf0;
@@ -20,6 +21,7 @@
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
   --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
   --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
   --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
@@ -29,6 +31,7 @@
   --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#111925; --chip-idea-fg:#a1acbb; color-scheme:dark } }
 :root[data-theme="dark"]{
   --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
   --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
   --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
   --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
@@ -226,7 +229,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
         </div>
         <div class="view">
           <canvas id="print" width="1120" height="760" role="img" aria-label="Animation: ein Bauteil entsteht Lage für Lage aus einer einzigen Linie"></canvas>
-          <div class="vfoot"><span id="ro-layer">Lage <b>1</b> / 16</span><span id="ro-len"><b>0,00 m</b></span><span class="ok">Path Check: keine Kreuzung, alles gestützt</span></div>
+          <div class="vfoot"><span id="ro-layer">Lage <b>1</b> / 24</span><span id="ro-len"><b>0,00 m</b></span><span class="ok">Path Check: keine Kreuzung, alles gestützt</span></div>
         </div>
       </div>
     </div>
@@ -365,7 +368,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
   (function () {
     var cv = document.getElementById('print'); if (!cv || !cv.getContext) return;
     var ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
-    var LAYERS = 16, N = 220, RAMP = 0.07;           // ramp as a share of one round
+    var LAYERS = 24, N = 240, RAMP = 0.07;           // ramp as a share of one round
     // outline: rounded "pebble" (superellipse) that slowly turns and bulges with height
     function outline(layer, u) {
       var th = u * 2 * Math.PI, k = layer / (LAYERS - 1);
@@ -376,7 +379,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       return { x: x * Math.cos(rot) - y * Math.sin(rot), y: x * Math.sin(rot) + y * Math.cos(rot) };
     }
     // the path: every layer flat; in the first RAMP of a round it climbs from the layer below
-    var pts = [], LH = 23;
+    var pts = [], LH = 15.5;
     for (var L = 0; L < LAYERS; L++) for (var i = 0; i <= N; i++) {
       if (L > 0 && i === 0) continue;
       var u = i / N, q = outline(L, u), z = L * LH;
@@ -404,7 +407,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
           if (L === top) col = blue;
           else { var v = front ? Math.max(118, 236 - age * 9) : Math.max(70, 118 - age * 5); col = 'rgb(' + v + ',' + v + ',' + Math.min(255, v + 8) + ')'; }
           ctx.strokeStyle = col; ctx.globalAlpha = (L === top && !front) ? 0.6 : 1;
-          ctx.lineWidth = 11;
+          ctx.lineWidth = 5.5;
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
       }
@@ -433,19 +436,32 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
     requestAnimationFrame(tick);
   })();
 
+  // ---- drawing language for all previews: a soft band shows the real bead width,
+  // a thin line on top is the path the nozzle follows. Wall = ink, infill = logo blue.
+  function beadPath(svg, d, kind, extra) {
+    var w = (extra && extra.w) || 5, base = { d: d, fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+    var a = {}, b = {}, k;
+    for (k in base) { a[k] = base[k]; b[k] = base[k]; }
+    a.stroke = kind === 'wall' ? 'var(--bead-wall)' : 'var(--bead-fill)'; a['stroke-width'] = w;
+    b.stroke = kind === 'wall' ? 'var(--cl-wall)' : 'var(--cl-fill)'; b['stroke-width'] = (extra && extra.lw) || 1.4;
+    if (extra && extra.clip) { a['clip-path'] = extra.clip; b['clip-path'] = extra.clip; }
+    if (extra && extra.opacity != null) { a.opacity = extra.opacity; b.opacity = extra.opacity; }
+    el('path', a, svg); return el('path', b, svg);
+  }
+
   // ---- slicing modes (side views)
   (function () {
     var host = document.getElementById('modes');
     function mode(title, text, draw) {
       var d = document.createElement('div'); d.className = 'mode';
       var svg = el('svg', { viewBox: '0 0 240 150', role: 'img', 'aria-label': title }); d.appendChild(svg);
-      el('line', { x1: 14, y1: 136, x2: 226, y2: 136, stroke: 'var(--muted)', 'stroke-width': 2, 'stroke-linecap': 'round' }, svg);
+      el('line', { x1: 14, y1: 137, x2: 226, y2: 137, stroke: 'var(--faint)', 'stroke-width': 1 }, svg);
       draw(svg);
       var h3 = document.createElement('h3'); h3.textContent = title; d.appendChild(h3);
       var p = document.createElement('p'); p.textContent = text; d.appendChild(p);
       host.appendChild(d);
     }
-    function bead(svg, d, top) { el('path', { d: d, fill: 'none', stroke: top ? 'var(--wall)' : 'var(--fg)', 'stroke-width': 5, 'stroke-linecap': 'round', opacity: top ? 1 : 0.55 }, svg); }
+    function bead(svg, d, top) { beadPath(svg, d, top ? 'fill' : 'wall', { w: 6 }); }
     mode('Planar', 'Flache Lagen senkrecht zur Bauplatte. Der Normalfall.', function (s) {
       for (var i = 0; i < 9; i++) bead(s, 'M60 ' + (130 - i * 11) + 'L180 ' + (130 - i * 11), i === 8);
     });
@@ -475,8 +491,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       if (round) el('circle', { cx: 120, cy: 75, r: 56.5 }, clip); else el('rect', { x: X0 + B, y: Y0 + B, width: X1 - X0 - 2 * B, height: Y1 - Y0 - 2 * B, rx: R - B }, clip);
       var api = {
         svg: svg, clip: 'url(#clip' + id + ')',
-        wall: function (dd) { el('path', { d: dd, fill: 'none', stroke: 'var(--wall)', 'stroke-width': B, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg); },
-        fill: function (dd, col, clipped, sw) { var a = { d: dd, fill: 'none', stroke: col || 'var(--infill)', 'stroke-width': sw || B, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }; if (clipped) a['clip-path'] = api.clip; el('path', a, svg); }
+        wall: function (dd) { beadPath(svg, dd, 'wall', { w: B }); },
+        fill: function (dd, col, clipped, sw) { beadPath(svg, dd, 'fill', { w: sw || B, clip: clipped ? api.clip : null }); }
       };
       draw(api);
       var row = document.createElement('div'); row.className = 'row';
@@ -512,8 +528,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       t.wall(plain);
       var c1 = 'M52 137C70 100 40 60 78 13', c2 = 'M150 137C120 95 190 70 170 13';
       [c1, c2].forEach(function (c) {
-        el('path', { d: c, fill: 'none', stroke: 'var(--infill)', 'stroke-width': 10, 'stroke-linecap': 'butt', 'clip-path': t.clip }, t.svg);
-        el('path', { d: c, fill: 'none', stroke: 'var(--surface)', 'stroke-width': 1.2, 'stroke-dasharray': '4 4', 'clip-path': t.clip }, t.svg);
+        beadPath(t.svg, c, 'fill', { w: 2 * B, clip: t.clip, lw: 1.2 }); el('path', { d: c, fill: 'none', stroke: 'var(--surface)', 'stroke-width': 1, 'stroke-dasharray': '3 4', 'clip-path': t.clip }, t.svg);
       });
     });
     tile('Waben', true, 'Jede Zelle ist eine geschlossene Schleife. Nachbarschleifen verschmelzen zu Doppelwänden, kurze Brücken verbinden alles zu einer Linie.', 'Zelle ≥ 4 Bahnabstände · fester Ursprung', function (t) {
@@ -527,7 +542,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
     tile('Zickzack-Boden', true, 'Geschlossener Boden in parallelen Bahnen mit runden Wenden. Schnell und gleichmäßig, solange jede Bahn die Form nur einmal quert.', 'Sonst automatisch Kontur-Spirale', function (t) {
       t.wall(plain); var d = '', y = Y0 + B, dir = 1, a = X0 + B + 4, b = X1 - B - 4, first = true;
       for (; y <= Y1 - B + 0.1; y += B) { d += (first ? 'M' : 'L') + (dir > 0 ? a : b) + ' ' + y + 'L' + (dir > 0 ? b : a) + ' ' + y; dir = -dir; first = false; }
-      t.fill(d, 'var(--bottom)', true, B * 0.62);
+      t.fill(d, null, true);
     });
     tile('Kontur-Spirale', true, 'Die Linie folgt dem Umriss nach innen, Runde für Runde im Bahnabstand. Füllt auch Formen mit Buchten und Löchern in einem Zug.', 'Verbundene Fermat-Spirale · umläuft Löcher', function (t) {
       t.wall(plain);
@@ -546,7 +561,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
         var o = 2 * B + B * k; if (o > max) break;
         var q = at(o, k % 1); d += (first ? 'M' : 'L') + f(q[0]) + ' ' + f(q[1]); first = false;
       }
-      t.fill(d, 'var(--bottom)', false, B * 0.62);
+      t.fill(d, null, false);
     });
     tile('Welle', false, 'Eine Innenbahn schwingt zwischen den Wänden und legt sich an jedem Scheitel ein Stück an. Keine einzige Ecke, der Roboter fährt mit voller Geschwindigkeit durch.', 'Wellenlänge ≥ 6 Bahnbreiten · Radius ≥ Bahnbreite', function (t) {
       t.wall(plain); var d = '', a = (Y1 - Y0) / 2 - B - 1.5, first = true;
@@ -569,8 +584,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       t.fill(d);
     });
     tile('Speichen mit Kernring', false, 'Für runde Teile wie Säulen und Hocker: Die Stege laufen auf einen Ring in der Mitte zu, statt sich dort ungeordnet zu treffen. Alle Stege sind gleich lang.', 'Ring ≥ 3 Bahnbreiten Radius · Stege enden 1 Bahn davor', function (t) {
-      el('circle', { cx: 120, cy: 75, r: 62, fill: 'none', stroke: 'var(--wall)', 'stroke-width': B }, t.svg);
-      el('circle', { cx: 120, cy: 75, r: 17, fill: 'none', stroke: 'var(--infill)', 'stroke-width': B }, t.svg);
+      beadPath(t.svg, 'M58 75a62 62 0 1 0 124 0a62 62 0 1 0 -124 0', 'wall', { w: B });
+      beadPath(t.svg, 'M103 75a17 17 0 1 0 34 0a17 17 0 1 0 -34 0', 'fill', { w: B });
       var d = '';
       for (var k = 0; k < 6; k++) {
         var a = k * Math.PI / 3 + 0.2, ux = Math.cos(a), uy = Math.sin(a), px = -uy * H, py = ux * H, ro = 62, ri = 17 + B + H;
@@ -582,8 +597,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       t.wall(plain);
       var c1 = el('clipPath', { id: 'half-a' + id }, el('defs', {}, t.svg)); el('rect', { x: X0 + B, y: Y0 + B, width: 92, height: Y1 - Y0 - 2 * B, rx: R - B }, c1);
       var c2 = el('clipPath', { id: 'half-b' + id }, el('defs', {}, t.svg)); el('rect', { x: X0 + B + 97, y: Y0 + B, width: X1 - X0 - 2 * B - 97, height: Y1 - Y0 - 2 * B, rx: R - B }, c2);
-      el('path', { d: hexes(0, 30, 0, 120), fill: 'none', stroke: 'var(--infill)', 'stroke-width': B, 'stroke-linejoin': 'round', 'clip-path': 'url(#half-a' + id + ')' }, t.svg);
-      el('path', { d: hexes(0, 58, 90, 240), fill: 'none', stroke: 'var(--infill)', 'stroke-width': B, 'stroke-linejoin': 'round', 'clip-path': 'url(#half-b' + id + ')' }, t.svg);
+      beadPath(t.svg, hexes(0, 30, 0, 120), 'fill', { w: B, clip: 'url(#half-a' + id + ')' });
+      beadPath(t.svg, hexes(0, 58, 90, 240), 'fill', { w: B, clip: 'url(#half-b' + id + ')' });
     });
   })();
 
