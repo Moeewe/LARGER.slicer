@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `Infill Sketch` (Slicer tab): draw your infill. Curves sketched over the part in top view become ribs that follow them from wall to wall, joined into the continuous wall path.
+- `Desktop Test Print` (Slicer tab): scaled-down G-code of the same toolpath for small filament printers (Bambu Lab, Prusa, Creality, Elegoo and other Marlin or Klipper machines). Path, bead width and layer height shrink by the same factor; the component checks bed size, bead width against the nozzle and layer height, and suggests a scale. Start and end code are generic.
 - `Infill Wave` (Slicer tab): one inner line that swings between the wall and a set depth, as a smooth wave, a truss or a meander. Every crest runs along the wall for two bead widths; the line is joined into the continuous wall path. Wavelength and Depth scale the pattern, Origin shifts it along the wall.
 - `Infill Cells`: new `Stretch` input makes the cells longer along the pattern direction.
 - `Machine Profile` (Slicer tab): describes how a printer wants its extrusion values instead of hard-wiring machines. E = cross section x length x Flow x Factor, with an extra factor for the first layer, an optional filament diameter and a choice between the squashed-bead and the width x height cross section. Presets: generic pellet extruder (volume), filament 1.75 / 2.85 mm, Weber DXR robot (factor 1.128, value multiplied by P1 on the controller) and Ginger (factor 0.21), taken from the GCODE MAKER of the FH Muenster definition at 100 % flow. Connect it to the new `Machine` input of `Print Settings`; `Quick Start` places it.

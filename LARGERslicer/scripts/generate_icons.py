@@ -152,6 +152,20 @@ def _(g):
     frame(g)
     g.line([(6 + i * 0.25, 12 - 3.4 * math.sin(i * 0.25 / 12 * 2 * math.pi * 2.5)) for i in range(49)], BLUE, 1.9)
 
+@icon('SlicerSketchIcon')
+def _(g):
+    frame(g)
+    pts = [(8 + 8 * (i / 30) + 2.2 * math.sin(i / 30 * 2 * math.pi), 20.2 - 16.4 * (i / 30)) for i in range(31)]
+    g.line(pts, BLUE, 2.2)
+    g.dot(pts[-1][0], pts[-1][1], 1.9, INK)
+
+@icon('SlicerDesktopIcon')
+def _(g):
+    g.rrect(4, 4, 20, 20, 2.5, INK, 2)
+    g.line([(8, 16.5), (16, 16.5)], BLUE, 2)
+    g.line([(9, 13.5), (15, 13.5)], BLUE, 2)
+    g.poly([(10.4, 7), (13.6, 7), (12, 10.4)], INK)
+
 @icon('SlicerPathIcon')
 def _(g):
     pts = [(12 + 7.5 * math.cos(t * 5 * math.pi), 19.5 - t * 14 + 1.6 * math.sin(t * 5 * math.pi)) for t in [i / 150 for i in range(151)]]

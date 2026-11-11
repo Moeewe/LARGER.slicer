@@ -775,6 +775,70 @@ namespace LARGERslicer.Components.Slicer
         }
     }
 
+    // ============================================================== 2f Infill Sketch
+    public class InfillSketchComponent : SlicerComponent
+    {
+        public InfillSketchComponent()
+            : base("Infill Sketch", "Sketch",
+                  "Draw your infill. Sketch curves over the part in top view; every curve that runs from wall to wall becomes a rib that follows it, built from two fused beads and joined into the one continuous wall path. Works on every layer the curve crosses, also on tilted and bent layers.") { }
+
+        public override Guid ComponentGuid => new Guid("336FF81A-BFB3-464E-AE8F-61E1D320126F");
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerSketchIcon.png");
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddGenericParameter("Layers", "L", "Layers from Walls or Bottom Fill", GH_ParamAccess.list);
+            p.AddGenericParameter("Settings", "S", "Print Settings", GH_ParamAccess.item);
+            p.AddCurveParameter("Sketch", "Sk", "Curves drawn in top view (flat, at any height). Each one should cross the part from wall to wall. Keep bends wider than the bead width.", GH_ParamAccess.list);
+            p.AddBooleanParameter("Meet", "Meet", "False = one rib along the whole curve\nTrue = two ribs, one from each wall, that meet on the curve; the joint changes sides every layer so the ribs interlock", GH_ParamAccess.item, false);
+            p.AddNumberParameter("Stagger", "St", "Meet only: how far the joint moves off the middle, alternating every layer (0-0.35)", GH_ParamAccess.item, 0.15);
+            p[1].Optional = true;
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddToggle(doc, 3, "Meet", false);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddGenericParameter("Layers", "L", "Layers with the sketched ribs joined into the wall path", GH_ParamAccess.list);
+            p.AddCurveParameter("Contours", "C", "Paths as curves (for checking)", GH_ParamAccess.list);
+            p.AddTextParameter("Info", "I", "Statistics", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            var goos = new List<IGH_Goo>();
+            if (!da.GetDataList(0, goos)) return;
+            var layers = goos.OfType<GH_SliceLayer>().Select(g => g.Value).Where(l => l != null).ToList();
+            if (layers.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect the Layers output of Walls or Bottom Fill."); return; }
+            var settings = SlicerIO.Get<PrintSettings>(da, 1) ?? new PrintSettings();
+            var curves = new List<Curve>();
+            da.GetDataList(2, curves);
+            bool meet = false; double stagger = 0.15;
+            da.GetData(3, ref meet); da.GetData(4, ref stagger);
+            var sketch = curves.Where(c => c != null && c.IsValid).Cast<object>().ToList();
+            if (sketch.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Draw curves over the part in top view and connect them to Sketch.");
+                da.SetDataList(0, layers.Select(l => new GH_SliceLayer(l)));
+                return;
+            }
+            var log = new List<string>();
+            var sw = Stopwatch.StartNew();
+            var result = FillEngine.Ribs(layers, settings, sketch, 0, 0, meet, stagger, log, out int ribs);
+            sw.Stop();
+            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
+            if (ribs == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No rib could be made. Each curve must be flat (drawn in top view) and cross the part from wall to wall.");
+            Message = ribs == 0 ? "No ribs" : sketch.Count + (sketch.Count == 1 ? " curve" : " curves");
+            da.SetDataList(0, result.Select(l => new GH_SliceLayer(l)));
+            da.SetDataList(1, result.SelectMany(l => l.RealContours()).Select(c => new PolylineCurve(c)));
+            da.SetData(2, $"{sketch.Count} sketched curve(s), {ribs} rib(s) in total over {result.Count} layers, {sw.ElapsedMilliseconds} ms");
+        }
+    }
+
     // ============================================================== 2c Infill Ribs
     public class InfillRibsComponent : SlicerComponent
     {
@@ -1168,6 +1232,69 @@ namespace LARGERslicer.Components.Slicer
             string unit = tp.Settings.Machine != null ? tp.Settings.Machine.Unit : (tp.Settings.FilamentDiameter > 0 ? "mm filament" : "mm3");
             da.SetData(8, $"Path {r.Length / 1000.0:0.00} m (printing {r.PrintLength / 1000.0:0.00} m), " +
                           $"volume {r.Volume / 1000.0:0.0} cm3, time {r.Minutes:0.0} min, E in {unit}");
+        }
+    }
+
+    // ============================================================== 6 Desktop Test Print
+    public class DesktopTestPrintComponent : SlicerComponent
+    {
+        public DesktopTestPrintComponent()
+            : base("Desktop Test Print", "Desktop",
+                  "Scaled-down G-code of the same toolpath for a small filament printer (Bambu Lab, Prusa, Creality, Elegoo and other Marlin or Klipper machines). Path, bead width and layer height shrink by the same factor, so you can check the line pattern, seams and overhangs on the desk before the large print. It checks the path, not the material: cooling and sagging of a pellet extruder do not scale. Start and end code are generic; compare them with your printer before the first run.") { }
+
+        public override Guid ComponentGuid => new Guid("960F3310-1853-4750-A622-E2FBFD8DBE5D");
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerDesktopIcon.png");
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddGenericParameter("Toolpath", "T", "Toolpath from Start and End (or Round Corners)", GH_ParamAccess.item);
+            p.AddIntegerParameter("Printer", "P", "Bed size:\n" + string.Join("\n", DesktopPrinter.Presets.Select((x, i) => i + " = " + x.Name)), GH_ParamAccess.item, 0);
+            p.AddNumberParameter("Scale", "Sc", "Scale of the test print (0.1 = one tenth). 0 = automatic: the bead becomes 1.2 x the nozzle diameter", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Nozzle", "Nz", "Nozzle diameter of the desktop printer (mm)", GH_ParamAccess.item, 0.4);
+            p.AddNumberParameter("Filament", "Fil", "Filament diameter (mm)", GH_ParamAccess.item, 1.75);
+            p.AddNumberParameter("Nozzle Temperature", "Tn", "Degrees C", GH_ParamAccess.item, 215.0);
+            p.AddNumberParameter("Bed Temperature", "Tb", "Degrees C", GH_ParamAccess.item, 60.0);
+            p.AddNumberParameter("Speed", "V", "Print speed (mm/s). The first layer runs at half of it", GH_ParamAccess.item, 40.0);
+            p.AddNumberParameter("Flow", "Fl", "Extrusion multiplier (1 = calculated amount)", GH_ParamAccess.item, 1.0);
+            p.AddTextParameter("File", "File", "Optional file path (.gcode). Written when Save is true", GH_ParamAccess.item);
+            p.AddBooleanParameter("Save", "Save", "True = write the file", GH_ParamAccess.item, false);
+            p[9].Optional = true;
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddValueList(doc, 1, "Printer", DesktopPrinter.Presets.Select(x => x.Name).ToArray());
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddTextParameter("G-code", "G", "G-code lines", GH_ParamAccess.list);
+            p.AddCurveParameter("Preview", "C", "The scaled path as it lies on the printer bed", GH_ParamAccess.item);
+            p.AddTextParameter("Info", "I", "Size, bead, filament and time", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            var tp = SlicerIO.Get<Toolpath>(da, 0);
+            if (tp == null || tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect a Toolpath."); return; }
+            int printer = 0; double scale = 0, nozzle = 0.4, filament = 1.75, tn = 215, tb = 60, speed = 40, flow = 1; string file = null; bool save = false;
+            da.GetData(1, ref printer); da.GetData(2, ref scale); da.GetData(3, ref nozzle); da.GetData(4, ref filament);
+            da.GetData(5, ref tn); da.GetData(6, ref tb); da.GetData(7, ref speed); da.GetData(8, ref flow); da.GetData(9, ref file); da.GetData(10, ref save);
+            if (nozzle <= 0 || filament <= 0 || flow <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Nozzle, Filament and Flow must be greater than 0."); return; }
+            printer = Math.Max(0, Math.Min(DesktopPrinter.Presets.Length - 1, printer));
+
+            var r = DesktopGCode.Build(tp, DesktopPrinter.Presets[printer], scale, nozzle, filament, tn, tb, speed, flow);
+            foreach (var wmsg in r.Warnings) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, wmsg);
+            Message = "1 : " + (1.0 / (scale > 0 ? scale : r.SuggestedScale)).ToString("0.#");
+            if (save && !string.IsNullOrWhiteSpace(file))
+            {
+                try { System.IO.File.WriteAllLines(file, r.Lines); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + file); }
+                catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
+            }
+            da.SetDataList(0, r.Lines);
+            if (r.Preview.Count > 1) da.SetData(1, new PolylineCurve(r.Preview));
+            da.SetData(2, r.Info);
         }
     }
 }

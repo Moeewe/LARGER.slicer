@@ -131,7 +131,7 @@ h2{font-size:clamp(40px,6.4vw,80px);line-height:.98}
 /* layer modes */
 .four{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:64px;text-align:left}
 .mode{min-width:0}
-.mode svg{width:100%;height:auto;display:block;background:var(--band)}
+.mode svg{width:100%;height:auto;display:block;background:var(--bg)}
 .mode h3{font-size:24px;letter-spacing:-.03em;margin-top:16px}
 .mode p{color:var(--muted);font-size:15px;margin-top:4px}
 
@@ -193,6 +193,28 @@ h2{font-size:clamp(40px,6.4vw,80px);line-height:.98}
 .verdict::before{content:"";flex:none;width:10px;height:10px;margin-top:6px;background:var(--ok)}
 .verdict.warn::before{background:var(--alert)}
 
+/* draw your infill */
+.pad{max-width:860px;margin:56px auto 0;background:var(--bg);border:1px solid var(--line);box-shadow:0 40px 90px -46px rgba(20,32,58,.4)}
+.pad svg{width:100%;height:auto;display:block;touch-action:none;cursor:crosshair}
+.padbar{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);text-align:left}
+.padbar #sk-info{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.padbar .btn{padding:8px 16px;font-size:14px}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 40px;max-width:860px;margin:44px auto 0;text-align:left}
+.trio b{display:block;font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.03em}
+.trio span{display:block;color:var(--muted);font-size:15px;margin-top:4px}
+/* scale test */
+.scalecmp{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:16px;align-items:stretch;max-width:860px;margin:64px auto 0;text-align:left}
+.sc{background:var(--band);border-top:4px solid var(--ink);padding:26px 26px 0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.sc.you{background:var(--marker);color:var(--on-marker)}
+.sc-k{font-size:12px;font-weight:600;color:var(--faint)}
+.sc.you .sc-k,.sc.you span{color:var(--on-marker)}
+.sc b{font-family:var(--display);font-weight:800;font-size:clamp(44px,7vw,84px);line-height:.95;letter-spacing:-.05em;white-space:nowrap}
+.sc span{color:var(--muted);font-size:15px}
+.sc .bar{display:block;margin:26px -26px 0;background:var(--ink);opacity:.9;margin-top:auto}
+.sc.you .bar{background:var(--on-marker)}
+.sc b+span{margin-bottom:26px}
+.sc-x{align-self:center;font-family:var(--display);font-weight:600;font-size:22px;color:var(--muted);white-space:nowrap}
+.fine{max-width:44em;margin:40px auto 0;font-size:15px;color:var(--muted)}
 /* final */
 .final{background:var(--band);text-align:center}
 .final .lm{width:96px;height:96px;margin:0 auto 34px}
@@ -202,7 +224,7 @@ footer{padding-block:28px 44px;font-size:13px;color:var(--faint)}
 footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
 
 @media (max-width:900px){ .tiles{grid-template-columns:repeat(2,minmax(0,1fr))} .mpanel{grid-template-columns:minmax(0,1fr)} .minfo{border-right:0;border-bottom:1px solid var(--line)} .fields,.out{grid-template-columns:repeat(2,minmax(0,1fr))} .steps,.four{grid-template-columns:repeat(2,minmax(0,1fr))} .claim{grid-template-columns:minmax(0,1fr)} .split{grid-template-columns:minmax(0,1fr);gap:56px} }
-@media (max-width:760px){
+@media (max-width:760px){ .trio{grid-template-columns:minmax(0,1fr)} .scalecmp{grid-template-columns:minmax(0,1fr)} .sc-x{justify-self:center} .padbar .hint{display:none}
   .hero{padding-block:72px 0} .stage{padding-block:44px 80px} section,.night{padding-block:88px}
   .app{grid-template-columns:minmax(0,1fr)} .side{display:none}
   .links{display:none}
@@ -223,13 +245,13 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
 
 <header class="nav"><div class="wrap">
   <a class="brand" href="#top"><svg class="lm" viewBox="0 0 64 64" aria-hidden="true"></svg>LARGER.slicer</a>
-  <nav class="links" aria-label="Abschnitte"><a href="#so">So geht’s</a><a href="#muster">Muster</a><a href="#regeln">Regeln</a><a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a></nav>
+  <nav class="links" aria-label="Abschnitte"><a href="#so">So geht’s</a><a href="#zeichnen">Zeichnen</a><a href="#muster">Muster</a><a href="#test">Testdruck</a><a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a></nav>
 </div></header>
 
 <main id="top">
   <div class="hero wrap">
     <h1><span class="w">Modell rein.</span><span class="w"><span class="hl">Eine Linie.</span></span><span class="w">Drucken.</span></h1>
-    <p class="lede">Der Slicer für großformatigen 3D-Druck mit Roboter und Granulat-Extruder. In Rhino und Grasshopper, offen auf GitHub.</p>
+    <p class="lede">Der Slicer für großformatigen 3D-Druck mit Roboter und Granulatextruder. Er läuft in Rhino und Grasshopper, der Quellcode liegt auf GitHub.</p>
     <div class="ctas"><a class="btn solid" href="https://github.com/Moeewe/LARGER.slicer/releases/latest">Herunterladen</a><a class="btn" href="#so">So geht’s</a></div>
   </div>
 
@@ -252,7 +274,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
         </div>
         <div class="view">
           <canvas id="print" width="1120" height="760" role="img" aria-label="Animation: ein Bauteil entsteht Lage für Lage aus einer einzigen Linie"></canvas>
-          <div class="vfoot"><span id="ro-layer">Lage <b>1</b> / 24</span><span id="ro-len"><b>0,00 m</b></span><span class="ok">Path Check: keine Kreuzung, alles gestützt</span></div>
+          <div class="vfoot"><span id="ro-layer">Lage <b>1</b> / 24</span><span id="ro-len"><b>0,00 m</b></span><span class="ok">Path Check: keine Kreuzung, jede Bahn liegt auf</span></div>
         </div>
       </div>
     </div>
@@ -261,38 +283,52 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
   <div class="night" id="zahl"><div class="wrap split">
     <div><div class="big you">1</div><p>Linie.<small>Vom Skirt bis zur letzten Lage, ohne Absetzen.</small></p></div>
     <div><div class="big">0</div><p>Kreuzungen.<small>Geprüft, bevor der Code an den Roboter geht.</small></p></div>
-    <div><div class="big" data-count="150">150</div><p>Millisekunden.<small>Höchstens, um ein Bauteil zu schneiden.</small></p></div>
+    <div><div class="big" data-count="150">150</div><p>Millisekunden.<small>So lange dauert das Schneiden eines Bauteils höchstens.</small></p></div>
   </div></div>
 
   <section id="so"><div class="wrap center">
-    <h2>Vier Schritte. Drei laufen allein.</h2>
-    <p class="sub">Quick Start legt die ganze Kette mit einem Beispielteil auf die Leinwand.</p>
+    <h2>Vier Schritte. Drei erledigt der Slicer.</h2>
+    <p class="sub">Mit Quick Start liegt die ganze Kette samt Beispielteil auf der Grasshopper-Leinwand.</p>
     <div class="steps" id="steps">
-      <div class="step"><svg viewBox="0 0 36 36" fill="none" stroke-width="2"><path d="M6 26l12 6 12-6V12L18 6 6 12z"/><path d="M6 12l12 6 12-6M18 18v14"/></svg><h3>Schneiden</h3><p>Flach, gekippt, entlang einer Fläche oder Kurve</p><span class="who-does">macht der Slicer</span></div>
-      <div class="step"><svg viewBox="0 0 36 36" fill="none" stroke-width="2"><rect x="5" y="7" width="26" height="22" rx="4"/><path d="M14 7v13M22 29V16"/></svg><h3>Füllen</h3><p>Wand, Boden, Stege oder Waben</p><span class="who-does">macht der Slicer</span></div>
-      <div class="step"><svg viewBox="0 0 36 36" fill="none" stroke-width="2"><path d="M5 28h9c4 0 4-6 8-6h9M5 20h9c4 0 4-6 8-6h9M5 12h26"/></svg><h3>Verbinden</h3><p>Eine Linie, runde Ecken, Rampe</p><span class="who-does">macht der Slicer</span></div>
-      <div class="step you"><svg viewBox="0 0 36 36" fill="none" stroke-width="2.4"><path d="M7 19l7 7L29 10"/></svg><h3>Prüfen</h3><p>Path Check lesen, Code exportieren</p><span class="who-does">machst du</span></div>
+      <div class="step"><svg viewBox="0 0 36 36" fill="none" stroke-width="2"><path d="M6 26l12 6 12-6V12L18 6 6 12z"/><path d="M6 12l12 6 12-6M18 18v14"/></svg><h3>Schneiden</h3><p>Das Modell in Lagen teilen: flach, gekippt oder gebogen</p><span class="who-does">macht der Slicer</span></div>
+      <div class="step"><svg viewBox="0 0 36 36" fill="none" stroke-width="2"><rect x="5" y="7" width="26" height="22" rx="4"/><path d="M14 7v13M22 29V16"/></svg><h3>Füllen</h3><p>Wände, Boden und Infill anlegen</p><span class="who-does">macht der Slicer</span></div>
+      <div class="step"><svg viewBox="0 0 36 36" fill="none" stroke-width="2"><path d="M5 28h9c4 0 4-6 8-6h9M5 20h9c4 0 4-6 8-6h9M5 12h26"/></svg><h3>Verbinden</h3><p>Alles zu einer Linie mit runden Ecken verbinden</p><span class="who-does">macht der Slicer</span></div>
+      <div class="step you"><svg viewBox="0 0 36 36" fill="none" stroke-width="2.4"><path d="M7 19l7 7L29 10"/></svg><h3>Prüfen</h3><p>Prüfbericht lesen, dann den Code ausgeben</p><span class="who-does">machst du</span></div>
     </div>
   </div></section>
 
-  <section style="background:var(--band)" id="regeln"><div class="wrap">
+  <section style="background:var(--band)" id="zeichnen"><div class="wrap center">
+    <h2>Zeichne dein <span class="hl">Infill.</span></h2>
+    <p class="sub">Zieh Linien über dein Bauteil. Der Slicer macht aus jeder einen Steg, der ihr von Wand zu Wand folgt, und bindet ihn in die eine Drucklinie ein.</p>
+    <div class="pad">
+      <svg id="sketch" viewBox="0 0 520 300" role="img" aria-label="Zeichenfläche: Bauteil in der Draufsicht, gezeichnete Linien werden zu Stegen"></svg>
+      <div class="padbar"><span id="sk-info">2 Stege</span><span class="hint">Mit Maus oder Finger eine Linie von Wand zu Wand ziehen</span><button class="btn" type="button" id="sk-reset">Leeren</button></div>
+    </div>
+    <div class="trio">
+      <div><b>Zeichnen</b><span>Kurven in der Draufsicht, in Rhino oder direkt in Grasshopper.</span></div>
+      <div><b>Folgen</b><span>Jede Kurve wird zu zwei Bahnen, die miteinander verschmelzen.</span></div>
+      <div><b>Stapeln</b><span>Der Steg steht in jeder Lage an derselben Stelle, auch bei gekippten und gebogenen Lagen.</span></div>
+    </div>
+  </div></section>
+
+  <section id="regeln"><div class="wrap">
     <div class="claims">
-      <div class="claim"><h2>Die Bahn kreuzt sich nie.</h2><p>Sonst pflügt die Düse durch frisches Material. Geht ein Muster nicht ohne Kreuzung, gewinnt die Kreuzungsfreiheit.</p></div>
-      <div class="claim"><h2>Jede Lage liegt flach.</h2><p>Der Wechsel zur nächsten passiert über eine kurze Rampe, immer an derselben Stelle.</p></div>
-      <div class="claim"><h2>Höchstens eine halbe Bahn daneben.</h2><p>Jede Bahn braucht die darunter. <span class="num">Überhang ≤ atan(½ Breite ÷ Lagenhöhe)</span></p></div>
-      <div class="claim"><h2>Gleiches F in jeder Zeile.</h2><p>Gleichmäßige Geschwindigkeit, unabhängig von der Segmentlänge. Und nie F0.</p></div>
+      <div class="claim"><h2>Die Bahn kreuzt sich nie.</h2><p>Sonst fährt die Düse durch frisch gelegtes Material. Lässt sich ein Muster nicht ohne Kreuzung drucken, wählt der Slicer ein anderes.</p></div>
+      <div class="claim"><h2>Jede Lage liegt flach.</h2><p>Zur nächsten Lage steigt die Bahn über eine kurze Rampe, immer an derselben Stelle.</p></div>
+      <div class="claim"><h2>Jede Bahn liegt auf der darunter.</h2><p>Seitlich darf sie höchstens eine halbe Bahnbreite überstehen. <span class="num">Überhang ≤ atan(½ Breite ÷ Lagenhöhe)</span></p></div>
+      <div class="claim"><h2>Die Geschwindigkeit bleibt gleich.</h2><p>Jede Zeile bekommt denselben Vorschub F, egal wie lang das Segment ist. F0 kommt nie vor, denn damit bliebe die Maschine stehen.</p></div>
     </div>
   </div></section>
 
-  <section><div class="wrap center">
+  <section style="background:var(--band)"><div class="wrap center">
     <h2>Lagen müssen nicht waagerecht sein.</h2>
-    <p class="sub">Für gebogene Lagen wird das Modell geradegebogen, geschnitten und zurückgebogen. Alles andere funktioniert gleich.</p>
+    <p class="sub">Für gebogene Lagen biegt der Slicer das Modell gerade, schneidet es und biegt den fertigen Pfad zurück. Wände, Infill und Prüfung arbeiten dabei wie gewohnt.</p>
     <div class="four" id="modes"></div>
   </div></section>
 
-  <section id="muster" style="background:var(--band)"><div class="wrap center">
-    <h2>Zwölf Muster. Alle in einem Zug.</h2>
-    <p class="sub">Jedes ist Teil der einen Linie, hält einen Bahnabstand zum Nachbarn und steht Lage für Lage an derselben Stelle.</p>
+  <section id="muster"><div class="wrap center">
+    <h2>Zwölf Muster. Jedes in einem Zug.</h2>
+    <p class="sub">Jedes Muster gehört zur selben durchgehenden Linie, hält genau einen Bahnabstand zur Nachbarbahn und steht in jeder Lage an derselben Stelle.</p>
     <p class="scale">1 px = 1 mm · Bauteil 240 × 150 mm · Bahn 5 mm</p>
     <div class="filters" role="group" aria-label="Muster filtern">
       <button type="button" id="flt-all" data-f="all" aria-pressed="true">Alle</button>
@@ -302,9 +338,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
     <div class="tiles" id="tiles"></div>
   </div></section>
 
-  <section><div class="wrap center">
+  <section style="background:var(--band)" id="drucker"><div class="wrap center">
     <h2>Ein Profil pro Drucker.</h2>
-    <p class="sub">Jeder Drucker will seinen E-Wert anders. Wähle deinen, der Slicer rechnet um.</p>
+    <p class="sub">Jeder Drucker erwartet die Extrusionsmenge E in einer anderen Form. Wähle deinen Drucker, der Slicer rechnet um.</p>
     <div class="machine">
       <div class="seg" role="tablist" aria-label="Drucker wählen" id="seg"></div>
       <div class="mpanel">
@@ -329,12 +365,24 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
     </div>
   </div></section>
 
-  <section class="final" id="mitmachen"><div class="wrap">
+  <section id="test"><div class="wrap center">
+    <h2>Erst klein. Dann groß.</h2>
+    <p class="sub">Derselbe Pfad, verkleinert als G-Code für den Drucker auf dem Schreibtisch. So siehst du Muster, Naht und Überhänge, bevor der Roboter anfährt.</p>
+    <div class="scalecmp">
+      <div class="sc"><span class="sc-k">Großformat</span><b class="num">5 mm</b><span>Bahnbreite am Roboter</span><i class="bar" style="height:40px"></i></div>
+      <div class="sc-x">× 0,096</div>
+      <div class="sc you"><span class="sc-k">Testdruck 1 : 10</span><b class="num">0,48 mm</b><span>Bahnbreite mit 0,4-mm-Düse</span><i class="bar" style="height:4px"></i></div>
+    </div>
+    <div class="sources"><span>Bambu Lab</span><span>Prusa</span><span>Creality</span><span>Elegoo</span><span class="later">Marlin · Klipper</span></div>
+    <p class="fine">Bahnbreite, Lagenhöhe und Weg schrumpfen im selben Verhältnis. Der Testdruck prüft den Pfad, nicht das Material: Abkühlen und Durchhängen eines Granulatextruders lassen sich nicht verkleinern. Start- und Endcode sind allgemein gehalten und vor dem ersten Druck mit dem eigenen Drucker abzugleichen.</p>
+  </div></section>
+
+  <section class="final" id="mitmachen" style="background:var(--bg)"><div class="wrap">
     <svg class="lm" viewBox="0 0 64 64" aria-hidden="true"></svg>
-    <h2>Gebaut an der FH Münster. Offen zum Mitbauen.</h2>
-    <p class="sub">Quellcode, Beispieldatei und Maschinenanleitungen liegen auf GitHub. Fehler melden und Pull Requests sind willkommen.</p>
+    <h2>Entwickelt an der FH Münster. Offen für alle.</h2>
+    <p class="sub">Quellcode, Beispieldatei und Maschinenanleitungen liegen auf GitHub. Fehlermeldungen und Pull Requests sind willkommen.</p>
     <a class="btn solid" href="https://github.com/Moeewe/LARGER.slicer">Auf GitHub ansehen</a>
-    <div class="meta"><span>Rhino 7 · 8 · 9</span><span>Windows · macOS</span><span>DXR · G-code</span><span>Lizenz CC BY-NC 4.0</span></div>
+    <div class="meta"><span>Rhino 7 · 8 · 9</span><span>Windows · macOS</span><span>DXR · G-Code</span><span>Lizenz CC BY-NC 4.0</span></div>
   </div></section>
 </main>
 
@@ -494,16 +542,16 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       host.appendChild(d);
     }
     function bead(svg, d, top) { beadPath(svg, d, top ? 'fill' : 'wall', { w: 6 }); }
-    mode('Planar', 'Flache Lagen senkrecht zur Bauplatte. Der Normalfall.', function (s) {
+    mode('Planar', 'Waagerechte Lagen parallel zur Bauplatte. Der Normalfall.', function (s) {
       for (var i = 0; i < 9; i++) bead(s, 'M60 ' + (130 - i * 11) + 'L180 ' + (130 - i * 11), i === 8);
     });
-    mode('Gekippt, z. B. 45°', 'Die Lagen stehen schräg. So lassen sich lange Teile ohne Stützen in die Länge drucken.', function (s) {
+    mode('Gekippt, z. B. 45°', 'Die Lagen sind geneigt. So wachsen lange Teile ohne Stützen in die Länge.', function (s) {
       for (var i = 0; i < 9; i++) { var x = 44 + i * 13; bead(s, 'M' + (x + 62) + ' 66L' + x + ' 128', i === 8); }
     });
-    mode('Non-planar', 'Die Lagen folgen einer Führungsfläche: unten flach, oben gewölbt, oder durchgehend parallel zu einer Form.', function (s) {
+    mode('Non-planar', 'Die Lagen folgen einer Führungsfläche: unten flach und oben gewölbt, oder durchgehend parallel zur Fläche.', function (s) {
       for (var i = 0; i < 9; i++) { var y = 130 - i * 11, a = i * 3.2; bead(s, 'M56 ' + y + 'Q120 ' + (y - 2 * a) + ' 184 ' + y, i === 8); }
     });
-    mode('Multiaxial', 'Die Lagen stehen senkrecht zu einer Führungskurve. Das Werkzeug dreht mit, das Teil wächst um die Kurve.', function (s) {
+    mode('Multiaxial', 'Die Lagen stehen senkrecht zu einer Führungskurve. Das Werkzeug dreht sich mit, das Teil wächst entlang der Kurve.', function (s) {
       for (var i = 0; i < 10; i++) {
         var t = i / 9 * 1.25, cx = 70 + 150 * (1 - Math.cos(t)), cy = 130 - 150 * Math.sin(t) * 0.72, nx = Math.cos(t), ny = Math.sin(t) * 0.72, l = 30;
         var len = Math.sqrt(nx * nx + ny * ny); nx /= len; ny /= len;
@@ -546,36 +594,36 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       return out;
     }
 
-    tile('Stege', true, 'Haarnadel aus zwei Schenkeln, die verschmelzen. Endet eine Bahn vor der Gegenwand.', 'Gleicher Abstand · steht auf dem Steg darunter', function (t) {
+    tile('Stege', true, 'Ein Steg besteht aus zwei Bahnen, die miteinander verschmelzen. Er endet eine Bahnbreite vor der gegenüberliegenden Wand.', 'Gleichmäßig verteilt · steht auf dem Steg darunter', function (t) {
       var ribs = [60, 120, 180].map(function (x) { return { x: x, side: 'b', tip: Y0 + B + H }; });
       t.wall(wallPath(X0, Y0, X1, Y1, R, ribs, H)); t.fill(ribOnly(ribs, Y0, Y1, H));
     });
-    tile('Treffende Stege', true, 'Von beiden Wänden kommt ein Steg. Die Fuge wechselt je Lage die Seite und verzahnt sich.', 'Fuge höchstens ½ Bahn versetzt', function (t) {
+    tile('Treffende Stege', true, 'Von beiden Wänden kommt je ein Steg. Die Stoßstelle wechselt in jeder Lage die Seite, so verzahnen sich die Stege.', 'Stoßstelle höchstens ½ Bahnbreite versetzt', function (t) {
       var ribs = [];
       [60, 120, 180].forEach(function (x, i) { var m = 75 + (i % 2 ? 14 : -14); ribs.push({ x: x, side: 'b', tip: m + B * 0.75 }, { x: x, side: 't', tip: m - B * 0.75 }); });
       t.wall(wallPath(X0, Y0, X1, Y1, R, ribs, H)); t.fill(ribOnly(ribs, Y0, Y1, H));
     });
-    tile('Gezeichnete Stege', true, 'Kurve in der Draufsicht zeichnen, der Steg folgt ihr von Wand zu Wand.', 'Radius ≥ Bahnbreite', function (t) {
+    tile('Gezeichnetes Infill', true, 'Linien in der Draufsicht zeichnen. Jede wird zu einem Steg, der ihr von Wand zu Wand folgt.', 'Bögen weiter als die Bahnbreite', function (t) {
       t.wall(plain);
       var c1 = 'M52 137C70 100 40 60 78 13', c2 = 'M150 137C120 95 190 70 170 13';
       [c1, c2].forEach(function (c) {
         beadPath(t.svg, c, 'fill', { w: 2 * B, clip: t.clip, lw: 1.2 }); el('path', { d: c, fill: 'none', stroke: 'var(--surface)', 'stroke-width': 1, 'stroke-dasharray': '3 4', 'clip-path': t.clip }, t.svg);
       });
     });
-    tile('Waben', true, 'Jede Zelle ist eine Schleife. Nachbarn verschmelzen zu Doppelwänden, Brücken verbinden alles.', 'Zelle ≥ 4 Bahnabstände · fester Ursprung', function (t) {
+    tile('Waben', true, 'Jede Zelle ist eine geschlossene Schleife. Benachbarte Schleifen verschmelzen zu doppelten Wänden, kurze Brücken verbinden alle.', 'Zelle ≥ 4 Bahnabstände · streck- und drehbar', function (t) {
       t.wall(plain); t.fill(hexes(0, 46, 0, 240), null, true);
     });
-    tile('Gitter', true, 'Wie Waben, mit quadratischen Zellen. In zwei Richtungen gleich steif.', 'Zelle ≥ 4 Bahnabstände · drehbar', function (t) {
+    tile('Gitter', true, 'Wie die Waben, aber mit quadratischen Zellen. In beiden Richtungen gleich steif.', 'Zelle ≥ 4 Bahnabstände · streck- und drehbar', function (t) {
       t.wall(plain); var d = '';
       for (var x = -8; x < 240; x += 42) for (var y = -10; y < 150; y += 42) d += 'M' + (x + H + 4) + ' ' + (y + H) + 'h' + (42 - B - 8) + 'a4 4 0 0 1 4 4v' + (42 - B - 8) + 'a4 4 0 0 1 -4 4h-' + (42 - B - 8) + 'a4 4 0 0 1 -4 -4v-' + (42 - B - 8) + 'a4 4 0 0 1 4 -4Z';
       t.fill(d, null, true);
     });
-    tile('Zickzack-Boden', true, 'Geschlossener Boden in parallelen Bahnen mit runden Wenden.', 'Nur wenn jede Bahn die Form einmal quert', function (t) {
+    tile('Zickzack-Boden', true, 'Geschlossener Boden aus parallelen Bahnen mit runden Wenden.', 'Nur, wenn jede Bahn die Form einmal quert', function (t) {
       t.wall(plain); var d = '', y = Y0 + B, dir = 1, a = X0 + B + 4, b = X1 - B - 4, first = true;
       for (; y <= Y1 - B + 0.1; y += B) { d += (first ? 'M' : 'L') + (dir > 0 ? a : b) + ' ' + y + 'L' + (dir > 0 ? b : a) + ' ' + y; dir = -dir; first = false; }
       t.fill(d, null, true);
     });
-    tile('Kontur-Spirale', true, 'Folgt dem Umriss nach innen. Füllt auch Buchten und umläuft Löcher.', 'Runde für Runde im Bahnabstand', function (t) {
+    tile('Kontur-Spirale', true, 'Die Bahn folgt dem Umriss nach innen. Sie füllt auch Buchten und läuft um Löcher herum.', 'Runde für Runde im Bahnabstand', function (t) {
       t.wall(plain);
       // point on the outline inset by o, at parameter u (0..1) around it, starting on the left side
       function at(o, u) {
@@ -594,17 +642,17 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       }
       t.fill(d, null, false);
     });
-    tile('Welle', true, 'Eine Bahn schwingt zwischen den Wänden. Keine Ecke, volle Geschwindigkeit.', 'Wellenlänge ≥ 6 Bahnbreiten', function (t) {
+    tile('Welle', true, 'Eine Bahn schwingt zwischen Wand und Innenraum. Ohne Ecken, also mit voller Geschwindigkeit.', 'Wellenlänge und Tiefe einstellbar', function (t) {
       t.wall(plain); var d = '', a = (Y1 - Y0) / 2 - B - 1.5, first = true;
       for (var x = X0 + B + 3; x <= X1 - B - 3; x += 2) { d += (first ? 'M' : 'L') + x + ' ' + f(75 - a * Math.sin((x - X0 - B - 3) / 52 * 2 * Math.PI)); first = false; }
       t.fill(d);
     });
-    tile('Fachwerk', true, 'Zickzack spannt Dreiecke zwischen zwei Wände. Sehr steif gegen Schub.', 'Knoten verrundet · jede Lage gleich', function (t) {
+    tile('Fachwerk', true, 'Gerade Flanken bilden Dreiecke entlang der Wand. Sehr steif gegen Schub.', 'Ecken werden verrundet', function (t) {
       t.wall(plain); var d = 'M' + (X0 + B + 6) + ' ' + (Y1 - B), up = true;
       for (var x = X0 + B + 6 + 33; x <= X1 - B - 4; x += 33) { d += 'L' + x + ' ' + (up ? Y0 + B : Y1 - B); up = !up; }
       t.fill(d);
     });
-    tile('Mäander', true, 'Einzelstege statt Haarnadeln, mit einem Stück Anlage an der Wand. Halbes Material.', 'Anlage ≥ 2 Bahnbreiten', function (t) {
+    tile('Mäander', true, 'Steile Flanken und lange Anlageflächen an der Wand. Viel Kontakt bei wenig Material.', 'Anlage an der Wand ≥ 2 Bahnbreiten', function (t) {
       t.wall(plain); var d = 'M' + (X0 + B + 8) + ' ' + (Y1 - B), x = X0 + B + 8, top = false, r = 7;
       while (x + 30 <= X1 - B - 6) {
         var ya = top ? Y0 + B : Y1 - B, yb = top ? Y1 - B : Y0 + B, s = top ? 1 : -1;
@@ -614,7 +662,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       d += 'L' + Math.min(x + 12, X1 - B - 4) + ' ' + (top ? Y0 + B : Y1 - B);
       t.fill(d);
     });
-    tile('Speichen', false, 'Für runde Teile: Die Stege laufen auf einen Kernring zu und sind alle gleich lang.', 'Ring-Radius ≥ 3 Bahnbreiten', function (t) {
+    tile('Speichen', false, 'Für runde Teile: Die Stege laufen auf einen Ring in der Mitte zu und sind alle gleich lang.', 'Ringradius ≥ 3 Bahnbreiten', function (t) {
       beadPath(t.svg, 'M58 75a62 62 0 1 0 124 0a62 62 0 1 0 -124 0', 'wall', { w: B });
       beadPath(t.svg, 'M103 75a17 17 0 1 0 34 0a17 17 0 1 0 -34 0', 'fill', { w: B });
       var d = '';
@@ -624,7 +672,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       }
       t.fill(d);
     }, true);
-    tile('Gestufte Waben', false, 'Kleine Zellen an der Lasteinleitung, große in der Fläche.', 'Über die Höhe konstant', function (t) {
+    tile('Gestufte Waben', false, 'Kleine Zellen dort, wo Kräfte eingeleitet werden, große in der Fläche.', 'Über die Höhe gleichbleibend', function (t) {
       t.wall(plain);
       var c1 = el('clipPath', { id: 'half-a' + id }, el('defs', {}, t.svg)); el('rect', { x: X0 + B, y: Y0 + B, width: 92, height: Y1 - Y0 - 2 * B, rx: R - B }, c1);
       var c2 = el('clipPath', { id: 'half-b' + id }, el('defs', {}, t.svg)); el('rect', { x: X0 + B + 97, y: Y0 + B, width: X1 - X0 - 2 * B - 97, height: Y1 - Y0 - 2 * B, rx: R - B }, c2);
@@ -637,17 +685,17 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
   (function () {
     var M = [
       { t: 'Weber DXR', kind: 'Großformat · Extruder am Roboter', k: 1.128, rect: true, fil: 0, unit: '× P1', out: 'DXR',
-        d: 'Granulat-Extruder von Weber an einem KUKA-Industrieroboter. Der Slicer schreibt DXR-Code, die Steuerung rechnet E noch mit ihrem eigenen Förderwert P1 um.' },
-      { t: 'Ginger One', kind: 'Großformat · Granulat-Drucker', k: 0.21, rect: true, fil: 0, unit: 'E', out: 'G-code',
-        d: 'Granulat-Drucker mit eigener Steuerung. Er liest G-code, und E steuert, wie weit sich die Förderschnecke dreht.' },
-      { t: 'Granulat', kind: 'Jeder Granulat-Extruder', k: 1, rect: false, fil: 0, unit: 'mm³', out: 'G-code oder DXR',
-        d: 'Für Anlagen, die E als Materialvolumen erwarten. Der Startpunkt, wenn ein neuer Extruder dazukommt.' },
-      { t: 'Filament 1,75', kind: 'Desktop-Drucker', k: 1, rect: false, fil: 1.75, unit: 'mm Filament', out: 'G-code',
-        d: 'Zum Ausprobieren im Kleinen. E ist die Länge Filament, die der Drucker einzieht.' },
-      { t: 'Filament 2,85', kind: 'Desktop-Drucker', k: 1, rect: false, fil: 2.85, unit: 'mm Filament', out: 'G-code',
+        d: 'Granulatextruder von Weber an einem KUKA-Industrieroboter. Der Slicer schreibt DXR-Code; die Steuerung multipliziert E zusätzlich mit ihrem Förderwert P1.' },
+      { t: 'Ginger One', kind: 'Großformat · Granulatdrucker', k: 0.21, rect: true, fil: 0, unit: 'E', out: 'G-Code',
+        d: 'Granulatdrucker mit eigener Steuerung. Er liest G-Code; E bestimmt, wie weit sich die Förderschnecke dreht.' },
+      { t: 'Granulat', kind: 'Jeder Granulatextruder', k: 1, rect: false, fil: 0, unit: 'mm³', out: 'G-Code oder DXR',
+        d: 'Für Anlagen, die E als Materialvolumen erwarten. Ein guter Ausgangspunkt für einen neuen Extruder.' },
+      { t: 'Filament 1,75', kind: 'Desktop-Drucker', k: 1, rect: false, fil: 1.75, unit: 'mm Filament', out: 'G-Code',
+        d: 'Für Testdrucke im kleinen Maßstab. E ist die Länge des eingezogenen Filaments.' },
+      { t: 'Filament 2,85', kind: 'Desktop-Drucker', k: 1, rect: false, fil: 2.85, unit: 'mm Filament', out: 'G-Code',
         d: 'Wie 1,75 mm, für Drucker mit dickerem Filament.' },
-      { t: 'Eigene Anlage', kind: 'Dein Drucker', k: 1, rect: false, fil: 0, unit: 'mm³', out: 'G-code oder DXR', own: true,
-        d: 'Eine 1 m lange Bahn drucken und wiegen. Neuer Faktor = alter Faktor × Soll-Gewicht ÷ Ist-Gewicht. Den Wert in Machine Profile eintragen.' }
+      { t: 'Eigene Anlage', kind: 'Dein Drucker', k: 1, rect: false, fil: 0, unit: 'mm³', out: 'G-Code oder DXR', own: true,
+        d: 'Drucke eine 1 m lange Bahn und wiege sie. Neuer Faktor = alter Faktor × Sollgewicht ÷ Istgewicht. Trage ihn in Machine Profile ein.' }
     ];
     var seg = document.getElementById('seg'), out = document.getElementById('calc-out'), kIn = document.getElementById('in-k'), cur = 0;
     M.forEach(function (m, i) {
@@ -687,19 +735,75 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
       var r = document.createElement('b'); r.textContent = de(e10, e10 < 10 ? 2 : 1); fx.appendChild(r);
       document.getElementById('m-out').textContent = 'pro 10 mm Bahn, Einheit ' + m.unit + ' · Ausgabe ' + m.out + (m.rect ? ' · Querschnitt Breite × Höhe' : ' · Querschnitt gequetschte Bahn');
       tile(de(e10, e10 < 10 ? 2 : 1), m.unit, 'E pro 10 mm Bahn', true);
-      tile(de(w * (1 - o), 2), 'mm', 'Abstand für Wände, Stege und Füllung');
-      tile(de(w / 2, 2), 'mm', 'größter Versatz zur Lage darunter');
-      tile(de(Math.atan(w / 2 / h) * 180 / Math.PI, 0), '°', 'größter Überhang aus der Senkrechten');
+      tile(de(w * (1 - o), 2), 'mm', 'Bahnabstand für Wände, Stege und Füllung');
+      tile(de(w / 2, 2), 'mm', 'größter seitlicher Versatz zur Lage darunter');
+      tile(de(Math.atan(w / 2 / h) * 180 / Math.PI, 0), '°', 'größter Überhang, gemessen zur Senkrechten');
       tile(de(area * F / 60 / 1000, 2), 'cm³/s', 'Volumenstrom bei F ' + de(F, 0));
       tile(de(area * F * 60 / 1e6 * rho, 1), 'kg/h', 'Austrag bei ' + de(rho, 2) + ' g/cm³');
       var v = document.createElement('p'), ratio = h / w; v.className = 'verdict';
       if (ratio > 0.8) { v.className += ' warn'; v.textContent = 'Die Lage ist zu hoch für diese Bahn (' + de(ratio * 100, 0) + ' %). Sie wird kaum gequetscht und haftet schlecht.'; }
       else if (ratio < 0.2) { v.className += ' warn'; v.textContent = 'Sehr flache Bahn (' + de(ratio * 100, 0) + ' %). Prüfen, ob der Extruder den Druck schafft.'; }
-      else v.textContent = 'Bahnform passt: Lagenhöhe ist ' + de(ratio * 100, 0) + ' % der Bahnbreite.';
+      else v.textContent = 'Die Bahnform passt: Die Lagenhöhe beträgt ' + de(ratio * 100, 0) + ' % der Bahnbreite.';
       out.appendChild(v);
     }
     ['in-w', 'in-h', 'in-o', 'in-f', 'in-k', 'in-d'].forEach(function (i) { document.getElementById(i).addEventListener('input', calc); });
     pick(0, true);
+  })();
+
+  // ---- draw your infill: every stroke becomes a rib of two fused beads from wall to wall
+  (function () {
+    var svg = document.getElementById('sketch'); if (!svg) return;
+    var X0 = 20, Y0 = 20, X1 = 500, Y1 = 280, R = 30, B = 5, strokes = [], cur = null, layer, ghost;
+    var info = document.getElementById('sk-info');
+    function inside(p) { return p.x > X0 + B && p.x < X1 - B && p.y > Y0 + B && p.y < Y1 - B; }
+    function clampIn(p) { return { x: Math.max(X0 + B, Math.min(X1 - B, p.x)), y: Math.max(Y0 + B, Math.min(Y1 - B, p.y)) }; }
+    function simplify(pts, min) { var o = [pts[0]]; pts.forEach(function (p) { var l = o[o.length - 1]; if (Math.hypot(p.x - l.x, p.y - l.y) >= min) o.push(p); }); return o; }
+    function chaikin(pts) { var o = [pts[0]]; for (var i = 0; i < pts.length - 1; i++) { var a = pts[i], b = pts[i + 1]; o.push({ x: a.x * .75 + b.x * .25, y: a.y * .75 + b.y * .25 }, { x: a.x * .25 + b.x * .75, y: a.y * .25 + b.y * .75 }); } o.push(pts[pts.length - 1]); return o; }
+    // extend an end straight on until it reaches the wall line
+    function toWall(p, d) {
+      var best = 1e9;
+      [[X0 + B, 'x'], [X1 - B, 'x'], [Y0 + B, 'y'], [Y1 - B, 'y']].forEach(function (w) {
+        var t = w[1] === 'x' ? (d.x !== 0 ? (w[0] - p.x) / d.x : -1) : (d.y !== 0 ? (w[0] - p.y) / d.y : -1);
+        if (t > 0 && t < best) best = t;
+      });
+      return best < 1e9 ? clampIn({ x: p.x + d.x * best, y: p.y + d.y * best }) : p;
+    }
+    function rib(raw) {
+      var pts = raw.filter(inside); if (pts.length < 2) return null;
+      pts = simplify(pts, 9); if (pts.length < 2) return null;
+      var a = pts[0], a2 = pts[Math.min(2, pts.length - 1)], z = pts[pts.length - 1], z2 = pts[Math.max(0, pts.length - 3)];
+      pts.unshift(toWall(a, { x: a.x - a2.x, y: a.y - a2.y })); pts.push(toWall(z, { x: z.x - z2.x, y: z.y - z2.y }));
+      pts = chaikin(chaikin(simplify(pts, 9)));
+      var len = 0; for (var i = 1; i < pts.length; i++) len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      if (len < 40) return null;
+      // stop one bead before the far wall, then offset to both sides: a hairpin
+      var cut = len - B, acc = 0, mid = [pts[0]];
+      for (var k = 1; k < pts.length; k++) { var s = Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y); if (acc + s >= cut) { var t = (cut - acc) / s; mid.push({ x: pts[k - 1].x + (pts[k].x - pts[k - 1].x) * t, y: pts[k - 1].y + (pts[k].y - pts[k - 1].y) * t }); break; } acc += s; mid.push(pts[k]); }
+      var L = [], Rr = [];
+      mid.forEach(function (p, i2) { var q = mid[Math.min(mid.length - 1, i2 + 1)], o = mid[Math.max(0, i2 - 1)], dx = q.x - o.x, dy = q.y - o.y, l = Math.hypot(dx, dy) || 1; L.push({ x: p.x - dy / l * B / 2, y: p.y + dx / l * B / 2 }); Rr.unshift({ x: p.x + dy / l * B / 2, y: p.y - dx / l * B / 2 }); });
+      var d = L.concat(Rr).map(function (p, i3) { return (i3 ? 'L' : 'M') + f(p.x) + ' ' + f(p.y); }).join('');
+      return { d: d, len: 2 * cut, guide: pts.map(function (p, i4) { return (i4 ? 'L' : 'M') + f(p.x) + ' ' + f(p.y); }).join('') };
+    }
+    function draw() {
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      var r = R, wall = 'M' + (X0 + r) + ' ' + Y1 + 'H' + (X1 - r) + 'a' + r + ' ' + r + ' 0 0 0 ' + r + ' -' + r + 'V' + (Y0 + r) + 'a' + r + ' ' + r + ' 0 0 0 -' + r + ' -' + r + 'H' + (X0 + r) + 'a' + r + ' ' + r + ' 0 0 0 -' + r + ' ' + r + 'V' + (Y1 - r) + 'a' + r + ' ' + r + ' 0 0 0 ' + r + ' ' + r + 'Z';
+      var total = 0, n = 0;
+      strokes.forEach(function (st) { var rb = rib(st); if (!rb) return; n++; total += rb.len; beadPath(svg, rb.d, 'fill', { w: B }); el('path', { d: rb.guide, fill: 'none', stroke: 'var(--faint)', 'stroke-width': 1, 'stroke-dasharray': '2 5' }, svg); });
+      beadPath(svg, wall, 'wall', { w: B });
+      ghost = el('path', { d: '', fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.6, 'stroke-linecap': 'round', 'stroke-dasharray': '1 5' }, svg);
+      info.textContent = n === 0 ? 'Noch kein Steg' : n + (n === 1 ? ' Steg · ' : ' Stege · ') + (total / 1000).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' m Bahn pro Lage';
+    }
+    function pt(e) { var m = svg.getScreenCTM(); if (!m) return { x: 0, y: 0 }; var q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY; q = q.matrixTransform(m.inverse()); return { x: q.x, y: q.y }; }
+    svg.addEventListener('pointerdown', function (e) { cur = [pt(e)]; try { svg.setPointerCapture(e.pointerId); } catch (x) {} e.preventDefault(); });
+    svg.addEventListener('pointermove', function (e) { if (!cur) return; cur.push(pt(e)); ghost.setAttribute('d', cur.map(function (p, i) { return (i ? 'L' : 'M') + f(p.x) + ' ' + f(p.y); }).join('')); });
+    function end() { if (!cur) return; if (rib(cur)) { strokes.push(cur); if (strokes.length > 8) strokes.shift(); } cur = null; draw(); }
+    svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+    document.getElementById('sk-reset').addEventListener('click', function () { strokes = []; draw(); });
+    // two example sketches so the idea is visible before anyone draws
+    function ex(fn) { var a = []; for (var i = 0; i <= 40; i++) a.push(fn(i / 40)); return a; }
+    strokes.push(ex(function (t) { return { x: 150 + 55 * Math.sin(t * Math.PI * 1.5), y: 30 + 240 * t }; }));
+    strokes.push(ex(function (t) { return { x: 330 + 60 * Math.sin(t * Math.PI + 0.6) - 30, y: 270 - 240 * t }; }));
+    draw();
   })();
 
   // ---- pattern filter
