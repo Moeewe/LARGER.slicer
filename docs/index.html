@@ -152,34 +152,44 @@ h2{font-size:clamp(40px,6.4vw,80px);line-height:.98}
 .scale{font:13px var(--mono);color:var(--faint);margin-top:14px}
 
 /* machines */
-.profiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:64px;text-align:left}
-.pf{background:var(--band);border-top:4px solid var(--ink);padding:24px 22px 26px;display:flex;flex-direction:column;gap:8px;min-width:0}
-.pf-own{background:var(--marker);border-top-color:var(--ink);color:var(--on-marker)}
-.pf-k{font-size:12px;font-weight:600;color:var(--faint)}
-.pf-own .pf-k,.pf-own p,.pf-own dd,.pf-own dt{color:var(--on-marker)}
-.pf h3{font-size:28px;letter-spacing:-.03em}
-.pf p{margin:0;color:var(--muted);font-size:15px}
-.pf dl{margin:auto 0 0;padding-top:14px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:14px;border-top:1px solid var(--line)}
-.pf-own dl{border-top-color:color-mix(in srgb,var(--on-marker) 35%,transparent)}
-.pf dt{color:var(--faint)}
-.pf dd{margin:0;font-weight:600}
 .sources{display:flex;flex-wrap:wrap;justify-content:center;gap:14px 40px;margin-top:56px;font-family:var(--display);font-weight:600;font-size:clamp(22px,2.8vw,34px);letter-spacing:-.02em;line-height:1.2}
 .sources span{white-space:nowrap}
 .sources .later{color:var(--faint)}
 
-/* calculator */
-.calc{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr);gap:28px 56px;margin-top:64px;text-align:left;background:var(--bg);border:1px solid var(--line);padding:clamp(20px,3vw,40px)}
-.fields{display:grid;gap:12px;align-content:start}
-.field{display:grid;grid-template-columns:minmax(0,1fr) 120px;align-items:center;gap:10px}
-.field.wide{grid-template-columns:minmax(0,1fr)}
-.field label{font-size:15px}
-.field input,.field select{width:100%;font:500 15px var(--mono);padding:9px 12px;border:1px solid var(--line);border-radius:0;background:var(--band);color:var(--ink)}
-.out{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:24px 24px;align-content:start}
+/* printer profiles + calculator: one unit */
+.machine{margin-top:56px;text-align:left}
+.seg{display:flex;flex-wrap:wrap;justify-content:center;gap:0;border:1px solid var(--line);width:max-content;max-width:100%;margin:0 auto;background:var(--bg)}
+.seg button{font:600 15px var(--body);padding:11px 18px;border:0;border-right:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button:hover{color:var(--ink);background:var(--band)}
+.seg button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.mpanel{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);margin-top:24px;border:1px solid var(--line);background:var(--bg)}
+.minfo{padding:clamp(22px,3vw,40px);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:12px;min-width:0}
+.kind{font-size:13px;font-weight:600;color:var(--marker)}
+.minfo h3{font-size:clamp(32px,3.6vw,44px);line-height:1}
+.minfo p{margin:0;color:var(--muted);font-size:16px;max-width:30em}
+.formula{margin-top:auto;padding-top:22px;border-top:1px solid var(--line);display:grid;gap:6px}
+.fl{font-size:13px;font-weight:600;color:var(--faint)}
+.fx{font:500 15px/1.7 var(--mono);color:var(--ink);overflow-wrap:anywhere}
+.fx b{color:var(--marker);font-weight:500}
+.fu{font-size:14px;color:var(--muted)}
+.mcalc{padding:clamp(22px,3vw,40px);display:grid;gap:30px;min-width:0}
+.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 16px}
+.field{display:grid;gap:6px;min-width:0}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.inp{display:flex;align-items:center;border:1px solid var(--line);background:var(--band)}
+.inp:focus-within{border-color:var(--marker)}
+.inp input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:600 16px var(--body);font-variant-numeric:tabular-nums;padding:10px 0 10px 12px;outline:none}
+.inp i{font-style:normal;font-size:13px;color:var(--faint);padding:0 12px 0 6px;white-space:nowrap}
+.out{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px 16px;border-top:1px solid var(--line);padding-top:26px}
 .out div{min-width:0}
-.out b{display:block;font-family:var(--display);font-weight:800;font-size:36px;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
-.out div:first-child b{color:var(--marker)}
-.out span{color:var(--muted);font-size:14px;display:block;margin-top:6px}
-.verdict{grid-column:1/-1;font-size:15px;padding-top:16px;border-top:1px solid var(--line)}
+.out b{display:block;font-family:var(--display);font-weight:800;font-size:clamp(24px,2.5vw,32px);line-height:1.05;letter-spacing:-.035em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.out b small{font-size:.55em;letter-spacing:0;font-weight:600;color:var(--muted);margin-left:3px}
+.out div.key b{color:var(--marker)}
+.out span{color:var(--muted);font-size:13px;display:block;margin-top:6px;line-height:1.35}
+.verdict{grid-column:1/-1;font-size:15px;display:flex;gap:10px;align-items:flex-start}
+.verdict::before{content:"";flex:none;width:10px;height:10px;margin-top:6px;background:var(--ok)}
+.verdict.warn::before{background:var(--alert)}
 
 /* final */
 .final{background:var(--band);text-align:center}
@@ -189,14 +199,14 @@ h2{font-size:clamp(40px,6.4vw,80px);line-height:.98}
 footer{padding-block:28px 44px;font-size:13px;color:var(--faint)}
 footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
 
-@media (max-width:900px){ .steps,.four{grid-template-columns:repeat(2,minmax(0,1fr))} .claim{grid-template-columns:minmax(0,1fr)} .split{grid-template-columns:minmax(0,1fr);gap:56px} .calc{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:900px){ .mpanel{grid-template-columns:minmax(0,1fr)} .minfo{border-right:0;border-bottom:1px solid var(--line)} .fields,.out{grid-template-columns:repeat(2,minmax(0,1fr))} .steps,.four{grid-template-columns:repeat(2,minmax(0,1fr))} .claim{grid-template-columns:minmax(0,1fr)} .split{grid-template-columns:minmax(0,1fr);gap:56px} }
 @media (max-width:760px){
   .hero{padding-block:72px 0} .stage{padding-block:44px 80px} section,.night{padding-block:88px}
   .app{grid-template-columns:minmax(0,1fr)} .side{display:none}
   .links{display:none}
   .steps,.four{margin-top:48px} .claim{padding-block:40px}
 }
-@media (max-width:480px){ .steps,.four{grid-template-columns:minmax(0,1fr)} .step svg{margin-bottom:24px} }
+@media (max-width:480px){ .seg button{padding:10px 12px;font-size:14px} .fields,.out{grid-template-columns:minmax(0,1fr)} .steps,.four{grid-template-columns:minmax(0,1fr)} .step svg{margin-bottom:24px} }
 
 @media (prefers-reduced-motion:no-preference){
   .btn,.side span i,.side span i svg{transition:background .2s,border-color .2s,color .2s,opacity .2s}
@@ -292,25 +302,28 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
 
   <section><div class="wrap center">
     <h2>Ein Profil pro Drucker.</h2>
-    <p class="sub">Ein Maschinenprofil sagt, wie der Drucker seinen E-Wert haben will. Eine neue Anlage braucht nur Zahlen.</p>
-    <div class="profiles">
-      <div class="pf"><span class="pf-k">Großformat, Roboter</span><h3>Weber DXR</h3><p>Granulat-Extruder am KUKA-Industrieroboter. Der Slicer schreibt DXR, die Steuerung multipliziert E noch mit ihrem Förderwert P1.</p><dl><dt>Ausgabe</dt><dd>DXR · <span class="num">XE=[E*P1]</span></dd><dt>Faktor</dt><dd class="num">1,128</dd></dl></div>
-      <div class="pf"><span class="pf-k">Großformat, eigener Drucker</span><h3>Ginger One</h3><p>Granulat-Drucker mit eigener Steuerung. E ist die Drehung der Förderschnecke.</p><dl><dt>Ausgabe</dt><dd>G-code</dd><dt>Faktor</dt><dd class="num">0,21</dd></dl></div>
-      <div class="pf"><span class="pf-k">Granulat allgemein</span><h3>Volumen</h3><p>Für jede Anlage, die E als Materialvolumen erwartet. Startpunkt für neue Extruder.</p><dl><dt>Ausgabe</dt><dd>E in mm³</dd><dt>Faktor</dt><dd class="num">1</dd></dl></div>
-      <div class="pf"><span class="pf-k">Desktop, Filament</span><h3>Filamentdrucker</h3><p>Zum Testen im Kleinen: E wird in Filamentlänge umgerechnet.</p><dl><dt>Ausgabe</dt><dd>G-code</dd><dt>Filament</dt><dd class="num">1,75 · 2,85 mm</dd></dl></div>
-      <div class="pf pf-own"><span class="pf-k">Eigene Anlage</span><h3>Dein Profil</h3><p>Vorlage wählen, eine bekannte Bahn drucken, wiegen. Neuer Faktor = alter Faktor × Soll ÷ Ist.</p><dl><dt>Komponente</dt><dd>Machine Profile</dd></dl></div>
-    </div>
-    <div class="calc" aria-label="Bahnrechner">
-      <div class="fields">
-        <div class="field wide"><label for="in-m">Maschinenprofil</label><select id="in-m"></select></div>
-        <div class="field"><label for="in-w">Bahnbreite (mm)</label><input id="in-w" type="number" min="1" max="40" step="0.5" value="5" inputmode="decimal"></div>
-        <div class="field"><label for="in-h">Lagenhöhe (mm)</label><input id="in-h" type="number" min="0.2" max="20" step="0.1" value="2" inputmode="decimal"></div>
-        <div class="field"><label for="in-o">Überlappung (%)</label><input id="in-o" type="number" min="0" max="60" step="1" value="15" inputmode="decimal"></div>
-        <div class="field"><label for="in-f">Geschwindigkeit F (mm/min)</label><input id="in-f" type="number" min="60" max="20000" step="100" value="3000" inputmode="decimal"></div>
-        <div class="field"><label for="in-k">Extrusionsfaktor</label><input id="in-k" type="number" min="0.01" max="20" step="0.001" value="1" inputmode="decimal"></div>
-        <div class="field"><label for="in-d">Dichte (g/cm³), Beispiel</label><input id="in-d" type="number" min="0.5" max="3" step="0.01" value="1.25" inputmode="decimal"></div>
+    <p class="sub">Jeder Drucker will seinen E-Wert anders. Wähle deinen, der Slicer rechnet um.</p>
+    <div class="machine">
+      <div class="seg" role="tablist" aria-label="Drucker wählen" id="seg"></div>
+      <div class="mpanel">
+        <div class="minfo">
+          <span class="kind" id="m-kind"></span>
+          <h3 id="m-name"></h3>
+          <p id="m-desc"></p>
+          <div class="formula"><span class="fl">So rechnet der Slicer</span><div id="m-formula" class="fx"></div><span class="fu" id="m-out"></span></div>
+        </div>
+        <div class="mcalc">
+          <div class="fields">
+            <div class="field"><label for="in-w">Bahnbreite</label><span class="inp"><input id="in-w" type="number" min="1" max="40" step="0.5" value="5" inputmode="decimal"><i>mm</i></span></div>
+            <div class="field"><label for="in-h">Lagenhöhe</label><span class="inp"><input id="in-h" type="number" min="0.2" max="20" step="0.1" value="2" inputmode="decimal"><i>mm</i></span></div>
+            <div class="field"><label for="in-o">Überlappung</label><span class="inp"><input id="in-o" type="number" min="0" max="60" step="1" value="15" inputmode="decimal"><i>%</i></span></div>
+            <div class="field"><label for="in-f">Geschwindigkeit</label><span class="inp"><input id="in-f" type="number" min="60" max="20000" step="100" value="3000" inputmode="decimal"><i>mm/min</i></span></div>
+            <div class="field"><label for="in-k">Extrusionsfaktor</label><span class="inp"><input id="in-k" type="number" min="0.001" max="20" step="0.001" value="1.128" inputmode="decimal"><i>×</i></span></div>
+            <div class="field"><label for="in-d">Dichte (Beispiel)</label><span class="inp"><input id="in-d" type="number" min="0.5" max="3" step="0.01" value="1.25" inputmode="decimal"><i>g/cm³</i></span></div>
+          </div>
+          <div class="out" id="calc-out"></div>
+        </div>
       </div>
-      <div class="out" id="calc-out"></div>
     </div>
   </div></section>
 
@@ -619,46 +632,73 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
     });
   })();
 
-  // ---- calculator with machine profiles (same presets as the Machine Profile component)
+  // ---- printer profiles + calculator (same presets as the Machine Profile component)
   (function () {
     var M = [
-      { n: 'Generic pellet extruder (volume)', k: 1, rect: false, fil: 0, u: 'mm³' },
-      { n: 'Filament printer 1.75 mm', k: 1, rect: false, fil: 1.75, u: 'mm Filament' },
-      { n: 'Filament printer 2.85 mm', k: 1, rect: false, fil: 2.85, u: 'mm Filament' },
-      { n: "Weber DXR robot (XE × P1)", k: 1.128, rect: true, fil: 0, u: '× P1' },
-      { n: 'Ginger (G-code)', k: 0.21, rect: true, fil: 0, u: 'Ginger E' }
+      { t: 'Weber DXR', kind: 'Großformat · Extruder am Roboter', k: 1.128, rect: true, fil: 0, unit: '× P1', out: 'DXR',
+        d: 'Granulat-Extruder von Weber an einem KUKA-Industrieroboter. Der Slicer schreibt DXR-Code, die Steuerung rechnet E noch mit ihrem eigenen Förderwert P1 um.' },
+      { t: 'Ginger One', kind: 'Großformat · Granulat-Drucker', k: 0.21, rect: true, fil: 0, unit: 'E', out: 'G-code',
+        d: 'Granulat-Drucker mit eigener Steuerung. Er liest G-code, und E steuert, wie weit sich die Förderschnecke dreht.' },
+      { t: 'Granulat', kind: 'Jeder Granulat-Extruder', k: 1, rect: false, fil: 0, unit: 'mm³', out: 'G-code oder DXR',
+        d: 'Für Anlagen, die E als Materialvolumen erwarten. Der Startpunkt, wenn ein neuer Extruder dazukommt.' },
+      { t: 'Filament 1,75', kind: 'Desktop-Drucker', k: 1, rect: false, fil: 1.75, unit: 'mm Filament', out: 'G-code',
+        d: 'Zum Ausprobieren im Kleinen. E ist die Länge Filament, die der Drucker einzieht.' },
+      { t: 'Filament 2,85', kind: 'Desktop-Drucker', k: 1, rect: false, fil: 2.85, unit: 'mm Filament', out: 'G-code',
+        d: 'Wie 1,75 mm, für Drucker mit dickerem Filament.' },
+      { t: 'Eigene Anlage', kind: 'Dein Drucker', k: 1, rect: false, fil: 0, unit: 'mm³', out: 'G-code oder DXR', own: true,
+        d: 'Eine 1 m lange Bahn drucken und wiegen. Neuer Faktor = alter Faktor × Soll-Gewicht ÷ Ist-Gewicht. Den Wert in Machine Profile eintragen.' }
     ];
-    var sel = document.getElementById('in-m'), kIn = document.getElementById('in-k'), out = document.getElementById('calc-out');
-    M.forEach(function (m, i) { var o = document.createElement('option'); o.value = i; o.textContent = m.n; sel.appendChild(o); });
-    sel.addEventListener('change', function () { kIn.value = +M[sel.value].k.toFixed(4); calc(); });
+    var seg = document.getElementById('seg'), out = document.getElementById('calc-out'), kIn = document.getElementById('in-k'), cur = 0;
+    M.forEach(function (m, i) {
+      var b = document.createElement('button'); b.type = 'button'; b.id = 'seg-' + i; b.setAttribute('role', 'tab'); b.textContent = m.t;
+      b.addEventListener('click', function () { pick(i, true); });
+      seg.appendChild(b);
+    });
     function num(id) { var v = parseFloat(document.getElementById(id).value); return isFinite(v) ? v : 0; }
     function de(n, d) { return n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+    function pick(i, setFactor) {
+      cur = i; var m = M[i];
+      seg.querySelectorAll('button').forEach(function (b, j) { b.setAttribute('aria-selected', j === i ? 'true' : 'false'); });
+      document.getElementById('m-kind').textContent = m.kind;
+      document.getElementById('m-name').textContent = m.t;
+      document.getElementById('m-desc').textContent = m.d;
+      if (setFactor) kIn.value = m.k;
+      calc();
+    }
+    function tile(value, unit, label, key) {
+      var d = document.createElement('div'), b = document.createElement('b'), s = document.createElement('span');
+      if (key) d.className = 'key';
+      b.textContent = value; if (unit) { var u = document.createElement('small'); u.textContent = unit; b.appendChild(u); }
+      s.textContent = label; d.appendChild(b); d.appendChild(s); out.appendChild(d);
+    }
     function calc() {
-      var m = M[sel.value] || M[0], w = num('in-w'), h = num('in-h'), o = num('in-o') / 100, F = num('in-f'), k = num('in-k'), rho = num('in-d');
+      var m = M[cur], w = num('in-w'), h = num('in-h'), o = num('in-o') / 100, F = num('in-f'), k = num('in-k'), rho = num('in-d');
       out.textContent = '';
-      if (w <= 0 || h <= 0 || F <= 0 || k <= 0) { var e = document.createElement('p'); e.className = 'verdict'; e.textContent = 'Bahnbreite, Lagenhöhe, Geschwindigkeit und Faktor müssen größer als 0 sein.'; out.appendChild(e); return; }
+      var fx = document.getElementById('m-formula'); fx.textContent = '';
+      if (w <= 0 || h <= 0 || F <= 0 || k <= 0) {
+        var e = document.createElement('p'); e.className = 'verdict warn'; e.textContent = 'Bahnbreite, Lagenhöhe, Geschwindigkeit und Faktor müssen größer als 0 sein.'; out.appendChild(e); return;
+      }
       var area = w >= h ? (w - h) * h + Math.PI / 4 * h * h : Math.PI / 4 * w * h;
-      var sec = m.rect ? w * h : area, filA = m.fil > 0 ? Math.PI / 4 * m.fil * m.fil : 1;
-      var e10 = sec * 10 * k / filA;
-      var rows = [
-        [de(e10, e10 < 10 ? 3 : 1), 'E pro 10 mm Bahn (' + m.u + ')'],
-        [de(w * (1 - o), 2) + ' mm', 'Bahnabstand für Wände, Stege, Füllung'],
-        [de(w / 2, 2) + ' mm', 'größter Versatz zur Lage darunter'],
-        [de(Math.atan(w / 2 / h) * 180 / Math.PI, 0) + '°', 'größter Überhang aus der Senkrechten'],
-        [de(area, 1) + ' mm²', 'Bahnquerschnitt'],
-        [de(area * F / 60 / 1000, 2) + ' cm³/s', 'Volumenstrom bei F' + de(F, 0)],
-        [de(area * F * 60 / 1e6 * rho, 1) + ' kg/h', 'Austrag bei ' + de(rho, 2) + ' g/cm³'],
-        [de(h / w * 100, 0) + ' %', 'Lagenhöhe zu Bahnbreite']
-      ];
-      rows.forEach(function (r) { var d = document.createElement('div'), b = document.createElement('b'), s = document.createElement('span'); b.textContent = r[0]; s.textContent = r[1]; d.appendChild(b); d.appendChild(s); out.appendChild(d); });
-      var v = document.createElement('p'); v.className = 'verdict'; var ratio = h / w;
-      v.textContent = ratio > 0.8 ? 'Die Lage ist zu hoch für diese Bahn: Sie wird kaum gequetscht und haftet schlecht. Lagenhöhe senken oder Bahn verbreitern.'
-        : ratio < 0.2 ? 'Sehr flache Bahn: Der Extruder braucht viel Druck. Prüfen, ob er das liefert.'
-        : 'Bahnform in Ordnung. Eine Wand darf pro Lage höchstens ' + de(w / 2, 2) + ' mm nach außen wandern.';
+      var sec = m.rect ? w * h : area, filA = m.fil > 0 ? Math.PI / 4 * m.fil * m.fil : 1, e10 = sec * 10 * k / filA;
+      // formula with the real numbers
+      var parts = (m.rect ? de(w, 1) + ' × ' + de(h, 1) : de(sec, 2) + ' mm²') + ' × 10 mm × ' + de(k, 3).replace(/,?0+$/, '') + (m.fil > 0 ? ' ÷ ' + de(filA, 2) : '');
+      fx.appendChild(document.createTextNode('E = ' + parts + ' = '));
+      var r = document.createElement('b'); r.textContent = de(e10, e10 < 10 ? 2 : 1); fx.appendChild(r);
+      document.getElementById('m-out').textContent = 'pro 10 mm Bahn, Einheit ' + m.unit + ' · Ausgabe ' + m.out + (m.rect ? ' · Querschnitt Breite × Höhe' : ' · Querschnitt gequetschte Bahn');
+      tile(de(e10, e10 < 10 ? 2 : 1), m.unit, 'E pro 10 mm Bahn', true);
+      tile(de(w * (1 - o), 2), 'mm', 'Abstand für Wände, Stege und Füllung');
+      tile(de(w / 2, 2), 'mm', 'größter Versatz zur Lage darunter');
+      tile(de(Math.atan(w / 2 / h) * 180 / Math.PI, 0), '°', 'größter Überhang aus der Senkrechten');
+      tile(de(area * F / 60 / 1000, 2), 'cm³/s', 'Volumenstrom bei F ' + de(F, 0));
+      tile(de(area * F * 60 / 1e6 * rho, 1), 'kg/h', 'Austrag bei ' + de(rho, 2) + ' g/cm³');
+      var v = document.createElement('p'), ratio = h / w; v.className = 'verdict';
+      if (ratio > 0.8) { v.className += ' warn'; v.textContent = 'Die Lage ist zu hoch für diese Bahn (' + de(ratio * 100, 0) + ' %). Sie wird kaum gequetscht und haftet schlecht.'; }
+      else if (ratio < 0.2) { v.className += ' warn'; v.textContent = 'Sehr flache Bahn (' + de(ratio * 100, 0) + ' %). Prüfen, ob der Extruder den Druck schafft.'; }
+      else v.textContent = 'Bahnform passt: Lagenhöhe ist ' + de(ratio * 100, 0) + ' % der Bahnbreite.';
       out.appendChild(v);
     }
     ['in-w', 'in-h', 'in-o', 'in-f', 'in-k', 'in-d'].forEach(function (i) { document.getElementById(i).addEventListener('input', calc); });
-    calc();
+    pick(0, true);
   })();
 
   // ---- pattern filter
