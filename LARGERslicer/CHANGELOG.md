@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-11
+
 ### Added
 - `Infill Chambers` (Slicer tab): a band of closed chambers along the inside of the wall, as boxes or as a truss with diagonals, joined into the continuous wall path. Chambers stand on those of the layer below, also on twisting or tapering parts.
 - `Infill Sketch` (Slicer tab): draw your infill. Curves sketched over the part in top view become ribs that follow them from wall to wall, joined into the continuous wall path.
@@ -19,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Slice`: non-planar and multi-axis slicing through a new `Guide` input. A guide surface gives non-planar layers, either with a flat first layer and a top that follows the guide, or with all layers following the guide (printing on a curved base). A guide curve gives multi-axis layers that stand square to the curve, for parts that grow along a bent axis. The model is mapped into a flat space, sliced with the normal pipeline and mapped back, so walls, bottom fill, ribs, spiral, seam, rounding, start/end and `Path Check` all work on these layers. The tool axis is square to the layer (or vertical for 3-axis printers) and the local layer height goes into the extrusion.
 
 ### Changed
+- `Infill Wave`: new `Meet` option (on by default). Every dip reaches until it meets something: the dip coming from the opposite side, in the middle of the part, or the wall of a hole. Both end in a flat piece and fuse, which is what makes a waved or trussed part stiff. Opposite sides get the same number of waves so the dips face each other; `Depth` is now the limit (0 = as far as the part allows).
 - `Infill Wave` rebuilt: the line follows the wall and dips in at regular intervals. Every straight side gets a whole number of equal waves, corners stay clear so dips of two sides cannot collide, and on round parts the wave is anchored to the layer below so it keeps its place on twisting and tapering shapes.
 - `Path Check`: a handful of stray points off the layer below is reported as a note instead of a failure, and the closing pass over the seam is no longer counted as a crossing.
 - `Continuous Path` now prints flat layers by default (Mode = Layered) with a 20 mm ramp at one fixed place instead of 100 mm. In Spiral mode, layers with ribs or cells spliced into the wall are printed flat as well: before, up to 60 % of the path ran between two layers and the infill climbed with the wall.

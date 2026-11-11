@@ -727,8 +727,9 @@ namespace LARGERslicer.Components.Slicer
             p.AddGenericParameter("Settings", "S", "Print Settings", GH_ParamAccess.item);
             p.AddIntegerParameter("Shape", "Sh", "0 = Wave (smooth, no corners)\n1 = Truss (straight flanks, triangles)\n2 = Meander (steep flanks, long contact with the wall)", GH_ParamAccess.item, 0);
             p.AddNumberParameter("Wavelength", "WL", "Distance from crest to crest along the wall (mm). The slicer fits a whole number of waves around the part.", GH_ParamAccess.item, 80.0);
-            p.AddNumberParameter("Depth", "D", "How far the line reaches into the part, measured from crest to trough (mm). Reduced automatically where the part is too narrow.", GH_ParamAccess.item, 60.0);
-            p.AddPointParameter("Origin", "O", "A crest sits at the wall point nearest to this point. Move it to shift the pattern along the wall. Empty = the right-most side of the part.", GH_ParamAccess.item);
+            p.AddNumberParameter("Depth", "D", "How far the line may reach into the part (mm). With Meet this is the limit; 0 = as far as the part allows.", GH_ParamAccess.item, 0.0);
+            p.AddPointParameter("Origin", "O", "Round parts only: a crest sits at the wall point nearest to this point. Empty = the right-most side of the part.", GH_ParamAccess.item);
+            p.AddBooleanParameter("Meet", "Meet", "True = every dip reaches until it meets something: the dip from the opposite side (in the middle of the part) or the wall of a hole. That is what makes the part stiff.\nFalse = all dips have the same Depth and end freely.", GH_ParamAccess.item, true);
             p[1].Optional = true; p[5].Optional = true;
         }
 
@@ -736,7 +737,7 @@ namespace LARGERslicer.Components.Slicer
         {
             AddValueList(doc, 2, "Shape", "Wave", "Truss", "Meander");
             AddSlider(doc, 3, "Wavelength", 30, 400, 80, 0);
-            AddSlider(doc, 4, "Depth", 10, 400, 60, 0);
+            AddToggle(doc, 6, "Meet", true);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -753,10 +754,12 @@ namespace LARGERslicer.Components.Slicer
             var layers = goos.OfType<GH_SliceLayer>().Select(g => g.Value).Where(l => l != null).ToList();
             if (layers.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect the Layers output of Walls or Bottom Fill."); return; }
             var settings = SlicerIO.Get<PrintSettings>(da, 1) ?? new PrintSettings();
-            int shape = 0; double wavelength = 80, depth = 60; Point3d origin = Point3d.Unset;
+            int shape = 0; double wavelength = 80, depth = 0; Point3d origin = Point3d.Unset;
             da.GetData(2, ref shape); da.GetData(3, ref wavelength); da.GetData(4, ref depth);
             bool hasOrigin = da.GetData(5, ref origin) && origin.IsValid;
-            if (depth < 2 * settings.BeadWidth)
+            bool meet = true;
+            if (Params.Input.Count > 6) da.GetData(6, ref meet);
+            if (!(meet && depth <= 0) && depth < 2 * settings.BeadWidth)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Depth must be at least {2 * settings.BeadWidth:0.#} mm (two bead widths).");
                 return;
@@ -764,7 +767,7 @@ namespace LARGERslicer.Components.Slicer
 
             var log = new List<string>();
             var sw = Stopwatch.StartNew();
-            var result = FillEngine.Waves(layers, settings, Math.Max(0, Math.Min(2, shape)), wavelength, depth, hasOrigin ? (Point3d?)origin : null, log, out int waves);
+            var result = FillEngine.Waves(layers, settings, Math.Max(0, Math.Min(2, shape)), wavelength, depth, hasOrigin ? (Point3d?)origin : null, log, out int waves, meet);
             sw.Stop();
             foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
             if (waves == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No wave fits. Reduce Depth or Wavelength, or check that the layers have a closed wall.");
