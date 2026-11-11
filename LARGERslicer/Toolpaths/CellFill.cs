@@ -78,6 +78,33 @@ namespace LARGERslicer.Toolpaths
             return r;
         }
 
+        /// <summary>
+        /// Corners of a closed loop: places where the direction turns by more than 35 degrees
+        /// within a short window. Measuring over a window makes the result independent of how
+        /// finely the loop is divided, so a smooth curve does not flicker between "has corners"
+        /// and "has none" from layer to layer. kind: +1 convex, -1 concave (counter-clockwise loop).
+        /// </summary>
+        private static List<double> LoopCorners(List<Point2d> p, double[] cum, double win, List<int> kinds)
+        {
+            double len = cum[p.Count];
+            var at = new List<double>(); var strength = new List<double>(); var kind = new List<int>();
+            for (int i = 0; i < p.Count; i++)
+            {
+                Point2d a = LoopAt(p, cum, cum[i] - win), b = p[i], c = LoopAt(p, cum, cum[i] + win);
+                double ax = b.X - a.X, ay = b.Y - a.Y, bx = c.X - b.X, by = c.Y - b.Y;
+                double cross = ax * by - ay * bx, ang = Math.Atan2(Math.Abs(cross), ax * bx + ay * by);
+                if (ang < 35.0 * Math.PI / 180.0) continue;
+                // one corner per neighbourhood: keep the sharpest
+                int near = -1;
+                for (int k = 0; k < at.Count; k++) { double d = Math.Abs(at[k] - cum[i]); d = Math.Min(d, len - d); if (d < 2 * win) { near = k; break; } }
+                if (near < 0) { at.Add(cum[i]); strength.Add(ang); kind.Add(cross > 0 ? 1 : -1); }
+                else if (ang > strength[near]) { at[near] = cum[i]; strength[near] = ang; kind[near] = cross > 0 ? 1 : -1; }
+            }
+            var order = Enumerable.Range(0, at.Count).OrderBy(k => at[k]).ToList();
+            if (kinds != null) { kinds.Clear(); kinds.AddRange(order.Select(k => kind[k])); }
+            return order.Select(k => at[k]).ToList();
+        }
+
         private class CellJoin { public int A, B; public List<double[]> At = new List<double[]>(); } // sA, sB
 
         /// <summary>
@@ -88,7 +115,7 @@ namespace LARGERslicer.Toolpaths
         /// </summary>
         internal static List<Point2d> CellLine(List<Point2d> wall, PathsD material, double spacing, int pattern,
             double size, double angleDeg, Point2d origin, out int joined, out int dropped,
-            List<List<Point2d>> holeWalls = null, List<int> absorbedHoles = null, double stretch = 1.0, List<List<Point2d>> readyLoops = null)
+            List<List<Point2d>> holeWalls = null, List<int> absorbedHoles = null, double stretch = 1.0, List<List<Point2d>> readyLoops = null, List<PathD> customCells = null)
         {
             joined = 0; dropped = 0;
             size = Math.Max(size, 4.0 * spacing);
@@ -111,7 +138,8 @@ namespace LARGERslicer.Toolpaths
             Func<double, double, PointD> world = (u, v) => { u *= stretch; return new PointD(origin.X + u * cs - v * sn, origin.Y + u * sn + v * cs); };
             minU /= stretch; maxU /= stretch;
             var cells = new List<PathD>();
-            if (readyLoops != null) { }
+            if (customCells != null) cells.AddRange(customCells);
+            else if (readyLoops != null) { }
             else if (pattern == 1)
             {
                 int i0 = (int)Math.Floor(minU / size), i1 = (int)Math.Ceiling(maxU / size);
@@ -388,75 +416,158 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>
-        /// Wave infill: one closed inner line that swings between the wall and a depth inside the
-        /// part. At every crest it runs along the wall for a short "land" (one bead spacing away,
-        /// so the beads fuse); in between it dips inwards. Shape 0 = wave (smooth), 1 = truss
-        /// (straight flanks), 2 = meander (steep flanks, long lands). The line is joined to the
-        /// wall by one pair of bridges, so the layer stays one closed contour.
-        /// The pattern is measured along the wall from the wall point nearest to 'origin', which
-        /// keeps the crests above each other from layer to layer.
+        /// Wave infill: one closed inner line that runs along the wall (one bead spacing inside,
+        /// so the beads fuse) and dips into the part at regular intervals. Shape 0 = wave (smooth),
+        /// 1 = truss (straight flanks), 2 = meander (steep flanks, long flat bottom).
+        /// Every straight side of the part gets a whole number of equal waves, centred on the
+        /// side; around corners the line simply follows the wall, far enough that the dips of two
+        /// sides cannot collide. Round parts get a whole number of waves around the perimeter.
+        /// The line is joined to the wall by one pair of bridges (see CellLine).
         /// </summary>
         internal static List<Point2d> WaveLoop(List<Point2d> wall, double spacing, double beadWidth, int shape, double wavelength, double depth, Point2d origin, out int waves)
         {
-            waves = 0;
+            return WaveLoop(wall, spacing, beadWidth, shape, wavelength, depth, origin, out waves, 0, 0, out _, out _);
+        }
+
+        /// <summary>prevDepth / prevCount: what the layer below used (0 = none); the wave may only change a little from layer to layer.</summary>
+        internal static List<Point2d> WaveLoop(List<Point2d> wall, double spacing, double beadWidth, int shape, double wavelength, double depth, Point2d origin, out int waves,
+            double prevDepth, int prevCount, out double usedDepth, out Point2d anchor)
+        {
+            waves = 0; usedDepth = 0; anchor = origin;
             if (Area(wall) < 0) { wall = new List<Point2d>(wall); wall.Reverse(); }
             double land = 2.0 * beadWidth;
-            wavelength = Math.Max(wavelength, shape == 2 ? 2 * land + 4 * beadWidth : 2 * land + 2 * beadWidth);
-            for (int attempt = 0; attempt < 5; attempt++, depth *= 0.7)
-            {
-                double amp = 0.5 * depth;
-                if (amp < beadWidth) return null;
-                // base line: the wall moved inwards so that crests end one bead spacing from it
-                var path = new PathD(wall.Select(q => new PointD(q.X, q.Y)));
-                // The base line gets round corners (shrink further, then grow back): the wave swings
-                // 'amp' to both sides of it, so no bend of the base may be tighter than that.
-                double round = 1.4 * amp;
-                PathsD off = Clipper.InflatePaths(new PathsD { path }, -(spacing + amp + round), JoinType.Round, EndType.Polygon, 2.0, 4);
-                if (off == null || off.Count == 0) continue;
-                off = Clipper.InflatePaths(off, round, JoinType.Round, EndType.Polygon, 2.0, 4);
-                if (off == null || off.Count == 0) continue;
-                PathD biggest = off.OrderByDescending(q => Math.Abs(Clipper.Area(q))).First();
-                var baseLoop = biggest.Select(q => new Point2d(q.x, q.y)).ToList();
-                if (Area(baseLoop) < 0) baseLoop.Reverse();
-                double[] bc = LoopCum(baseLoop);
-                double len = bc[baseLoop.Count];
-                int count = (int)Math.Round(len / wavelength);
-                if (count < 2) continue;
-                double lam = len / count;
-                double s0 = LoopClosest(baseLoop, bc, origin, out _);
+            wavelength = Math.Max(wavelength, shape == 2 ? land + 6 * beadWidth : land + 4 * beadWidth);
+            var wallPath = new PathsD { new PathD(wall.Select(q => new PointD(q.X, q.Y))) };
+            PathsD crest = Clipper.InflatePaths(wallPath, -spacing, JoinType.Miter, EndType.Polygon, 2.0, 4);
+            if (crest == null || crest.Count == 0) return null;
+            var C = crest.OrderByDescending(q => Math.Abs(Clipper.Area(q))).First().Select(q => new Point2d(q.x, q.y)).ToList();
+            if (Area(C) < 0) C.Reverse();
+            // drop doubled points
+            var cc = new List<Point2d>();
+            foreach (var q in C) if (cc.Count == 0 || cc[cc.Count - 1].DistanceTo(q) > 1e-6) cc.Add(q);
+            if (cc.Count > 2 && cc[0].DistanceTo(cc[cc.Count - 1]) < 1e-6) cc.RemoveAt(cc.Count - 1);
+            C = cc;
+            if (C.Count < 3) return null;
+            double[] cum = LoopCum(C);
+            double len = cum[C.Count];
 
-                double a = Math.Min(0.35, land / lam);                 // share of a wave that lies along the wall
-                double t = shape == 2 ? Math.Min(0.5 - a, Math.Max(0.06, 1.5 * beadWidth / lam)) : 0.5 - a;
-                double b = 1.0 - a - 2 * t;                              // share along the inside
-                Func<double, double> profile = u =>
+            // corners of the crest line: +1 convex (dips of both sides would meet), -1 concave
+            var cornerKind = new List<int>();
+            var cornerAt = LoopCorners(C, cum, 1.5 * beadWidth, cornerKind);
+
+            if (cornerAt.Count == 0)
+            {
+                double winK = Math.Max(3 * beadWidth, 0.02 * len), maxK = 0;
+                int probes = Math.Max(24, (int)(len / (2 * beadWidth)));
+                for (int i = 0; i < probes; i++)
                 {
-                    u -= Math.Floor(u);
-                    if (u < a) return 1;
-                    if (u < a + t) { double x = (u - a) / t; return shape == 0 ? Math.Cos(Math.PI * x) : 1 - 2 * x; }
-                    if (u < a + t + b) return -1;
-                    double y = (u - a - t - b) / t; return shape == 0 ? -Math.Cos(Math.PI * y) : -1 + 2 * y;
-                };
-                int steps = Math.Max(24, (int)Math.Ceiling(len / Math.Max(1.0, 0.25 * beadWidth)));
-                var loop = new List<Point2d>(steps);
-                for (int i = 0; i < steps; i++)
-                {
-                    double sAt = s0 + len * i / steps;
-                    // direction over a wide window: the rounded corners of the base are made of short
-                    // straight pieces, and a normal that jumps at each of them would fold the wave
-                    double win = Math.Max(2.0, 0.45 * amp);
-                    Point2d p = LoopAt(baseLoop, bc, sAt), q0 = LoopAt(baseLoop, bc, sAt - win), q = LoopAt(baseLoop, bc, sAt + win);
-                    double dx = q.X - q0.X, dy = q.Y - q0.Y, dl = Math.Sqrt(dx * dx + dy * dy);
-                    if (dl < 1e-9) continue;
-                    // outward normal of a counter-clockwise loop: to the right of the travel direction
-                    double nx = dy / dl, ny = -dx / dl;
-                    double h = amp * profile((sAt - s0) / lam + 0.5 * a);
-                    loop.Add(new Point2d(p.X + nx * h, p.Y + ny * h));
+                    double sAt = len * i / probes;
+                    Point2d a0 = LoopAt(C, cum, sAt - winK), b0 = LoopAt(C, cum, sAt), c0 = LoopAt(C, cum, sAt + winK);
+                    double ax = b0.X - a0.X, ay = b0.Y - a0.Y, bx = c0.X - b0.X, by = c0.Y - b0.Y;
+                    double turn = Math.Atan2(ax * by - ay * bx, ax * bx + ay * by); // > 0: convex on a ccw loop
+                    if (turn > 0) maxK = Math.Max(maxK, turn / winK);
                 }
-                if (loop.Count < 12) continue;
-                var test = new Polyline(loop.Select(q => new Point3d(q.X, q.Y, 0))); test.Add(test[0]);
-                if (PathTools.CountCrossings(test) > 0) continue;       // flanks collide in a tight corner: try less depth
-                waves = count;
-                return loop;
+                if (maxK > 1e-9) depth = Math.Min(depth, 0.7 / maxK);
+            }
+            // a dip may move by less than half a bead between layers, or it loses its support
+            if (prevDepth > 0) depth = Math.Max(prevDepth - 0.4 * beadWidth, Math.Min(prevDepth, depth)); // never deeper than below: growing and shrinking in turns would leave dips without support
+            for (int attempt = 0; attempt < 6; attempt++, depth *= 0.8)
+            {
+                if (depth < 2 * beadWidth) return null;
+                // dips from opposite sides must stay at least one bead spacing apart
+                PathsD room = Clipper.InflatePaths(new PathsD { new PathD(C.Select(q => new PointD(q.X, q.Y))) }, -(depth + 0.5 * spacing), JoinType.Round, EndType.Polygon, 2.0, 4);
+                if (room == null || room.Count == 0) continue;
+
+                double step = Math.Max(0.5, 0.25 * beadWidth);
+                var loop = new List<Point2d>();
+                int count = 0;
+                // inward normal (left of travel on a counter-clockwise loop), smoothed over 'win'
+                Func<double, double, double, double, Vector2d> normal = (sAt, win, lo, hi) =>
+                {
+                    double s1 = Math.Max(lo, sAt - win), s2 = Math.Min(hi, sAt + win);
+                    Point2d q0 = LoopAt(C, cum, s1), q1 = LoopAt(C, cum, s2);
+                    double dx = q1.X - q0.X, dy = q1.Y - q0.Y, dl = Math.Sqrt(dx * dx + dy * dy);
+                    return dl < 1e-9 ? new Vector2d(0, 0) : new Vector2d(-dy / dl, dx / dl);
+                };
+                // one wave over u = 0..1: flat along the wall, down, flat inside, up
+                Func<double, double, double> profile = (u, lam) =>
+                {
+                    double a = Math.Min(0.4, land / lam);
+                    double b = shape == 2 ? Math.Max(0.2, 1.0 - a - 2.0 * Math.Max(0.07, 1.6 * beadWidth / lam)) : (shape == 1 ? Math.Min(0.15, beadWidth / lam) : 0.0);
+                    double t = 0.5 * (1.0 - a - b);
+                    u -= Math.Floor(u);
+                    double x;
+                    if (u < 0.5 * a || u >= 1.0 - 0.5 * a) return 0;
+                    if (u < 0.5 * a + t) x = (u - 0.5 * a) / t;
+                    else if (u < 0.5 * a + t + b) return 1;
+                    else x = (1.0 - 0.5 * a - u) / t;
+                    return shape == 0 ? 0.5 - 0.5 * Math.Cos(Math.PI * x) : x;
+                };
+
+                if (cornerAt.Count == 0)
+                {
+                    count = (int)Math.Round(len / wavelength);
+                    // keep the number of waves of the layer below as long as the wavelength stays sensible
+                    if (prevCount >= 2 && len / prevCount > 0.6 * wavelength && len / prevCount < 1.6 * wavelength) count = prevCount;
+                    if (count < 2) continue;
+                    double lam = len / count, s0 = LoopClosest(C, cum, origin, out _);
+                    anchor = LoopAt(C, cum, s0);
+                    int n = Math.Max(24, (int)Math.Ceiling(len / step));
+                    double win = Math.Max(2.0, 0.45 * depth);
+                    for (int i = 0; i < n; i++)
+                    {
+                        double sAt = s0 + len * i / n;
+                        Point2d p = LoopAt(C, cum, sAt);
+                        Vector2d nv = normal(sAt, win, double.MinValue, double.MaxValue);
+                        double h = depth * profile((sAt - s0) / lam, lam);
+                        loop.Add(new Point2d(p.X + nv.X * h, p.Y + nv.Y * h));
+                    }
+                }
+                else
+                {
+                    for (int k = 0; k < cornerAt.Count; k++)
+                    {
+                        int k2 = (k + 1) % cornerAt.Count;
+                        double sa = cornerAt[k], sb = cornerAt[k2];
+                        if (sb <= sa + 1e-9) sb += len;
+                        double run = sb - sa;
+                        // keep clear of the corners: by the depth at convex corners, by one land at concave ones
+                        double ma = (cornerKind[k] > 0 ? depth : 0) + land, mb = (cornerKind[k2] > 0 ? depth : 0) + land;
+                        double usable = run - ma - mb;
+                        int n = usable >= 0.75 * wavelength ? Math.Max(1, (int)Math.Round(usable / wavelength)) : 0;
+                        double lam = n > 0 ? usable / n : 0;
+                        count += n;
+                        int steps = Math.Max(1, (int)Math.Ceiling(run / step));
+                        double win = Math.Min(Math.Max(2.0, 0.45 * depth), 0.5 * run);
+                        for (int i = 0; i < steps; i++)
+                        {
+                            double d = run * i / steps;
+                            Point2d p = LoopAt(C, cum, sa + d);
+                            double h = n > 0 && d > ma && d < run - mb ? depth * profile((d - ma) / lam, lam) : 0;
+                            if (h <= 0) { loop.Add(p); continue; }
+                            Vector2d nv = normal(sa + d, win, sa, sa + run);
+                            loop.Add(new Point2d(p.X + nv.X * h, p.Y + nv.Y * h));
+                        }
+                    }
+                    if (count == 0) continue;
+                }
+                // thin out points on straight stretches
+                var slim = new List<Point2d>();
+                for (int i = 0; i < loop.Count; i++)
+                {
+                    if (slim.Count >= 2)
+                    {
+                        Point2d a0 = slim[slim.Count - 2], b0 = slim[slim.Count - 1], c0 = loop[i];
+                        double dx = c0.X - a0.X, dy = c0.Y - a0.Y, l = Math.Sqrt(dx * dx + dy * dy);
+                        if (l > 1e-9 && Math.Abs((b0.X - a0.X) * dy - (b0.Y - a0.Y) * dx) / l < 0.02 && l < 40) slim[slim.Count - 1] = c0; else slim.Add(c0);
+                    }
+                    else slim.Add(loop[i]);
+                }
+                if (slim.Count < 8) continue;
+                var test = new Polyline(slim.Select(q => new Point3d(q.X, q.Y, 0))); test.Add(test[0]);
+                if (PathTools.CountCrossings(test) > 0) continue;
+                waves = count; usedDepth = depth;
+                return slim;
             }
             return null;
         }
@@ -472,11 +583,13 @@ namespace LARGERslicer.Toolpaths
             Point3d o3 = origin ?? Point3d.Unset;
             if (warp != null && origin.HasValue) o3 = warp.ToFlat(o3);
 
-            Parallel.For(0, layers.Count, li =>
+            // layer by layer: every wave is placed where the wave of the layer below is
+            double prevDepth = 0; int prevCount = 0; Point3d prevAnchor = Point3d.Unset;
+            foreach (int li in Enumerable.Range(0, layers.Count).OrderBy(i => layers[i].Index))
             {
                 var src = layers[li];
                 result[li] = src;
-                if (src.ContourRoles != null && src.ContourRoles.Any(r => r == PathRole.Bottom)) return;
+                if (src.ContourRoles != null && src.ContourRoles.Any(r => r == PathRole.Bottom)) continue;
                 int inner = src.Rings != null && src.Rings.Count > 0 ? src.Rings.Max() : 0;
                 int host = -1; double hostArea = 0; List<Point2d> hostRing = null;
                 for (int c = 0; c < src.Contours.Count; c++)
@@ -487,17 +600,18 @@ namespace LARGERslicer.Toolpaths
                     double area = Math.Abs(Area(ring));
                     if (area > hostArea) { hostArea = area; host = c; hostRing = ring; }
                 }
-                if (host < 0) { failed[li] = 1; return; }
+                if (host < 0) { failed[li] = 1; continue; }
                 if (Area(hostRing) < 0) hostRing.Reverse();
                 // without an origin the pattern starts at the right-most wall point of the first layer's frame
-                Point2d o2 = o3.IsValid ? To2d(src.Plane, o3) : new Point2d(1e6, 0);
-                var wave = WaveLoop(hostRing, spacing, w, shape, wavelength, depth, o2, out int n);
-                if (wave == null) { failed[li] = 1; return; }
+                Point2d o2 = prevAnchor.IsValid ? To2d(src.Plane, prevAnchor) : (o3.IsValid ? To2d(src.Plane, o3) : new Point2d(1e6, 0));
+                var wave = WaveLoop(hostRing, spacing, w, shape, wavelength, depth, o2, out int n, prevDepth, prevCount, out double usedDepth, out Point2d anchor);
+                if (wave == null) { failed[li] = 1; continue; }
 
                 var material = new PathsD { new PathD(hostRing.Select(q => new PointD(q.X, q.Y))) };
                 var line = CellLine(hostRing, material, spacing, 0, 0, 0, o2, out int joined, out _, null, null, 1.0, new List<List<Point2d>> { wave });
-                if (line == null || joined == 0) { failed[li] = 2; return; }
+                if (line == null || joined == 0) { failed[li] = 2; continue; }
                 counts[li] = n;
+                prevDepth = usedDepth; prevCount = n; prevAnchor = To3d(src.Plane, anchor);
 
                 var dst = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp };
                 dst.Rings = src.Rings != null ? new List<int>(src.Rings) : null;
@@ -507,12 +621,178 @@ namespace LARGERslicer.Toolpaths
                 dst.Contours.AddRange(src.Contours);
                 dst.Contours[host] = Ring3d(src.Plane, line);
                 result[li] = dst;
-            });
+            }
 
             waveCount = counts.Length > 0 ? counts.Max() : 0;
             int noFit = failed.Count(f => f == 1), noJoin = failed.Count(f => f == 2);
             if (noFit > 0) log?.Add($"{noFit} layer(s) got no wave: no closed wall, or the part is too narrow for this depth.");
             if (noJoin > 0) log?.Add($"{noJoin} layer(s) got no wave: it could not be joined to the wall.");
+            return result.ToList();
+        }
+
+        /// <summary>
+        /// Chamber wall: a band of closed chambers along the inside of the wall, the classic
+        /// double wall with webs. shape 0 = boxes (webs square to the wall), 1 = truss (every box
+        /// is split by a diagonal that changes direction from box to box). Every chamber is a
+        /// loop; neighbouring loops fuse and all are joined into the wall path (see CellLine).
+        /// </summary>
+        public static List<SliceLayer> Chambers(List<SliceLayer> layers, PrintSettings settings, int shape, double length, double depth,
+            List<string> log, out int chamberCount)
+        {
+            double spacing = settings.BeadSpacing, w = settings.BeadWidth;
+            length = Math.Max(length, 5 * spacing); depth = Math.Max(depth, 4 * spacing);
+            var result = new SliceLayer[layers.Count];
+            var counts = new int[layers.Count]; var failed = new int[layers.Count];
+
+            Point3d prevStation = Point3d.Unset; int prevN = 0; double prevD = 0;
+            List<Point3d> prevStations = null; var prevIsCorner = new List<bool>();
+            foreach (int li in Enumerable.Range(0, layers.Count).OrderBy(i => layers[i].Index))
+            {
+                var src = layers[li];
+                result[li] = src;
+                if (src.ContourRoles != null && src.ContourRoles.Any(r => r == PathRole.Bottom)) continue;
+                int inner = src.Rings != null && src.Rings.Count > 0 ? src.Rings.Max() : 0;
+                int host = -1; double hostArea = 0; List<Point2d> ring = null;
+                for (int c = 0; c < src.Contours.Count; c++)
+                {
+                    if (!Geo.Closed(src.Contours[c]) || src.Contours[c].Count < 4) continue;
+                    if (src.Rings != null && c < src.Rings.Count && src.Rings[c] != inner) continue;
+                    var r2 = Ring2d(src.Plane, src.Contours[c]);
+                    double area = Math.Abs(Area(r2));
+                    if (area > hostArea) { hostArea = area; host = c; ring = r2; }
+                }
+                if (host < 0) { failed[li] = 1; continue; }
+                if (Area(ring) < 0) ring.Reverse();
+                var material = new PathsD { new PathD(ring.Select(q => new PointD(q.X, q.Y))) };
+                // the band must leave room in the middle of the part
+                double d = depth;
+                for (int t = 0; t < 6; t++, d *= 0.8)
+                {
+                    var room = Clipper.InflatePaths(material, -(d + spacing), JoinType.Round, EndType.Polygon, 2.0, 4);
+                    if (room != null && room.Count > 0) break;
+                }
+                if (d < 4 * spacing) { failed[li] = 1; continue; }
+                if (prevD > 0) d = Math.Max(prevD - 0.4 * w, Math.Min(prevD + 0.4 * w, d));
+
+                double[] cum = LoopCum(ring);
+                double len = cum[ring.Count];
+                // stations: every corner, and evenly in between
+                var stations = new List<double>();
+                var corners = LoopCorners(ring, cum, 1.5 * w, null);
+                bool smooth = corners.Count == 0;
+                var isCorner = new List<bool>();
+                // a round part has no corner to start from: start where the layer below started
+                if (smooth) corners.Add(prevStation.IsValid ? LoopClosest(ring, cum, To2d(src.Plane, prevStation), out _) : 0);
+                for (int k = 0; k < corners.Count; k++)
+                {
+                    double sa = corners[k], sb = corners[(k + 1) % corners.Count];
+                    if (sb <= sa + 1e-9) sb += len;
+                    int n = Math.Max(1, (int)Math.Round((sb - sa) / length));
+                    if (smooth && prevN > 0 && len / prevN > 0.6 * length && len / prevN < 1.6 * length) n = prevN;
+                    if (smooth) prevN = n;
+                    for (int j = 0; j < n; j++) { stations.Add(sa + (sb - sa) * j / n); isCorner.Add(j == 0 && !smooth); }
+                }
+                // Stand on the chambers of the layer below: if every station of that layer has a place
+                // on this wall close by, take those places. The webs then follow a twisting or
+                // tapering part instead of being laid out afresh.
+                if (prevStations != null && prevStations.Count >= 3)
+                {
+                    var mapped = new List<double>(); bool ok = true;
+                    foreach (var ps in prevStations)
+                    {
+                        double sm = LoopClosest(ring, cum, To2d(src.Plane, ps), out double dist);
+                        if (dist > 1.5 * w) { ok = false; break; }
+                        mapped.Add(sm);
+                    }
+                    if (ok)
+                    {
+                        // must still run once around in the same order
+                        int wraps = 0; for (int q = 0; q < mapped.Count; q++) if (mapped[(q + 1) % mapped.Count] < mapped[q]) wraps++;
+                        if (wraps == 1) { stations = mapped; isCorner = prevIsCorner.Count == mapped.Count ? new List<bool>(prevIsCorner) : mapped.Select(_ => false).ToList(); }
+                    }
+                }
+                prevStations = stations.Select(sv => To3d(src.Plane, LoopAt(ring, cum, sv))).ToList(); prevIsCorner = new List<bool>(isCorner);
+                prevStation = To3d(src.Plane, LoopAt(ring, cum, stations[0]));
+                // inner point of a station: along the inward bisector, so neighbouring chambers share the web
+                double reach = d + 0.5 * spacing;
+                Func<double, Point2d> innerOf = sAt =>
+                {
+                    Point2d p = LoopAt(ring, cum, sAt), a = LoopAt(ring, cum, sAt - 0.5), b = LoopAt(ring, cum, sAt + 0.5);
+                    double ax = p.X - a.X, ay = p.Y - a.Y, bx = b.X - p.X, by = b.Y - p.Y;
+                    double la = Math.Sqrt(ax * ax + ay * ay), lb = Math.Sqrt(bx * bx + by * by);
+                    if (la < 1e-9 || lb < 1e-9) return p;
+                    double nx = -(ay / la + by / lb), ny = ax / la + bx / lb, nl = Math.Sqrt(nx * nx + ny * ny);
+                    if (nl < 1e-9) return p;
+                    nx /= nl; ny /= nl;
+                    double cosHalf = Math.Max(0.35, (-(ay / la) * nx + (ax / la) * ny));
+                    return new Point2d(p.X + nx * reach / cosHalf, p.Y + ny * reach / cosHalf);
+                };
+                var cells = new List<PathD>();
+                for (int k = 0; k < stations.Count; k++)
+                {
+                    double sa = stations[k], sb = stations[(k + 1) % stations.Count];
+                    if (sb <= sa + 1e-9) sb += len;
+                    var outer = new List<Point2d> { LoopAt(ring, cum, sa) };
+                    for (int i = 0; i < 2 * ring.Count; i++)
+                    {
+                        double sv = cum[i % ring.Count] + (i / ring.Count) * len;
+                        if (sv > sa + 1e-6 && sv < sb - 1e-6) outer.Add(ring[i % ring.Count]);
+                    }
+                    outer.Add(LoopAt(ring, cum, sb));
+                    Point2d qa = innerOf(sa), qb = innerOf(sb);
+                    if (shape == 1 && outer.Count == 2 && !isCorner[k] && !isCorner[(k + 1) % stations.Count])
+                    {
+                        // truss: split the box by a diagonal that alternates
+                        if ((k & 1) == 0)
+                        {
+                            cells.Add(new PathD { new PointD(outer[0].X, outer[0].Y), new PointD(outer[1].X, outer[1].Y), new PointD(qb.X, qb.Y) });
+                            cells.Add(new PathD { new PointD(outer[0].X, outer[0].Y), new PointD(qb.X, qb.Y), new PointD(qa.X, qa.Y) });
+                        }
+                        else
+                        {
+                            cells.Add(new PathD { new PointD(outer[0].X, outer[0].Y), new PointD(outer[1].X, outer[1].Y), new PointD(qa.X, qa.Y) });
+                            cells.Add(new PathD { new PointD(outer[1].X, outer[1].Y), new PointD(qb.X, qb.Y), new PointD(qa.X, qa.Y) });
+                        }
+                        continue;
+                    }
+                    var poly = new PathD(outer.Select(q => new PointD(q.X, q.Y)));
+                    poly.Add(new PointD(qb.X, qb.Y));
+                    // follow a curved wall on the inside as well
+                    for (int i = outer.Count - 2; i >= 1; i--)
+                    {
+                        Point2d q = innerOf(LoopClosest(ring, cum, outer[i], out _));
+                        poly.Add(new PointD(q.X, q.Y));
+                    }
+                    poly.Add(new PointD(qa.X, qa.Y));
+                    cells.Add(poly);
+                }
+                var taken = new PathsD();
+                var clean = new List<PathD>();
+                foreach (var cell in cells)
+                {
+                    var one = new PathsD { cell };
+                    if (Clipper.Area(cell) < 0) one[0].Reverse();
+                    PathsD rest = taken.Count == 0 ? one : Clipper.Difference(one, taken, FillRule.NonZero, 4);
+                    if (rest != null) foreach (var piece in rest) if (Clipper.Area(piece) > 0) clean.Add(piece);
+                    taken = taken.Count == 0 ? one : Clipper.Union(taken, one, FillRule.NonZero, 4);
+                }
+                var line = CellLine(ring, material, spacing, 0, 0, 0, new Point2d(0, 0), out int joined, out _, null, null, 1.0, null, clean);
+                if (line == null || joined == 0) { failed[li] = 1; continue; }
+                counts[li] = joined; prevD = d;
+
+                var dst = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp };
+                dst.Rings = src.Rings != null ? new List<int>(src.Rings) : null;
+                dst.Reference = src.Reference ?? src.Contours.Select(c => new Polyline(c)).ToList();
+                dst.ContourRoles = src.ContourRoles;
+                dst.EntryHints = src.EntryHints;
+                dst.Contours.AddRange(src.Contours);
+                dst.Contours[host] = Ring3d(src.Plane, line);
+                result[li] = dst;
+            }
+
+            chamberCount = counts.Length > 0 ? counts.Max() : 0;
+            int without = failed.Sum();
+            if (without > 0) log?.Add($"{without} layer(s) got no chambers (no closed wall, or the part is too narrow for this depth).");
             return result.ToList();
         }
 

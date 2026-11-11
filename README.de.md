@@ -36,7 +36,7 @@ Jede Zeichnung ist eine echte Lage aus dem Slicer (Bauteil 300 × 190 mm, Bahn 5
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme-infill-dark.png">
-  <img alt="Acht Infill-Muster als durchgehende Bahnen: Stege, treffende Stege, Waben, gestreckte Waben, Gitter, Welle, Fachwerk, Mäander" src="docs/readme-infill-light.png" width="100%">
+  <img alt="Zehn Infill-Muster als durchgehende Bahnen: Stege, treffende Stege, Waben, gestreckte Waben, Gitter, Welle, Fachwerk, Mäander, Kammerwand, Fachwerkwand" src="docs/readme-infill-light.png" width="100%">
 </picture>
 
 **Infill selbst zeichnen:** Kurven in der Draufsicht über das Bauteil zeichnen, und `Infill Sketch` macht aus jeder einen Steg, der ihr von Wand zu Wand folgt, als Teil derselben Linie.
@@ -59,7 +59,7 @@ Die Komponenten werden in dieser Reihenfolge verbunden. `Quick Start` legt die g
 | 3 | `Slice` | Breps, Flächen, SubDs, Meshes. Flach, gekippt, non-planar (Führungsfläche) oder multiaxial (Führungskurve) |
 | 4 | `Walls` | Bahn innen, mittig oder außen an der Geometrie |
 | 5 | `Bottom Fill` | Geschlossener Boden als eine Linie: Zickzack oder Kontur |
-| 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` | Infill, in die Wandlinie eingebunden |
+| 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill, in die Wandlinie eingebunden |
 | 7 | `Continuous Path` | Flache Lagen mit kurzer Rampe an fester Naht, oder Spirale für einfache Wände |
 | 8 | `Round Corners` | Jede Ecke wird ein Bogen |
 | 9 | `Start and End` | Skirt zuerst, am Ende vom Bauteil wegfahren |

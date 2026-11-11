@@ -166,6 +166,13 @@ def _(g):
     g.line([(9, 13.5), (15, 13.5)], BLUE, 2)
     g.poly([(10.4, 7), (13.6, 7), (12, 10.4)], INK)
 
+@icon('SlicerChambersIcon')
+def _(g):
+    frame(g)
+    g.rrect(7.2, 7.2, 16.8, 16.8, 1.2, BLUE, 1.6)
+    for a, b in (((12, 3.5), (12, 7.2)), ((12, 16.8), (12, 20.5)), ((3.5, 12), (7.2, 12)), ((16.8, 12), (20.5, 12))):
+        g.line([a, b], BLUE, 1.6)
+
 @icon('SlicerPathIcon')
 def _(g):
     pts = [(12 + 7.5 * math.cos(t * 5 * math.pi), 19.5 - t * 14 + 1.6 * math.sin(t * 5 * math.pi)) for t in [i / 150 for i in range(151)]]

@@ -36,7 +36,7 @@ Every drawing is a real layer from the slicer (part 300 × 190 mm, bead 5 mm). S
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme-infill-dark.png">
-  <img alt="Eight infill patterns as single continuous toolpaths: ribs, meeting ribs, honeycomb, stretched honeycomb, grid, wave, truss, meander" src="docs/readme-infill-light.png" width="100%">
+  <img alt="Ten infill patterns as single continuous toolpaths: ribs, meeting ribs, honeycomb, stretched honeycomb, grid, wave, truss, meander, chamber wall, truss wall" src="docs/readme-infill-light.png" width="100%">
 </picture>
 
 **Draw your own infill:** sketch curves over the part in top view and `Infill Sketch` turns each one into a rib that follows it from wall to wall, as part of the same line.
@@ -59,7 +59,7 @@ Components connect in this order. `Quick Start` places the whole chain with an e
 | 3 | `Slice` | Breps, surfaces, SubDs, meshes. Flat, tilted, non-planar (guide surface) or multi-axis (guide curve) |
 | 4 | `Walls` | Bead inside, centred on or outside the geometry |
 | 5 | `Bottom Fill` | Closed bottom as one line: zigzag or contour |
-| 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` | Infill spliced into the wall path |
+| 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill spliced into the wall path |
 | 7 | `Continuous Path` | Flat layers with a short ramp at a fixed seam, or a spiral for single walls |
 | 8 | `Round Corners` | Every corner becomes an arc |
 | 9 | `Start and End` | Skirt first, a move off the part at the end |

@@ -715,7 +715,7 @@ namespace LARGERslicer.Components.Slicer
     {
         public InfillWaveComponent()
             : base("Infill Wave", "Wave",
-                  "A single inner line that swings between the wall and a set depth: as a smooth wave, a truss (straight flanks) or a meander (steep flanks). At every crest it runs along the wall for two bead widths and fuses with it. The line is part of the one continuous wall path. Wavelength and Depth scale the pattern, Origin moves it.") { }
+                  "A single inner line that runs along the wall and dips into the part at regular intervals: as a smooth wave, a truss (straight flanks) or a meander (steep flanks). Every straight side gets a whole number of equal waves, corners stay clear, and the line is part of the one continuous wall path. Wavelength and Depth scale the pattern; on round parts Origin moves it.") { }
 
         public override Guid ComponentGuid => new Guid("80A0FC23-1A1C-44EA-89C1-EEF889BA2507");
         public override GH_Exposure Exposure => GH_Exposure.tertiary;
@@ -836,6 +836,63 @@ namespace LARGERslicer.Components.Slicer
             da.SetDataList(0, result.Select(l => new GH_SliceLayer(l)));
             da.SetDataList(1, result.SelectMany(l => l.RealContours()).Select(c => new PolylineCurve(c)));
             da.SetData(2, $"{sketch.Count} sketched curve(s), {ribs} rib(s) in total over {result.Count} layers, {sw.ElapsedMilliseconds} ms");
+        }
+    }
+
+    // ============================================================== 2g Infill Chambers
+    public class InfillChambersComponent : SlicerComponent
+    {
+        public InfillChambersComponent()
+            : base("Infill Chambers", "Chambers",
+                  "A band of closed chambers along the inside of the wall: the classic double wall with webs, as boxes or as a truss with diagonals. Every chamber is a loop, neighbouring loops fuse, and all are joined into the one continuous wall path. The chambers of a layer stand on those of the layer below, also on twisting or tapering parts.") { }
+
+        public override Guid ComponentGuid => new Guid("7BBFAAF9-6748-49F9-A6A3-0549539812DE");
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerChambersIcon.png");
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddGenericParameter("Layers", "L", "Layers from Walls or Bottom Fill", GH_ParamAccess.list);
+            p.AddGenericParameter("Settings", "S", "Print Settings", GH_ParamAccess.item);
+            p.AddIntegerParameter("Shape", "Sh", "0 = Boxes (webs square to the wall)\n1 = Truss (boxes with alternating diagonals)", GH_ParamAccess.item, 0);
+            p.AddNumberParameter("Length", "Len", "Length of a chamber along the wall (mm). Every side gets a whole number of equal chambers.", GH_ParamAccess.item, 70.0);
+            p.AddNumberParameter("Depth", "D", "Depth of the band, from the wall inwards (mm). Reduced automatically where the part is too narrow.", GH_ParamAccess.item, 50.0);
+            p[1].Optional = true;
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddValueList(doc, 2, "Shape", "Boxes", "Truss");
+            AddSlider(doc, 3, "Length", 30, 400, 70, 0);
+            AddSlider(doc, 4, "Depth", 20, 300, 50, 0);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddGenericParameter("Layers", "L", "Layers with the chambers joined into the wall path", GH_ParamAccess.list);
+            p.AddCurveParameter("Contours", "C", "Paths as curves (for checking)", GH_ParamAccess.list);
+            p.AddTextParameter("Info", "I", "Statistics", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            var goos = new List<IGH_Goo>();
+            if (!da.GetDataList(0, goos)) return;
+            var layers = goos.OfType<GH_SliceLayer>().Select(g => g.Value).Where(l => l != null).ToList();
+            if (layers.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect the Layers output of Walls or Bottom Fill."); return; }
+            var settings = SlicerIO.Get<PrintSettings>(da, 1) ?? new PrintSettings();
+            int shape = 0; double length = 70, depth = 50;
+            da.GetData(2, ref shape); da.GetData(3, ref length); da.GetData(4, ref depth);
+            var log = new List<string>();
+            var sw = Stopwatch.StartNew();
+            var result = FillEngine.Chambers(layers, settings, shape == 1 ? 1 : 0, length, depth, log, out int chambers);
+            sw.Stop();
+            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
+            if (chambers == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No chamber fits. Reduce Depth or Length, or check that the layers have a closed wall.");
+            Message = chambers == 0 ? "No chambers" : (shape == 1 ? "Truss" : "Boxes");
+            da.SetDataList(0, result.Select(l => new GH_SliceLayer(l)));
+            da.SetDataList(1, result.SelectMany(l => l.RealContours()).Select(c => new PolylineCurve(c)));
+            da.SetData(2, $"up to {chambers} chambers per layer, {sw.ElapsedMilliseconds} ms");
         }
     }
 

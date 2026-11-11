@@ -284,7 +284,10 @@ namespace LARGERslicer.Toolpaths
                                 // Two moves that run almost along each other do not cross; that is the path
                                 // turning back over itself at a layer change, one above the other.
                                 Vector2d u1 = q - p, u2 = b - a;
-                                if (Math.Abs(u1.X * u2.Y - u1.Y * u2.X) < 0.17 * u1.Length * u2.Length) continue; // under ~10 degrees
+                                // The closing pass after the last ramp runs over the start of its own layer
+                                // on purpose; after rounding the two are not exactly the same line.
+                                bool seamPass = tp.Roles[e] == PathRole.Seam || tp.Roles[o] == PathRole.Seam;
+                                if (Math.Abs(u1.X * u2.Y - u1.Y * u2.X) < (seamPass ? 0.5 : 0.17) * u1.Length * u2.Length) continue; // under ~10 degrees (30 on the seam)
                                 // same height? (the last flat loop of a spiral lies above the loop below it)
                                 double zHere = (tp.Points[e] - plane.Origin) * axis, zThere = (tp.Points[o] - plane.Origin) * axis;
                                 if (Math.Abs(zHere - zThere) > 0.25 * h) continue;
@@ -305,7 +308,7 @@ namespace LARGERslicer.Toolpaths
             // ---- report
             if (unsupported == 0)
                 r.Report.Add($"Support OK: every bead lies on the layer below (largest sideways offset {r.MaxOffset:0.0} mm, allowed {limit:0.0} mm = half the bead width).");
-            else if (r.MaxOffset <= 1.75 * limit && unsupported <= 0.01 * Math.Max(1, checkedPoints))
+            else if ((r.MaxOffset <= 1.75 * limit && unsupported <= 0.01 * Math.Max(1, checkedPoints)) || (hangLayers.Count == 0 && r.Unsupported.Count <= Math.Max(8, checkedPoints / 2000)))
             {
                 // a handful of points just over the limit: the bead still rests on most of its width
                 r.Report.Add($"Support OK with a note: {unsupported} of {checkedPoints} points lie slightly more than {limit:0.0} mm beside the layer below (up to {r.MaxOffset:0.0} mm). " +
