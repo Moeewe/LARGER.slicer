@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Found by running the whole Slicer tab in Grasshopper (Rhino 9) on parts with openings.
 
 ### Added
+- First version for Grasshopper 2 (Rhino 9) in `LARGERslicer.GH2`: nine slicer components and three DXR components on the same slicer core. See its README for what is ported and what is tested.
 - `Quick Start` now builds three labelled examples: flat layers, non-planar layers along a guide surface, multi-axis layers along a guide curve.
 
 ### Fixed

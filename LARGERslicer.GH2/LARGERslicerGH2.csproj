@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- LARGER.slicer for Grasshopper 2 (Rhino 9). Same slicer core as the Grasshopper 1 plug-in:
+       the files under ../LARGERslicer/Toolpaths are compiled into this assembly, not copied. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>LARGERslicerGH2</AssemblyName>
+    <RootNamespace>LARGERslicer.GH2</RootNamespace>
+    <TargetExt>.rhp</TargetExt>
+    <Version>0.1.0</Version>
+    <AssemblyTitle>LARGER.slicer</AssemblyTitle>
+    <Description>Continuous single-line toolpaths for large-format 3D printing, and DXR output.</Description>
+    <Company>Moritz Wesseler, FH Muenster</Company>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <NoWarn>NU1701;CS1591;MSB3277;MSB3270</NoWarn>
+    <Rhino9 Condition="'$(Rhino9)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">/Applications/Rhino 9.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources</Rhino9>
+    <Rhino9 Condition="'$(Rhino9)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">C:\Program Files\Rhino 9\System</Rhino9>
+    <Gh2Dir Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(Rhino9)/ManagedPlugIns/Grasshopper2Plugin.rhp</Gh2Dir>
+    <Gh2Dir Condition="$([MSBuild]::IsOSPlatform('Windows'))">C:\Program Files\Rhino 9\Plug-ins\Grasshopper2</Gh2Dir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="RhinoCommon"><HintPath>$(Rhino9)/RhinoCommon.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Grasshopper2"><HintPath>$(Gh2Dir)/Grasshopper2.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="GrasshopperIO"><HintPath>$(Gh2Dir)/GrasshopperIO.dll</HintPath><Private>false</Private></Reference>
+    <PackageReference Include="Clipper2" Version="1.5.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../LARGERslicer/Toolpaths/*.cs" Exclude="../LARGERslicer/Toolpaths/ToolpathGoo.cs" LinkBase="Core" />
+    <Compile Include="../LARGERslicer/Utils/DXRHelper.cs" LinkBase="Core" />
+    <Compile Include="../LARGERslicer/Types/MachineSettings.cs" LinkBase="Core" />
+  </ItemGroup>
+</Project>
