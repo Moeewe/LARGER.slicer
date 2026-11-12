@@ -357,6 +357,33 @@ namespace LARGERslicer.Components.Slicer
             hide.Add(part3);
             group("PART, GUIDE CURVE AND SLICER", System.Drawing.Color.FromArgb(70, 175, 82, 222), row3.ToArray());
 
+            // the robot for this example: with layers square to the guide curve the tool leans, and here you can watch it
+            {
+                var lead3 = (GH_Component)row3[4];
+                var program3 = (GH_Component)place(new LARGERslicer.Components.Robot.RobotProgramComponent(), 1760, y3 - 20);
+                program3.Params.Input[0].AddSource(lead3.Params.Output[0]);
+                program3.Params.Input[1].AddSource(cellC.Params.Output[0]);
+                { var pn = program3.Params.Input[3] as Grasshopper.Kernel.Parameters.Param_String; if (pn != null) { pn.PersistentData.Clear(); pn.PersistentData.Append(new GH_String("Multi Axis")); } }
+                var simulate3 = (GH_Component)place(new LARGERslicer.Components.Robot.RobotSimulationComponent(), 2300, y3 - 20);
+                if (program3.Params.Output.Count > 12) simulate3.Params.Input[0].AddSource(program3.Params.Output[12]);
+                var slider3 = new Grasshopper.Kernel.Special.GH_NumberSlider();
+                slider3.CreateAttributes();
+                slider3.NickName = "Simulation (0 = start, 1 = end)";
+                slider3.Slider.Minimum = 0; slider3.Slider.Maximum = 1; slider3.Slider.DecimalPlaces = 3;
+                slider3.SetSliderValue(0.9m);
+                slider3.Attributes.Pivot = new System.Drawing.PointF(x0 + 1960, y0 + y3 + 20);
+                doc.AddObject(slider3, false);
+                simulate3.Params.Input[1].AddSource(slider3);
+                var play3 = new Grasshopper.Kernel.Special.GH_BooleanToggle { NickName = "Play" };
+                play3.CreateAttributes();
+                play3.Value = false;
+                play3.Attributes.Pivot = new System.Drawing.PointF(x0 + 2080, y0 + y3 + 60);
+                doc.AddObject(play3, false);
+                if (simulate3.Params.Input.Count > 2) simulate3.Params.Input[2].AddSource(play3);
+                all.Add(program3); all.Add(simulate3);
+                group("ROBOT SIMULATION OF THE MULTI-AXIS PRINT  -  the tool leans with the layers: move the slider or double-click Play. Read the Report of Robot Program for reach and collisions", System.Drawing.Color.FromArgb(70, 240, 110, 20), new IGH_DocumentObject[] { program3, simulate3, slider3, play3 });
+            }
+
             // ---- 4 part with an opening and 5 angled layers: part -> slice -> walls (-> infill) -> path -> round -> start/end -> check
             Func<float, IGH_Param, GH_Component, double, IGH_DocumentObject[]> flatChain = (y, partParam, infill, angle) =>
             {
