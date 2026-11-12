@@ -144,84 +144,12 @@ namespace LARGERslicer.Components.Slicer
             document.ScheduleSolution(5, doc => Build(doc));
         }
 
-        private static Brep DemoPart()
-        {
-            // a curved hull, 60 mm high: shows walls, ribs and bottom in one part
-            var outer = new Arc(Plane.WorldXY, 260, Math.PI * 0.9).ToNurbsCurve();
-            var inner = new Arc(Plane.WorldXY, 170, Math.PI * 0.9).ToNurbsCurve();
-            inner.Reverse();
-            var joined = Curve.JoinCurves(new Curve[] { outer, new LineCurve(outer.PointAtEnd, inner.PointAtStart), inner, new LineCurve(inner.PointAtEnd, outer.PointAtStart) });
-            if (joined == null || joined.Length == 0) return null;
-            // on the bed: every coordinate positive, as a machine with its origin in the corner needs it
-            joined[0].Translate(new Vector3d(317, 100, 0)); // front row of the bed, left: x 70..577, y 100..360
-            return Surface.CreateExtrusion(joined[0], new Vector3d(0, 0, 60)).ToBrep();
-        }
-
-        /// <summary>Non-planar demo: a round hull whose top edge follows a saddle surface, and that surface.</summary>
-        private static void NonPlanarDemo(Point3d c, out Brep part, out Brep guide)
-        {
-            const double r = 120; part = null; guide = null;
-            Func<double, double, double> z = (x, y) => 70 + 22 * (x * x - y * y) / (r * r);
-            var top = new List<Point3d>();
-            for (int i = 0; i < 48; i++) { double a = i * Math.PI * 2 / 48; top.Add(new Point3d(c.X + r * Math.Cos(a), c.Y + r * Math.Sin(a), z(r * Math.Cos(a), r * Math.Sin(a)))); }
-            top.Add(top[0]);
-            Curve topCurve = Curve.CreateInterpolatedCurve(top, 3, CurveKnotStyle.ChordPeriodic);
-            Curve baseCurve = new Circle(new Plane(c, Vector3d.ZAxis), r).ToNurbsCurve();
-            if (topCurve != null)
-            {
-                // seams at the same place, same direction
-                double t; if (topCurve.ClosestPoint(baseCurve.PointAtStart + new Vector3d(0, 0, 70), out t)) topCurve.ChangeClosedCurveSeam(t);
-                if (topCurve.TangentAtStart * baseCurve.TangentAtStart < 0) topCurve.Reverse();
-                var loft = Brep.CreateFromLoft(new[] { baseCurve, topCurve }, Point3d.Unset, Point3d.Unset, LoftType.Straight, false);
-                if (loft != null && loft.Length > 0) part = loft[0];
-            }
-            var grid = new List<Point3d>();
-            for (int i = 0; i < 7; i++) for (int j = 0; j < 7; j++) { double x = -1.35 * r + i * 0.45 * r, y = -1.35 * r + j * 0.45 * r; grid.Add(new Point3d(c.X + x, c.Y + y, z(x, y))); }
-            var srf = NurbsSurface.CreateThroughPoints(grid, 7, 7, 3, 3, false, false);
-            if (srf != null) guide = srf.ToBrep();
-        }
-
-        /// <summary>Multi-axis demo: a tube that grows along a bent axis, and that axis.</summary>
-        private static void MultiAxisDemo(Point3d c, out Brep part, out Curve guide)
-        {
-            part = null;
-            guide = new Arc(c, Vector3d.ZAxis, c + new Vector3d(130, 0, 200)).ToNurbsCurve();
-            var pipe = Brep.CreatePipe(guide, 70, false, PipeCapMode.None, true, 0.01, 0.01);
-            if (pipe != null && pipe.Length > 0) part = pipe[0];
-        }
-
-        // The demo bed: 1000 x 1000 mm, origin in the front left corner. Front row: example 1 and 5.
-        // Back row: examples 2, 3 and 4, with the same distance to the edges and to each other.
-        private const double BedSize = 1000;
-
-        /// <summary>Example 4: a plate with a round opening, 220 x 220 x 50 mm.</summary>
-        private static Brep PlateDemo(Point3d c)
-        {
-            var outer = new Rectangle3d(new Plane(new Point3d(c.X - 110, c.Y - 110, 0), Vector3d.XAxis, Vector3d.YAxis), 220, 220).ToNurbsCurve();
-            var hole = new Circle(new Plane(new Point3d(c.X, c.Y, 0), Vector3d.ZAxis), 50).ToNurbsCurve();
-            var face = Brep.CreatePlanarBreps(new Curve[] { outer, hole }, 0.01);
-            if (face == null || face.Length == 0) return null;
-            return face[0].Faces[0].CreateExtrusion(new LineCurve(Point3d.Origin, new Point3d(0, 0, 50)), true);
-        }
-
-        /// <summary>
-        /// Example 5: a block that leans 55 degrees towards -Y. Printed in flat layers its wall
-        /// overhangs more than a bead can carry; with layers leaning 45 degrees the same way the
-        /// wall is only 10 degrees off the build direction. Its foot edge lies along X, so the
-        /// first leaning layer starts on a straight line on the bed.
-        /// </summary>
-        private static Brep LeanDemo(Point3d c)
-        {
-            const double wx = 90, wy = 60, hgt = 150;
-            double shift = hgt * Math.Tan(55 * Math.PI / 180);
-            Func<double, double, double, Curve> rect = (cy, z, dummy) => new PolylineCurve(new[]
-            {
-                new Point3d(c.X - wx, cy - wy, z), new Point3d(c.X + wx, cy - wy, z), new Point3d(c.X + wx, cy + wy, z), new Point3d(c.X - wx, cy + wy, z), new Point3d(c.X - wx, cy - wy, z),
-            });
-            var loft = Brep.CreateFromLoft(new[] { rect(c.Y, 0, 0), rect(c.Y - shift, hgt, 0) }, Point3d.Unset, Point3d.Unset, LoftType.Straight, false);
-            if (loft == null || loft.Length == 0) return null;
-            return loft[0].CapPlanarHoles(0.01) ?? loft[0];
-        }
+        private const double BedSize = DemoParts.BedSize;
+        private static Brep DemoPart() => DemoParts.Hull();
+        private static void NonPlanarDemo(Point3d c, out Brep part, out Brep guide) => DemoParts.NonPlanar(c, out part, out guide);
+        private static void MultiAxisDemo(Point3d c, out Brep part, out Curve guide) => DemoParts.MultiAxis(c, out part, out guide);
+        private static Brep PlateDemo(Point3d c) => DemoParts.Plate(c);
+        private static Brep LeanDemo(Point3d c) => DemoParts.Lean(c);
 
         private void Build(GH_Document doc)
         {
@@ -1304,7 +1232,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddGenericParameter("Settings", "S", "Print Settings", GH_ParamAccess.item);
             p.AddIntegerParameter("Mode", "M", "1 = Layered (default): every layer is flat, the path changes layer over a short ramp at one fixed place\n0 = Spiral (vase mode): the path climbs all the time. Only for single walls without infill - layers with ribs, cells or a bottom are always printed flat", GH_ParamAccess.item, 1);
             p.AddGeometryParameter("Seam", "Seam", "Optional point or curve: where the seam is. Every layer starts at the place on its contour nearest to it. Without it the seam stays where the first layer started", GH_ParamAccess.item);
-            p.AddNumberParameter("Ramp Length", "Ramp", "Layered only: length of the seam. Over this length the path climbs to the next layer while it keeps going round; every layer climbs at the same place. The layers stay flat everywhere else. About 4 bead widths is a good start; longer = softer but more of the layer is inclined. 0 = hard step", GH_ParamAccess.item, 20.0);
+            p.AddNumberParameter("Seam Gap", "Gap", "Layered only: the gap at the seam in mm. Every layer ends this far before its own start, so the end never runs into the beginning; the path crosses the gap on a short incline up to the next layer, at the same place on every layer. 0 = one bead width (default). Longer = softer seam, but more of the layer is inclined", GH_ParamAccess.item, 0.0);
             p[1].Optional = true; p[3].Optional = true;
         }
 
@@ -1330,7 +1258,7 @@ namespace LARGERslicer.Components.Slicer
                 return;
             }
             var settings = SlicerIO.Get<PrintSettings>(da, 1) ?? new PrintSettings();
-            int mode = 0; double ramp = 100; bool alternate = false;
+            int mode = 0; double ramp = 0; bool alternate = false;
             da.GetData(2, ref mode); da.GetData(4, ref ramp);
             IGH_GeometricGoo seamGoo = null; GeometryBase seam = null;
             if (da.GetData(3, ref seamGoo) && seamGoo != null)

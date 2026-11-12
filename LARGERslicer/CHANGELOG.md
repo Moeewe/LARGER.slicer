@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `Continuous Path`: open seam. The flat part of every layer ends one bead width before its own start, and the path crosses that gap on a short incline up to the next layer, at the same place on every layer. Before, the incline was 20 mm long. The input is now called `Seam Gap`; 0 = one bead width, a larger value gives a longer, softer seam. Definitions saved earlier keep the value stored in them.
+- `Start and End`: the skirt stays open by one bead width (before: one bead spacing).
+- `Easy Slicer` uses the same seam.
+
 ## [1.3.0] - 2026-11-12
 
 ### Added

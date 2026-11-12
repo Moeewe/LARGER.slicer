@@ -308,7 +308,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Layers", "L", "Layers.");
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddInteger("Mode", "M", "1 = layered (default). 0 = spiral (vase mode).").Set(1);
-            inputs.AddNumber("Ramp Length", "R", "Layered: length of the ramp to the next layer in mm.").Set(20.0);
+            inputs.AddNumber("Seam Gap", "G", "Layered: the gap at the seam in mm. Every layer ends this far before its own start; the path crosses the gap on a short incline up to the next layer. 0 = one bead width.").Set(0.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)

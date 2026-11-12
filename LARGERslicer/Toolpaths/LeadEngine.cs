@@ -76,16 +76,16 @@ namespace LARGERslicer.Toolpaths
                         PathsD ring = Clipper.InflatePaths(new PathsD { path }, skirtDistance + k * spacing, JoinType.Round, EndType.Polygon, 2.0, 3, 0.05);
                         if (ring == null || ring.Count == 0 || ring[0].Count < 3) continue;
                         var loop = ring[0].Select(p => new Point2d(p.x, p.y)).ToList();
-                        // The loop starts one bead spacing after the point that lies exactly
+                        // The loop starts one bead width after the point that lies exactly
                         // opposite the first point of the part and ends on that point. So the end
                         // of the skirt does not run into its own beginning, and the way across to
                         // the part is the shortest one: square to the wall, never alongside it.
                         var cum = FillEngine.Cumulative(loop);
                         double len = cum[loop.Count];
-                        if (len < 4 * spacing) continue;
+                        if (len < 4 * w) continue;
                         double s0 = FillEngine.ClosestS(loop, cum, start2, out double away);
                         if (k == 0) linkLength = away;
-                        foreach (Point2d q in FillEngine.Sub(loop, cum, s0 + spacing, s0 + len))
+                        foreach (Point2d q in FillEngine.Sub(loop, cum, s0 + w, s0 + len))
                         {
                             Point3d p3 = plane.Origin + plane.XAxis * q.X + plane.YAxis * q.Y;
                             if (last.IsValid && p3.DistanceTo(last) < 1e-6) continue;

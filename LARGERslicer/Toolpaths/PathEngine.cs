@@ -173,6 +173,9 @@ namespace LARGERslicer.Toolpaths
 
             double minSpacing = settings.PointSpacing;
             double w = settings.BeadWidth;
+            // The seam gap: every layer ends this far from its own start, and the path crosses
+            // the gap on a short incline up to the next layer. Nothing set = one bead width.
+            if (rampLength <= 0) rampLength = w;
 
             // clean contours once
             var loops = new List<List<Loop>>(layers.Count);
@@ -401,13 +404,15 @@ namespace LARGERslicer.Toolpaths
         /// <summary>
         /// Flat layers joined into one path.
         ///
-        /// Closed contours change layer over a ramp: at the seam the path climbs one layer height
-        /// along the ramp length while it keeps going round. The next layer starts its climb at
-        /// the same place, so inside the ramp zone every pass lies exactly one layer height above
-        /// the pass below - the layers are simply inclined there. Nothing is printed twice, the
-        /// seam stays where it is, and the extrusion stays constant. Only the very first ramp
-        /// (which starts on a flat layer) and a closing pass after the last one have a height
-        /// that fades in or out. A longer ramp gives a softer seam.
+        /// Closed contours have an open seam: the flat part of a layer ends one seam gap away
+        /// from where it began (one bead width if nothing is set), so the end of a layer never
+        /// runs into its own start. The path crosses that gap on a short incline, climbing one
+        /// layer height, and is then on the next layer. Every layer does this at the same
+        /// place, so inside the gap every pass lies exactly one layer height above the pass
+        /// below. Nothing is printed twice, the seam stays where it is, and the extrusion
+        /// stays constant. Only the very first incline (which starts on a flat layer) and a
+        /// closing pass after the last one have a height that fades in or out. A longer gap
+        /// gives a softer seam.
         ///
         /// Layers that carry a fill (bottom, top) change layer with a plain step next to the fill.
         /// Open contours are printed back and forth.
