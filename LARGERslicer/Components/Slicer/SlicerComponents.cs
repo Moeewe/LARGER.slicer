@@ -123,7 +123,7 @@ namespace LARGERslicer.Components.Slicer
 
         public QuickStartComponent()
             : base("Quick Start", "Start",
-                  "Place this on the canvas to get three complete, working examples, each in its own labelled group: 1 flat layers (walls, bottom, ribs, continuous path, rounding, skirt and exit, extrusion, check), 2 non-planar layers along a guide surface, 3 multi-axis layers along a guide curve. Replace the demo parts with your own geometry.",
+                  "Place this on the canvas to get three complete, working examples, each in its own labelled group: 1 flat layers from the part to the file for the machine (G-code for the Ginger One, DXR for the Weber DXR), 2 non-planar layers along a guide surface, 3 multi-axis layers along a guide curve. Replace the demo parts with your own geometry.",
                   SlicerIO.Category, SlicerIO.SubCategory) { }
 
         public override Guid ComponentGuid => new Guid("5CC24A30-0D0B-4EDC-906E-F78FD264DAB3");
@@ -151,7 +151,10 @@ namespace LARGERslicer.Components.Slicer
             var inner = new Arc(Plane.WorldXY, 200, Math.PI * 0.9).ToNurbsCurve();
             inner.Reverse();
             var joined = Curve.JoinCurves(new Curve[] { outer, new LineCurve(outer.PointAtEnd, inner.PointAtStart), inner, new LineCurve(inner.PointAtEnd, outer.PointAtStart) });
-            return joined != null && joined.Length > 0 ? Surface.CreateExtrusion(joined[0], new Vector3d(0, 0, 60)).ToBrep() : null;
+            if (joined == null || joined.Length == 0) return null;
+            // on the bed: every coordinate positive, as a machine with its origin in the corner needs it
+            joined[0].Translate(new Vector3d(300, 20, 0));
+            return Surface.CreateExtrusion(joined[0], new Vector3d(0, 0, 60)).ToBrep();
         }
 
         /// <summary>Non-planar demo: a round hull whose top edge follows a saddle surface, and that surface.</summary>
@@ -252,6 +255,25 @@ namespace LARGERslicer.Components.Slicer
                 new IGH_DocumentObject[] { part, slice, walls, bottom, ribs, path, round, lead });
             group("Result: Path Check says whether it can be printed, Extrusion and Speed gives the values for the machine.", System.Drawing.Color.FromArgb(70, 48, 176, 110), new IGH_DocumentObject[] { extrude, check });
 
+            // ---- output: the file for the machine
+            var ginger = (GH_Component)place(new GingerGCodeComponent(), 2260, y1 - 90);
+            ginger.Params.Input[0].AddSource(lead.Params.Output[0]);
+            var ptp = (GH_Component)place(new ToolpathToRobotLinesComponent(), 2260, y1 + 110);
+            ptp.Params.Input[0].AddSource(lead.Params.Output[0]);
+            var dxrMachine = (GH_Component)place(new LARGERslicer.Components.Export.MachineSettingsComponent(), 2260, y1 + 290);
+            var dxr = (GH_Component)place(new LARGERslicer.Components.Export.DXRGeneratorComponent(), 2560, y1 + 150);
+            dxr.Params.Input[0].AddSource(ptp.Params.Output[0]);
+            dxr.Params.Input[1].AddSource(ptp.Params.Output[1]);
+            dxr.Params.Input[2].AddSource(ptp.Params.Output[2]);
+            dxr.Params.Input[3].AddSource(dxrMachine.Params.Output[0]);
+            all.AddRange(new[] { ginger, ptp });
+            group("Output A - Ginger One: G-code with the machine's start and end. Give a file path and set Save to write it.", System.Drawing.Color.FromArgb(70, 232, 135, 12), new IGH_DocumentObject[] { ginger });
+            group("Output B - Weber DXR on a robot: robot moves, then the DXR file. Set A, B, C to your cell's tool orientation, or feed the DXR Generator from the Robots plug-in. Choose the matching preset in Machine Profile.", System.Drawing.Color.FromArgb(70, 210, 63, 69), new IGH_DocumentObject[] { ptp, dxrMachine, dxr });
+            // the demo is set up for the Ginger: its E values need the Ginger factor
+            var presetList = machine.Params.Input[0].Sources.OfType<Grasshopper.Kernel.Special.GH_ValueList>().FirstOrDefault();
+            if (presetList != null && presetList.ListItems.Count > 4) presetList.SelectItem(4);
+            else setInt(machine.Params.Input[0], 4);
+
             // ---- 2 non-planar and 3 multi-axis: part + guide -> slice -> walls -> path -> round -> start/end -> check
             Func<float, IGH_Param, IGH_Param, int, int, IGH_DocumentObject[]> chain = (y, partParam, guideParam, guideMode, pathMode) =>
             {
@@ -275,7 +297,7 @@ namespace LARGERslicer.Components.Slicer
             };
 
             float y2 = 900;
-            Brep npPart, npGuide; NonPlanarDemo(new Point3d(650, 0, 0), out npPart, out npGuide);
+            Brep npPart, npGuide; NonPlanarDemo(new Point3d(950, 180, 0), out npPart, out npGuide);
             var part2 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y2 - 20);
             part2.NickName = "Part";
             if (npPart != null) part2.PersistentData.Append(new GH_Brep(npPart));
@@ -287,7 +309,7 @@ namespace LARGERslicer.Components.Slicer
             group("2  Non-planar - the layers follow a guide surface. The first layer lies flat on the bed, the last one follows the top of the part. Draw the guide surface over your part.", System.Drawing.Color.FromArgb(70, 255, 149, 0), row2.ToArray());
 
             float y3 = 1320;
-            Brep maPart; Curve maGuide; MultiAxisDemo(new Point3d(1150, 0, 0), out maPart, out maGuide);
+            Brep maPart; Curve maGuide; MultiAxisDemo(new Point3d(1450, 180, 0), out maPart, out maGuide);
             var part3 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y3 - 20);
             part3.NickName = "Part";
             if (maPart != null) part3.PersistentData.Append(new GH_Brep(maPart));
@@ -1458,4 +1480,91 @@ namespace LARGERslicer.Components.Slicer
             da.SetData(2, r.Info);
         }
     }
+    // ============================================================== machine output
+    public class GingerGCodeComponent : SlicerComponent
+    {
+        public GingerGCodeComponent()
+            : base("Ginger G-code", "Ginger",
+                  "Writes the toolpath as G-code for the Ginger One, in full size: the start and end sequence of the Ginger quick start guide, absolute positions, relative extrusion, one constant feedrate. Use Machine Profile with the Ginger preset so the E values fit the pellet extruder.") { }
+
+        public override Guid ComponentGuid => new Guid("3B1D6C52-9E0A-4F37-8C1B-5D2A7E9F4A10");
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerDesktopIcon.png");
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddGenericParameter("Toolpath", "T", "Toolpath from Start and End", GH_ParamAccess.item);
+            p.AddTextParameter("File", "File", "Optional file path (.gcode). Written when Save is true", GH_ParamAccess.item);
+            p.AddBooleanParameter("Save", "Save", "True = write the file", GH_ParamAccess.item, false);
+            p[1].Optional = true;
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddTextParameter("G-code", "G", "G-code lines", GH_ParamAccess.list);
+            p.AddTextParameter("Info", "I", "Layers, length, extrusion and time", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            var tp = SlicerIO.Get<Toolpath>(da, 0);
+            if (tp == null || tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect a Toolpath."); return; }
+            string file = null; bool save = false;
+            da.GetData(1, ref file); da.GetData(2, ref save);
+            var r = GingerGCode.Build(tp);
+            foreach (var wmsg in r.Warnings) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, wmsg);
+            if (save && !string.IsNullOrWhiteSpace(file))
+            {
+                try { System.IO.File.WriteAllLines(file, r.Lines); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + file); }
+                catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
+            }
+            Message = r.Lines.Count + " lines";
+            da.SetDataList(0, r.Lines);
+            da.SetData(1, r.Info);
+        }
+    }
+
+    public class ToolpathToRobotLinesComponent : SlicerComponent
+    {
+        public ToolpathToRobotLinesComponent()
+            : base("Toolpath to Robot Lines", "PTP",
+                  "Writes the toolpath as robot moves for the DXR Generator: one PTP line per point, with the matching extrusion and speed. The tool orientation A, B, C is the same for every point: use it for flat layers with a vertical tool and check it against your robot cell before the first run. With the Robots plug-in, take its program instead.") { }
+
+        public override Guid ComponentGuid => new Guid("7C4E9A21-63B8-4D15-A0F2-1E8B5C7D3F92");
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerOpenIcon.png");
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddGenericParameter("Toolpath", "T", "Toolpath from Start and End", GH_ParamAccess.item);
+            p.AddNumberParameter("A", "A", "Tool orientation A in degrees (rotation about Z), as your robot cell expects it for a vertical tool", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("B", "B", "Tool orientation B in degrees (rotation about Y)", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("C", "C", "Tool orientation C in degrees (rotation about X)", GH_ParamAccess.item, 0.0);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddTextParameter("Robot Path", "Path", "One PTP line per path point: connect to Robot Path of the DXR Generator", GH_ParamAccess.list);
+            p.AddNumberParameter("Extrusion", "E", "Extrusion per line, plus one closing value (the DXR Generator drops the last value)", GH_ParamAccess.list);
+            p.AddNumberParameter("Speed", "F", "Speed in mm/min per line, plus one closing value", GH_ParamAccess.list);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            var tp = SlicerIO.Get<Toolpath>(da, 0);
+            if (tp == null || tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect a Toolpath."); return; }
+            double a = 0, b = 0, c = 0;
+            da.GetData(1, ref a); da.GetData(2, ref b); da.GetData(3, ref c);
+            var r = RobotLines.Build(tp, a, b, c);
+            if (r.Tilted) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "This path has tilted tool axes (angled, non-planar or multi-axis). The lines carry one fixed orientation, so the tool will not follow the tilt. Use the Planes of Extrusion and Speed with your robot programming instead.");
+            if (r.Speed.Any(v => v <= 0)) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A move has speed 0; the machine would stop there.");
+            // the DXR Generator of this plug-in removes the last extrusion and speed value: give it one to remove
+            var e = new List<double>(r.Extrusion) { 0 }; var f = new List<double>(r.Speed) { r.Speed.Count > 0 ? r.Speed[r.Speed.Count - 1] : tp.Settings.Speed };
+            Message = r.Lines.Count + " moves";
+            da.SetDataList(0, r.Lines);
+            da.SetDataList(1, e);
+            da.SetDataList(2, f);
+        }
+    }
+
 }

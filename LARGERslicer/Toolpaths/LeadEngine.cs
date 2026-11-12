@@ -38,10 +38,28 @@ namespace LARGERslicer.Toolpaths
                 Vector3d n = tp.Normals[0];
                 var plane = Geo.PlaneAt(tp.Points[0], n);
                 var pts2 = new List<Point2d>();
-                for (int i = 0; i < tp.Count && tp.Layers[i] == firstLayer; i++)
+                Point2d startOnPlane;
+                if (tp.Warp == null && Math.Abs(n.Z) < 0.999)
                 {
-                    Vector3d v = tp.Points[i] - plane.Origin;
-                    pts2.Add(new Point2d(v * plane.XAxis, v * plane.YAxis));
+                    // Tilted layers (angled printing): the first layer is only a strip. The skirt
+                    // goes around everything that stands on the bed, flat on the bed.
+                    double zBed = double.MaxValue;
+                    for (int i = 0; i < tp.Count; i++) if (tp.Flows[i] > 0 && tp.Points[i].Z < zBed) zBed = tp.Points[i].Z;
+                    if (zBed == double.MaxValue) zBed = tp.Points[0].Z;
+                    plane = Plane.WorldXY; plane.Origin = new Point3d(0, 0, zBed);
+                    double reach = st.LayerHeight + 0.5 * w;
+                    for (int i = 0; i < tp.Count; i++)
+                        if (tp.Points[i].Z <= zBed + reach) pts2.Add(new Point2d(tp.Points[i].X, tp.Points[i].Y));
+                    startOnPlane = new Point2d(tp.Points[0].X, tp.Points[0].Y);
+                }
+                else
+                {
+                    for (int i = 0; i < tp.Count && tp.Layers[i] == firstLayer; i++)
+                    {
+                        Vector3d v = tp.Points[i] - plane.Origin;
+                        pts2.Add(new Point2d(v * plane.XAxis, v * plane.YAxis));
+                    }
+                    startOnPlane = pts2.Count > 0 ? pts2[0] : new Point2d(0, 0);
                 }
                 var hull = ConvexHull(pts2);
                 if (hull.Count >= 3)
@@ -50,7 +68,7 @@ namespace LARGERslicer.Toolpaths
                     skirtUsed = skirtDistance;
                     var path = new PathD(hull.Count);
                     foreach (var p in hull) path.Add(new PointD(p.X, p.Y));
-                    Point2d start2 = pts2[0];
+                    Point2d start2 = startOnPlane;
                     Point3d last = Point3d.Unset;
                     // outermost loop first, so the skirt ends on the loop nearest to the part
                     for (int k = skirtLoops - 1; k >= 0; k--)
@@ -220,6 +238,8 @@ namespace LARGERslicer.Toolpaths
             }
 
             List<Point2d[]> below = null; bool belowSolid = false;
+            double bedZ = double.MaxValue;
+            for (int i = 0; i < n; i++) if (tp.Flows[i] > 0 && tp.Roles[i] != PathRole.Skirt && tp.Points[i].Z < bedZ) bedZ = tp.Points[i].Z;
             Plane plane = Plane.WorldXY;
             bool havePlane = false;
             int unsupported = 0, checkedPoints = 0;
@@ -248,6 +268,8 @@ namespace LARGERslicer.Toolpaths
                         if (tp.Flows[i] <= 0) continue;
                         // infill on top of a solid bottom layer lies on material everywhere
                         if (belowSolid && tp.Roles[i] == PathRole.Infill) { checkedPoints++; continue; }
+                        // tilted layers stand on the bed along their lowest edge: what touches the bed is supported
+                        if (Math.Abs(axis.Z) < 0.999 && tp.Warp == null && tp.Points[i].Z <= bedZ + st.LayerHeight + 0.5 * st.BeadWidth) { checkedPoints++; continue; }
                         Point2d p = Flat(plane, tp.Points[i]);
                         double d = Nearest(below, p, ref hint, 40);
                         if (d > limit) { int full = -1; d = Nearest(below, p, ref full, int.MaxValue); if (full >= 0) hint = full; }

@@ -19,6 +19,8 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 | Round and Lead | Rounded corners, skirt before the part, exit move after it |
 | Path Check | No crossing, every bead supported |
 | Extrusion and Speed | Points, planes, extrusion, speed, role and layer per point |
+| Ginger G-code | Full-size G-code for the Ginger One with its start and end sequence |
+| Desktop Test Print | The path scaled down for a desktop printer, with that printer's start, layer change and end |
 
 **LARGER > DXR**
 
@@ -54,5 +56,5 @@ accepted by Slice. Not yet tested: non-planar and multi-axis slicing on a real p
 `Toolpath to Robot Lines` writes one fixed tool orientation (A, B, C). Check it against your
 robot cell before the first run. For tilted tool axes use the planes from `Extrusion and Speed`.
 
-Not ported yet: Infill Sketch, Machine Profile with own factors, Desktop Test Print, Quick Start,
+Not ported yet: Infill Sketch, Machine Profile with own factors, Quick Start,
 the curve-based Toolpaths tab, and the DXR health check and post-processor.

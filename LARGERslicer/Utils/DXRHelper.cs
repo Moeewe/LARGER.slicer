@@ -31,6 +31,24 @@ namespace LARGERslicer.Utils
             List<string> layerTypes = null,
             List<bool> isRetraction = null)
         {
+            // Numbers in a DXR file use a decimal point. On a computer set to German (decimal comma)
+            // "331.682" would otherwise be read as 331682 and written as "331682,000".
+            var thread = System.Threading.Thread.CurrentThread;
+            var culture = thread.CurrentCulture;
+            thread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+            try { return ProcessRobotLinesCore(robotLines, P1_list, F1_list, processInfo, machineSettings, layerTypes, isRetraction); }
+            finally { thread.CurrentCulture = culture; }
+        }
+
+        private static List<string> ProcessRobotLinesCore(
+            List<string> robotLines,
+            List<double> P1_list,
+            List<double> F1_list,
+            List<string> processInfo,
+            MachineSettings machineSettings,
+            List<string> layerTypes,
+            List<bool> isRetraction)
+        {
             var result = new List<string>();
             
             // Null checks

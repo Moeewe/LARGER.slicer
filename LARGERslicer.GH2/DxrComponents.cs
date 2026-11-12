@@ -70,19 +70,10 @@ namespace LARGERslicer.GH2
         {
             var tp = Io.Path(access, 0); if (tp == null) return;
             double a, b, c; access.GetItem(1, out a); access.GetItem(2, out b); access.GetItem(3, out c);
-            var r = PathEngine.Process(tp, false);
-            var ci = CultureInfo.InvariantCulture;
-            var lines = new string[tp.Count];
-            bool tilted = false;
-            for (int i = 0; i < tp.Count; i++)
-            {
-                Point3d p = tp.Points[i];
-                if (Math.Abs(tp.Normals[i].Z) < 0.999) tilted = true;
-                lines[i] = string.Format(ci, "PTP {{X {0:0.###}, Y {1:0.###}, Z {2:0.###}, A {3:0.###}, B {4:0.###}, C {5:0.###}}}", p.X, p.Y, p.Z, a, b, c);
-            }
-            if (tilted) access.AddWarning("Tilted tool axis", "This path has tilted tool axes (angled, non-planar or multi-axis). The lines carry one fixed orientation, so the tool will not follow the tilt. Use the Planes output of Extrusion and Speed with your robot programming instead.");
+            var r = RobotLines.Build(tp, a, b, c);
+            if (r.Tilted) access.AddWarning("Tilted tool axis", "This path has tilted tool axes (angled, non-planar or multi-axis). The lines carry one fixed orientation, so the tool will not follow the tilt. Use the Planes output of Extrusion and Speed with your robot programming instead.");
             if (r.Speed.Any(v => v <= 0)) access.AddError("Speed 0", "A move has speed 0; the machine would stop there.");
-            access.SetTwig(0, lines, null, null);
+            access.SetTwig(0, r.Lines.ToArray(), null, null);
             access.SetTwig(1, r.Extrusion.ToArray(), null, null);
             access.SetTwig(2, r.Speed.ToArray(), null, null);
         }

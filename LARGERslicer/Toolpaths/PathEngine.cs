@@ -179,6 +179,7 @@ namespace LARGERslicer.Toolpaths
             // spiral can start at the first layer from which every layer is one closed wall
             var plain = new bool[layers.Count]; // exactly one closed wall: can be part of a spiral
             int infillLayers = 0;
+            int slivers = 0;
             for (int li = 0; li < layers.Count; li++)
             {
                 var layer = layers[li];
@@ -187,8 +188,13 @@ namespace LARGERslicer.Toolpaths
                 {
                     var pts = Clean(layer.Contours[ci], minSpacing, out bool closed);
                     if (pts.Count < 2) continue;
+                    // a closed contour that collapses to a line is a sliver, not a wall
+                    if (!closed && Geo.Closed(layer.Contours[ci])) { slivers++; continue; }
                     if (closed && !IsCounterClockwise(pts, layer.Plane)) pts.Reverse();
                     var lp = new Loop(pts, closed);
+                    // A closed loop shorter than three bead widths is smaller than the bead itself
+                    // (the slivers where a tilted layer just touches the part): it cannot be printed.
+                    if (closed && lp.Len < 3.0 * w) { slivers++; continue; }
                     if (layer.ContourRoles != null && ci < layer.ContourRoles.Count) lp.Role = layer.ContourRoles[ci];
                     list.Add(lp);
                 }
@@ -200,6 +206,7 @@ namespace LARGERslicer.Toolpaths
                 if (hasInfill) infillLayers++;
                 loops.Add(list);
             }
+            if (slivers > 0) log?.Add($"{slivers} contour(s) are smaller than one bead (slivers where a layer just touches the part) and were left out.");
 
             // Layers with fill (bottom, top) are printed flat. Every stretch of at least two plain
             // layers in between is printed as a spiral.
@@ -454,6 +461,17 @@ namespace LARGERslicer.Toolpaths
                         bool usedHint = false;
                         Point3d? st = firstOfLayer ? SeamTarget(seam, layer, near) : null;
                         if (st.HasValue && !hasFill) target = st.Value;
+                        else if (firstOfLayer && !hasFill && Math.Abs(n.Z) < 0.999)
+                        {
+                            // Tilted layers (angled printing): every layer begins where it stands on
+                            // the bed, in the middle of its lowest edge. The first bead of a layer
+                            // then lies on the bed and everything after it leans on the layer before.
+                            double zLow = double.MaxValue;
+                            foreach (var q in pts) if (q.Z < zLow) zLow = q.Z;
+                            Point3d sum = Point3d.Origin; int cnt = 0;
+                            foreach (var q in pts) if (q.Z <= zLow + 0.25 * h) { sum += q; cnt++; }
+                            if (cnt > 0) target = sum / cnt;
+                        }
                         else if (first && !hasFill)
                         {
                             // no seam given: start in the middle of the longest straight piece, so the

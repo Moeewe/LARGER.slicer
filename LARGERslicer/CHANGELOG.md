@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `Ginger G-code`: full-size G-code for the Ginger One with the start and end sequence of the Ginger quick start guide, relative extrusion and one constant feedrate on every line.
+- `Toolpath to Robot Lines`: the toolpath as PTP lines with extrusion and speed for the `DXR Generator`, for flat layers with a vertical tool.
+- `Quick Start`: the flat example now ends in the file for the machine (Ginger G-code, and robot lines into a DXR file); the demo parts lie on positive coordinates.
+- `Desktop Test Print`: every printer has its own start, layer change and end, taken from the BambuStudio, PrusaSlicer and OrcaSlicer profiles: Bambu Lab P1P / P1S / X1C (layer notifications `M73 L`, `M991`, purge line at the front), Prusa MK4 and MINI, Creality Ender-3 and K1, Elegoo Neptune 4. New presets: Bambu Lab A1, Bambu Lab H2D (start and end left open: no plain start is documented for it).
+- Grasshopper 2: `Ginger G-code` and `Desktop Test Print`.
+
+### Changed
+- Angled printing (`Slice` with an angle): every layer now starts in the middle of its lowest edge, on the bed; the skirt goes around the whole footprint on the bed; contours smaller than one bead (where a layer just touches the part) are left out; `Path Check` counts beads that lie on the bed as supported.
+- `Infill Wave` on angled layers: sides that climb from the bed keep their wavelength and count their waves from the bed, and a wave grows by a small step per layer instead of appearing at full depth.
+
 ### Fixed
+- `DXR Generator`: numbers were read and written in the computer's number format. On a computer set to German, outside Rhino's own number handling, `331.682` became `331682,000`. The DXR writer now always uses a decimal point.
 - `Infill Sketch`: a sketch line that crosses an earlier one is left out, with a warning naming both lines. Before, both were built and the path crossed itself on every layer.
 - `Continuous Path`: a wall the nozzle reaches by a travel move (the wall of an opening next to a chamber wall, for example) starts where it started on the layer below, so its seam stays in one place.
 

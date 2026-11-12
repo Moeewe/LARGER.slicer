@@ -539,6 +539,19 @@ namespace LARGERslicer.Toolpaths
         internal static List<Point2d> WaveLoop(List<Point2d> wall, double spacing, double beadWidth, int shape, double wavelength, double depth, Point2d origin, out int waves,
             double prevDepth, int prevCount, out double usedDepth, out Point2d anchor, bool meet, List<List<Point2d>> otherWalls)
         {
+            return WaveLoop(wall, spacing, beadWidth, shape, wavelength, depth, origin, out waves, prevDepth, prevCount, out usedDepth, out anchor, meet, otherWalls, new Vector2d(0, 0));
+        }
+
+        /// <summary>
+        /// down: for tilted layers (angled printing) the direction in the layer that points to the
+        /// bed; zero for flat layers. A side that runs up from the bed grows from layer to layer.
+        /// Its waves keep their length and are counted from the bed, so each one stands on the wave
+        /// of the layer before; new waves are added at the top. Spreading them evenly over the side
+        /// would shift every wave whenever one more fits.
+        /// </summary>
+        internal static List<Point2d> WaveLoop(List<Point2d> wall, double spacing, double beadWidth, int shape, double wavelength, double depth, Point2d origin, out int waves,
+            double prevDepth, int prevCount, out double usedDepth, out Point2d anchor, bool meet, List<List<Point2d>> otherWalls, Vector2d down)
+        {
             waves = 0; usedDepth = 0; anchor = origin;
             if (Area(wall) < 0) { wall = new List<Point2d>(wall); wall.Reverse(); }
             double land = 2.0 * beadWidth;
@@ -556,6 +569,9 @@ namespace LARGERslicer.Toolpaths
             double[] cum = LoopCum(C);
             double len = cum[C.Count];
             double limit = depth > 0 ? depth : double.MaxValue;   // 0 = as deep as the part allows
+            // Tilted layers have nothing below them where a layer first reaches further than the one
+            // before: there a wave may only grow a little per layer, so every bead still lies on the last one.
+            if (down.X != 0 || down.Y != 0) limit = Math.Min(limit, (prevDepth > 0 ? prevDepth : 2.0 * beadWidth) + 0.4 * beadWidth);
             if (!meet && depth <= 0) return null;
 
             var cornerKind = new List<int>();
@@ -705,7 +721,7 @@ namespace LARGERslicer.Toolpaths
                 else
                 {
                     // number of waves per side; sides that face each other get the same number
-                    var nOf = new int[runs]; var ma = new double[runs]; var mb = new double[runs]; var dEff = new double[runs];
+                    var nOf = new int[runs]; var ma = new double[runs]; var mb = new double[runs]; var dEff = new double[runs]; var slope = new int[runs];
                     for (int k = 0; k < runs; k++) { nOf[k] = -1; dEff[k] = runDepth[k] * scale; }
                     // Dips of two sides that share a convex corner would run into each other. With
                     // Meet the shallow sides go first (they are the ones that reach the middle) and
@@ -730,11 +746,21 @@ namespace LARGERslicer.Toolpaths
                         }
                         double usable = runLen[k] - ma[k] - mb[k];
                         nOf[k] = dEff[k] >= 2 * beadWidth && usable >= 0.75 * wavelength ? Math.Max(1, (int)Math.Round(usable / wavelength)) : 0;
+                        // a side that climbs from the bed: whole waves of fixed length, counted from the bed
+                        slope[k] = 0;
+                        if (down.X != 0 || down.Y != 0)
+                        {
+                            Point2d pa = LoopAt(C, cum, runFrom[k]), pb = LoopAt(C, cum, runFrom[k] + runLen[k]);
+                            double fall = (pb.X - pa.X) * down.X + (pb.Y - pa.Y) * down.Y; // > 0: the end is lower than the start
+                            if (Math.Abs(fall) > 0.3 * runLen[k]) slope[k] = fall > 0 ? 1 : -1;
+                        }
+                        if (slope[k] != 0) nOf[k] = dEff[k] >= 2 * beadWidth ? (int)Math.Floor(usable / wavelength + 1e-9) : 0;
                     }
                     for (int k = 0; k < runs; k++)
                     {
                         int o = runOpp[k];
                         if (o < 0 || o == k || runOpp[o] != k) continue;
+                        if (slope[k] != 0 || slope[o] != 0) continue; // climbing sides keep their own count
                         int m = Math.Min(nOf[k], nOf[o]); nOf[k] = m; nOf[o] = m;
                     }
                     for (int k = 0; k < runs; k++)
@@ -742,6 +768,13 @@ namespace LARGERslicer.Toolpaths
                         double sa = runFrom[k], run = runLen[k], d = dEff[k];
                         int n = nOf[k];
                         double usable = run - ma[k] - mb[k], lam = n > 0 ? usable / n : 0;
+                        double w0 = ma[k]; // where the first wave begins
+                        if (slope[k] != 0 && n > 0)
+                        {
+                            lam = wavelength;
+                            w0 = slope[k] < 0 ? ma[k] : run - mb[k] - n * lam; // start is on the bed, or the end is
+                        }
+                        double w1 = w0 + n * lam;
                         count += n;
                         usedDepth = Math.Max(usedDepth, n > 0 ? d : 0);
                         int steps = Math.Max(1, (int)Math.Ceiling(run / step));
@@ -762,7 +795,7 @@ namespace LARGERslicer.Toolpaths
                                 double a0 = 0.5 * Math.Min(0.35, land / lam);
                                 for (int q = 0; q <= 12; q++)
                                 {
-                                    double sAt = sa + ma[k] + (j + a0 + (1.0 - 2.0 * a0) * q / 12.0) * lam;
+                                    double sAt = sa + w0 + (j + a0 + (1.0 - 2.0 * a0) * q / 12.0) * lam;
                                     best = Math.Min(best, reach(sAt, normal(sAt, winN, sa, sa + run), hit2));
                                 }
                                 own[j] = Math.Max(d, Math.Min(limit, best) * scale);
@@ -773,9 +806,9 @@ namespace LARGERslicer.Toolpaths
                         {
                             double dd = run * i / steps;
                             Point2d p = LoopAt(C, cum, sa + dd);
-                            bool inWave = n > 0 && dd > ma[k] && dd < run - mb[k];
-                            double dj = inWave && own != null ? own[Math.Max(0, Math.Min(n - 1, (int)((dd - ma[k]) / lam)))] : d;
-                            double h = inWave ? dj * profile((dd - ma[k]) / lam, lam) : 0;
+                            bool inWave = n > 0 && dd > w0 && dd < w1;
+                            double dj = inWave && own != null ? own[Math.Max(0, Math.Min(n - 1, (int)((dd - w0) / lam)))] : d;
+                            double h = inWave ? dj * profile((dd - w0) / lam, lam) : 0;
                             if (h <= 0) { loop.Add(p); continue; }
                             Vector2d nv = normal(sa + dd, win, sa, sa + run);
                             loop.Add(new Point2d(p.X + nv.X * h, p.Y + nv.Y * h));
@@ -847,7 +880,11 @@ namespace LARGERslicer.Toolpaths
                     var hr = Ring2d(src.Plane, src.Contours[c]);
                     if (hr.Count > 2 && Inside(hostRing, hr[0])) { holes.Add(hr); holeIndex.Add(c); }
                 }
-                var wave = WaveLoop(hostRing, spacing, w, shape, wavelength, depth, o2, out int n, prevDepth, prevCount, out double usedDepth, out Point2d anchor, meet, holes);
+                // tilted layer: which way is down, seen in the layer?
+                Vector3d fallLine = -Vector3d.ZAxis - src.Plane.Normal * (-Vector3d.ZAxis * src.Plane.Normal);
+                Vector2d down = new Vector2d(0, 0);
+                if (src.Warp == null && fallLine.Length > 0.05) { fallLine.Unitize(); down = new Vector2d(fallLine * src.Plane.XAxis, fallLine * src.Plane.YAxis); }
+                var wave = WaveLoop(hostRing, spacing, w, shape, wavelength, depth, o2, out int n, prevDepth, prevCount, out double usedDepth, out Point2d anchor, meet, holes, down);
                 if (wave == null) { failed[li] = 1; continue; }
 
                 var material = new PathsD { new PathD(hostRing.Select(q => new PointD(q.X, q.Y))) };
