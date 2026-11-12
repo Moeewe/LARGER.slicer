@@ -89,7 +89,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Where the robot stands, in world coordinates.</summary>
         public Frame Base = Frame.World;
         public double Payload;
-        /// <summary>The 3D model: base and six links, drawn with all angles of the model at zero. Null = none.</summary>
+        /// <summary>The 3D model: base and six links, drawn in the home position (RobotGeometry.HomePose). Null = none.</summary>
         public Mesh[] Links;
         /// <summary>The file the 3D model was read from.</summary>
         public string GeometrySource;

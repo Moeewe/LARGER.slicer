@@ -89,7 +89,7 @@ namespace LARGERslicer.Components.Robot
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
-            p.AddTextParameter("Name", "N", "Name of the tool", GH_ParamAccess.item, "Extruder");
+            p.AddTextParameter("Name", "N", "Name of the tool. AE20_Extruder brings the 3D model of the extruder of the FH Muenster cell", GH_ParamAccess.item, "Extruder");
             p.AddPlaneParameter("TCP", "TCP", "Tool centre point relative to the flange. Origin = nozzle tip, Z axis = out of the nozzle", GH_ParamAccess.item, Plane.WorldXY);
             p.AddNumberParameter("Weight", "W", "Weight of the tool in kg (0 = not written to the program)", GH_ParamAccess.item, 0.0);
             p.AddPointParameter("Centroid", "C", "Centre of mass relative to the flange", GH_ParamAccess.item, Point3d.Origin);
@@ -120,10 +120,12 @@ namespace LARGERslicer.Components.Robot
                     if (joined.Vertices.Count > 0) tool.Mesh = joined;
                 }
             }
+            bool builtIn = false;
+            if (tool.Mesh == null) { tool.Mesh = RobotGeometry.BuiltInTool(tool.Name); builtIn = tool.Mesh != null; }
             var abc = tool.Tcp.Abc();
             Message = tool.Name;
             da.SetData(0, new GH_ObjectWrapper(tool));
-            da.SetData(1, $"{tool.Name}: X {tcp.OriginX:0.###}, Y {tcp.OriginY:0.###}, Z {tcp.OriginZ:0.###}, A {abc[0]:0.###}, B {abc[1]:0.###}, C {abc[2]:0.###}, {weight:0.##} kg");
+            da.SetData(1, $"{tool.Name}: X {tcp.OriginX:0.###}, Y {tcp.OriginY:0.###}, Z {tcp.OriginZ:0.###}, A {abc[0]:0.###}, B {abc[1]:0.###}, C {abc[2]:0.###}, {weight:0.##} kg" + (builtIn ? ", 3D model that comes with the plug-in" : (tool.Mesh != null ? ", with your 3D model" : ", no 3D model")));
         }
     }
 
@@ -237,7 +239,6 @@ namespace LARGERslicer.Components.Robot
             da.SetDataList(2, f);
             da.SetDataList(3, r.Krl);
             da.SetData(4, r.Ok);
-            da.SetDataList(5, r.Report);
             if (check)
             {
                 da.SetDataList(6, r.Moves.Select(m => m.Axes == null ? "" : string.Join(", ", m.Axes.Select((v, i) => "A" + (i + 1) + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)))));
@@ -261,8 +262,7 @@ namespace LARGERslicer.Components.Robot
                     if (poses > 0)
                     {
                         var col = RobotGeometry.Collisions(r, cell, env, poses);
-                        var report = new List<string>(r.Report) { col.Report };
-                        da.SetDataList(5, report);
+                        r.Report.Add(col.Report);
                         if (col.Hits > 0)
                         {
                             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, col.Report);
@@ -271,6 +271,7 @@ namespace LARGERslicer.Components.Robot
                     }
                 }
             }
+            da.SetDataList(5, r.Report);
         }
     }
 }
