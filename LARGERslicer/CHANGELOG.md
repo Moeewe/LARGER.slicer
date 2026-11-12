@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (external axes: rail and turntable)
+- New **External Axis** component (Robot, Grasshopper 1 and 2): a rail the robot stands on, or a turntable the part stands on - range, top speed, KUKA name (E1 to E6), endless table, offset, smoothing, coupled base, drawing size. Robot Cell has a new optional input External Axes (at the end, old files still open).
+- Robot Program moves rail and table along the print: the rail keeps the robot beside the point being printed, the table turns that point towards the robot; smooth, below top speed, inside the range, never a jump of a full turn. The report lists per axis the range used, the speed needed and points beyond the range. KRL writes E1/E2 on every line; a turntable in the fixed base or a coupled base (EK).
+- Robot Simulation shows the rail carriage, the turning table, the robot on its moved base, the printed path turning with the table and the cell. Tested in Rhino 9: a 6 m wall that is out of reach becomes reachable with a 3 m rail; a cylinder of 10 turns on an endless table keeps axis 1 within 0.4 degrees (25.7 degrees without).
+- Not yet tried on a controller; DXR output carries no E values; one rail and one table per cell.
+
 ### Added (nozzles, Easy Slicer, Quick Start)
 - `Nozzle` on Print Settings (Grasshopper 1 and 2) and Easy Slicer: choose the nozzle that is screwed in and get bead width and layer height that suit it. From the Weber DXR profiles of the start package (1 / 2 / 3 / 4 / 5 / 6 / 8 mm -> bead 1.25 / 2.5 / 3.6 / 4.8 / 6 / 7.2 / 10 mm, layer 0.5 / 1 / 1.25 / 1.8 / 2 / 2.4 / 3.2 mm), the FH Muenster setting (3 mm flat nozzle, 5 mm bead, 2 mm layer) and wide beads for other flat nozzles scaled from it. A warning says when bead and layer do not suit the nozzle (Weber quick guide: a pointed nozzle lays 0.7 to 1.3 x its diameter, a flat one 1.0 to 1.8 x; layer a quarter to 80 % of the nozzle).
 - `Design Rules`: bead range for pointed and flat nozzles, Weber's own bead and layer for the nozzle, and the milling allowance of half a bead.
