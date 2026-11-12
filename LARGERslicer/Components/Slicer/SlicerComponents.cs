@@ -274,7 +274,12 @@ namespace LARGERslicer.Components.Slicer
             Action<IGH_Param, Plane> setPlane = (prm, pl) => { var pp = prm as Grasshopper.Kernel.Parameters.Param_Plane; if (pp == null) return; pp.PersistentData.Clear(); pp.PersistentData.Append(new GH_Plane(pl)); };
             // demo values: the robot stands 1 m beside the bed, in the middle of its side and 400 mm lower; the nozzle tip is 300 mm in front of the flange
             setPlane(robot.Params.Input[2], new Plane(new Point3d(-1000, BedSize / 2, -400), Vector3d.XAxis, Vector3d.YAxis));
-            setPlane(tool.Params.Input[1], new Plane(new Point3d(0, 0, 300), Vector3d.XAxis, Vector3d.YAxis));
+            // the extruder of the FH Muenster cell, as its definition sets it up in the Robots plug-in
+            // (AE20 extruder): nozzle tip 460 mm along -X of the flange, the nozzle pointing along -X, 46 kg
+            setPlane(tool.Params.Input[1], new Plane(new Point3d(-460, 3, 108), Vector3d.YAxis, -Vector3d.ZAxis));
+            { var tn = tool.Params.Input[0] as Grasshopper.Kernel.Parameters.Param_String; if (tn != null) { tn.PersistentData.Clear(); tn.PersistentData.Append(new GH_String("AE20_Extruder")); } }
+            { var tw = tool.Params.Input[2] as Grasshopper.Kernel.Parameters.Param_Number; if (tw != null) { tw.PersistentData.Clear(); tw.PersistentData.Append(new GH_Number(46)); } }
+            { var tc = tool.Params.Input[3] as Grasshopper.Kernel.Parameters.Param_Point; if (tc != null) { tc.PersistentData.Clear(); tc.PersistentData.Append(new GH_Point(new Point3d(-61, -28, 113))); } }
             cellC.Params.Input[0].AddSource(robot.Params.Output[0]);
             cellC.Params.Input[1].AddSource(tool.Params.Output[0]);
             program.Params.Input[0].AddSource(lead.Params.Output[0]);
@@ -410,7 +415,7 @@ namespace LARGERslicer.Components.Slicer
             if (ginger.Params.Input.Count > 3) ginger.Params.Input[3].AddSource(jobName);
             if (desktop.Params.Input.Count > 11) desktop.Params.Input[11].AddSource(jobName);
             program.Params.Input[3].AddSource(jobName);
-            if (dxr.Params.Input.Count > 4 && program.Params.Output.Count > 9) dxr.Params.Input[4].AddSource(program.Params.Output[9]);
+            if (dxr.Params.Input.Count > 4 && program.Params.Output.Count > 11) dxr.Params.Input[4].AddSource(program.Params.Output[11]);
             group("PART NAME  -  goes into every file name", System.Drawing.Color.FromArgb(70, 120, 130, 145), new IGH_DocumentObject[] { jobName });
 
             // the bed checks all five paths; its wires only show when it is selected
@@ -456,7 +461,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
             p.AddCurveParameter("Curves", "C", "Contours, one branch per layer", GH_ParamAccess.tree);
-            p.AddPlaneParameter("Planes", "P", "Layer plane at nozzle height, one per layer", GH_ParamAccess.list);
+            p.AddPlaneParameter("Planes", "Pl", "Layer plane at nozzle height, one per layer", GH_ParamAccess.list);
             p.AddNumberParameter("Heights", "H", "Layer height, one per layer", GH_ParamAccess.list);
             p.AddTextParameter("Roles", "R", "Role of every curve (Wall, Bottom, Infill ...), same tree as the curves", GH_ParamAccess.tree);
         }
@@ -498,7 +503,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
             p.AddCurveParameter("Curves", "C", "Curves, one branch per layer, bottom layer first", GH_ParamAccess.tree);
-            p.AddPlaneParameter("Planes", "P", "Layer plane at nozzle height, one per layer. With a single plane the layers are stacked along its normal", GH_ParamAccess.list);
+            p.AddPlaneParameter("Planes", "Pl", "Layer plane at nozzle height, one per layer. With a single plane the layers are stacked along its normal", GH_ParamAccess.list);
             p.AddGenericParameter("Settings", "S", "Print Settings", GH_ParamAccess.item);
             p.AddTextParameter("Roles", "R", "Optional role per curve (Wall, Bottom, Infill, Support), same tree as the curves", GH_ParamAccess.tree);
             p[1].Optional = true; p[2].Optional = true; p[3].Optional = true;
@@ -577,7 +582,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Bead Width", "W", "Width of the printed bead (mm)", GH_ParamAccess.item, 5.0);
             p.AddNumberParameter("Layer Height", "H", "Layer height (mm)", GH_ParamAccess.item, 2.0);
             p.AddNumberParameter("Speed", "F", "Print speed (mm/min)", GH_ParamAccess.item, 3000.0);
-            p.AddNumberParameter("Flow", "Flow", "Extrusion multiplier (1 = calculated amount)", GH_ParamAccess.item, 1.0);
+            p.AddNumberParameter("Flow", "Fl", "Extrusion multiplier (1 = calculated amount)", GH_ParamAccess.item, 1.0);
             p.AddNumberParameter("Overlap", "Ov", "Sideways overlap of neighbouring beads, 0-1 (used by walls and infill)", GH_ParamAccess.item, 0.15);
             p.AddNumberParameter("Min Radius", "R", "Smallest corner radius of the path (mm). 0 = bead width", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Resolution", "Res", "Smallest point spacing of the path (mm)", GH_ParamAccess.item, 2.0);
@@ -585,7 +590,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Min Speed", "Fmin", "Lowest speed when speed compensates the layer height (mm/min)", GH_ParamAccess.item, 300.0);
             p.AddNumberParameter("Max Speed", "Fmax", "Highest speed and travel speed (mm/min)", GH_ParamAccess.item, 12000.0);
             p.AddBooleanParameter("Preview", "Prev", "True = fast preview: coarse slicing, corners are not rounded", GH_ParamAccess.item, false);
-            p.AddGenericParameter("Machine", "M", "Optional Machine Profile: how your printer wants the extrusion values (volume, filament length, or a value the controller scales). Empty = volume in mm3.", GH_ParamAccess.item);
+            p.AddGenericParameter("Machine Profile", "MP", "Optional Machine Profile: how your printer wants the extrusion values (volume, filament length, or a value the controller scales). Empty = volume in mm3.", GH_ParamAccess.item);
             p.AddNumberParameter("Density", "D", "Density of the printed material (g/cm3), for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9, with glass fibre more", GH_ParamAccess.item, 1.25);
             p[11].Optional = true;
         }
@@ -666,7 +671,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
-            p.AddGenericParameter("Machine", "M", "Machine profile for Print Settings", GH_ParamAccess.item);
+            p.AddGenericParameter("Machine Profile", "MP", "Machine profile for Print Settings", GH_ParamAccess.item);
             p.AddTextParameter("Info", "I", "What E means for this machine", GH_ParamAccess.item);
         }
 
@@ -724,7 +729,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Angle", "A", "Tilts the layers around the plane's X axis (degrees). 45 = 45 degree slicing", GH_ParamAccess.item, 0.0);
             p.AddGenericParameter("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it (non-planar). A curve: the layers stand square to it (multi-axis, for parts that grow along a bent axis). Empty = flat layers.", GH_ParamAccess.item);
             p.AddIntegerParameter("Guide Mode", "GM", "Only with a guide surface:\n0 = Flat bottom, top follows the guide: the first layer lies flat on the bed and the layers bend gradually\n1 = All layers follow the guide: for printing on a curved base or mould", GH_ParamAccess.item, 0);
-            p.AddIntegerParameter("Tool", "T", "Only with a guide:\n0 = Tool square to the layer (robot)\n1 = Tool stays vertical (3-axis printer)", GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Tool Axis", "TA", "Only with a guide:\n0 = Tool square to the layer (robot)\n1 = Tool stays vertical (3-axis printer)", GH_ParamAccess.item, 0);
             p[1].Optional = true;
             p[4].Optional = true;
         }
@@ -732,7 +737,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void CreateAutoInputs(GH_Document doc)
         {
             AddValueList(doc, 5, "Guide Mode", "Flat bottom, top follows guide", "All layers follow guide");
-            AddValueList(doc, 6, "Tool", "Square to the layer (robot)", "Stays vertical (3-axis)");
+            AddValueList(doc, 6, "Tool Axis", "Square to the layer (robot)", "Stays vertical (3-axis)");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -1503,7 +1508,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
             p.AddCurveParameter("Bed", "B", "Outline of the bed", GH_ParamAccess.item);
-            p.AddBooleanParameter("Fits", "OK", "True if every path lies on the bed and below the height", GH_ParamAccess.item);
+            p.AddBooleanParameter("OK", "OK", "True if every path lies on the bed and below the height", GH_ParamAccess.item);
             p.AddTextParameter("Info", "I", "Size of the bed, and how much room the paths leave to its edges", GH_ParamAccess.list);
         }
 
@@ -1597,7 +1602,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
-            p.AddCurveParameter("Path", "Path", "Print path as polyline", GH_ParamAccess.item);
+            p.AddCurveParameter("Path", "P", "Print path as polyline", GH_ParamAccess.item);
             p.AddPointParameter("Points", "Pt", "Path points", GH_ParamAccess.list);
             p.AddPlaneParameter("Planes", "Pl", "Tool planes: Z = tool axis, X = travel direction", GH_ParamAccess.list);
             p.AddNumberParameter("Extrusion", "E", "Extrusion for the move that ends at each point (mm3, or mm filament)", GH_ParamAccess.list);
@@ -1647,7 +1652,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddIntegerParameter("Printer", "P", "Bed size:\n" + string.Join("\n", DesktopPrinter.Presets.Select((x, i) => i + " = " + x.Name)), GH_ParamAccess.item, 0);
             p.AddNumberParameter("Scale", "Sc", "Scale of the test print (0.1 = one tenth). 0 = automatic: the bead becomes 1.2 x the nozzle diameter", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Nozzle", "Nz", "Nozzle diameter of the desktop printer (mm)", GH_ParamAccess.item, 0.4);
-            p.AddNumberParameter("Filament", "Fil", "Filament diameter (mm)", GH_ParamAccess.item, 1.75);
+            p.AddNumberParameter("Filament Diameter", "Fil", "Filament diameter (mm)", GH_ParamAccess.item, 1.75);
             p.AddNumberParameter("Nozzle Temperature", "Tn", "Degrees C", GH_ParamAccess.item, 215.0);
             p.AddNumberParameter("Bed Temperature", "Tb", "Degrees C", GH_ParamAccess.item, 60.0);
             p.AddNumberParameter("Speed", "V", "Print speed (mm/s). The first layer runs at half of it", GH_ParamAccess.item, 40.0);
@@ -1666,7 +1671,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
             p.AddTextParameter("G-code", "G", "G-code lines", GH_ParamAccess.list);
-            p.AddCurveParameter("Preview", "C", "The scaled path as it lies on the printer bed", GH_ParamAccess.item);
+            p.AddCurveParameter("Path", "P", "The scaled path as it lies on the printer bed", GH_ParamAccess.item);
             p.AddTextParameter("Info", "I", "Size, bead, filament and time", GH_ParamAccess.item);
         }
 
@@ -1718,7 +1723,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Bead Width", "W", "Width of one printed bead (mm). Every dimension follows from it", GH_ParamAccess.item, 5.0);
             p.AddNumberParameter("Layer Height", "H", "Layer height (mm): a third to a half of the bead width", GH_ParamAccess.item, 2.0);
             p.AddNumberParameter("Speed", "F", "Print speed (mm/min), the same for every move", GH_ParamAccess.item, 3000.0);
-            p.AddIntegerParameter("Machine", "M", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Machine Profile", "MP", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Walls", "N", "Number of walls", GH_ParamAccess.item, 1);
             p.AddIntegerParameter("Bottom Layers", "B", "Solid layers at the bottom. 0 = open (hulls, vases)", GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
@@ -1732,7 +1737,7 @@ namespace LARGERslicer.Components.Slicer
         {
             AddSlider(doc, 1, "Bead Width", 2, 20, 5, 1);
             AddSlider(doc, 2, "Layer Height", 0.5m, 10, 2, 1);
-            AddValueList(doc, 4, "Machine", MachineProfile.PresetNames);
+            AddValueList(doc, 4, "Machine Profile", MachineProfile.PresetNames);
             AddValueList(doc, 7, "Infill", EasySlicer.Infills);
             AddValueList(doc, 10, "Brim", "None", "Outside", "Inside", "Both sides");
         }

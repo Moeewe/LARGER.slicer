@@ -27,9 +27,9 @@ namespace LARGERslicer.Components.Export
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Robot Path", "Path", "Robot movement data (tree branches, list, or single value)", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Extrusion Amount", "Extrusion", "Material extrusion values (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Print Speed", "Speed", "Movement speed values in mm/min (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Machine Settings", "Machine", "Printer configuration (connect Machine Settings component)", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Extrusion", "E", "Material extrusion values (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Speed", "F", "Movement speed values in mm/min (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Machine Settings", "MS", "Printer configuration (connect Machine Settings component)", GH_ParamAccess.item);
             
             pManager.AddTextParameter("File", "File", "Optional. File, folder or just a name (File Name of Robot Program). Empty = the Desktop, named DXR, date and time", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Save", "Save", "True = write the DXR file (to the Desktop if File is empty or only a name)", GH_ParamAccess.item, false);
@@ -41,8 +41,8 @@ namespace LARGERslicer.Components.Export
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("DXR File", "DXR", "Complete DXR file content ready for export", GH_ParamAccess.list);
-            pManager.AddTextParameter("Process Info", "Info", "Generation summary and statistics", GH_ParamAccess.list);
+            pManager.AddTextParameter("DXR", "DXR", "Complete DXR file content ready for export", GH_ParamAccess.list);
+            pManager.AddTextParameter("Info", "I", "Generation summary and statistics", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

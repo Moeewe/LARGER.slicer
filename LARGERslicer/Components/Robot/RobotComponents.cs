@@ -30,21 +30,24 @@ namespace LARGERslicer.Components.Robot
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
             p.AddTextParameter("Library", "Lib", "Optional. Path of a robot library file of the Robots plug-in (.xml), or its text. Empty = KUKA KR120 R2700-2", GH_ParamAccess.item);
-            p.AddTextParameter("Cell", "Cell", "Optional. Name of the RobotCell in the file. Empty = the first one", GH_ParamAccess.item);
+            p.AddTextParameter("Cell Name", "CN", "Optional. Name of the RobotCell in the file. Empty = the first one", GH_ParamAccess.item);
             p.AddPlaneParameter("Base", "B", "Where the robot stands in the Rhino model: the plane of its foot", GH_ParamAccess.item, Plane.WorldXY);
-            p[0].Optional = true; p[1].Optional = true;
+            p.AddTextParameter("Geometry File", "Geo", "Optional. The Rhino file (.3dm) with the 3D model of the robot, as the Robots plug-in keeps it beside its library file: a layer RobotArm.MANUFACTURER.MODEL with seven meshes, the base and the six links. Empty = looked for beside the Library file and in Documents/RobotSystems", GH_ParamAccess.item);
+            p[0].Optional = true; p[1].Optional = true; p[3].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
             p.AddGenericParameter("Robot", "R", "The robot arm, for Robot Cell", GH_ParamAccess.item);
             p.AddTextParameter("Info", "I", "Link lengths, axis ranges and reach", GH_ParamAccess.list);
+            p.AddMeshParameter("Meshes", "M", "The robot as it stands, in its home position (A2 -90, A3 90): base and six links", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
         {
-            string lib = null, cell = null; Plane basePlane = Plane.WorldXY;
+            string lib = null, cell = null, geo = null; Plane basePlane = Plane.WorldXY;
             da.GetData(0, ref lib); da.GetData(1, ref cell); da.GetData(2, ref basePlane);
+            if (Params.Input.Count > 3) da.GetData(3, ref geo);
             RobotArm arm;
             try
             {
@@ -60,10 +63,16 @@ namespace LARGERslicer.Components.Robot
             // the file may carry its own base; the plane in the model is applied on top of it
             arm.Base = Frame.FromPlane(basePlane).Times(arm.Base);
             Message = arm.Name;
+            string libFile = !string.IsNullOrWhiteSpace(lib) && !lib.TrimStart().StartsWith("<") ? lib.Trim() : null;
+            string found = RobotGeometry.Load(arm, geo, libFile, out string why);
             var info = new List<string> { arm.ToString() };
+            if (found != null) info.Add("3D model from " + found);
+            else { info.Add("No 3D model: " + why); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, why + " Without it the robot is shown as a line and collisions are not checked."); }
             for (int i = 0; i < 6; i++) info.Add($"A{i + 1}: a {arm.A[i]:0.#}, d {arm.D[i]:0.#}, range {arm.MinDeg[i]:0}..{arm.MaxDeg[i]:0} degrees, {arm.MaxSpeed[i]:0} degrees/s");
             da.SetData(0, new GH_ObjectWrapper(arm));
             da.SetDataList(1, info);
+            if (Params.Output.Count > 2 && arm.Links != null)
+                da.SetDataList(2, RobotGeometry.Pose(new RobotCell { Arm = arm, Tool = new RobotTool() }, new double[] { 0, -90, 90, 0, 0, 0 }));
         }
     }
 
@@ -84,6 +93,8 @@ namespace LARGERslicer.Components.Robot
             p.AddPlaneParameter("TCP", "TCP", "Tool centre point relative to the flange. Origin = nozzle tip, Z axis = out of the nozzle", GH_ParamAccess.item, Plane.WorldXY);
             p.AddNumberParameter("Weight", "W", "Weight of the tool in kg (0 = not written to the program)", GH_ParamAccess.item, 0.0);
             p.AddPointParameter("Centroid", "C", "Centre of mass relative to the flange", GH_ParamAccess.item, Point3d.Origin);
+            p.AddMeshParameter("Mesh", "M", "Optional. The tool as a 3D model, drawn where it sits on the flange: the flange is the world XY plane at the origin, as in the Robots plug-in. Shown on the robot and used by the collision check", GH_ParamAccess.list);
+            p[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -99,6 +110,16 @@ namespace LARGERslicer.Components.Robot
             if (!tcp.IsValid) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The TCP plane is not valid."); return; }
             if (weight < 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The weight cannot be negative."); return; }
             var tool = new RobotTool { Name = string.IsNullOrWhiteSpace(name) ? "Extruder" : name.Trim(), Tcp = Frame.FromPlane(tcp), Weight = weight, Centroid = centroid };
+            if (Params.Input.Count > 4)
+            {
+                var meshes = new List<Mesh>();
+                if (da.GetDataList(4, meshes) && meshes.Count > 0)
+                {
+                    var joined = new Mesh();
+                    foreach (var m in meshes) if (m != null && m.IsValid) joined.Append(m);
+                    if (joined.Vertices.Count > 0) tool.Mesh = joined;
+                }
+            }
             var abc = tool.Tcp.Abc();
             Message = tool.Name;
             da.SetData(0, new GH_ObjectWrapper(tool));
@@ -168,7 +189,9 @@ namespace LARGERslicer.Components.Robot
             p.AddNumberParameter("Pose", "P", "Shows the arm at this place of the path: 0 = start, 1 = end", GH_ParamAccess.item, 0.0);
             p.AddTextParameter("File", "File", "Optional. File or folder for the KRL program. Empty = the Desktop, named like the program", GH_ParamAccess.item);
             p.AddBooleanParameter("Save", "Save", "True = write the KRL file", GH_ParamAccess.item, false);
-            p[1].Optional = true; p[6].Optional = true;
+            p.AddMeshParameter("Environment", "Env", "Optional. What stands around the robot: bed, table, cage, as meshes. The collision check tests the tool, wrist and forearm against them", GH_ParamAccess.list);
+            p.AddIntegerParameter("Collision Poses", "Col", "How many poses along the path the collision check looks at (evenly spread). 0 = no check. Needs the 3D model of the robot", GH_ParamAccess.item, 200);
+            p[1].Optional = true; p[6].Optional = true; p[8].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -182,6 +205,8 @@ namespace LARGERslicer.Components.Robot
             p.AddTextParameter("Axes", "A", "Axis angles A1 to A6 of every point", GH_ParamAccess.list);
             p.AddPointParameter("Unreachable", "U", "Points the robot cannot get to", GH_ParamAccess.list);
             p.AddCurveParameter("Arm", "Arm", "The arm at the chosen Pose, as a line through its joints", GH_ParamAccess.item);
+            p.AddMeshParameter("Robot", "Rob", "The robot with its tool at the chosen Pose, as a 3D model: move the Pose slider to watch it run the path", GH_ParamAccess.list);
+            p.AddPointParameter("Collisions", "Hit", "Path points at which the robot collides with itself or the Environment", GH_ParamAccess.list);
             p.AddTextParameter("File Name", "Fn", "A name for the DXR file, made of DXR, date and time, the Name, weight and print time (DXR_2611051216_Test Object_2668g_53min): connect to File of the DXR Generator", GH_ParamAccess.item);
         }
 
@@ -206,7 +231,7 @@ namespace LARGERslicer.Components.Robot
 
             var e = new List<double>(r.Extrusion) { 0 };
             var f = new List<double>(r.Speed) { r.Speed.Count > 0 ? r.Speed[r.Speed.Count - 1] : tp.Settings.Speed };
-            if (Params.Output.Count > 9) da.SetData(9, OutputFile.Name("DXR", name, tp, ""));
+            if (Params.Output.Count > 11) da.SetData(11, OutputFile.Name("DXR", name, tp, ""));
             da.SetDataList(0, r.Lines);
             da.SetDataList(1, e);
             da.SetDataList(2, f);
@@ -223,6 +248,27 @@ namespace LARGERslicer.Components.Robot
                     var pts = cell.Arm.Skeleton(r.Moves[at].Axes);
                     pts.Add(tp.Points[at]); // flange to tool tip
                     da.SetData(8, new PolylineCurve(pts));
+                    if (Params.Output.Count > 9)
+                    {
+                        var model = RobotGeometry.Pose(cell, r.Moves[at].Axes);
+                        if (model != null) da.SetDataList(9, model);
+                    }
+                }
+                if (Params.Input.Count > 9 && Params.Output.Count > 10)
+                {
+                    var env = new List<Mesh>(); int poses = 200;
+                    da.GetDataList(8, env); da.GetData(9, ref poses);
+                    if (poses > 0)
+                    {
+                        var col = RobotGeometry.Collisions(r, cell, env, poses);
+                        var report = new List<string>(r.Report) { col.Report };
+                        da.SetDataList(5, report);
+                        if (col.Hits > 0)
+                        {
+                            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, col.Report);
+                            da.SetDataList(10, col.Moves.Select(i => tp.Points[i]));
+                        }
+                    }
                 }
             }
         }

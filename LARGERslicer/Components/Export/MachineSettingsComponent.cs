@@ -26,8 +26,8 @@ namespace LARGERslicer.Components.Export
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Machine Settings", "Settings", "Machine configuration for DXR output", GH_ParamAccess.item);
-            pManager.AddTextParameter("Settings Info", "Info", "Current machine settings summary", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Machine Settings", "MS", "Machine configuration for DXR output", GH_ParamAccess.item);
+            pManager.AddTextParameter("Info", "I", "Current machine settings summary", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

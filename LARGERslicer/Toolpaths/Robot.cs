@@ -89,6 +89,10 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Where the robot stands, in world coordinates.</summary>
         public Frame Base = Frame.World;
         public double Payload;
+        /// <summary>The 3D model: base and six links, drawn with all angles of the model at zero. Null = none.</summary>
+        public Mesh[] Links;
+        /// <summary>The file the 3D model was read from.</summary>
+        public string GeometrySource;
 
         private static readonly double[] Alpha = { Math.PI / 2, 0, Math.PI / 2, -Math.PI / 2, Math.PI / 2, 0 };
 
@@ -168,8 +172,12 @@ namespace LARGERslicer.Toolpaths
         public static double ToRadians(double degrees, int axis) => axis == 2 ? -(degrees * Math.PI / 180.0 - Math.PI / 2) : -(degrees * Math.PI / 180.0);
 
         /// <summary>Flange position for axis angles in degrees (as on the pendant), in the robot's own coordinates.</summary>
-        public Frame Forward(double[] degrees)
+        public Frame Forward(double[] degrees) => JointFrames(degrees)[5];
+
+        /// <summary>The frame at the end of each of the six links (the last one is the flange), in the robot's own coordinates.</summary>
+        public Frame[] JointFrames(double[] degrees)
         {
+            var frames = new Frame[6];
             Frame t = Frame.World;
             for (int i = 0; i < 6; i++)
             {
@@ -180,8 +188,9 @@ namespace LARGERslicer.Toolpaths
                     O = new Point3d(A[i] * c, A[i] * s, D[i]),
                 };
                 t = t.Times(link);
+                frames[i] = t;
             }
-            return t;
+            return frames;
         }
 
         /// <summary>
@@ -286,6 +295,8 @@ namespace LARGERslicer.Toolpaths
         public Frame Tcp = Frame.World;
         public double Weight;
         public Point3d Centroid = Point3d.Origin;
+        /// <summary>The tool as a 3D model, drawn where it sits on the flange: the flange is the world XY plane, the tool grows along +Z. Null = none.</summary>
+        public Mesh Mesh;
         public override string ToString() => $"{Name} (TCP {Tcp.O.X:0.#}, {Tcp.O.Y:0.#}, {Tcp.O.Z:0.#}; {Weight:0.#} kg)";
     }
 
