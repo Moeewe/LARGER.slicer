@@ -255,3 +255,7 @@ Erzeugt `dist/largerslicer-<version>-rh9_0-any.yak`, `dist/largerslicer-<version
 © 2025 Moritz Wesseler, FH Münster · Lizenziert unter [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/deed.de) – nur für nicht-kommerzielle Nutzung.
 
 Mitwirkende: Fabio Koczula, Claudio Schröder · Ursprünglich inspiriert von Ginger.Additive, vollständig neu umgesetzt und um weitere Maschinen erweitert.
+
+## Sicherheit und Haftung
+
+Mit LARGER.slicer erzeugte Roboter- und Maschinenprogramme sind ungeprüft. Vor jedem Lauf im T1- oder Testbetrieb mit reduzierter Geschwindigkeit prüfen; Kollisionen, Achsgrenzen, Singularitäten und Temperaturen liegen in der Verantwortung des Betreibers. Betrieb nur durch unterwiesene Personen nach der Betriebsanweisung der Zelle und den Vorgaben der Hersteller (KUKA, Weber u. a.). Keine Gewährleistung, soweit gesetzlich zulässig. Fremdlizenzen, Quellen und Marken: siehe [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
