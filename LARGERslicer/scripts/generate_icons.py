@@ -112,6 +112,13 @@ def icon(name):
     return deco
 
 # ---------------------------------------------------------------- slicer (blue)
+@icon('SlicerBedIcon')
+def _(g):
+    g.line([(3.5, 17.5), (8, 7), (20.5, 7), (16, 17.5)], INK, 2, closed=True)
+    g.line([(7.6, 12.2), (18.2, 12.2)], SOFT, 1.4); g.line([(11.8, 7), (9.4, 17.5)], SOFT, 1.4)
+    g.dot(3.9, 17.4, 2.3, BLUE)
+
+
 @icon('SlicerQuickStartIcon')
 def _(g): g.circle(12, 12, 9, INK, 2); g.poly([(10, 7.8), (10, 16.2), (16.8, 12)], BLUE)
 

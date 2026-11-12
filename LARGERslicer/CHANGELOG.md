@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Desktop Test Print`: every printer has its own start, layer change and end, taken from the BambuStudio, PrusaSlicer and OrcaSlicer profiles: Bambu Lab P1P / P1S / X1C (layer notifications `M73 L`, `M991`, purge line at the front), Prusa MK4 and MINI, Creality Ender-3 and K1, Elegoo Neptune 4. New presets: Bambu Lab A1, Bambu Lab H2D (start and end left open: no plain start is documented for it).
 - Grasshopper 2: `Ginger G-code` and `Desktop Test Print`.
 
+### Added (demos and bed)
+- `Print Bed`: shows the bed of the machine in the Rhino viewport (plate, grid every 100 mm, origin) and checks that every connected path lies on it and below the machine's height.
+- `Quick Start`: five examples instead of three, standing in two tidy rows on one 1000 x 1000 mm bed: 1 flat layers with ribs and bottom, 2 non-planar, 3 multi-axis, 4 a plate with an opening whose wall `Infill Wave` joins to the outer wall, 5 a block leaning 55 degrees printed with 45 degree layers. New output C: `Desktop Test Print`. The robot stands beside the middle of the bed.
+
 ### Fixed
 - Found by running 1.3.0 in Grasshopper on a plate with a round opening:
   - `Round Corners`: a U-turn (the path coming back beside itself, at every infill joint) now gets its half circle from the distance of the two lines alone. Before, the cut was searched for and landed on a different place from layer to layer, so the turn hung up to 11 mm beside the one below and `Path Check` reported unsupported beads.

@@ -123,7 +123,7 @@ namespace LARGERslicer.Components.Slicer
 
         public QuickStartComponent()
             : base("Quick Start", "Start",
-                  "Place this on the canvas to get three complete, working examples, each in its own labelled group: 1 flat layers from the part to the file for the machine (G-code for the Ginger One, DXR for the Weber DXR), 2 non-planar layers along a guide surface, 3 multi-axis layers along a guide curve. Replace the demo parts with your own geometry.",
+                  "Place this on the canvas to get five complete, working examples, each in its own labelled group and all standing side by side on one print bed: 1 flat layers from the part to the file for the machine (G-code for the Ginger One, DXR for the Weber DXR, a small test print for a desktop printer), 2 non-planar layers along a guide surface, 3 multi-axis layers along a guide curve, 4 a part with an opening and wave infill, 5 angled layers. Replace the demo parts with your own geometry.",
                   SlicerIO.Category, SlicerIO.SubCategory) { }
 
         public override Guid ComponentGuid => new Guid("5CC24A30-0D0B-4EDC-906E-F78FD264DAB3");
@@ -147,20 +147,20 @@ namespace LARGERslicer.Components.Slicer
         private static Brep DemoPart()
         {
             // a curved hull, 60 mm high: shows walls, ribs and bottom in one part
-            var outer = new Arc(Plane.WorldXY, 300, Math.PI * 0.9).ToNurbsCurve();
-            var inner = new Arc(Plane.WorldXY, 200, Math.PI * 0.9).ToNurbsCurve();
+            var outer = new Arc(Plane.WorldXY, 260, Math.PI * 0.9).ToNurbsCurve();
+            var inner = new Arc(Plane.WorldXY, 170, Math.PI * 0.9).ToNurbsCurve();
             inner.Reverse();
             var joined = Curve.JoinCurves(new Curve[] { outer, new LineCurve(outer.PointAtEnd, inner.PointAtStart), inner, new LineCurve(inner.PointAtEnd, outer.PointAtStart) });
             if (joined == null || joined.Length == 0) return null;
             // on the bed: every coordinate positive, as a machine with its origin in the corner needs it
-            joined[0].Translate(new Vector3d(350, 60, 0)); // room for the skirt on the positive side
+            joined[0].Translate(new Vector3d(317, 100, 0)); // front row of the bed, left: x 70..577, y 100..360
             return Surface.CreateExtrusion(joined[0], new Vector3d(0, 0, 60)).ToBrep();
         }
 
         /// <summary>Non-planar demo: a round hull whose top edge follows a saddle surface, and that surface.</summary>
         private static void NonPlanarDemo(Point3d c, out Brep part, out Brep guide)
         {
-            const double r = 160; part = null; guide = null;
+            const double r = 120; part = null; guide = null;
             Func<double, double, double> z = (x, y) => 70 + 22 * (x * x - y * y) / (r * r);
             var top = new List<Point3d>();
             for (int i = 0; i < 48; i++) { double a = i * Math.PI * 2 / 48; top.Add(new Point3d(c.X + r * Math.Cos(a), c.Y + r * Math.Sin(a), z(r * Math.Cos(a), r * Math.Sin(a)))); }
@@ -185,9 +185,42 @@ namespace LARGERslicer.Components.Slicer
         private static void MultiAxisDemo(Point3d c, out Brep part, out Curve guide)
         {
             part = null;
-            guide = new Arc(c, Vector3d.ZAxis, c + new Vector3d(170, 0, 260)).ToNurbsCurve();
-            var pipe = Brep.CreatePipe(guide, 90, false, PipeCapMode.None, true, 0.01, 0.01);
+            guide = new Arc(c, Vector3d.ZAxis, c + new Vector3d(130, 0, 200)).ToNurbsCurve();
+            var pipe = Brep.CreatePipe(guide, 70, false, PipeCapMode.None, true, 0.01, 0.01);
             if (pipe != null && pipe.Length > 0) part = pipe[0];
+        }
+
+        // The demo bed: 1000 x 1000 mm, origin in the front left corner. Front row: example 1 and 5.
+        // Back row: examples 2, 3 and 4, with the same distance to the edges and to each other.
+        private const double BedSize = 1000;
+
+        /// <summary>Example 4: a plate with a round opening, 220 x 220 x 50 mm.</summary>
+        private static Brep PlateDemo(Point3d c)
+        {
+            var outer = new Rectangle3d(new Plane(new Point3d(c.X - 110, c.Y - 110, 0), Vector3d.XAxis, Vector3d.YAxis), 220, 220).ToNurbsCurve();
+            var hole = new Circle(new Plane(new Point3d(c.X, c.Y, 0), Vector3d.ZAxis), 50).ToNurbsCurve();
+            var face = Brep.CreatePlanarBreps(new Curve[] { outer, hole }, 0.01);
+            if (face == null || face.Length == 0) return null;
+            return face[0].Faces[0].CreateExtrusion(new LineCurve(Point3d.Origin, new Point3d(0, 0, 50)), true);
+        }
+
+        /// <summary>
+        /// Example 5: a block that leans 55 degrees towards -Y. Printed in flat layers its wall
+        /// overhangs more than a bead can carry; with layers leaning 45 degrees the same way the
+        /// wall is only 10 degrees off the build direction. Its foot edge lies along X, so the
+        /// first leaning layer starts on a straight line on the bed.
+        /// </summary>
+        private static Brep LeanDemo(Point3d c)
+        {
+            const double wx = 90, wy = 60, hgt = 150;
+            double shift = hgt * Math.Tan(55 * Math.PI / 180);
+            Func<double, double, double, Curve> rect = (cy, z, dummy) => new PolylineCurve(new[]
+            {
+                new Point3d(c.X - wx, cy - wy, z), new Point3d(c.X + wx, cy - wy, z), new Point3d(c.X + wx, cy + wy, z), new Point3d(c.X - wx, cy + wy, z), new Point3d(c.X - wx, cy - wy, z),
+            });
+            var loft = Brep.CreateFromLoft(new[] { rect(c.Y, 0, 0), rect(c.Y - shift, hgt, 0) }, Point3d.Unset, Point3d.Unset, LoftType.Straight, false);
+            if (loft == null || loft.Length == 0) return null;
+            return loft[0].CapPlanarHoles(0.01) ?? loft[0];
         }
 
         private void Build(GH_Document doc)
@@ -217,21 +250,22 @@ namespace LARGERslicer.Components.Slicer
             note.NickName = "Start here";
             note.UserText =
                 "START HERE\n\n" +
-                "1  Replace 'Your part' (example 1) with your own geometry. It has to stand on the XY plane, in millimetres.\n" +
+                "The five examples stand side by side on one print bed (1000 x 1000 mm, origin in the front left corner). Look at the Rhino viewport.\n\n" +
+                "1  Replace 'Your part' (example 1) with your own geometry. It has to stand on the XY plane, in millimetres, on the positive side of the origin.\n" +
                 "2  Set Bead Width and Layer Height in the Settings group. Everything else follows from them.\n" +
                 "3  Read Path Check. OK = the path can be printed. If not, it says what to change.\n" +
                 "4  Take the file for your machine:\n" +
                 "     Output A - Ginger One: set Save on 'Ginger G-code'. The file lands on the Desktop.\n" +
                 "     Output B - robot with Weber DXR: put your tool and the place of robot and bed into the robot cell, read the Report of 'Robot Program', then save the DXR.\n" +
-                "5  Before the big print: 'Desktop Test Print' writes the same path small for a desktop printer.\n\n" +
+                "5  Before the big print: Output C, 'Desktop Test Print', writes the same path small for a desktop printer.\n\n" +
                 "Other infill: delete 'Infill Ribs' and put Infill Wave, Cells, Chambers or Sketch in its place.\n" +
-                "Curved or tilted layers: see examples 2 and 3.\n" +
+                "Curved layers: examples 2 and 3. A part with openings: example 4. Overhangs and roofs: example 5.\n" +
                 "Just want a path quickly? Use the single component 'Easy Slicer' instead of this chain.";
             note.Properties.Multiline = true;
             note.Properties.Wrap = true;
             note.CreateAttributes();
             note.Attributes.Pivot = new System.Drawing.PointF(x0 - 760, y0 - 80);
-            note.Attributes.Bounds = new System.Drawing.RectangleF(x0 - 760, y0 - 80, 500, 400);
+            note.Attributes.Bounds = new System.Drawing.RectangleF(x0 - 760, y0 - 80, 500, 470);
             doc.AddObject(note, false);
 
             // ---- settings, shared by all three examples
@@ -240,7 +274,10 @@ namespace LARGERslicer.Components.Slicer
             settings.Params.Input[11].AddSource(machine.Params.Output[0]);
             IGH_Param s = settings.Params.Output[0];
             all.Add(machine); all.Add(settings);
-            group("Settings - shared by all three examples. Set bead width and layer height here.", System.Drawing.Color.FromArgb(70, 120, 130, 145), new IGH_DocumentObject[] { machine, settings });
+            var bed = (GH_Component)place(new PrintBedComponent(), 380, -60);
+            all.Add(bed);
+            var beds = new List<IGH_Param>(); // the finished path of every example, for the bed check
+            group("Settings - shared by all examples. Set bead width and layer height here. 'Print Bed' shows the bed in the Rhino viewport (1000 x 1000 mm here: put in the size of your machine) and checks that every path lies on it.", System.Drawing.Color.FromArgb(70, 120, 130, 145), new IGH_DocumentObject[] { machine, settings, bed });
 
             // ---- 1 flat layers
             float y1 = 420;
@@ -266,6 +303,7 @@ namespace LARGERslicer.Components.Slicer
             lead.Params.Input[0].AddSource(round.Params.Output[0]);
             extrude.Params.Input[0].AddSource(lead.Params.Output[0]);
             check.Params.Input[0].AddSource(lead.Params.Output[0]);
+            beds.Add(lead.Params.Output[0]);
             // demo values: ribs every 150 mm, meeting in the middle
             var spacing = (Grasshopper.Kernel.Parameters.Param_Number)ribs.Params.Input[3];
             spacing.PersistentData.Clear(); spacing.PersistentData.Append(new GH_Number(150));
@@ -286,8 +324,8 @@ namespace LARGERslicer.Components.Slicer
             var cellC = (GH_Component)place(new LARGERslicer.Components.Robot.RobotCellComponent(), 2500, y1 + 190);
             var program = (GH_Component)place(new LARGERslicer.Components.Robot.RobotProgramComponent(), 2720, y1 + 130);
             Action<IGH_Param, Plane> setPlane = (prm, pl) => { var pp = prm as Grasshopper.Kernel.Parameters.Param_Plane; if (pp == null) return; pp.PersistentData.Clear(); pp.PersistentData.Append(new GH_Plane(pl)); };
-            // demo values: the robot stands 1.2 m behind the bed corner and 400 mm lower; the nozzle tip is 300 mm in front of the flange
-            setPlane(robot.Params.Input[2], new Plane(new Point3d(-1200, 170, -400), Vector3d.XAxis, Vector3d.YAxis));
+            // demo values: the robot stands 1 m beside the bed, in the middle of its side and 400 mm lower; the nozzle tip is 300 mm in front of the flange
+            setPlane(robot.Params.Input[2], new Plane(new Point3d(-1000, BedSize / 2, -400), Vector3d.XAxis, Vector3d.YAxis));
             setPlane(tool.Params.Input[1], new Plane(new Point3d(0, 0, 300), Vector3d.XAxis, Vector3d.YAxis));
             cellC.Params.Input[0].AddSource(robot.Params.Output[0]);
             cellC.Params.Input[1].AddSource(tool.Params.Output[0]);
@@ -299,8 +337,12 @@ namespace LARGERslicer.Components.Slicer
             dxr.Params.Input[1].AddSource(program.Params.Output[1]);
             dxr.Params.Input[2].AddSource(program.Params.Output[2]);
             dxr.Params.Input[3].AddSource(dxrMachine.Params.Output[0]);
-            all.AddRange(new[] { ginger, robot, tool, cellC, program });
-            hide.Add(tool);
+            // a small test print of the same path
+            var desktop = (GH_Component)place(new DesktopTestPrintComponent(), 2620, y1 - 280);
+            desktop.Params.Input[0].AddSource(lead.Params.Output[0]);
+            all.AddRange(new[] { ginger, robot, tool, cellC, program, desktop });
+            hide.Add(tool); hide.Add(desktop);
+            group("Output C - Desktop test print: the same path scaled down for a desktop filament printer, to check it before the big print. Choose your printer and set Save.", System.Drawing.Color.FromArgb(70, 150, 110, 200), new IGH_DocumentObject[] { desktop });
             group("Output A - Ginger One: G-code with the machine's start and end. Give a file path and set Save to write it.", System.Drawing.Color.FromArgb(70, 232, 135, 12), new IGH_DocumentObject[] { ginger });
             group("Output B - Robot with the Weber DXR: the robot cell (robot, tool, work base), the robot program with its reach check, then the DXR file. Put in your own tool and where robot and bed stand. Choose the matching preset in Machine Profile.", System.Drawing.Color.FromArgb(70, 210, 63, 69), new IGH_DocumentObject[] { robot, tool, cellC, program, dxrMachine, dxr });
             // the demo is set up for the Ginger: its E values need the Ginger factor
@@ -325,13 +367,14 @@ namespace LARGERslicer.Components.Slicer
                 ro.Params.Input[0].AddSource(pa.Params.Output[0]);
                 le.Params.Input[0].AddSource(ro.Params.Output[0]);
                 ch.Params.Input[0].AddSource(le.Params.Output[0]);
+                beds.Add(le.Params.Output[0]);
                 all.AddRange(new[] { sl, wa, pa, ro, le, ch });
                 hide.AddRange(new IGH_PreviewObject[] { sl, wa, pa, ro });
                 return new IGH_DocumentObject[] { sl, wa, pa, ro, le, ch };
             };
 
             float y2 = 900;
-            Brep npPart, npGuide; NonPlanarDemo(new Point3d(950, 180, 0), out npPart, out npGuide);
+            Brep npPart, npGuide; NonPlanarDemo(new Point3d(190, 700, 0), out npPart, out npGuide);
             var part2 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y2 - 20);
             part2.NickName = "Part";
             if (npPart != null) part2.PersistentData.Append(new GH_Brep(npPart));
@@ -343,7 +386,7 @@ namespace LARGERslicer.Components.Slicer
             group("2  Non-planar - the layers follow a guide surface. The first layer lies flat on the bed, the last one follows the top of the part. Draw the guide surface over your part.", System.Drawing.Color.FromArgb(70, 255, 149, 0), row2.ToArray());
 
             float y3 = 1320;
-            Brep maPart; Curve maGuide; MultiAxisDemo(new Point3d(1450, 180, 0), out maPart, out maGuide);
+            Brep maPart; Curve maGuide; MultiAxisDemo(new Point3d(445, 700, 0), out maPart, out maGuide);
             var part3 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y3 - 20);
             part3.NickName = "Part";
             if (maPart != null) part3.PersistentData.Append(new GH_Brep(maPart));
@@ -353,6 +396,60 @@ namespace LARGERslicer.Components.Slicer
             var row3 = chain(y3, part3, guide3, 0, 1).ToList(); row3.Add(part3); row3.Add(guide3);
             hide.Add(part3);
             group("3  Multi-axis - the layers stand square to a guide curve, for parts that grow along a bent axis (robot with tilting tool). Draw the axis of your part as the guide curve.", System.Drawing.Color.FromArgb(70, 175, 82, 222), row3.ToArray());
+
+            // ---- 4 part with an opening and 5 angled layers: part -> slice -> walls (-> infill) -> path -> round -> start/end -> check
+            Func<float, IGH_Param, GH_Component, double, IGH_DocumentObject[]> flatChain = (y, partParam, infill, angle) =>
+            {
+                float dx = infill != null ? 250 : 0;
+                var sl = (GH_Component)place(new SliceComponent(), 300, y);
+                var wa = (GH_Component)place(new WallsComponent(), 520, y);
+                if (infill != null) place(infill, 740, y);
+                var pa = (GH_Component)place(new ContinuousPathComponent(), 730 + dx, y);
+                var ro = (GH_Component)place(new RoundCornersComponent(), 950 + dx, y);
+                var le = (GH_Component)place(new StartEndComponent(), 1160 + dx, y);
+                var ch = (GH_Component)place(new PathCheckComponent(), 1440 + dx, y);
+                sl.Params.Input[0].AddSource(partParam); sl.Params.Input[1].AddSource(s);
+                if (Math.Abs(angle) > 1e-9) { var pa3 = (Grasshopper.Kernel.Parameters.Param_Number)sl.Params.Input[3]; pa3.PersistentData.Clear(); pa3.PersistentData.Append(new GH_Number(angle)); }
+                wa.Params.Input[0].AddSource(sl.Params.Output[0]); wa.Params.Input[1].AddSource(s);
+                IGH_Param layersOut = wa.Params.Output[0];
+                if (infill != null) { infill.Params.Input[0].AddSource(layersOut); infill.Params.Input[1].AddSource(s); layersOut = infill.Params.Output[0]; }
+                pa.Params.Input[0].AddSource(layersOut); pa.Params.Input[1].AddSource(s);
+                ro.Params.Input[0].AddSource(pa.Params.Output[0]);
+                le.Params.Input[0].AddSource(ro.Params.Output[0]);
+                ch.Params.Input[0].AddSource(le.Params.Output[0]);
+                beds.Add(le.Params.Output[0]);
+                var members = new List<GH_Component> { sl, wa, pa, ro, le, ch }; if (infill != null) members.Add(infill);
+                all.AddRange(members);
+                hide.AddRange(new IGH_PreviewObject[] { sl, wa, pa, ro }); if (infill != null) hide.Add(infill);
+                return members.Cast<IGH_DocumentObject>().ToArray();
+            };
+
+            float y4 = 1740;
+            var part4 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y4);
+            part4.NickName = "Part";
+            Brep plate = PlateDemo(new Point3d(820, 700, 0));
+            if (plate != null) part4.PersistentData.Append(new GH_Brep(plate));
+            var wave4 = new InfillWaveComponent();
+            var row4 = flatChain(y4, part4, wave4, 0).ToList(); row4.Add(part4);
+            // demo values: waves of 60 mm that reach as far as they can, so they meet the wall of the opening
+            var wlSlider = wave4.Params.Input[3].Sources.OfType<Grasshopper.Kernel.Special.GH_NumberSlider>().FirstOrDefault();
+            if (wlSlider != null) wlSlider.SetSliderValue(60);
+            else { var wl4 = (Grasshopper.Kernel.Parameters.Param_Number)wave4.Params.Input[3]; wl4.PersistentData.Clear(); wl4.PersistentData.Append(new GH_Number(60)); }
+            hide.Add(part4);
+            group("4  Part with an opening - Infill Wave joins the wall of the opening and the outer wall into one line, so no move inside the part runs without extrusion. The wavelength decides whether a wave reaches the opening: 60 mm here. Try Shape 1 (Truss) or 2 (Meander).", System.Drawing.Color.FromArgb(70, 48, 176, 199), row4.ToArray());
+
+            float y5 = 2160;
+            var part5 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y5);
+            part5.NickName = "Part";
+            Brep lean = LeanDemo(new Point3d(785, 380, 0));
+            if (lean != null) part5.PersistentData.Append(new GH_Brep(lean));
+            var row5 = flatChain(y5, part5, null, 45).ToList(); row5.Add(part5);
+            hide.Add(part5);
+            group("5  Angled layers - Slice with Angle 45: this block leans 55 degrees, more than a bead can overhang in flat layers. With layers leaning the same way every bead rests on the one below. The print starts at the lowest edge. Needs a machine that can print on leaning layers (robot, or a tilted bed).", System.Drawing.Color.FromArgb(70, 230, 90, 140), row5.ToArray());
+
+            // the bed checks all five paths; its wires only show when it is selected
+            foreach (var b in beds) bed.Params.Input[3].AddSource(b);
+            bed.Params.Input[3].WireDisplay = GH_ParamWireDisplay.hidden;
 
             // spell out every input and output, so nobody has to guess what "W" or "Fl" means
             foreach (var c in all)
@@ -1392,6 +1489,104 @@ namespace LARGERslicer.Components.Slicer
             da.SetDataList(2, r.Unsupported);
             da.SetDataList(3, r.Offsets);
             da.SetDataList(4, r.Crossings);
+        }
+    }
+
+    // ============================================================== print bed
+    /// <summary>The print bed, drawn in the viewport, and a check that every path lies on it.</summary>
+    public class PrintBedComponent : SlicerComponent
+    {
+        private double _x = 1000, _y = 1000, _z = 1000;
+        private bool _fits = true;
+
+        public PrintBedComponent()
+            : base("Print Bed", "Bed",
+                  "Shows the print bed of your machine in the Rhino viewport, with a grid every 100 mm and the origin in the front left corner, and checks that every connected path lies on it: no negative coordinates, nothing beyond the edge, nothing higher than the machine. Place your part on the bed before slicing.") { }
+
+        public override Guid ComponentGuid => new Guid("6E2B8C13-47A9-4D5F-9B30-C1D8E7A45F92");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerBedIcon.png", this);
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddNumberParameter("Size X", "X", "Width of the bed (mm)", GH_ParamAccess.item, 1000.0);
+            p.AddNumberParameter("Size Y", "Y", "Depth of the bed (mm)", GH_ParamAccess.item, 1000.0);
+            p.AddNumberParameter("Height", "Z", "Largest print height of the machine (mm)", GH_ParamAccess.item, 1000.0);
+            p.AddGenericParameter("Toolpath", "T", "Optional. The finished paths: they are checked against the bed", GH_ParamAccess.list);
+            p[3].Optional = true;
+            p[3].DataMapping = GH_DataMapping.Flatten; // all paths are checked together, however they come in
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddCurveParameter("Bed", "B", "Outline of the bed", GH_ParamAccess.item);
+            p.AddBooleanParameter("Fits", "OK", "True if every path lies on the bed and below the height", GH_ParamAccess.item);
+            p.AddTextParameter("Info", "I", "Size of the bed, and how much room the paths leave to its edges", GH_ParamAccess.list);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            double x = 1000, y = 1000, z = 1000;
+            da.GetData(0, ref x); da.GetData(1, ref y); da.GetData(2, ref z);
+            if (x <= 0 || y <= 0 || z <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Size X, Size Y and Height must be greater than 0."); return; }
+            _x = x; _y = y; _z = z; _fits = true;
+            var info = new List<string> { $"Bed {x:0} x {y:0} mm, height {z:0} mm, origin in the front left corner." };
+            var raw = new List<object>(); da.GetDataList(3, raw);
+            var box = BoundingBox.Empty; int paths = 0;
+            foreach (var o in raw)
+            {
+                Toolpath tp = (o as GH_Toolpath)?.Value ?? (o as Grasshopper.Kernel.Types.GH_ObjectWrapper)?.Value as Toolpath;
+                if (tp == null || tp.Count < 2) continue;
+                paths++;
+                foreach (var q in tp.Points) box.Union(q);
+            }
+            if (paths > 0)
+            {
+                const double tol = 0.01;
+                var problems = new List<string>();
+                if (box.Min.X < -tol || box.Min.Y < -tol) problems.Add($"runs to X {box.Min.X:0}, Y {box.Min.Y:0}: negative coordinates are off the bed. Move the part onto the positive side of the origin");
+                if (box.Max.X > x + tol || box.Max.Y > y + tol) problems.Add($"runs to X {box.Max.X:0}, Y {box.Max.Y:0}: beyond the bed of {x:0} x {y:0} mm");
+                if (box.Min.Z < -tol) problems.Add($"goes down to Z {box.Min.Z:0.0}: below the bed");
+                if (box.Max.Z > z + tol) problems.Add($"is {box.Max.Z:0} mm high: more than the {z:0} mm of the machine");
+                _fits = problems.Count == 0;
+                if (_fits)
+                {
+                    double room = Math.Min(Math.Min(box.Min.X, box.Min.Y), Math.Min(x - box.Max.X, y - box.Max.Y));
+                    info.Add($"{paths} path(s) fit: X {box.Min.X:0}..{box.Max.X:0}, Y {box.Min.Y:0}..{box.Max.Y:0}, up to Z {box.Max.Z:0}. Smallest distance to the edge of the bed (skirt included): {room:0} mm.");
+                }
+                else foreach (var pr in problems) { info.Add("DOES NOT FIT: the path " + pr + "."); AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The path " + pr + "."); }
+                Message = _fits ? "Fits" : "Does not fit";
+            }
+            else { info.Add("Connect the finished paths to Toolpath to check that they lie on the bed."); Message = $"{x:0} x {y:0}"; }
+            da.SetData(0, new Rectangle3d(Plane.WorldXY, x, y).ToNurbsCurve());
+            da.SetData(1, _fits);
+            da.SetDataList(2, info);
+        }
+
+        public override BoundingBox ClippingBox => new BoundingBox(new Point3d(-60, -60, 0), new Point3d(_x + 60, _y + 60, 1));
+
+        public override void DrawViewportMeshes(IGH_PreviewArgs args)
+        {
+            if (Hidden || Locked) return;
+            var plate = new Mesh();
+            plate.Vertices.Add(0, 0, -0.2); plate.Vertices.Add(_x, 0, -0.2); plate.Vertices.Add(_x, _y, -0.2); plate.Vertices.Add(0, _y, -0.2);
+            plate.Faces.AddFace(0, 1, 2, 3); plate.Normals.ComputeNormals();
+            var colour = _fits ? System.Drawing.Color.FromArgb(214, 218, 224) : System.Drawing.Color.FromArgb(240, 200, 196);
+            args.Display.DrawMeshShaded(plate, new Rhino.Display.DisplayMaterial(colour, 0.35));
+        }
+
+        public override void DrawViewportWires(IGH_PreviewArgs args)
+        {
+            if (Hidden || Locked) return;
+            var fine = System.Drawing.Color.FromArgb(150, 158, 170);
+            var edge = _fits ? System.Drawing.Color.FromArgb(70, 80, 96) : System.Drawing.Color.FromArgb(200, 50, 40);
+            for (double gx = 100; gx < _x - 1e-6; gx += 100) args.Display.DrawLine(new Point3d(gx, 0, 0), new Point3d(gx, _y, 0), fine, 1);
+            for (double gy = 100; gy < _y - 1e-6; gy += 100) args.Display.DrawLine(new Point3d(0, gy, 0), new Point3d(_x, gy, 0), fine, 1);
+            args.Display.DrawPolyline(new[] { new Point3d(0, 0, 0), new Point3d(_x, 0, 0), new Point3d(_x, _y, 0), new Point3d(0, _y, 0), new Point3d(0, 0, 0) }, edge, 2);
+            // the origin: X red, Y green, as in Rhino
+            double a = Math.Min(80, 0.12 * Math.Min(_x, _y));
+            args.Display.DrawArrow(new Line(Point3d.Origin, new Point3d(a, 0, 0)), System.Drawing.Color.FromArgb(215, 60, 50));
+            args.Display.DrawArrow(new Line(Point3d.Origin, new Point3d(0, a, 0)), System.Drawing.Color.FromArgb(50, 160, 70));
         }
     }
 
