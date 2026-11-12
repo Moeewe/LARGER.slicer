@@ -120,6 +120,7 @@ namespace LARGERslicer.GH2
             inputs.AddInteger("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n))).Set(0);
             inputs.AddNumber("Infill Size", "Sz", "Rib distance, wavelength or cell size in mm. 0 = chosen from the bead width.").Set(0.0);
             inputs.AddInteger("Brim", "Br", "Three beads right against the first layer, so the part holds on to the bed.\n0 = none\n1 = outside\n2 = inside\n3 = both sides").Set(0);
+            inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed. 0 = the layer height.").Set(0.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -140,11 +141,12 @@ namespace LARGERslicer.GH2
             int brim; access.GetItem(9, out brim);
             if (w <= 0 || h <= 0 || f <= 0) { access.AddError("Invalid values", "Bead width, layer height and speed must be larger than 0."); return; }
             machine = Math.Max(0, Math.Min(MachineProfile.PresetNames.Length - 1, machine));
-            var st = new PrintSettings { BeadWidth = w, LayerHeight = h, Speed = f, Machine = MachineProfile.Preset(machine) };
+            double h1; access.GetItem(10, out h1);
+            var st = new PrintSettings { BeadWidth = w, LayerHeight = h, FirstLayerHeight = Math.Max(0, h1), Speed = f, Machine = MachineProfile.Preset(machine) };
             var log = new List<string>();
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), Math.Max(0.01, st.Resolution * 0.025), log);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
-            var layers = SliceEngine.Slice(mesh, Plane.WorldXY, st.LayerHeight, st.PointSpacing, log);
+            var layers = SliceEngine.Slice(mesh, Plane.WorldXY, st.LayerHeight, st.PointSpacing, log, null, st.FirstLayerHeight);
             var r = EasySlicer.Run(layers, st, new EasySlicer.Options { Walls = walls, BottomLayers = Math.Max(0, bottom), Infill = infill, InfillSize = size, BrimSide = Math.Max(0, Math.Min(3, brim)) });
             var report = new List<string> { "DONE: " + string.Join(" > ", r.Steps) };
             if (r.Check != null) report.AddRange(r.Check.Report);

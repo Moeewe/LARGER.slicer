@@ -15,6 +15,7 @@ namespace LARGERslicer.Toolpaths
     {
         public double BeadWidth = 5.0;        // mm (house standard: 3 mm nozzle, 5 mm bead, 2 mm layer)
         public double LayerHeight = 2.0;      // mm
+        public double FirstLayerHeight = 0.0; // mm, height of the first layer above the bed (part bottom); 0 = LayerHeight
         public double Overlap = 0.15;         // sideways overlap of neighbouring beads, 0..1
         public double Speed = 3000.0;         // mm/min, nominal print speed
         public double MinSpeed = 300.0;       // mm/min, lower limit when speed compensates height
@@ -27,6 +28,8 @@ namespace LARGERslicer.Toolpaths
         public double Density = 1.25;         // g/cm3 of the printed material, for the weight in file names and reports
         public MachineProfile Machine = new MachineProfile();
 
+        /// <summary>Height of the first layer: the nozzle runs this high above the bottom of the part.</summary>
+        public double FirstLayer => FirstLayerHeight > 0 ? FirstLayerHeight : LayerHeight;
         public double PointSpacing => Preview ? Resolution * 3.0 : Resolution;
         public double EffectiveMinRadius => MinRadius > 0 ? MinRadius : BeadWidth;
         /// <summary>Centre distance of two beads lying next to each other.</summary>

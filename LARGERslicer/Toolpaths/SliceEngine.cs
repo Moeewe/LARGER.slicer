@@ -78,11 +78,15 @@ namespace LARGERslicer.Toolpaths
         /// nozzle travels. Tilt the plane for angled (e.g. 45 degree) printing.
         /// Uses its own triangle/plane cutter: every triangle is assigned once to the layers it
         /// crosses, which is orders of magnitude faster than intersecting the mesh per plane.
+        /// The first layer is firstLayerHeight thick (0 = the layer height): the nozzle runs that
+        /// high above the bottom of the part, never on it, so the first bead is not pressed into
+        /// the bed. Every further layer is one layer height higher.
         /// </summary>
-        public static List<SliceLayer> Slice(Mesh mesh, Plane basePlane, double layerHeight, double minSpacing, List<string> log, Warp warp = null)
+        public static List<SliceLayer> Slice(Mesh mesh, Plane basePlane, double layerHeight, double minSpacing, List<string> log, Warp warp = null, double firstLayerHeight = 0)
         {
             var layers = new List<SliceLayer>();
             if (mesh == null || layerHeight <= 0) return layers;
+            double first = firstLayerHeight > 0 ? firstLayerHeight : layerHeight;
 
             Vector3d n = basePlane.Normal;
             n.Unitize();
@@ -99,6 +103,7 @@ namespace LARGERslicer.Toolpaths
                 foreach (double s in scale) if (s > maxScale) maxScale = s;
                 maxScale = Math.Min(maxScale, 2.0);
                 layerHeight /= maxScale;
+                first /= maxScale;
                 if (maxScale > 1.02) log?.Add($"Layers are up to {maxScale:0.00}x further apart on the outside of the bend; the step along the guide is {layerHeight:0.00} mm so no layer is higher than set.");
             }
             var dist = new double[verts.Length];
@@ -112,16 +117,23 @@ namespace LARGERslicer.Toolpaths
             }
             // as many layers as fit best: a part of 58.2 mm in 2 mm layers gets 29 (58 mm high),
             // not 30 (60 mm, more than a layer above its top); 200 mm gets all 100. Only a part lower
-            // than half a layer gets none.
-            int count = (int)Math.Round((max - min) / layerHeight, MidpointRounding.AwayFromZero);
-            if (count < 1 && max - min > 0.5 * layerHeight) count = 1;
-            if (count < 1) return layers;
+            // than half the first layer gets none.
+            double span = max - min;
+            if (span <= 0.5 * first) return layers;
+            int count = 1 + Math.Max(0, (int)Math.Round((span - first) / layerHeight, MidpointRounding.AwayFromZero));
 
-            // cut levels: middle of each layer, but never above the model
+            // top of each layer (where the nozzle runs) and cut level: the middle of each layer,
+            // but never above the model
+            var top = new double[count];
             var level = new double[count];
             // (a bent model is slightly uneven at its ends after mapping, so stay a little further inside)
             double margin = warp != null ? Math.Min(0.15, layerHeight * 0.2) : 1e-4;
-            for (int i = 0; i < count; i++) level[i] = Math.Min(min + (i + 0.5) * layerHeight, max - margin);
+            for (int i = 0; i < count; i++)
+            {
+                top[i] = min + first + i * layerHeight;
+                double mid = i == 0 ? min + 0.5 * first : top[i] - 0.5 * layerHeight;
+                level[i] = Math.Min(mid, max - margin);
+            }
 
             // triangles (quads are split) and the layers each one crosses
             var tris = new List<int>(mesh.Faces.Count * 3);
@@ -136,8 +148,10 @@ namespace LARGERslicer.Toolpaths
             {
                 double a = dist[tris[t]], b = dist[tris[t + 1]], c = dist[tris[t + 2]];
                 double lo = Math.Min(a, Math.Min(b, c)), hi = Math.Max(a, Math.Max(b, c));
-                int i0 = Math.Max(0, (int)Math.Floor((lo - min) / layerHeight - 0.5) - 1);
-                int i1 = Math.Min(count - 1, (int)Math.Ceiling((hi - min) / layerHeight - 0.5) + 1);
+                // the first layer has its own height; from the second on the levels are evenly spaced
+                if (lo < level[0] && hi >= level[0]) buckets[0].Add(t);
+                int i0 = Math.Max(1, (int)Math.Floor((lo - min - first) / layerHeight + 0.5) - 1);
+                int i1 = Math.Min(count - 1, (int)Math.Ceiling((hi - min - first) / layerHeight + 0.5) + 1);
                 for (int i = i0; i <= i1; i++)
                     if (lo < level[i] && hi >= level[i]) buckets[i].Add(t);
             }
@@ -146,15 +160,14 @@ namespace LARGERslicer.Toolpaths
             Parallel.For(0, count, i =>
             {
                 double z = level[i];
-                double top = min + (i + 1) * layerHeight;
                 var layer = new SliceLayer
                 {
                     Index = i,
-                    Height = layerHeight,
+                    Height = i == 0 ? first : layerHeight,
                     Warp = warp,
-                    Plane = Geo.PlaneFromAxes(basePlane.Origin + n * top, basePlane.XAxis, basePlane.YAxis)
+                    Plane = Geo.PlaneFromAxes(basePlane.Origin + n * top[i], basePlane.XAxis, basePlane.YAxis)
                 };
-                Vector3d lift = n * (top - z);
+                Vector3d lift = n * (top[i] - z);
                 foreach (var pl in CutLayer(verts, dist, tris, buckets[i], z))
                 {
                     if (pl.Count < 2 || pl.Length < minSpacing) continue;
@@ -171,6 +184,15 @@ namespace LARGERslicer.Toolpaths
                 layers.Add(l);
             }
             if (empty > 0) log?.Add($"{empty} layer(s) had no contour and were dropped.");
+            if (warp == null && Math.Abs(n.Z) > 0.999)
+            {
+                // the bed is Z 0: say so when the part does not stand on it
+                double bottom = basePlane.Origin.Z * Math.Sign(n.Z) + min;
+                if (bottom < -0.05)
+                    log?.Add($"The part reaches {-bottom:0.##} mm below Z 0. If Z 0 is the bed, the first layers are printed into it: move the part up onto the bed.");
+                else if (bottom > 0.05)
+                    log?.Add($"The part stands {bottom:0.##} mm above Z 0. The first layer is printed {first:0.##} mm above the bottom of the part, at Z {bottom + first:0.##}.");
+            }
             return layers;
         }
 

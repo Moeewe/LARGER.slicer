@@ -90,6 +90,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Flow", "Fl", "Extrusion multiplier (1 = 100 %).").Set(1.0);
             inputs.AddBoolean("Preview", "P", "Fast and coarse, for trying things out.").Set(false);
             inputs.AddNumber("Density", "D", "Density of the printed material in g/cm3, for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9.").Set(1.25);
+            inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed, so the first bead is not pressed into it. 0 = the layer height.").Set(0.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -107,6 +108,8 @@ namespace LARGERslicer.GH2
             if (machine < 0 || machine >= MachineProfile.PresetNames.Length) { access.AddWarning("Unknown machine", "Using the generic profile."); machine = 0; }
             var s = new PrintSettings { BeadWidth = w, LayerHeight = h, Speed = f, Flow = flow > 0 ? flow : 1.0, Preview = preview, Machine = MachineProfile.Preset(machine) };
             double density; access.GetItem(6, out density); if (density > 0) s.Density = density;
+            double first; access.GetItem(7, out first); s.FirstLayerHeight = Math.Max(0, first);
+            if (first > 0 && (first < 0.5 * h || first > 1.5 * h)) access.AddWarning("First layer", $"The first layer is {first:0.##} mm, the others {h:0.##} mm. Stay between half and one and a half layer heights, or the first bead is crushed or does not stick.");
             double ratio = h / w;
             if (ratio > 0.6) access.AddWarning("Layer too high", $"The layer height is {ratio * 100:0} % of the bead width. Stay below half the bead width or the beads bond poorly.");
             access.SetItem(0, s);
@@ -170,7 +173,7 @@ namespace LARGERslicer.GH2
 
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), tol, log, warp != null ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
-            var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp);
+            var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
             Io.Remarks(access, log);
             if (layers.Count == 0) { access.AddWarning("No layers", "Check the layer height and where the part stands."); return; }
 

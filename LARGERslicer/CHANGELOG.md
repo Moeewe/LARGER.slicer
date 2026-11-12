@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (first layer)
+- `Print Settings` and `Easy Slicer` (Grasshopper 1 and 2) have a `First Layer Height` input, as the FH Muenster definition has: the first layer can be thinner or thicker than the others, and its extrusion follows its own height. 0 = the layer height, as before. The nozzle always runs one first layer height above the bottom of the part, never on it.
+- `Path Check` and every check after slicing: a bead printed on or below Z 0 is reported as `INTO THE BED`, one less than half its height above Z 0 as `TOO LOW`, and the path is not OK. `Slice` says when the part reaches below Z 0 or stands above it. Before, a part sunk into the bed or curves drawn on the bed were printed into the bed without a word.
+
 ### Added (Grasshopper 2)
 - `Robot Simulation` and `Cell Geometry` in Grasshopper 2; `Robot` shows the arm in 3D, `Robot Program` checks collisions (with the environment of `Robot Cell` and the part already printed) and gives the robot at the chosen pose. `Continuous Path` has a `Seam` input. Quick Start uses the cell of the FH Muenster and plays the program with a slider.
 

@@ -60,7 +60,7 @@ namespace LARGERslicer.Toolpaths
             if (layers == null || layers.Count == 0) { r.Notes.Add("No layers: the part is lower than one layer, or it does not stand on the slicing plane."); return r; }
             int infill = Math.Max(0, Math.Min(Infills.Length - 1, o.Infill));
             double size = o.InfillSize > 0 ? o.InfillSize : DefaultSize(st, infill);
-            r.Steps.Add($"{layers.Count} layers of {st.LayerHeight:0.##} mm, bead {st.BeadWidth:0.##} mm");
+            r.Steps.Add($"{layers.Count} layers of {st.LayerHeight:0.##} mm{(layers.Count > 0 && Math.Abs(layers[0].Height - st.LayerHeight) > 1e-6 ? $" (the first {layers[0].Height:0.##} mm)" : "")}, bead {st.BeadWidth:0.##} mm");
 
             layers = FillEngine.Walls(layers, st, Math.Max(1, o.Walls), 0, log);
             r.Steps.Add(o.Walls > 1 ? $"{o.Walls} walls" : "1 wall");

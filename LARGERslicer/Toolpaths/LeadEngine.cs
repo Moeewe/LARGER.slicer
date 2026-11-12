@@ -434,6 +434,7 @@ namespace LARGERslicer.Toolpaths
         public static CheckResult Check(Toolpath tp, double maxOffset)
         {
             var r = new CheckResult();
+            Toolpath real = tp;
             if (tp.Warp != null)
             {
                 // non-planar / multi-axis: test in flat space, where layers are planes again
@@ -599,6 +600,24 @@ namespace LARGERslicer.Toolpaths
                     r.Report.Add($"Overhang: the wall leans up to {found:0} degrees from vertical. With a {st.BeadWidth:0.#} mm bead and {st.LayerHeight:0.#} mm layers about {allowed:0} degrees is the limit. " +
                                  $"Affected layers: {string.Join(", ", ranges.Take(8))}{(ranges.Count > 8 ? " ..." : "")}. " +
                                  "Domes, spheres and flat tops close faster than that: slice them with a Guide surface (non-planar) or a tilted plane, or cut the part where it gets too flat.");
+                }
+            }
+
+            // ---- the bed is Z 0: the nozzle must run a layer height above it, not on it
+            {
+                int low = -1;
+                for (int i = firstPrint; i < real.Count; i++)
+                    if (real.Flows[i] > 0 && real.Normals[i].Z > 0.999 && (low < 0 || real.Points[i].Z < real.Points[low].Z)) low = i; // tilted beads stand on their edge
+                if (low >= 0)
+                {
+                    double z = real.Points[low].Z, hb = real.Heights.Count > low && real.Heights[low] > 0 ? real.Heights[low] : st.LayerHeight;
+                    if (z < 0.5 * hb)
+                    {
+                        r.Ok = false;
+                        r.Report.Add(z <= 0.01
+                            ? $"INTO THE BED: the nozzle extrudes at Z {z:0.##}, on or below the bed (Z 0). The first layer must lie one layer height above the bed: put the part's bottom on Z 0, or lift curves you drew on the bed by the first layer height."
+                            : $"TOO LOW: the lowest bead is printed at Z {z:0.##}, less than half its height ({hb:0.##} mm) above the bed (Z 0). The nozzle would press it into the bed: put the part's bottom on Z 0 or set First Layer Height.");
+                    }
                 }
             }
 

@@ -644,6 +644,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddBooleanParameter("Preview", "Prev", "True = fast preview: coarse slicing, corners are not rounded", GH_ParamAccess.item, false);
             p.AddGenericParameter("Machine Profile", "MP", "Optional Machine Profile: how your printer wants the extrusion values (volume, filament length, or a value the controller scales). Empty = volume in mm3.", GH_ParamAccess.item);
             p.AddNumberParameter("Density", "D", "Density of the printed material (g/cm3), for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9, with glass fibre more", GH_ParamAccess.item, 1.25);
+            p.AddNumberParameter("First Layer Height", "H1", "Height of the first layer (mm): the nozzle runs this high above the bed, so the first bead is not pressed into it. 0 = the layer height", GH_ParamAccess.item, 0.0);
             p[11].Optional = true;
         }
 
@@ -673,6 +674,7 @@ namespace LARGERslicer.Components.Slicer
                 if (machine != null) s.Machine = machine.Duplicate();
             }
             if (Params.Input.Count > 12) { da.GetData(12, ref s.Density); if (s.Density <= 0) s.Density = 1.25; }
+            if (Params.Input.Count > 13) { da.GetData(13, ref s.FirstLayerHeight); s.FirstLayerHeight = Math.Max(0, s.FirstLayerHeight); }
             if (s.Machine.FilamentDiameter <= 0 && s.FilamentDiameter > 0)
             {
                 s.Machine.FilamentDiameter = s.FilamentDiameter;
@@ -686,6 +688,8 @@ namespace LARGERslicer.Components.Slicer
             }
             if (s.LayerHeight > s.BeadWidth)
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Layer height is larger than the bead width. Beads this tall rarely bond well.");
+            if (s.FirstLayerHeight > 0 && (s.FirstLayerHeight < 0.5 * s.LayerHeight || s.FirstLayerHeight > 1.5 * s.LayerHeight))
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The first layer is {s.FirstLayerHeight:0.##} mm, the others {s.LayerHeight:0.##} mm. Stay between half and one and a half layer heights, or the first bead is crushed or does not stick.");
             s.Resolution = Math.Max(0.05, s.Resolution);
             s.MaxSpeed = Math.Max(s.MaxSpeed, s.Speed);
             s.MinSpeed = Math.Min(Math.Max(1, s.MinSpeed), s.Speed);
@@ -852,7 +856,7 @@ namespace LARGERslicer.Components.Slicer
                 return;
             }
             long meshMs = sw.ElapsedMilliseconds;
-            var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp);
+            var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
             sw.Stop();
 
             foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
@@ -1782,6 +1786,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Infill Size", "Sz", "Rib distance, wavelength or cell size (mm). 0 = chosen from the bead width", GH_ParamAccess.item, 0.0);
             p.AddBooleanParameter("Spiral", "Sp", "Vase mode: the path climbs all the time. Only for walls without infill and bottom", GH_ParamAccess.item, false);
             p.AddIntegerParameter("Brim", "Br", "Three beads right against the first layer, so the part holds on to the bed:\n0 = none\n1 = outside\n2 = inside\n3 = both sides", GH_ParamAccess.item, 0);
+            p.AddNumberParameter("First Layer Height", "H1", "Height of the first layer (mm): the nozzle runs this high above the bed. 0 = the layer height", GH_ParamAccess.item, 0.0);
             p[0].Optional = true; // an empty input shows "Connect your part" instead of a collect error
         }
 
@@ -1814,12 +1819,13 @@ namespace LARGERslicer.Components.Slicer
             if (w <= 0 || h <= 0 || f <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Bead Width, Layer Height and Speed must be greater than 0."); return; }
             if (h > 0.6 * w) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The layer height is {h / w * 100:0} % of the bead width. Stay below half the bead width or the beads bond poorly.");
             machine = Math.Max(0, Math.Min(MachineProfile.PresetNames.Length - 1, machine));
-            var st = new PrintSettings { BeadWidth = w, LayerHeight = h, Speed = f, Machine = MachineProfile.Preset(machine) };
+            double h1 = 0; if (Params.Input.Count > 11) da.GetData(11, ref h1);
+            var st = new PrintSettings { BeadWidth = w, LayerHeight = h, FirstLayerHeight = Math.Max(0, h1), Speed = f, Machine = MachineProfile.Preset(machine) };
 
             var log = new List<string>();
             Mesh mesh = SliceEngine.ToMesh(geo, Math.Max(0.01, st.Resolution * 0.025), log);
             if (mesh == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No usable geometry. Connect Breps, surfaces, SubDs or meshes."); return; }
-            var layers = SliceEngine.Slice(mesh, Plane.WorldXY, st.LayerHeight, st.PointSpacing, log);
+            var layers = SliceEngine.Slice(mesh, Plane.WorldXY, st.LayerHeight, st.PointSpacing, log, null, st.FirstLayerHeight);
             var r = EasySlicer.Run(layers, st, new EasySlicer.Options { Walls = walls, BottomLayers = Math.Max(0, bottom), Infill = infill, InfillSize = size, Spiral = spiral, BrimSide = brim });
 
             var report = new List<string>();
