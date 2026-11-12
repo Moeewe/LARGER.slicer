@@ -265,7 +265,7 @@ namespace LARGERslicer.Components.CNCUtilities
             return bestDir;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityOrientIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityOrientIcon.png", this);
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E01");
     }
 }

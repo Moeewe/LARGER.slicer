@@ -116,7 +116,7 @@ namespace LARGERslicer.Components.Utils
             DA.SetDataList(1, indices);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RTreeSortIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RTreeSortIcon.png", this);
         public override Guid ComponentGuid => new Guid("A8B9C0D1-E2F3-4567-1234-678901234567");
     }
 }

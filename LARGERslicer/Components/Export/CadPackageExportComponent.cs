@@ -291,7 +291,7 @@ namespace LARGERslicer.Components.Export
             }
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CadPackageExportIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CadPackageExportIcon.png", this);
 
         public override Guid ComponentGuid => new Guid("A1A1E8AE-58A6-4E6E-8A41-405F8B5D0601");
     }

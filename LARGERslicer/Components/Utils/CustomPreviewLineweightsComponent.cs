@@ -162,7 +162,7 @@ namespace LARGERslicer.Components.Utils
             }
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CustomPreviewLineweightsIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CustomPreviewLineweightsIcon.png", this);
         public override Guid ComponentGuid => new Guid("F7A8B9C0-D1E2-3456-0123-567890123456");
     }
 }

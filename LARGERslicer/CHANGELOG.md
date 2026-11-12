@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Infill Chambers` on angled layers: what is carried from layer to layer moves straight up with the part.
 
 ### Changed
-- Icons: every icon sits on a light tile, so it reads on Rhino's dark toolbar and on the light component alike.
+- Icons: no ground behind the glyph. Every icon exists twice, with dark lines and with light lines. The toolbar gets the light lines when Rhino 8 or 9 on the Mac runs in dark mode; components on the canvas always get the dark lines (the canvas stays light). Grasshopper 1 has no icon pairs of its own, so the plug-in chooses. The toolbar keeps what it got at start: after switching the appearance, restart Rhino.
 - The Toolpaths section is now **Slicer Curves** and its components are named like their Slicer counterparts: `Curve Fill Zigzag` (was Single Path Fill with Lines), `Curve Fill Contour` (Single Line Fill with Offsets), `Curve Fill Cells`, `Curve Fill Euler`, `Curve Fill Cross Lines` (Curve Boundary Infill), `Curve Continuous Infill`, `Curve Continuous Path` (Continuous Toolpath), `Curve Wall and Zigzag` (Continuous Path from Boundary), `Curve Join and Order` (Optimized Toolpath), `Curve Uncross` (Suppress Self Intersections), `Curve Bridge`. Existing definitions keep working: only names and place changed.
 - Slicer toolbar order: settings, slice, walls and fill, path, check and values, output, open interface.
 - Angled printing (`Slice` with an angle): every layer now starts in the middle of its lowest edge, on the bed; the skirt goes around the whole footprint on the bed; contours smaller than one bead (where a layer just touches the part) are left out; `Path Check` counts beads that lie on the bed as supported.

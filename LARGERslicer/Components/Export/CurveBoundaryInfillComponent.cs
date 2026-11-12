@@ -462,7 +462,7 @@ namespace LARGERslicer.Components.Export
             return cleaned;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("InfillContourIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("InfillContourIcon.png", this);
         public override Guid ComponentGuid => new Guid("C1B2A3D4-E5F6-7890-ABCD-EF1234567890");
     }
 }

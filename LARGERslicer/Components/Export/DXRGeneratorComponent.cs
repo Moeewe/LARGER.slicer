@@ -348,7 +348,7 @@ namespace LARGERslicer.Components.Export
             return result;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DXRGeneratorIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DXRGeneratorIcon.png", this);
         public override Guid ComponentGuid => new Guid("A1B2C3D4-E5F6-7890-ABCD-123456789012");
     }
 }

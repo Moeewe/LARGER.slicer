@@ -441,7 +441,7 @@ namespace LARGERslicer.Components.Utils
             return lo;
         }
 
-        protected override Drawing.Bitmap Icon => IconHelper.Load("FastGCodeDxrPreviewIcon.png");
+        protected override Drawing.Bitmap Icon => IconHelper.Load("FastGCodeDxrPreviewIcon.png", this);
         public override Guid ComponentGuid => new Guid("000961C9-CE01-4FEC-9FF7-B8E2BE841FDC");
 
         private readonly struct ParseSig : IEquatable<ParseSig>

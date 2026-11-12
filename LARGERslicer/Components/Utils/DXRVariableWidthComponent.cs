@@ -460,7 +460,7 @@ namespace LARGERslicer.Components.Utils
             return string.Join("\n", parts);
         }
 
-        protected override Drawing.Bitmap Icon => IconHelper.Load("DXRVariableWidthIcon.png");
+        protected override Drawing.Bitmap Icon => IconHelper.Load("DXRVariableWidthIcon.png", this);
 
         public override Guid ComponentGuid => new Guid("6E22931A-9B8B-4F69-A7E2-E085BDAE6E9C");
     }

@@ -55,7 +55,7 @@ namespace LARGERslicer.Components.CNCUtilities
             DA.SetData(3, bb.Max.Z - bb.Min.Z);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityBBoxIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityBBoxIcon.png", this);
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E02");
     }
 }

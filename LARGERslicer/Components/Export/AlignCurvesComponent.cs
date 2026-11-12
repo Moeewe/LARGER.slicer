@@ -179,7 +179,7 @@ namespace LARGERslicer.Components.Export
             return direction;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("AlignCurvesIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("AlignCurvesIcon.png", this);
         public override Guid ComponentGuid => new Guid("fa478232-2bbb-4fd4-98ff-0f3b9bb0d2eb");
     }
 }

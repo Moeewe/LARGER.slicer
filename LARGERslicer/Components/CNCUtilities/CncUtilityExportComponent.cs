@@ -133,7 +133,7 @@ namespace LARGERslicer.Components.CNCUtilities
             DA.SetDataList(1, log);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityExportIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilityExportIcon.png", this);
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E09");
     }
 }

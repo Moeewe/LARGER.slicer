@@ -64,7 +64,7 @@ namespace LARGERslicer.Components.Utils
             base.RemovedFromDocument(document);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DateTimestampIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DateTimestampIcon.png", this);
         public override Guid ComponentGuid => new Guid("F1A2B3C4-D5E6-7890-ABCD-EF1234567890");
     }
 }

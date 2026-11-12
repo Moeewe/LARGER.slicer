@@ -165,7 +165,7 @@ namespace LARGERslicer.Components.Export
             DA.SetDataList(1, info);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("MachineSettingsExtendedIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("MachineSettingsExtendedIcon.png", this);
         public override Guid ComponentGuid => new Guid("B1C2D3E4-F5A6-7890-BCDE-F123456789AB");
     }
 }

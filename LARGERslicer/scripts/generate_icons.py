@@ -4,8 +4,9 @@ One icon set for the whole plug-in.
 
 Style: minimal line glyphs in one ink colour with a single accent colour per group,
 2 px strokes with round ends, generous white space. Follows the Grasshopper icon rules:
-24 x 24 px, 2 px margin (drawing area 20 x 20), no pure black. Each glyph sits on a light
-rounded tile, so it reads on a dark toolbar and on the light component alike.
+24 x 24 px, 2 px margin (drawing area 20 x 20), no pure black, transparent ground.
+Every icon is written twice: X.png with dark ink (canvas, light toolbar) and X.dark.png with
+light ink (toolbar in dark mode). Grasshopper 1 has no icon pairs; IconHelper picks one.
 Drawn at 16x and scaled down, so curves stay smooth.
 
 Run from anywhere:  python3 scripts/generate_icons.py
@@ -18,8 +19,7 @@ S = 16
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'Resources')
 
-TILE = (247, 249, 252, 255)    # light ground under every glyph
-TILE_EDGE = (120, 132, 150, 110)
+INK_ON_DARK = (232, 236, 244)  # the ink colour on a dark toolbar
 INK = (38, 44, 58, 255)        # dark slate, not black
 SOFT = (38, 44, 58, 90)        # same ink, light: secondary lines
 BLUE = (10, 132, 255, 255)     # slicer
@@ -62,13 +62,18 @@ class G:
         return self
 
     def save(self, name):
-        # Every glyph sits on a light tile. The same icon is shown on Rhino's dark toolbar and on
-        # the light component on the canvas, so it has to carry its own ground to be readable on both.
-        tile = Image.new('RGBA', (24 * S, 24 * S), (0, 0, 0, 0))
-        d = ImageDraw.Draw(tile)
-        d.rounded_rectangle([0.5 * S, 0.5 * S, 23.5 * S, 23.5 * S], radius=5.5 * S, fill=TILE, outline=TILE_EDGE, width=int(0.6 * S))
-        tile.alpha_composite(self.img)
-        tile.resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, name))
+        self.img.resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, name))
+        on_dark(self.img).resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, name.replace('.png', '.dark.png')))
+
+
+def on_dark(img):
+    """The same drawing with the ink turned light; accent colours stay."""
+    px = img.copy(); data = px.load()
+    for y in range(px.height):
+        for x in range(px.width):
+            r, g, b, a = data[x, y]
+            if a and (r, g, b) == INK[:3]: data[x, y] = INK_ON_DARK + (a,)
+    return px
 
 
 def arc(cx, cy, r, a0, a1, n=28, ry=None):
@@ -484,7 +489,7 @@ def tab_icon():
     g = G()
     for cy, col in ((17.2, SOFT), (12.6, INK), (8, BLUE)):
         g.line(arc(12, cy, 8.4, 0, 360, 48, 3.1), col, 2, closed=True)
-    return g.img.resize((24, 24), Image.LANCZOS)
+    return g.img
 
 
 if __name__ == '__main__':
@@ -493,5 +498,6 @@ if __name__ == '__main__':
     logo(256).save(os.path.join(HERE, '..', 'icon.png'))
     logo(256).save(os.path.join(OUT, 'plugin-icon.png'))
     logo(1024).save(os.path.join(HERE, '..', '..', 'docs', 'logo-1024.png'))
-    tab_icon().save(os.path.join(OUT, 'LARGERslicer_24x24.png'))
+    tab_icon().resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, 'LARGERslicer_24x24.png'))
+    on_dark(tab_icon()).resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, 'LARGERslicer_24x24.dark.png'))
     print(len(ICONS), 'icons, logo and tab icon written')

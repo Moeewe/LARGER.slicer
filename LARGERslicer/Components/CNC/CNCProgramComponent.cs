@@ -2185,7 +2185,7 @@ namespace LARGERslicer.Components.CNC
             return string.Join("\n", lines);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CNCProgramIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CNCProgramIcon.png", this);
         public override Guid ComponentGuid => new Guid("C1D2E3F4-A5B6-7890-CDEF-123456789ABC");
     }
 }

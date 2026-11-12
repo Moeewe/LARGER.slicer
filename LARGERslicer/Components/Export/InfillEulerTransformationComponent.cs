@@ -49,7 +49,7 @@ namespace LARGERslicer.Components.Export
             DA.SetData(0, new PolylineCurve(fill.Path));
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("InfillEulerTransformationIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("InfillEulerTransformationIcon.png", this);
         public override Guid ComponentGuid => new Guid("5dbd79e8-a7eb-47bd-8f62-11b41f6bfaa8");
     }
 }

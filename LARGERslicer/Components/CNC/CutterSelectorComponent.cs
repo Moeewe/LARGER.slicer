@@ -114,7 +114,7 @@ namespace LARGERslicer.Components.CNC
             DA.SetData(1, info);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CNCProgramIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CNCProgramIcon.png", this);
         public override Guid ComponentGuid => new Guid("F9E8D7C6-B5A4-3210-9876-543210FEDCBA");
     }
 }

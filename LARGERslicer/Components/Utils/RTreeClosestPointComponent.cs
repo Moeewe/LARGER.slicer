@@ -113,7 +113,7 @@ namespace LARGERslicer.Components.Utils
             DA.SetDataList(1, closestIndices);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RTreeClosestPointIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RTreeClosestPointIcon.png", this);
         public override Guid ComponentGuid => new Guid("E6F7A8B9-C0D1-2345-F012-456789012345");
     }
 }

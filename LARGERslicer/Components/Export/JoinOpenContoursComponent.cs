@@ -195,7 +195,7 @@ namespace LARGERslicer.Components.Export
             DA.SetData(3, info);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("JoinOpenContoursIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("JoinOpenContoursIcon.png", this);
         public override Guid ComponentGuid => new Guid("8bd82196-bc28-4897-893c-6d3885de8b94");
     }
 }

@@ -25,7 +25,7 @@ namespace LARGERslicer.Components.Robot
 
         public override Guid ComponentGuid => new Guid("A4F2C1E8-7B35-4D90-9C61-2E8F5A0B7D13");
         public override GH_Exposure Exposure => GH_Exposure.primary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotArmIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotArmIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
@@ -76,7 +76,7 @@ namespace LARGERslicer.Components.Robot
 
         public override Guid ComponentGuid => new Guid("C9E1B4A7-2D68-4F53-8A0C-6B3D9E7F1A24");
         public override GH_Exposure Exposure => GH_Exposure.primary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotToolIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotToolIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
@@ -115,7 +115,7 @@ namespace LARGERslicer.Components.Robot
 
         public override Guid ComponentGuid => new Guid("E7B3D5F1-4A92-4C06-B8D7-1F6A3C9E5B38");
         public override GH_Exposure Exposure => GH_Exposure.primary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotCellIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotCellIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
@@ -156,7 +156,7 @@ namespace LARGERslicer.Components.Robot
 
         public override Guid ComponentGuid => new Guid("F1D8A3C6-5E27-4B49-A3F0-8C2B6D4E9A57");
         public override GH_Exposure Exposure => GH_Exposure.secondary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotProgramIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotProgramIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {

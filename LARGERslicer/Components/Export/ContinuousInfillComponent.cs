@@ -71,7 +71,7 @@ namespace LARGERslicer.Components.Export
             DA.SetData(3, fill.Info);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("ContinuousInfillIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("ContinuousInfillIcon.png", this);
         public override Guid ComponentGuid => new Guid("e1ba197a-3460-4179-a284-f2bf265bd3be");
     }
 }

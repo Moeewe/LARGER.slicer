@@ -189,7 +189,7 @@ namespace LARGERslicer.Components.Export
             return (xyDirection * xyAxis) < 0;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("AlternateCurvesIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("AlternateCurvesIcon.png", this);
         public override Guid ComponentGuid => new Guid("00f7adb2-9f77-4a8a-a5d9-4e00871797d7");
     }
 }

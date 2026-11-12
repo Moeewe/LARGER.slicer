@@ -182,7 +182,7 @@ namespace LARGERslicer.Components.Export
             DA.SetData(3, info);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("BridgeCurvesIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("BridgeCurvesIcon.png", this);
         public override Guid ComponentGuid => new Guid("6705f4e1-8147-4779-ad92-9a4492100c7a");
     }
 }

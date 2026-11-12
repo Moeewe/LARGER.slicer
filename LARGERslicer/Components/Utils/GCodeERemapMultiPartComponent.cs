@@ -1039,7 +1039,7 @@ namespace LARGERslicer.Components.Utils
             return s.Length > 110 ? s.Substring(0, 110) : s;
         }
 
-        protected override Drawing.Bitmap Icon => IconHelper.Load("GCodeERemapMultiPartIcon.png");
+        protected override Drawing.Bitmap Icon => IconHelper.Load("GCodeERemapMultiPartIcon.png", this);
         public override Guid ComponentGuid => new Guid("15A59A1B-9CB5-4965-9E10-B407082A57EC");
 
         private sealed class RemapCache

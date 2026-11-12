@@ -698,7 +698,7 @@ namespace LARGERslicer.Components.Utils
             return grid;
         }
 
-        protected override Drawing.Bitmap Icon => IconHelper.Load("SurfaceThicknessHeatmapIcon.png");
+        protected override Drawing.Bitmap Icon => IconHelper.Load("SurfaceThicknessHeatmapIcon.png", this);
         public override Guid ComponentGuid => new Guid("ED47AE1C-5A12-4BF4-9ACD-A3F0AE60E2D2");
 
         private readonly struct RebuildResult

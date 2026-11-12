@@ -50,7 +50,7 @@ namespace LARGERslicer.Components.Export
             DA.SetData(0, new PolylineCurve(fill.Path));
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("InfillCellsIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("InfillCellsIcon.png", this);
         public override Guid ComponentGuid => new Guid("0538FD7B-6E07-4279-9521-4D79F007FF3C");
     }
 }

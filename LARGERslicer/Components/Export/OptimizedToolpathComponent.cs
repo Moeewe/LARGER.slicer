@@ -176,6 +176,6 @@ namespace LARGERslicer.Components.Export
                           (uncross ? $"Crossings removed: {fixedCrossings}" + (remaining > 0 ? $", left: {remaining}" : "") : "Crossings not checked"));
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("OptimizedToolpathIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("OptimizedToolpathIcon.png", this);
     }
 }

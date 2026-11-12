@@ -132,7 +132,7 @@ namespace LARGERslicer.Components.CNCUtilities
             return false;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilitySplitIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CncUtilitySplitIcon.png", this);
         public override Guid ComponentGuid => new Guid("7C8CF0D6-9A8E-4C10-9DDE-6EEA644A4E04");
     }
 }

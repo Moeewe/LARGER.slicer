@@ -73,7 +73,7 @@ namespace LARGERslicer.Components.Export
             DA.SetData(2, moves == 0 ? "No self-crossings." : moves + " crossing(s) removed; the line is still one line" + (left > 0 ? ", " + left + " left" : "") + ".");
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SuppressSelfIntersectionsIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SuppressSelfIntersectionsIcon.png", this);
         public override Guid ComponentGuid => new Guid("58c9301e-90c3-47b3-aa08-01ad3fe41ae8");
     }
 }
