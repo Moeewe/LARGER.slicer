@@ -94,6 +94,20 @@ File names follow the FH Muenster: `DXR_2611051216_Test Object_2668g_53min.dxr` 
 | **Scaled test prints** | Bambu Lab, Prusa, Creality, Elegoo and other Marlin or Klipper printers, via `Desktop Test Print` |
 | **Other pellet and robot systems** | Not tested. The generic pellet profile outputs position, tool axis, E and F per point; controller format and extrusion factor have to be matched on the machine. |
 
+### Your own machine or print cell
+
+No code is needed. Everything is a text file or a Rhino file in `Documents/LARGER`:
+
+| What | Where | How |
+|---|---|---|
+| G-code machine | `Machines/My printer.machine` | Start, layer and end code, bed size and E factor as text (see `Machine`). Easiest: type them into `Machine` and set `Save`. |
+| Its 3D model for the preview | `Machines/My printer.3dm` | Draw frame, bed and gantry in Rhino in the machine's coordinates (its 0, 0, 0 at the origin), or connect them to `Model` of `Machine` and set `Save`. Without a model the bed is drawn from the bed size. |
+| Robot print cell | `Cells/My cell.3dm` | Draw it in millimetres in the coordinates of the bed, one part per layer: `Bed` (drawn, not checked for collisions), `Robot Base` (a point where the robot stands and a line from it along its X axis), `Work Base` (optional), and any other layer (Floor, Fence, Table ...) for the collision check. Set `Export` on `Cell Geometry` to get the cell of the FH Muenster in this form as a start. |
+| Robot arm | `Documents/RobotSystems` | The library of the Robots plug-in; `Robot` reads the arm and its 3D model from there (`Geometry File`). |
+| Tool | `Robot Tool` | TCP plane, weight and centre of mass as in Robots; connect your extruder as a mesh to `Mesh`. |
+
+New files appear in the lists of `Machine` and `Cell Geometry` the next time they are placed. Pass the folder on as it is: the `.3dm` next to a `.machine` file is found by its name.
+
 All brands named belong to their respective owners. LARGER.slicer is an independent project and is not affiliated with these manufacturers.
 
 ## Also in the package

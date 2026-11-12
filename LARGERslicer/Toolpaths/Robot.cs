@@ -417,17 +417,26 @@ namespace LARGERslicer.Toolpaths
         private static string XyzAbc(double[] v) => $"X {N(v[0], 3)},Y {N(v[1], 3)},Z {N(v[2], 3)},A {N(v[3], 4)},B {N(v[4], 4)},C {N(v[5], 4)}";
 
         /// <summary>
-        /// Target frame of the tool tip: Z points along the tool, into the part (against the
-        /// path's tool axis); X is world X as far as that allows, turned by `turn` degrees about the tool.
+        /// Target frame of the tool tip. As in the Robots plug-in and on the Weber DXR the target's
+        /// Z axis is the layer normal (up for flat layers), so a vertical tool is A 0, B 0, C 0.
+        /// X is world X turned with the tool by the shortest way from vertical: it depends only on
+        /// the tool axis, has no jump anywhere (also not at 90 degrees of tilt or beyond, where the
+        /// projection of world X turns over) and does not wander from layer to layer. Then it is
+        /// turned by `turn` degrees about the tool.
         /// </summary>
         public static Frame Target(Point3d p, Vector3d toolAxis, double turnDeg)
         {
-            // as in the Robots plug-in and on the Weber DXR: the target's Z axis is the layer normal
-            // (up for flat layers), so a vertical tool is A 0, B 0, C 0
             Vector3d z = toolAxis; if (!z.Unitize()) z = Vector3d.ZAxis;
-            Vector3d x = Vector3d.XAxis - z * (Vector3d.XAxis * z);
-            if (x.Length < 1e-6) x = Vector3d.YAxis - z * (Vector3d.YAxis * z);
-            x.Unitize();
+            Vector3d x;
+            if (z.Z > -0.999)
+            {
+                // world X rotated by the rotation that takes world Z onto z (Rodrigues, closed form)
+                double k = 1.0 / (1.0 + z.Z);
+                x = new Vector3d(1 - z.X * z.X * k, -z.X * z.Y * k, -z.X);
+            }
+            else x = Vector3d.XAxis; // tool pointing straight up from below: any X will do
+            x = x - z * (x * z);
+            if (!x.Unitize()) { x = Vector3d.YAxis - z * (Vector3d.YAxis * z); x.Unitize(); }
             Vector3d y = Vector3d.CrossProduct(z, x);
             var f = new Frame { X = x, Y = y, Z = z, O = p };
             return Math.Abs(turnDeg) > 1e-12 ? f.TurnedAboutZ(turnDeg * Math.PI / 180.0) : f;
@@ -531,7 +540,9 @@ namespace LARGERslicer.Toolpaths
                     if (solvedReach) { prev = best; prevCfg = solvedCfg; for (int ax = 0; ax < 6; ax++) { r.AxisMin[ax] = Math.Min(r.AxisMin[ax], best[ax]); r.AxisMax[ax] = Math.Max(r.AxisMax[ax], best[ax]); } }
                 }
                 r.Moves.Add(mv);
-                r.Lines.Add("PTP {" + XyzAbc(mv.Xyzabc).Replace(",", ", ") + "}");
+                // the layer goes along as a comment, so the DXR Generator marks the layers where the
+                // slicer made them, also where layers are not flat (non-planar, multi-axis)
+                r.Lines.Add("PTP {" + XyzAbc(mv.Xyzabc).Replace(",", ", ") + "} ; layer " + tp.Layers[i].ToString(CultureInfo.InvariantCulture));
             }
             r.Extrusion.AddRange(pr.Extrusion);
             r.Speed.AddRange(pr.Speed);

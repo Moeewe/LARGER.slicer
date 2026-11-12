@@ -24,6 +24,8 @@ namespace LARGERslicer.Toolpaths
     ///   filament diameter = 0        (0 = E is a volume; else E is a length of filament)
     ///   section = rectangle          (rectangle = width x height; bead = squashed bead with round sides)
     ///   travel speed = 0             (mm/min; 0 = the highest speed of the print settings)
+    ///   model = My printer.3dm       (optional: a Rhino file with the machine in 3D, for the preview;
+    ///                                 a .3dm of the same name next to the .machine file is found by itself)
     ///   [start]
     ///   G21
     ///   G28
@@ -42,6 +44,8 @@ namespace LARGERslicer.Toolpaths
         public string Extension = ".gcode";
         public double BedX = 0, BedY = 0;
         public double TravelSpeed = 0;
+        /// <summary>Optional: a Rhino file with the machine in 3D (frame, bed, gantry), drawn in the preview. In the coordinates of the machine: the origin is its 0, 0, 0.</summary>
+        public string Model = "";
         public MachineProfile Profile = new MachineProfile { RectangleSection = true };
         public List<string> Start = new List<string>(), Layer = new List<string>(), End = new List<string>();
         /// <summary>Where the definition comes from: "built in", or the path of its file.</summary>
@@ -117,8 +121,9 @@ namespace LARGERslicer.Toolpaths
                 "filament diameter = " + Num(Profile.FilamentDiameter),
                 "section = " + (Profile.RectangleSection ? "rectangle" : "bead"),
                 "travel speed = " + Num(TravelSpeed),
-                "", "[start]",
             };
+            if (!string.IsNullOrWhiteSpace(Model)) t.Add("model = " + Path.GetFileName(Model));
+            t.Add(""); t.Add("[start]");
             t.AddRange(Start); t.Add(""); t.Add("[layer]"); t.AddRange(Layer); t.Add(""); t.Add("[end]"); t.AddRange(End);
             return t;
         }
@@ -128,7 +133,14 @@ namespace LARGERslicer.Toolpaths
             try
             {
                 var m = Parse(File.ReadAllLines(file), out error);
-                if (m != null) m.Source = file;
+                if (m != null)
+                {
+                    m.Source = file;
+                    // the 3D model: as named in the file, next to it; else a .3dm of the same name
+                    string dir = Path.GetDirectoryName(Path.GetFullPath(file));
+                    if (!string.IsNullOrWhiteSpace(m.Model) && !Path.IsPathRooted(m.Model)) m.Model = Path.Combine(dir, m.Model);
+                    if (string.IsNullOrWhiteSpace(m.Model)) { string same = Path.ChangeExtension(Path.GetFullPath(file), ".3dm"); if (File.Exists(same)) m.Model = same; }
+                }
                 return m;
             }
             catch (Exception ex) { error = ex.Message; return null; }
@@ -175,6 +187,7 @@ namespace LARGERslicer.Toolpaths
                     case "first layer factor": if (!isNumber) goto bad; m.Profile.FirstLayerFactor = d; break;
                     case "filament diameter": if (!isNumber) goto bad; m.Profile.FilamentDiameter = d; break;
                     case "travel speed": if (!isNumber) goto bad; m.TravelSpeed = d; break;
+                    case "model": m.Model = v.Trim('"'); break;
                     case "section":
                         if (v.ToLowerInvariant() == "rectangle") m.Profile.RectangleSection = true;
                         else if (v.ToLowerInvariant() == "bead") m.Profile.RectangleSection = false;
@@ -201,13 +214,43 @@ namespace LARGERslicer.Toolpaths
             while (l.Count > 0 && l[0].Trim().Length == 0) l.RemoveAt(0);
         }
 
-        /// <summary>Writes the definition into the machines folder; returns the path.</summary>
-        public string Save()
+        /// <summary>Writes the definition into the machines folder; returns the path. With a model it is
+        /// written next to it as a .3dm of the same name (one layer: Machine).</summary>
+        public string Save(IList<Mesh> model = null)
         {
             Directory.CreateDirectory(Folder);
             string path = Path.Combine(Folder, OutputFile.Clean(Name) + ".machine");
+            if (model != null && model.Count > 0)
+            {
+                var joined = new Mesh(); foreach (var mm in model) if (mm != null) joined.Append(mm);
+                string mp = Path.ChangeExtension(path, ".3dm");
+                ModelFile.Write(mp, new Dictionary<string, Mesh> { ["Machine"] = joined }, null);
+                Model = mp;
+            }
+            else if (!string.IsNullOrWhiteSpace(Model) && File.Exists(Model) && !string.Equals(Path.GetDirectoryName(Path.GetFullPath(Model)), Path.GetFullPath(Folder), StringComparison.OrdinalIgnoreCase))
+            {
+                // keep the model with the machine, so the folder can be passed on as it is
+                string mp = Path.ChangeExtension(path, ".3dm");
+                File.Copy(Model, mp, true); Model = mp;
+            }
             File.WriteAllLines(path, ToText());
             return path;
+        }
+
+        /// <summary>What the preview shows: the 3D model of the machine if it has one, else its bed as a 10 mm plate below Z 0.</summary>
+        public List<Mesh> Preview(out string note)
+        {
+            note = null;
+            var list = new List<Mesh>();
+            if (!string.IsNullOrWhiteSpace(Model))
+            {
+                var c = ModelFile.Read(Model, out string error);
+                if (c != null) { list.AddRange(c.Meshes.Values); return list; }
+                note = "The 3D model could not be read: " + error;
+            }
+            if (BedX > 0 && BedY > 0)
+                list.Add(Mesh.CreateFromBox(new BoundingBox(0, 0, -10, BedX, BedY, 0), 1, 1, 1));
+            return list;
         }
     }
 

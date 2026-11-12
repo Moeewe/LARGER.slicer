@@ -96,6 +96,9 @@ namespace LARGERslicer.Toolpaths
             {
                 // Slice in flat space. The step is reduced so that the thickest real layer is the
                 // nominal layer height; thinner places get less material through the path heights.
+                // a flat-bottomed non-planar part keeps its first layer flat at the first layer height
+                bool flatFirst = warp is SurfaceWarp sw && sw.Morph;
+                if (flatFirst) ((SurfaceWarp)warp).FlatBand = first;
                 warp.Prepare(mesh.GetBoundingBox(true));
                 var scale = new double[verts.Length];
                 Parallel.For(0, verts.Length, i => { verts[i] = warp.ToFlat(verts[i]); scale[i] = warp.Scale(verts[i]); });
@@ -103,7 +106,7 @@ namespace LARGERslicer.Toolpaths
                 foreach (double s in scale) if (s > maxScale) maxScale = s;
                 maxScale = Math.Min(maxScale, 2.0);
                 layerHeight /= maxScale;
-                first /= maxScale;
+                if (!flatFirst) first /= maxScale; // (the flat first layer is not stretched)
                 if (maxScale > 1.02) log?.Add($"Layers are up to {maxScale:0.00}x further apart on the outside of the bend; the step along the guide is {layerHeight:0.00} mm so no layer is higher than set.");
             }
             var dist = new double[verts.Length];

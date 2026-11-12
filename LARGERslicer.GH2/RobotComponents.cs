@@ -241,17 +241,20 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4006")]
     public sealed class CellGeometryComponent : Component
     {
-        public CellGeometryComponent() : base(Io.Name("Cell Geometry", "The print cell of the FH Muenster in 3D: floor, pedestal of the robot, print bed, safety fence, glass and walls, in the coordinates of the print bed. It also says where the robot stands in it, as in the definition of the FH Muenster.", Io.Robot, 5)) { }
+        public CellGeometryComponent() : base(Io.Name("Cell Geometry", "The print cell in 3D and where the robot stands in it, in the coordinates of the print bed. The cell of the FH Muenster is built in; your own cells are .3dm files in Documents/LARGER/Cells, one part per layer: Bed, Robot Base (a point and a line along the robot's X axis), Work Base (optional) and any other layer for the collision check. Export writes the chosen cell there as a start.", Io.Robot, 5)) { }
         public CellGeometryComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddBoolean("Walls", "W", "Add the walls of the room. They hide the view from outside; the fence stands in front of them, so they rarely matter for the collision check.").Set(false);
+            inputs.AddInteger("Cell", "C", "0 = FH Muenster, then your own cells from Documents/LARGER/Cells in the order of their file names.").Set(0);
+            inputs.AddText("File", "File", "Optional. A cell as a .3dm file anywhere on the computer, used instead of the list.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddBoolean("Export", "Exp", "True writes the chosen cell as a .3dm into Documents/LARGER/Cells: open it in Rhino, change it and save it under the name of your cell.").Set(false);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
         {
-            outputs.AddMesh("Environment", "Env", "Floor, pedestal, fence and glass (and the walls if asked), for the collision check: connect to Environment of Robot Cell.", Access.Twig);
+            outputs.AddMesh("Environment", "Env", "Everything but the bed (the walls only if asked), for the collision check: connect to Environment of Robot Cell.", Access.Twig);
             outputs.AddMesh("Bed", "Bed", "The print bed. Not part of the collision check: the nozzle runs right above it.");
             outputs.AddPlane("Robot Base", "RB", "Where the robot stands: connect to Base of Robot.");
             outputs.AddPlane("Work Base", "WB", "The corner of the bed the print counts from: connect to Work Base of Robot Cell.");
@@ -259,15 +262,34 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
-            bool walls; access.GetItem(0, out walls);
-            var cell = RobotGeometry.FhMuensterCell();
-            if (cell == null) { access.AddError("No cell model", "The cell model could not be read from the plug-in."); return; }
-            Func<string, Mesh> part = n => cell.TryGetValue(n, out Mesh m) ? m : null;
-            var env = new[] { "Floor", "Pedestal", "Fence", "Glass" }.Concat(walls ? new[] { "Walls" } : new string[0]).Select(part).Where(m => m != null).ToArray();
-            access.SetTwig(0, env, null, null);
-            if (part("Bed") != null) access.SetItem(1, part("Bed"));
-            access.SetItem(2, RobotGeometry.FhMuensterRobotBase());
-            access.SetItem(3, Plane.WorldXY);
+            bool walls, export; int index; string file;
+            access.GetItem(0, out walls); access.GetItem(1, out index); access.GetItem(2, out file); access.GetItem(3, out export);
+            CellModel cell;
+            if (!string.IsNullOrWhiteSpace(file))
+            {
+                string path = file.Trim().Trim('"');
+                if (path.StartsWith("~")) path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + path.Substring(1);
+                cell = CellLibrary.Load(path, out string error);
+                if (cell == null) { access.AddError("Cell not read", error); return; }
+            }
+            else
+            {
+                var log = new List<string>();
+                var all = CellLibrary.All(log);
+                foreach (var l in log) access.AddWarning("Cell file left out", l);
+                if (all.Count == 0) { access.AddError("No cell model", "The cell model could not be read from the plug-in."); return; }
+                if (index < 0 || index >= all.Count) { access.AddWarning("Unknown cell", $"There are {all.Count} cells (0 to {all.Count - 1}); using the first."); index = 0; }
+                cell = all[index];
+            }
+            if (export)
+            {
+                try { access.AddRemark("Written", CellLibrary.Export(cell)); }
+                catch (Exception ex) { access.AddError("Could not write the cell", ex.Message); }
+            }
+            access.SetTwig(0, CellLibrary.Environment(cell, walls).ToArray(), null, null);
+            if (cell.Parts.TryGetValue("Bed", out Mesh bed)) access.SetItem(1, bed);
+            access.SetItem(2, cell.RobotBase);
+            access.SetItem(3, cell.WorkBase);
         }
     }
 }

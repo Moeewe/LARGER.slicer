@@ -1377,7 +1377,8 @@ namespace LARGERslicer.Components.Slicer
             var sw = Stopwatch.StartNew();
             var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log);
             sw.Stop();
-            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
+            // slivers left out are a note, not a problem: they are where a layer just touches the part
+            foreach (var l in log) AddRuntimeMessage(l.Contains("(slivers") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
             if (tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty path."); return; }
 
             int travels = tp.Roles.Count(r => r == PathRole.Travel);
@@ -1900,7 +1901,7 @@ namespace LARGERslicer.Components.Slicer
     {
         public MachineComponent()
             : base("Machine", "Machine",
-                  "A machine that prints from G-code: its start code, end code, layer code and how it wants the extrusion. The Ginger One is built in. Add your own machine in one of two ways: put a .machine text file into Documents/LARGER/Machines (it then appears in the list of every new Machine component), or type its codes into the inputs here and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot is not a G-code machine: it has its own components on the Robot tab.") { }
+                  "A machine that prints from G-code: its start code, end code, layer code, how it wants the extrusion, and how it looks in 3D. The Ginger One is built in. Add your own machine in one of two ways: put a .machine text file into Documents/LARGER/Machines (it then appears in the list of every new Machine component; a .3dm of the same name next to it is its 3D model), or type its codes into the inputs here, connect its 3D model and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot is not a G-code machine: it has its own components on the Robot tab.") { }
 
         public override Guid ComponentGuid => new Guid("7C4E19A2-5B36-4D8F-A0C7-2E9B6F13D584");
         public override GH_Exposure Exposure => GH_Exposure.senary;
@@ -1917,7 +1918,9 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Extrusion Factor", "Ef", "Optional. E = bead width x layer height x length x flow x this factor. Print a test wall, weigh it and correct the factor until the weight is right", GH_ParamAccess.item);
             p.AddNumberParameter("Filament Diameter", "Fil", "Optional. 0 = E is a volume (pellet extruder). Larger = E is the length of filament of this diameter (mm)", GH_ParamAccess.item);
             p.AddBooleanParameter("Save", "Save", "True = write this machine as a .machine file into Documents/LARGER/Machines, so it is in the list next time and you can pass it on", GH_ParamAccess.item, false);
+            p.AddGenericParameter("Model", "3D", "Optional. Your machine in 3D for the preview (frame, bed, gantry: meshes, Breps or surfaces), drawn in the machine's coordinates: its 0, 0, 0 is the origin. Save writes it next to the .machine file as a .3dm of the same name. Empty = the model of the machine chosen above, or its bed", GH_ParamAccess.list);
             for (int i = 1; i <= 7; i++) p[i].Optional = true;
+            p[9].Optional = true;
         }
 
         protected override void CreateAutoInputs(GH_Document doc)
@@ -1930,7 +1933,15 @@ namespace LARGERslicer.Components.Slicer
             p.AddGenericParameter("Machine", "M", "The machine: connect to Machine G-code", GH_ParamAccess.item);
             p.AddTextParameter("Definition", "Def", "The machine as text, the way it is stored in a .machine file", GH_ParamAccess.list);
             p.AddTextParameter("Info", "I", "Where the machine comes from and what it does", GH_ParamAccess.item);
+            p.AddMeshParameter("Model", "3D", "The machine in 3D as the preview shows it: its own model, or its bed", GH_ParamAccess.list);
+            p.HideParameter(3); // drawn by the component in its own colour
         }
+
+        private readonly List<Mesh> _model = new List<Mesh>();
+        private static readonly Rhino.Display.DisplayMaterial ModelMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(120, 124, 132), 0.35);
+        protected override void BeforeSolveInstance() { _model.Clear(); base.BeforeSolveInstance(); }
+        public override BoundingBox ClippingBox { get { var b = base.ClippingBox; foreach (var m in _model) b.Union(m.GetBoundingBox(false)); return b; } }
+        public override void DrawViewportMeshes(IGH_PreviewArgs args) { base.DrawViewportMeshes(args); if (!Hidden) foreach (var m in _model) args.Display.DrawMeshShaded(m, ModelMaterial); }
 
         protected override void SolveInstance(IGH_DataAccess da)
         {
@@ -1940,6 +1951,14 @@ namespace LARGERslicer.Components.Slicer
             bool hasStart = da.GetDataList(3, start), hasLayer = da.GetDataList(4, layer), hasEnd = da.GetDataList(5, end);
             bool hasFactor = da.GetData(6, ref factor), hasFilament = da.GetData(7, ref filament);
             da.GetData(8, ref save);
+            var modelIn = new List<IGH_Goo>();
+            List<Mesh> ownModel = null;
+            if (Params.Input.Count > 9 && da.GetDataList(9, modelIn) && modelIn.Count > 0)
+            {
+                var mesh = SliceEngine.ToMesh(modelIn.Select(g => g.ScriptVariable()), 0.5, null);
+                if (mesh != null) ownModel = new List<Mesh> { mesh };
+                else AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Model: connect meshes, Breps, surfaces or SubDs.");
+            }
 
             var log = new List<string>();
             MachineDefinition m;
@@ -1973,14 +1992,19 @@ namespace LARGERslicer.Components.Slicer
                 if (MachineDefinition.BuiltIn().Any(b => string.Equals(b.Name, m.Name, StringComparison.OrdinalIgnoreCase))) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Not saved: " + m.Name + " is built in. Give your machine a Name of its own.");
                 else
                 {
-                    try { string path = m.Save(); m.Source = path; AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + path + ". New Machine components show it in their list."); }
+                    try { string path = m.Save(ownModel); m.Source = path; AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + path + (string.IsNullOrWhiteSpace(m.Model) ? "" : " with its 3D model " + System.IO.Path.GetFileName(m.Model)) + ". New Machine components show it in their list."); }
                     catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the machine file: " + ex.Message); }
                 }
             }
             Message = m.Name;
+            string note = null;
+            var preview = ownModel ?? m.Preview(out note);
+            if (ownModel == null && note != null) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, note);
+            _model.AddRange(preview);
+            if (Params.Output.Count > 3) da.SetDataList(3, preview);
             da.SetData(0, new GH_ObjectWrapper(m));
             da.SetDataList(1, m.ToText());
-            da.SetData(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}. Your own machines: {MachineDefinition.Folder}");
+            da.SetData(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}. 3D: {(ownModel != null ? "your model" : !string.IsNullOrWhiteSpace(m.Model) ? System.IO.Path.GetFileName(m.Model) : m.BedX > 0 ? $"bed {m.BedX:0} x {m.BedY:0} mm" : "none")}. Your own machines: {MachineDefinition.Folder}");
         }
     }
 

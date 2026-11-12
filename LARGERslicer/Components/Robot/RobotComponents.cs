@@ -414,7 +414,12 @@ namespace LARGERslicer.Components.Robot
         {
             p.AddBooleanParameter("Walls", "W", "Show the walls of the room. They hide the view from outside, so they are off by default; the collision check knows them either way", GH_ParamAccess.item, false);
             p.AddBooleanParameter("Fence", "F", "Show the safety fence and its glass", GH_ParamAccess.item, true);
+            p.AddIntegerParameter("Cell", "C", "Which cell: 0 = FH Muenster, then your own cells from Documents/LARGER/Cells in the order of their file names", GH_ParamAccess.item, 0);
+            p.AddTextParameter("File", "File", "Optional. A cell as a .3dm file anywhere on the computer, used instead of the list. Draw it in millimetres in the coordinates of the bed, one part per layer: Bed (not checked for collisions), Robot Base (a point where the robot stands and a line from it along the robot's X axis), Work Base (optional point and line: where the print counts from), and any other layer (Floor, Fence, Table ...) for the collision check", GH_ParamAccess.item);
+            p.AddBooleanParameter("Export", "Exp", "True = write the chosen cell as a .3dm into Documents/LARGER/Cells, with its layers as described at File. Open it in Rhino, change it, save it under the name of your cell: it is then in the list", GH_ParamAccess.item, false);
+            p[3].Optional = true;
         }
+
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
@@ -428,7 +433,7 @@ namespace LARGERslicer.Components.Robot
 
         private readonly List<KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>> _draw = new List<KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>>();
         private static Rhino.Display.DisplayMaterial Mat(int r, int g, int b, double transparency = 0) => new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(r, g, b), transparency);
-        private static readonly Rhino.Display.DisplayMaterial FloorMat = Mat(190, 190, 186), BedMat = Mat(70, 72, 78), FenceMat = Mat(235, 190, 40), GlassMat = Mat(150, 200, 230, 0.75), WallMat = Mat(225, 225, 220, 0.6), PedestalMat = Mat(110, 112, 118);
+        private static readonly Rhino.Display.DisplayMaterial FloorMat = Mat(190, 190, 186), BedMat = Mat(70, 72, 78), FenceMat = Mat(235, 190, 40), GlassMat = Mat(150, 200, 230, 0.75), WallMat = Mat(225, 225, 220, 0.6), PedestalMat = Mat(110, 112, 118), OtherMat = Mat(160, 160, 165);
 
         protected override void BeforeSolveInstance() { _draw.Clear(); base.BeforeSolveInstance(); }
 
@@ -445,29 +450,53 @@ namespace LARGERslicer.Components.Robot
 
         protected override void SolveInstance(IGH_DataAccess da)
         {
-            bool walls = false, fence = true;
+            bool walls = false, fence = true, export = false; int index = 0; string file = null;
             da.GetData(0, ref walls); da.GetData(1, ref fence);
-            var cell = RobotGeometry.FhMuensterCell();
-            if (cell == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The cell model could not be read from the plug-in."); return; }
-            Func<string, Mesh> part = name => cell.TryGetValue(name, out Mesh m) ? m : null;
-            var env = new List<Mesh>();
-            foreach (string name in new[] { "Floor", "Pedestal", "Fence", "Glass", "Walls" }) if (part(name) != null) env.Add(part(name));
-            if (part("Floor") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Floor"), FloorMat));
-            if (part("Pedestal") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Pedestal"), PedestalMat));
-            if (part("Bed") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Bed"), BedMat));
-            if (fence && part("Fence") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Fence"), FenceMat));
-            if (fence && part("Glass") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Glass"), GlassMat));
-            if (walls && part("Walls") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Walls"), WallMat));
-            Plane robotBase = RobotGeometry.FhMuensterRobotBase();
-            var info = new List<string> { "Print cell of the FH Muenster: Weber DXR on a KUKA KR120 R2700-2, in the coordinates of the print bed." };
-            foreach (var kv in cell) { var b = kv.Value.GetBoundingBox(true); info.Add($"{kv.Key}: X {b.Min.X:0}..{b.Max.X:0}, Y {b.Min.Y:0}..{b.Max.Y:0}, Z {b.Min.Z:0}..{b.Max.Z:0} mm"); }
-            info.Add($"Robot: foot at X {robotBase.OriginX:0.#}, Y {robotBase.OriginY:0.#}, Z {robotBase.OriginZ:0.#}, turned like the bed, as in the definition of the FH Muenster (BeispielRoboter.gh).");
-            Message = "FH Muenster";
+            if (Params.Input.Count > 4) { da.GetData(2, ref index); da.GetData(3, ref file); da.GetData(4, ref export); }
+            CellModel cell;
+            if (!string.IsNullOrWhiteSpace(file))
+            {
+                string path = file.Trim().Trim('"');
+                if (path.StartsWith("~")) path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + path.Substring(1);
+                cell = CellLibrary.Load(path, out string error);
+                if (cell == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The cell could not be read: " + error); return; }
+            }
+            else
+            {
+                var log = new List<string>();
+                var all = CellLibrary.All(log);
+                foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Cell file left out: " + l);
+                if (all.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The cell model could not be read from the plug-in."); return; }
+                if (index < 0 || index >= all.Count) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"There are {all.Count} cells (0 to {all.Count - 1}); using the first."); index = 0; }
+                cell = all[index];
+            }
+            if (export)
+            {
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Written " + CellLibrary.Export(cell) + ". Open it in Rhino, change it and save it under the name of your cell."); }
+                catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the cell: " + ex.Message); }
+            }
+            Func<string, Mesh> part = name => cell.Parts.TryGetValue(name, out Mesh m) ? m : null;
+            var env = CellLibrary.Environment(cell, true); // the collision check knows the walls even when they are not shown
+            foreach (var kv in cell.Parts)
+            {
+                string n = kv.Key.ToLowerInvariant();
+                if (n == "walls" && !walls) continue;
+                if ((n == "fence" || n == "glass") && !fence) continue;
+                var mat = n == "floor" ? FloorMat : n == "pedestal" ? PedestalMat : n == "bed" ? BedMat : n == "fence" ? FenceMat : n == "glass" ? GlassMat : n == "walls" ? WallMat : OtherMat;
+                _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(kv.Value, mat));
+            }
+            var info = new List<string> { $"{cell.Name} ({cell.Source}), in the coordinates of the print bed." };
+            foreach (var kv in cell.Parts) { var b = kv.Value.GetBoundingBox(true); info.Add($"{kv.Key}: X {b.Min.X:0}..{b.Max.X:0}, Y {b.Min.Y:0}..{b.Max.Y:0}, Z {b.Min.Z:0}..{b.Max.Z:0} mm{(kv.Key.Equals("Bed", StringComparison.OrdinalIgnoreCase) ? " (not checked for collisions)" : "")}"); }
+            info.Add($"Robot: foot at X {cell.RobotBase.OriginX:0.#}, Y {cell.RobotBase.OriginY:0.#}, Z {cell.RobotBase.OriginZ:0.#}.");
+            info.Add("Your own cells: " + CellLibrary.Folder + " (set Export to get this cell there as a start).");
+            if (part("Bed") == null) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The cell has no layer Bed: nothing is drawn as the print bed.");
+            Message = cell.Name.Split(' ')[0];
             da.SetDataList(0, env);
             if (part("Bed") != null) da.SetData(1, part("Bed"));
-            da.SetData(2, robotBase);
-            da.SetData(3, Plane.WorldXY);
+            da.SetData(2, cell.RobotBase);
+            da.SetData(3, cell.WorkBase);
             da.SetDataList(4, info);
         }
     }
+
 }

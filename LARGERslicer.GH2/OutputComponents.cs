@@ -183,6 +183,7 @@ namespace LARGERslicer.GH2
             inputs.AddText("End Code", "End", "Optional. Your end code, one line per item.", Access.Twig, Requirement.MayBeMissing);
             inputs.AddNumber("Extrusion Factor", "Ef", "E = bead width x layer height x length x flow x this factor. 0 = as the machine chosen above.").Set(0.0);
             inputs.AddBoolean("Save", "Save", "True writes this machine as a .machine file into Documents/LARGER/Machines.").Set(false);
+            inputs.AddGeneric("Model", "3D", "Optional. Your machine in 3D for the preview (frame, bed, gantry), in the machine's coordinates. Save writes it next to the .machine file as a .3dm of the same name. Empty = the model of the machine chosen above, or its bed.", Access.Twig, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -190,6 +191,7 @@ namespace LARGERslicer.GH2
             outputs.AddGeneric("Machine", "M", "The machine: connect to Machine G-code.");
             outputs.AddText("Definition", "Def", "The machine as text, the way it is stored in a .machine file.", Access.Twig);
             outputs.AddText("Info", "I", "Where the machine comes from and what it does.");
+            outputs.AddMesh("Model", "3D", "The machine in 3D: its own model, or its bed.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
@@ -200,6 +202,12 @@ namespace LARGERslicer.GH2
             bool hasLayer = access.GetItemArray(4, out layer) && layer != null && layer.Length > 0;
             bool hasEnd = access.GetItemArray(5, out end) && end != null && end.Length > 0;
             access.GetItem(6, out factor); access.GetItem(7, out save);
+            List<Mesh> ownModel = null;
+            if (access.GetItemArray(8, out object[] modelIn) && modelIn != null && modelIn.Length > 0)
+            {
+                var mesh = SliceEngine.ToMesh(modelIn.Where(g => g != null).Select(Io.Solid), 0.5, null);
+                if (mesh != null) ownModel = new List<Mesh> { mesh }; else access.AddWarning("Model", "Connect meshes, Breps, surfaces or SubDs.");
+            }
 
             MachineDefinition m;
             if (!string.IsNullOrWhiteSpace(file))
@@ -232,10 +240,14 @@ namespace LARGERslicer.GH2
                 if (MachineDefinition.BuiltIn().Any(b => string.Equals(b.Name, m.Name, StringComparison.OrdinalIgnoreCase))) access.AddWarning("Not saved", m.Name + " is built in. Give your machine a Name of its own.");
                 else
                 {
-                    try { string path = m.Save(); m.Source = path; access.AddRemark("Saved", path); }
+                    try { string path = m.Save(ownModel); m.Source = path; access.AddRemark("Saved", path); }
                     catch (Exception ex) { access.AddError("Could not save", ex.Message); }
                 }
             }
+            string note = null;
+            var preview = ownModel ?? m.Preview(out note);
+            if (ownModel == null && note != null) access.AddWarning("3D model", note);
+            access.SetTwig(3, preview.ToArray(), null, null);
             access.SetItem(0, m);
             access.SetTwig(1, m.ToText().ToArray(), null, null);
             access.SetItem(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}. Your own machines: {MachineDefinition.Folder}");

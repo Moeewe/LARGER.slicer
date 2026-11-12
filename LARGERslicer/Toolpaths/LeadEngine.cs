@@ -63,7 +63,12 @@ namespace LARGERslicer.Toolpaths
                 bool last = i == tp.Count - 1;
                 bool same = tp.Roles[i] == r.Roles[k] && Math.Abs(tp.Flows[i] - r.Flows[k]) < 1e-9 && tp.Layers[i] == r.Layers[k]
                             && tp.Normals[i] * r.Normals[k] > 0.9994; // about 2 degrees
-                if (!last && same && tp.Points[i].DistanceTo(r.Points[k]) < minDistance) continue;
+                double d = tp.Points[i].DistanceTo(r.Points[k]);
+                if (!last && same && d < minDistance) continue;
+                // the same point twice (where a wall hands over to the seam, for example) is a move of
+                // length 0 that carries nothing: no machine needs it, and some controllers stop on it.
+                // The moves before and after keep their own role, flow and layer.
+                if (d < 1e-6 && tp.Normals[i] * r.Normals[k] > 0.9994) continue;
                 r.AddFrom(tp, i);
             }
             return r;
@@ -603,6 +608,18 @@ namespace LARGERslicer.Toolpaths
                 }
             }
 
+            // ---- numbers the machine can read: no NaN, no move of length 0
+            {
+                int badNumber = -1, zero = 0;
+                for (int i = 0; i < real.Count; i++)
+                {
+                    if (badNumber < 0 && (!real.Points[i].IsValid || !real.Normals[i].IsValid || double.IsNaN(real.Heights[i]) || double.IsNaN(real.Widths[i]) || double.IsNaN(real.Flows[i]))) badNumber = i;
+                    if (i > 0 && real.Points[i].DistanceTo(real.Points[i - 1]) < 1e-6) zero++;
+                }
+                if (badNumber >= 0) { r.Ok = false; r.Report.Add($"INVALID NUMBERS: point {badNumber + 1} has no valid position, tool axis, height or width. The file would stop the machine. Check the geometry around there."); }
+                if (zero > 0) r.Report.Add($"Note: {zero} move(s) of length 0 (the same point twice). Start and End removes them; a path made by hand should not have them, some controllers stop on them.");
+            }
+
             // ---- the bed is Z 0: the nozzle must run a layer height above it, not on it
             {
                 int low = -1;
@@ -619,6 +636,25 @@ namespace LARGERslicer.Toolpaths
                             : $"TOO LOW: the lowest bead is printed at Z {z:0.##}, less than half its height ({hb:0.##} mm) above the bed (Z 0). The nozzle would press it into the bed: put the part's bottom on Z 0 or set First Layer Height.");
                     }
                 }
+            }
+
+            // ---- non-planar and multi-axis: the bead gets thinner where the layers lie closer together
+            if (real.Warp != null)
+            {
+                double thin = double.MaxValue, thick = 0; int thinCount = 0, printed = 0;
+                for (int i = firstPrint; i < real.Count; i++)
+                {
+                    if (real.Flows[i] <= 0 || real.Roles[i] == PathRole.Seam || real.Roles[i] == PathRole.Skirt) continue;
+                    double hh = real.Heights[i];
+                    printed++;
+                    if (hh < thin) thin = hh;
+                    if (hh > thick) thick = hh;
+                    if (hh < 0.4 * st.LayerHeight) thinCount++;
+                }
+                if (printed > 0)
+                    r.Report.Add(thinCount > 0
+                        ? $"Bead height: the layers are {thin:0.##} to {thick:0.##} mm thick; at {thinCount} of {printed} points less than 40 % of the layer height. The extrusion follows the thickness, but beads this thin are pressed flat and may not bond: a flatter guide, or a guide closer to the part's top, gives more even layers."
+                        : $"Bead height OK: the layers are {thin:0.##} to {thick:0.##} mm thick; the extrusion follows the thickness at every point.");
             }
 
             double ratio = st.LayerHeight / st.BeadWidth;

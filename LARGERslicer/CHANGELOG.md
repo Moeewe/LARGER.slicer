@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (non-planar and multi-axis, checked against the FH Muenster definition)
+- Non-planar layers (guide surface) with the tool square to the layer got too much material: the bead height was taken as the vertical gap between the layers, but a tilted nozzle lays a bead as thick as the gap square to the layer, which is smaller by the cosine of the slope (+3 to +7 % at 10 to 30 degrees, +41 % at 45). Measured on the demo part and on a 40 degree guide: the height used for E now matches the real bead thickness within 0.3 %. Multi-axis (guide curve) was right before and is unchanged (within 2 %).
+- Non-planar with Flat bottom: the first layer was not flat. It was squeezed with the rest and lay only 0.35 to 0.6 mm above the bed where the guide is low. It now lies flat at the first layer height and only the layers above it bend.
+- Robot Program: the turn of the tool about its own axis is now taken by the shortest way from vertical. Before it was the projection of world X, which turns over at 90 degrees of tilt: a multi-axis print that tilts the tool to 90 degrees or past it would have spun the extruder half a turn in one move.
+- DXR Generator: the layer marks of non-planar and multi-axis paths were wrong (a bent tube of 275 layers got 287 marks; the FH Muenster definition's own tube of 237 layers got 672). Robot Program now writes the layer of every point into its lines (`; layer 12`) and the DXR Generator uses it. Lines without it (e.g. from the Robots plug-in) are now told apart better (flat only if most points lie in runs at one height), and non-planar layers are found where the path comes back in 3D to where its round began: 237 of 237 for the definition's tube.
+- Start and End: a point given twice in a row (where a wall hands over to the seam) made a move of length 0 once per layer; some controllers stop on them. They are removed. Found by a stress test of 16 parts x 10 option sets: 66 of 160 paths had them, now none.
+- Path Check reports invalid numbers (stops the machine) and moves of length 0, and for non-planar and multi-axis paths how thick the beads get (a note where they are thinner than 40 % of the layer height).
+
+### Added (your own machines and cells)
+- `Cell Geometry` reads your own print cell: a .3dm in Documents/LARGER/Cells (or any file via `File`) with one part per layer - `Bed`, `Robot Base` (a point and a line along the robot's X axis), `Work Base` (optional) and any other layer for the collision check. `Export` writes the cell of the FH Muenster in this form as a start. Also in Grasshopper 2.
+- `Machine` shows the machine in 3D: a .3dm of the same name next to the .machine file (or `model = ...` in it), or what you connect to `Model`; `Save` writes it next to the .machine file. Without a model the bed is drawn from `bed = ...`. Also in Grasshopper 2.
+
 ### Added (first layer)
 - `Print Settings` and `Easy Slicer` (Grasshopper 1 and 2) have a `First Layer Height` input, as the FH Muenster definition has: the first layer can be thinner or thicker than the others, and its extrusion follows its own height. 0 = the layer height, as before. The nozzle always runs one first layer height above the bottom of the part, never on it.
 - `Path Check` and every check after slicing: a bead printed on or below Z 0 is reported as `INTO THE BED`, one less than half its height above Z 0 as `TOO LOW`, and the path is not OK. `Slice` says when the part reaches below Z 0 or stands above it. Before, a part sunk into the bed or curves drawn on the bed were printed into the bed without a word.
