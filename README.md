@@ -50,7 +50,7 @@ Every drawing is a real layer from the slicer (part 300 × 190 mm, bead 5 mm). S
 
 ## The Slicer tab
 
-Components connect in this order. `Quick Start` places the whole chain with an example part.
+New here? `Easy Slicer` is one component from the model to the checked print path; the [first-steps page](https://parametricsolutions.de/larger-slicer/erste-schritte/) walks through it. For every option, components connect in this order; `Quick Start` places the whole chain with example parts.
 
 | Step | Component | What it does |
 |---|---|---|

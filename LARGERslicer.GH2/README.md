@@ -10,6 +10,7 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 
 | Component | What it does |
 |---|---|
+| Easy Slicer | Model in, checked path out: the whole chain in one component |
 | Print Settings | Bead width, layer height, speed, machine profile |
 | Slice | Flat, angled, non-planar (guide surface) or multi-axis (guide curve) layers |
 | Walls | Wall centre lines, one bead spacing apart |

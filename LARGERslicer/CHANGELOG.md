@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Robot tab**: `Robot` (KUKA KR120 R2700-2 by default, or any six-axis arm with a spherical wrist from a Robots plug-in library file), `Robot Tool`, `Robot Cell` and `Robot Program`. The program puts the tool tip on every path point with the tool along the path's tool axis, so angled, non-planar and multi-axis paths tilt the tool. It calculates the axis angles of every point (same conventions as the Robots plug-in) and reports points out of reach, axis ranges, wrist singularities and axis speed. Outputs: the moves with X, Y, Z, A, B, C for the `DXR Generator`, a KRL program with tool and base, and the arm at any place of the path.
 - `Quick Start`: output B now runs through the robot cell and `Robot Program` into the DXR file.
+- `Easy Slicer`: one component from the model to the checked print path (slice, walls, bottom, infill, continuous path, rounded corners, skirt and exit, check) with the settings most prints need. Its report says what was done, what the check found and what to connect next. An infill size of 0 picks a fitting size and reduces it if the part is too small.
+- Saving: `Ginger G-code`, `Desktop Test Print` and `Robot Program` write to the Desktop when no file is given; a folder or a name without ending works too.
+- `Quick Start` places a "Start here" note with the steps.
+- First-steps page: https://parametricsolutions.de/larger-slicer/erste-schritte/
 - `Ginger G-code`: full-size G-code for the Ginger One with the start and end sequence of the Ginger quick start guide, relative extrusion and one constant feedrate on every line.
 - `Toolpath to Robot Lines`: the toolpath as PTP lines with extrusion and speed for the `DXR Generator`, for flat layers with a vertical tool.
 - `Quick Start`: the flat example now ends in the file for the machine (Ginger G-code, and robot lines into a DXR file); the demo parts lie on positive coordinates.

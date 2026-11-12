@@ -157,7 +157,7 @@ namespace LARGERslicer.GH2
             var r = RobotProgram.Build(tp, cell, turn, name, true);
             if (!r.Ok) access.AddWarning("Not reachable", string.Join("\n", r.Report));
             else if (r.Singular > 0) access.AddRemark("Wrist near singularity", r.Report.First(l => l.StartsWith("Wrist")));
-            Files.Save(access, save, file, r.Krl);
+            Files.Save(access, save, file, r.Krl, (string.IsNullOrWhiteSpace(name) ? "LARGER_PRINT" : name.Trim()) + ".src");
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             access.SetTwig(1, r.Extrusion.ToArray(), null, null);
             access.SetTwig(2, r.Speed.ToArray(), null, null);

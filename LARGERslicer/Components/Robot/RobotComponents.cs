@@ -166,7 +166,7 @@ namespace LARGERslicer.Components.Robot
             p.AddTextParameter("Name", "N", "Name of the program", GH_ParamAccess.item, "LARGER_PRINT");
             p.AddBooleanParameter("Check", "Chk", "True = calculate the axis angles of every point and check reach and ranges", GH_ParamAccess.item, true);
             p.AddNumberParameter("Pose", "P", "Shows the arm at this place of the path: 0 = start, 1 = end", GH_ParamAccess.item, 0.0);
-            p.AddTextParameter("File", "File", "Optional file path (.src) for the KRL program. Written when Save is true", GH_ParamAccess.item);
+            p.AddTextParameter("File", "File", "Optional. File or folder for the KRL program. Empty = the Desktop, named like the program", GH_ParamAccess.item);
             p.AddBooleanParameter("Save", "Save", "True = write the KRL file", GH_ParamAccess.item, false);
             p[1].Optional = true; p[6].Optional = true;
         }
@@ -196,9 +196,9 @@ namespace LARGERslicer.Components.Robot
             if (!r.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.FirstOrDefault(l => l.StartsWith("NOT")) ?? "The robot cannot run this path.");
             else if (r.Singular > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, r.Report.First(l => l.StartsWith("Wrist")));
             if (r.Speed.Any(v => v <= 0)) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A move has speed 0; the machine would stop there.");
-            if (save && !string.IsNullOrWhiteSpace(file))
+            if (save)
             {
-                try { System.IO.File.WriteAllLines(file, r.Krl); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + file); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, (string.IsNullOrWhiteSpace(name) ? "LARGER_PRINT" : name.Trim()) + ".src", r.Krl)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             Message = r.Ok ? r.Moves.Count + " moves" : "not reachable";

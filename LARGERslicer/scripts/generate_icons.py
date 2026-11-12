@@ -402,6 +402,12 @@ def _(g):
     g.circle(12, 12, 9, INK, 2); g.line([(9.6, 8), (9.6, 16)], PURPLE, 2.4); g.line([(14.4, 8), (14.4, 16)], PURPLE, 2.4)
 
 
+@icon('SlicerEasyIcon')
+def _(g):
+    g.rrect(3.5, 3.5, 20.5, 20.5, 4.5, INK, 2)
+    g.line([(8, 12.4), (11, 15.4), (16.4, 8.6)], BLUE, 2.4)
+
+
 # ---- robot
 @icon('RobotArmIcon')
 def _(g):

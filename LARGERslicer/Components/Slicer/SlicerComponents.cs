@@ -212,6 +212,28 @@ namespace LARGERslicer.Components.Slicer
             var all = new List<GH_Component>();
             var hide = new List<IGH_PreviewObject>();
 
+            // ---- read me first
+            var note = new Grasshopper.Kernel.Special.GH_Panel();
+            note.NickName = "Start here";
+            note.UserText =
+                "START HERE\n\n" +
+                "1  Replace 'Your part' (example 1) with your own geometry. It has to stand on the XY plane, in millimetres.\n" +
+                "2  Set Bead Width and Layer Height in the Settings group. Everything else follows from them.\n" +
+                "3  Read Path Check. OK = the path can be printed. If not, it says what to change.\n" +
+                "4  Take the file for your machine:\n" +
+                "     Output A - Ginger One: set Save on 'Ginger G-code'. The file lands on the Desktop.\n" +
+                "     Output B - robot with Weber DXR: put your tool and the place of robot and bed into the robot cell, read the Report of 'Robot Program', then save the DXR.\n" +
+                "5  Before the big print: 'Desktop Test Print' writes the same path small for a desktop printer.\n\n" +
+                "Other infill: delete 'Infill Ribs' and put Infill Wave, Cells, Chambers or Sketch in its place.\n" +
+                "Curved or tilted layers: see examples 2 and 3.\n" +
+                "Just want a path quickly? Use the single component 'Easy Slicer' instead of this chain.";
+            note.Properties.Multiline = true;
+            note.Properties.Wrap = true;
+            note.CreateAttributes();
+            note.Attributes.Pivot = new System.Drawing.PointF(x0 - 760, y0 - 80);
+            note.Attributes.Bounds = new System.Drawing.RectangleF(x0 - 760, y0 - 80, 500, 400);
+            doc.AddObject(note, false);
+
             // ---- settings, shared by all three examples
             var machine = (GH_Component)place(new MachineProfileComponent(), -180, -60);
             var settings = (GH_Component)place(new PrintSettingsComponent(), 60, -60);
@@ -1452,8 +1474,8 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Bed Temperature", "Tb", "Degrees C", GH_ParamAccess.item, 60.0);
             p.AddNumberParameter("Speed", "V", "Print speed (mm/s). The first layer runs at half of it", GH_ParamAccess.item, 40.0);
             p.AddNumberParameter("Flow", "Fl", "Extrusion multiplier (1 = calculated amount)", GH_ParamAccess.item, 1.0);
-            p.AddTextParameter("File", "File", "Optional file path (.gcode). Written when Save is true", GH_ParamAccess.item);
-            p.AddBooleanParameter("Save", "Save", "True = write the file", GH_ParamAccess.item, false);
+            p.AddTextParameter("File", "File", "Optional. File or folder. Empty = larger_print.gcode on the Desktop", GH_ParamAccess.item);
+            p.AddBooleanParameter("Save", "Save", "True = write the file (to the Desktop if File is empty)", GH_ParamAccess.item, false);
             p[9].Optional = true;
         }
 
@@ -1482,9 +1504,9 @@ namespace LARGERslicer.Components.Slicer
             var r = DesktopGCode.Build(tp, DesktopPrinter.Presets[printer], scale, nozzle, filament, tn, tb, speed, flow);
             foreach (var wmsg in r.Warnings) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, wmsg);
             Message = "1 : " + (1.0 / (scale > 0 ? scale : r.SuggestedScale)).ToString("0.#");
-            if (save && !string.IsNullOrWhiteSpace(file))
+            if (save)
             {
-                try { System.IO.File.WriteAllLines(file, r.Lines); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + file); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, "larger_testprint.gcode", r.Lines)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             da.SetDataList(0, r.Lines);
@@ -1492,6 +1514,89 @@ namespace LARGERslicer.Components.Slicer
             da.SetData(2, r.Info);
         }
     }
+    // ============================================================== easy slicer
+    /// <summary>The whole chain in one component, for the first print and for simple parts.</summary>
+    public class EasySlicerComponent : SlicerComponent
+    {
+        public EasySlicerComponent()
+            : base("Easy Slicer", "Easy",
+                  "Model in, checked print path out: slices, builds walls, bottom and infill, joins everything into one continuous line, rounds the corners, adds skirt and exit and checks the result. Uses settings that suit most prints. For every option use the single components (Slice, Walls, Infill ..., Continuous Path) - they do the same steps one by one.") { }
+
+        public override Guid ComponentGuid => new Guid("2A7F9D41-8C35-4E60-B1A9-7D3E5F2C8B46");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerEasyIcon.png");
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddGenericParameter("Geometry", "G", "Your part: Breps, surfaces, SubDs or meshes, standing on the XY plane", GH_ParamAccess.list);
+            p.AddNumberParameter("Bead Width", "W", "Width of one printed bead (mm). Every dimension follows from it", GH_ParamAccess.item, 5.0);
+            p.AddNumberParameter("Layer Height", "H", "Layer height (mm): a third to a half of the bead width", GH_ParamAccess.item, 2.0);
+            p.AddNumberParameter("Speed", "F", "Print speed (mm/min), the same for every move", GH_ParamAccess.item, 3000.0);
+            p.AddIntegerParameter("Machine", "M", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Walls", "N", "Number of walls", GH_ParamAccess.item, 1);
+            p.AddIntegerParameter("Bottom Layers", "B", "Solid layers at the bottom. 0 = open (hulls, vases)", GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
+            p.AddNumberParameter("Infill Size", "Sz", "Rib distance, wavelength or cell size (mm). 0 = chosen from the bead width", GH_ParamAccess.item, 0.0);
+            p.AddBooleanParameter("Spiral", "Sp", "Vase mode: the path climbs all the time. Only for walls without infill and bottom", GH_ParamAccess.item, false);
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddSlider(doc, 1, "Bead Width", 2, 20, 5, 1);
+            AddSlider(doc, 2, "Layer Height", 0.5m, 10, 2, 1);
+            AddValueList(doc, 4, "Machine", MachineProfile.PresetNames);
+            AddValueList(doc, 7, "Infill", EasySlicer.Infills);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddGenericParameter("Toolpath", "T", "The finished path: connect to Ginger G-code, Robot Program, Desktop Test Print or Extrusion and Speed", GH_ParamAccess.item);
+            p.AddCurveParameter("Path", "P", "The path as a curve", GH_ParamAccess.item);
+            p.AddBooleanParameter("OK", "OK", "True if the path can be printed", GH_ParamAccess.item);
+            p.AddTextParameter("Report", "R", "What was done, what the check found and what to do about it", GH_ParamAccess.list);
+            p.AddGenericParameter("Layers", "L", "The layers with walls and infill, for the single components", GH_ParamAccess.list);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            var geo = new List<object>();
+            if (!da.GetDataList(0, geo) || geo.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Connect your part to Geometry."); return; }
+            double w = 5, h = 2, f = 3000, size = 0; int machine = 0, walls = 1, bottom = 0, infill = 0; bool spiral = false;
+            da.GetData(1, ref w); da.GetData(2, ref h); da.GetData(3, ref f); da.GetData(4, ref machine); da.GetData(5, ref walls);
+            da.GetData(6, ref bottom); da.GetData(7, ref infill); da.GetData(8, ref size); da.GetData(9, ref spiral);
+            if (w <= 0 || h <= 0 || f <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Bead Width, Layer Height and Speed must be greater than 0."); return; }
+            if (h > 0.6 * w) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The layer height is {h / w * 100:0} % of the bead width. Stay below half the bead width or the beads bond poorly.");
+            machine = Math.Max(0, Math.Min(MachineProfile.PresetNames.Length - 1, machine));
+            var st = new PrintSettings { BeadWidth = w, LayerHeight = h, Speed = f, Machine = MachineProfile.Preset(machine) };
+
+            var log = new List<string>();
+            Mesh mesh = SliceEngine.ToMesh(geo, Math.Max(0.01, st.Resolution * 0.025), log);
+            if (mesh == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No usable geometry. Connect Breps, surfaces, SubDs or meshes."); return; }
+            var layers = SliceEngine.Slice(mesh, Plane.WorldXY, st.LayerHeight, st.PointSpacing, log);
+            var r = EasySlicer.Run(layers, st, new EasySlicer.Options { Walls = walls, BottomLayers = Math.Max(0, bottom), Infill = infill, InfillSize = size, Spiral = spiral });
+
+            var report = new List<string>();
+            report.Add("DONE: " + string.Join(" > ", r.Steps));
+            if (r.Check != null) report.AddRange(r.Check.Report);
+            foreach (var note in r.Notes.Concat(log).Distinct()) report.Add("Note: " + note);
+            if (r.Path == null || r.Path.Count < 2)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, r.Notes.FirstOrDefault() ?? "No print path could be made.");
+                Message = "No path";
+                da.SetData(2, false); da.SetDataList(3, report);
+                return;
+            }
+            if (!r.Check.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The check found something: read Report. " + (r.Check.Report.FirstOrDefault(l => l.StartsWith("NOT") || l.StartsWith("CROSS")) ?? ""));
+            report.Add(r.Ok ? "NEXT: connect Toolpath to Ginger G-code, Robot Program or Desktop Test Print." : "NEXT: fix what the check reports, then connect Toolpath to an output component.");
+            Message = r.Ok ? "Printable" : "Read the report";
+            da.SetData(0, new GH_Toolpath(r.Path));
+            da.SetData(1, new PolylineCurve(r.Path.Points));
+            da.SetData(2, r.Ok);
+            da.SetDataList(3, report);
+            da.SetDataList(4, r.Layers.Select(l => new GH_SliceLayer(l)));
+        }
+    }
+
     // ============================================================== machine output
     public class GingerGCodeComponent : SlicerComponent
     {
@@ -1506,8 +1611,8 @@ namespace LARGERslicer.Components.Slicer
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
             p.AddGenericParameter("Toolpath", "T", "Toolpath from Start and End", GH_ParamAccess.item);
-            p.AddTextParameter("File", "File", "Optional file path (.gcode). Written when Save is true", GH_ParamAccess.item);
-            p.AddBooleanParameter("Save", "Save", "True = write the file", GH_ParamAccess.item, false);
+            p.AddTextParameter("File", "File", "Optional. File or folder. Empty = larger_print.gcode on the Desktop", GH_ParamAccess.item);
+            p.AddBooleanParameter("Save", "Save", "True = write the file (to the Desktop if File is empty)", GH_ParamAccess.item, false);
             p[1].Optional = true;
         }
 
@@ -1525,9 +1630,9 @@ namespace LARGERslicer.Components.Slicer
             da.GetData(1, ref file); da.GetData(2, ref save);
             var r = GingerGCode.Build(tp);
             foreach (var wmsg in r.Warnings) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, wmsg);
-            if (save && !string.IsNullOrWhiteSpace(file))
+            if (save)
             {
-                try { System.IO.File.WriteAllLines(file, r.Lines); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + file); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, "larger_print.gcode", r.Lines)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             Message = r.Lines.Count + " lines";

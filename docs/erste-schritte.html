@@ -1,0 +1,229 @@
+<title>LARGER.slicer Erste Schritte</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a course read top to bottom. Numbered lessons (the order is the learning order), each a
+   statement on the left and a drawing to scale on the right; one dark panel holds the calculator. */
+:root{
+  --bg:#ffffff; --band:#f1f4f7; --ink:#14203a; --muted:#5d6a7e; --faint:#97a1b0; --line:#dfe4ea;
+  --bead-wall:#e6eaf0; --bead-fill:#cfe3ff; --cl-wall:#14203a; --cl-fill:#0a84ff;
+  --marker:#0a84ff; --on-marker:#ffffff; --marker-soft:#dcecff; --alert:#d23f45; --ok:#138a5e;
+  --night:#121a2b; --night-2:#0a0e18; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#26334f;
+  --win:#ffffff; --win-side:#eef1f5; --win-bar:#e7ebf0;
+  --coil-front:#14203a; --coil-back:#a9b1bf; --coil-new:#0a84ff;
+  --wall:#0a84ff; --infill:#e8870c; --bottom:#0f9e8e; --travel:#e5484d; --skirt:#b46be0;
+  --surface:#ffffff; --fg:#14203a;
+  --chip-built:#dcecff; --chip-built-fg:#0b4f99; --chip-idea:#f1f4f7; --chip-idea-fg:#5d6a7e;
+  --display:"Bricolage Grotesque",-apple-system,"SF Pro Display","Helvetica Neue",sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#111925; --chip-idea-fg:#a1acbb; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#111925; --chip-idea-fg:#a1acbb; color-scheme:dark }
+
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+html[data-lang="en"] [lang="de"],html[data-lang="de"] [lang="en"],html:not([data-lang]) [lang="en"]{display:none}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--marker);outline-offset:3px}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);font-weight:800;margin:0;text-wrap:balance;letter-spacing:-.035em}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:11;background:var(--bg)}
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.6) blur(16px);-webkit-backdrop-filter:saturate(1.6) blur(16px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;height:54px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-.02em;text-decoration:none}
+.brand svg{width:28px;height:28px;flex:none}
+.links{display:flex;gap:22px;font-size:14px;font-weight:600;color:var(--muted);margin-left:auto}
+.links a{text-decoration:none}.links a:hover{color:var(--ink)}
+.lang{display:flex;border:1px solid var(--line);flex:none}
+.lang button{font:600 12px var(--body);padding:6px 9px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.hero{padding-block:88px 56px}
+.eyebrow{font:500 13px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--marker);margin:0 0 20px}
+h1{font-size:clamp(44px,7.4vw,92px);line-height:1;letter-spacing:-.05em;max-width:12em}
+.hl{color:var(--on-marker);background:linear-gradient(var(--marker),var(--marker)) no-repeat left 60%/100% 72%;padding:0 .06em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.lede{font-size:clamp(19px,2.1vw,23px);color:var(--muted);margin:28px 0 0;max-width:32em}
+.toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 32px;margin-top:56px;border-top:1px solid var(--line)}
+.toc a{display:flex;gap:14px;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--line);text-decoration:none;font-weight:600}
+.toc a:hover{color:var(--marker)}
+.toc .num{font-size:13px;color:var(--faint)}
+section{padding-block:88px;border-top:1px solid var(--line)}
+section:nth-of-type(even){background:var(--band)}
+.lhead{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 28px;align-items:baseline;margin-bottom:48px}
+.lhead .no{font-size:15px;color:var(--marker);grid-row:span 2}
+.lhead h2{font-size:clamp(34px,4.8vw,60px);line-height:1.02}
+.lead{margin:12px 0 0;font-size:clamp(18px,1.9vw,21px);color:var(--muted);max-width:34em}
+.rule{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:24px 56px;align-items:center;padding-block:36px;border-top:1px solid var(--line)}
+.rule h3{font-size:clamp(23px,2.6vw,30px);letter-spacing:-.03em}
+.rule p{margin:12px 0 0;color:var(--muted);max-width:34em}
+.fig svg{display:block;width:100%;height:auto;max-width:420px}
+.cap{font-size:13px;color:var(--faint);margin:10px 0 0;max-width:32em}
+.take{margin:40px 0 0;padding:22px 26px;background:var(--marker-soft);color:var(--ink);font-size:19px;font-weight:600;max-width:44em}
+.cmp{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:16px}
+th,td{text-align:left;padding:14px 16px 14px 0;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+tbody th{font-weight:700;white-space:nowrap}
+td{color:var(--muted)} td:last-child{color:var(--ink)}
+.trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:32px 40px}
+.trio>div{border-top:2px solid var(--ink);padding-top:18px;min-width:0}
+.trio h3{font-size:22px;letter-spacing:-.02em}
+.trio p{margin:10px 0 0;color:var(--muted);font-size:16px}
+.trio .k{color:var(--marker);font-size:13px}
+.list{margin:40px 0 0;padding:0;list-style:none;display:grid;gap:0;max-width:46em}
+.list li{padding:14px 0 14px 26px;border-bottom:1px solid var(--line);position:relative}
+.list li::before{content:"";position:absolute;left:0;top:25px;width:12px;height:2px;background:var(--marker)}
+.calc{margin-top:40px;padding:32px;background:var(--night);color:var(--night-ink)}
+.calc h3{font-size:24px}
+.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px 20px;margin-top:22px}
+.inputs label{display:grid;grid-template-columns:1fr auto;gap:6px 8px;align-items:center;font-size:13px;color:var(--night-muted);min-width:0}
+.inputs label>span{grid-column:1/-1}
+.inputs input{width:100%;min-width:0;font:500 18px var(--mono);padding:10px 12px;background:var(--night-2);color:var(--night-ink);border:1px solid var(--night-line);border-radius:0}
+.inputs i{font:normal 12px var(--mono);color:var(--night-muted)}
+.outs{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px 28px;margin:28px 0 0;padding-top:24px;border-top:1px solid var(--night-line)}
+.outs div{min-width:0}
+.outs dt{font-size:13px;color:var(--night-muted)}
+.outs dd{margin:6px 0 0;font-size:clamp(20px,2.4vw,26px);color:var(--night-ink);overflow-wrap:anywhere}
+.note{margin:20px 0 0;font-size:14px;color:var(--night-muted);min-height:1.5em}
+.note.warn{color:#ffb86b}
+.flow{list-style:none;margin:0;padding:0;counter-reset:f;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 40px}
+.flow li{counter-increment:f;display:grid;grid-template-columns:28px minmax(0,1fr);gap:2px 10px;padding:16px 0;border-top:1px solid var(--line)}
+.flow li::before{content:counter(f);font:500 13px var(--mono);color:var(--faint);grid-row:span 2;padding-top:3px}
+.flow b{font-size:15px;color:var(--marker);font-weight:500}
+.flow span{color:var(--muted);font-size:16px}
+.flow span span{color:inherit}
+.checks{list-style:none;margin:0;padding:0;max-width:44em}
+.checks li{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line)}
+.checks input{width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--marker)}
+.checks label{cursor:pointer}
+.checks input:checked+label{color:var(--faint);text-decoration:line-through}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;font:600 16px var(--body);text-decoration:none;border:1px solid var(--ink);color:var(--ink)}
+.btn.solid{background:var(--ink);color:var(--bg)}
+.end{text-align:center}
+.end h2{font-size:clamp(34px,5vw,60px)}
+.end .ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+footer{padding-block:28px 44px;font-size:13px;color:var(--faint);border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
+@media (max-width:760px){.links{display:none}.rule{grid-template-columns:1fr}.lhead{grid-template-columns:1fr}.lhead .no{grid-row:auto}section{padding-block:64px}.hero{padding-block:56px 40px}.calc{padding:24px 20px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+<style>
+.steps{list-style:none;margin:0;padding:0;counter-reset:st;display:grid;gap:0;max-width:52em}
+.steps li{counter-increment:st;display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px 14px;padding:18px 0;border-top:1px solid var(--line)}
+.steps li::before{content:counter(st);font:500 22px var(--mono);color:var(--marker);grid-row:span 2}
+.steps b{font-size:19px}
+.steps span.d{color:var(--muted)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:28px 40px}
+.way{border-top:3px solid var(--ink);padding-top:18px;min-width:0}
+.way h3{font-size:26px;letter-spacing:-.03em}
+.way p{color:var(--muted);margin:10px 0 0}
+.way .for{font:500 13px var(--mono);color:var(--marker);margin-top:14px}
+code,.c{font-family:var(--mono);font-size:.92em;background:var(--marker-soft);padding:1px 6px}
+.help td:first-child,.help th:first-child{white-space:normal;min-width:210px}
+.help td{color:var(--muted)} .help td:last-child{color:var(--ink)}
+</style>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="https://parametricsolutions.de/larger-slicer/"><svg viewBox="0 0 64 64" aria-hidden="true" id="lm"></svg>LARGER.slicer</a>
+  <nav class="links" aria-label="Seiten"><a href="https://parametricsolutions.de/larger-slicer/"><span lang="de">Slicer</span><span lang="en">Slicer</span></a><a href="#easy">Easy Slicer</a><a href="#ausgabe"><span lang="de">Ausgabe</span><span lang="en">Output</span></a><a href="#hilfe"><span lang="de">Hilfe</span><span lang="en">Help</span></a><a href="https://parametricsolutions.de/larger-slicer/lehrgang/"><span lang="de">Lehrgang</span><span lang="en">Course</span></a><a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a></nav>
+  <div class="lang" role="group" aria-label="Sprache / Language"><button type="button" id="lang-de" data-l="de">DE</button><button type="button" id="lang-en" data-l="en">EN</button></div>
+</div></header>
+<main>
+  <div class="hero wrap">
+    <p class="eyebrow"><span lang="de">Erste Schritte</span><span lang="en">First steps</span></p>
+    <h1><span lang="de">Vom Modell zur <span class="hl">Druckdatei.</span></span><span lang="en">From model to <span class="hl">print file.</span></span></h1>
+    <p class="lede"><span lang="de">So kommst du mit dem LARGER.slicer ohne Vorkenntnisse zur ersten Druckbahn: installieren, Bauteil anschließen, Bericht lesen, Datei für Ginger oder Roboter schreiben.</span><span lang="en">How to get to your first print path with LARGER.slicer without prior knowledge: install, connect the part, read the report, write the file for the Ginger or the robot.</span></p>
+    <nav class="toc" aria-label="Abschnitte"><a href="#install"><span class="num">01</span><span lang="de">Installieren</span><span lang="en">Install</span></a><a href="#wege"><span class="num">02</span><span lang="de">Zwei Wege zur Bahn</span><span lang="en">Two ways to a path</span></a><a href="#easy"><span class="num">03</span><span lang="de">Der schnellste Weg</span><span lang="en">The quickest way</span></a><a href="#ausgabe"><span class="num">04</span><span lang="de">Die Datei für die Maschine</span><span lang="en">The file for the machine</span></a><a href="#robot"><span class="num">05</span><span lang="de">Die Roboterzelle einrichten</span><span lang="en">Set up the robot cell</span></a><a href="#hilfe"><span class="num">06</span><span lang="de">Wenn eine Meldung kommt</span><span lang="en">When a message appears</span></a></nav>
+  </div>
+
+<section id="install"><div class="wrap">
+  <div class="lhead"><span class="no num">01</span><h2><span lang="de">Installieren</span><span lang="en">Install</span></h2><p class="lead"><span lang="de">Einmal einrichten, danach liegt alles im Grasshopper-Tab „LARGER“.</span><span lang="en">Set it up once; after that everything is in the Grasshopper tab “LARGER”.</span></p></div>
+  <ol class="steps"><li><b><span lang="de">Paket laden</span><span lang="en">Get the package</span></b><span class="d"><span lang="de"><a href="https://github.com/Moeewe/LARGER.slicer/releases/latest">LARGERslicer-SETUP.zip</a> herunterladen und entpacken.</span><span lang="en">Download <a href="https://github.com/Moeewe/LARGER.slicer/releases/latest">LARGERslicer-SETUP.zip</a> and unzip it.</span></span></li><li><b><span lang="de">Rhino schließen, Installer starten</span><span lang="en">Close Rhino, run the installer</span></b><span class="d"><span lang="de">Mac: Rechtsklick auf <span class="c">Install Mac.command</span> → Öffnen. Windows: Doppelklick auf <span class="c">Install Windows.bat</span>.</span><span lang="en">Mac: right-click <span class="c">Install Mac.command</span> → Open. Windows: double-click <span class="c">Install Windows.bat</span>.</span></span></li><li><b><span lang="de">Rhino in Millimetern öffnen</span><span lang="en">Open Rhino in millimetres</span></b><span class="d"><span lang="de">Der Slicer rechnet in Millimetern. Das Bauteil steht auf der XY-Ebene, mit positiven Koordinaten.</span><span lang="en">The slicer works in millimetres. The part stands on the XY plane, at positive coordinates.</span></span></li></ol>
+</div></section>
+<section id="wege"><div class="wrap">
+  <div class="lhead"><span class="no num">02</span><h2><span lang="de">Zwei Wege zur Bahn</span><span lang="en">Two ways to a path</span></h2><p class="lead"><span lang="de">Beide liefern dieselbe geprüfte Druckbahn. Nimm den ersten zum Einstieg und den zweiten, wenn du jede Einstellung brauchst.</span><span lang="en">Both give the same checked print path. Take the first to get started and the second when you need every setting.</span></p></div>
+  <div class="two"><div class="way"><h3>Easy Slicer</h3><p><span lang="de">Ein Baustein: Bauteil rein, geprüfte Bahn raus. Bahnbreite, Lagenhöhe, Boden und Infill wählst du direkt an ihm.</span><span lang="en">One component: part in, checked path out. You choose bead width, layer height, bottom and infill right on it.</span></p><p class="for"><span lang="de">Für den ersten Druck und einfache Teile</span><span lang="en">For the first print and simple parts</span></p></div><div class="way"><h3>Quick Start</h3><p><span lang="de">Legt die ganze Kette verdrahtet auf die Arbeitsfläche, mit drei Beispielen: flach, entlang einer Fläche, entlang einer Kurve. Jeder Schritt ist ein eigener Baustein.</span><span lang="en">Puts the whole chain on the canvas, wired, with three examples: flat, along a surface, along a curve. Every step is its own component.</span></p><p class="for"><span lang="de">Für eigene Infill-Linien, Schrägdruck, mehrere Achsen</span><span lang="en">For your own infill lines, angled printing, several axes</span></p></div></div>
+</div></section>
+<section id="easy"><div class="wrap">
+  <div class="lhead"><span class="no num">03</span><h2><span lang="de">Der schnellste Weg</span><span lang="en">The quickest way</span></h2><p class="lead"><span lang="de">Vier Schritte mit dem Easy Slicer.</span><span lang="en">Four steps with Easy Slicer.</span></p></div>
+  <ol class="steps"><li><b><span lang="de">Easy Slicer auf die Arbeitsfläche legen</span><span lang="en">Put Easy Slicer on the canvas</span></b><span class="d"><span lang="de">Tab LARGER, Bereich Slicer. Regler für Bahnbreite und Lagenhöhe und die Auswahllisten bringt er mit.</span><span lang="en">Tab LARGER, section Slicer. It brings sliders for bead width and layer height and its drop-down lists.</span></span></li><li><b><span lang="de">Bauteil anschließen</span><span lang="en">Connect your part</span></b><span class="d"><span lang="de">Flächen, Volumenkörper, SubDs oder Netze an <span class="c">Geometry</span>. Offene Flächen werden als einzelne Wand gedruckt.</span><span lang="en">Surfaces, solids, SubDs or meshes to <span class="c">Geometry</span>. Open surfaces print as a single wall.</span></span></li><li><b><span lang="de">Bahn, Boden und Infill wählen</span><span lang="en">Choose bead, bottom and infill</span></b><span class="d"><span lang="de">Die Bahnbreite bestimmt alle Maße. Die Infill-Größe 0 wählt einen passenden Wert und verkleinert ihn, wenn das Teil zu klein ist.</span><span lang="en">The bead width sets every dimension. Infill size 0 picks a fitting value and reduces it if the part is too small.</span></span></li><li><b><span lang="de">Report lesen, Ausgabe anschließen</span><span lang="en">Read the report, connect an output</span></b><span class="d"><span lang="de">Unter dem Baustein steht „Printable“ oder „Read the report“. <span class="c">Toolpath</span> geht an „Ginger G-code“, „Robot Program“ oder „Desktop Test Print“.</span><span lang="en">Below the component it says “Printable” or “Read the report”. <span class="c">Toolpath</span> goes to “Ginger G-code”, “Robot Program” or “Desktop Test Print”.</span></span></li></ol>
+</div></section>
+<section id="ausgabe"><div class="wrap">
+  <div class="lhead"><span class="no num">04</span><h2><span lang="de">Die Datei für die Maschine</span><span lang="en">The file for the machine</span></h2><p class="lead"><span lang="de">Drei Ausgaben für dieselbe Bahn. Bei allen gilt: Save auf True schreibt die Datei, ohne Pfad auf den Schreibtisch.</span><span lang="en">Three outputs for the same path. For all of them: Save on True writes the file, to the Desktop if no path is given.</span></p></div>
+  <div class="cmp"><table><thead><tr><th><span lang="de">Maschine</span><span lang="en">Machine</span></th><th><span lang="de">Bausteine</span><span lang="en">Components</span></th><th><span lang="de">Darauf achten</span><span lang="en">Watch out for</span></th></tr></thead><tbody><tr><th><span lang="de">Ginger One</span><span lang="en">Ginger One</span></th><td class="num">Ginger G-code</td><td><span lang="de">In „Machine Profile“ bzw. am Easy Slicer die Maschine „Ginger“ wählen, sonst passen die E-Werte nicht. Das Teil muss auf positiven Koordinaten liegen.</span><span lang="en">Choose the machine “Ginger” in Machine Profile or on Easy Slicer, or the E values will not fit. The part has to lie at positive coordinates.</span></td></tr><tr><th><span lang="de">Roboter mit Weber DXR</span><span lang="en">Robot with Weber DXR</span></th><td class="num">Robot → Robot Tool → Robot Cell → Robot Program → DXR Generator</td><td><span lang="de">Roboter, Bett und Bauteil in Rhino so aufstellen, wie sie wirklich stehen. Werkzeugspitze (TCP) eintragen. Den Report von „Robot Program“ lesen: Er sagt, ob der Roboter jeden Punkt erreicht.</span><span lang="en">Place robot, bed and part in Rhino the way they really stand. Enter the tool centre point (TCP). Read the report of Robot Program: it says whether the robot reaches every point.</span></td></tr><tr><th><span lang="de">Tischdrucker (Testdruck)</span><span lang="en">Desktop printer (test print)</span></th><td class="num">Desktop Test Print</td><td><span lang="de">Druckt dieselbe Bahn verkleinert. Zeigt Linienführung, Naht und Überhänge; das Materialverhalten skaliert nicht mit. Die Hinweise zum gewählten Drucker lesen.</span><span lang="en">Prints the same path scaled down. Shows line pattern, seam and overhangs; material behaviour does not scale. Read the notes for the chosen printer.</span></td></tr></tbody></table></div>
+</div></section>
+<section id="robot"><div class="wrap">
+  <div class="lhead"><span class="no num">05</span><h2><span lang="de">Die Roboterzelle einrichten</span><span lang="en">Set up the robot cell</span></h2><p class="lead"><span lang="de">Einmal beschreiben, dann für jeden Druck wiederverwenden.</span><span lang="en">Describe it once, then reuse it for every print.</span></p></div>
+  <ol class="steps"><li><b><span lang="de">Robot</span><span lang="en">Robot</span></b><span class="d"><span lang="de">Ohne Eingaben ist es der KUKA KR120 R2700-2. Für einen anderen Sechsachser die Bibliotheksdatei des Robots-Plug-ins (.xml) anschließen. <span class="c">Base</span> ist die Ebene, auf der der Roboter in deinem Rhino-Modell steht.</span><span lang="en">Without inputs it is the KUKA KR120 R2700-2. For another six-axis arm connect the library file of the Robots plug-in (.xml). <span class="c">Base</span> is the plane the robot stands on in your Rhino model.</span></span></li><li><b><span lang="de">Robot Tool</span><span lang="en">Robot Tool</span></b><span class="d"><span lang="de"><span class="c">TCP</span> ist die Düsenspitze relativ zum Flansch, Z zeigt aus der Düse heraus. Die Werte stehen am Bediengerät des Roboters.</span><span lang="en"><span class="c">TCP</span> is the nozzle tip relative to the flange, Z points out of the nozzle. The values are on the robot’s pendant.</span></span></li><li><b><span lang="de">Robot Cell</span><span lang="en">Robot Cell</span></b><span class="d"><span lang="de"><span class="c">Work Base</span> ist der Punkt, von dem aus das Programm zählt, meist eine Ecke des Druckbetts.</span><span lang="en"><span class="c">Work Base</span> is the point the program counts from, usually a corner of the print bed.</span></span></li><li><b><span lang="de">Robot Program</span><span lang="en">Robot Program</span></b><span class="d"><span lang="de">Liefert die Zeilen für den DXR Generator und ein KRL-Programm. Mit <span class="c">Pose</span> fährst du den Arm in der Vorschau die Bahn entlang.</span><span lang="en">Gives the lines for the DXR Generator and a KRL program. With <span class="c">Pose</span> you move the arm along the path in the preview.</span></span></li></ol>
+</div></section>
+<section id="hilfe"><div class="wrap">
+  <div class="lhead"><span class="no num">06</span><h2><span lang="de">Wenn eine Meldung kommt</span><span lang="en">When a message appears</span></h2><p class="lead"><span lang="de">Jede Meldung sagt, was nicht passt. Hier steht, was du dann tust.</span><span lang="en">Every message says what does not fit. Here is what to do then.</span></p></div>
+  <div class="cmp"><table class="help"><thead><tr><th><span lang="de">Meldung</span><span lang="en">Message</span></th><th><span lang="de">Bedeutung</span><span lang="en">Meaning</span></th><th><span lang="de">Was tun</span><span lang="en">What to do</span></th></tr></thead><tbody><tr><td class="num">NOT SUPPORTED: … points lie more than … beside the layer below</td><td><span lang="de">Bahnen hängen in der Luft: Der Überhang ist steiler als eine halbe Bahnbreite pro Lage.</span><span lang="en">Beads hang in the air: the overhang is steeper than half a bead width per layer.</span></td><td><span lang="de">Breitere Bahn oder niedrigere Lage wählen, das Teil drehen, schräg oder non-planar schneiden.</span><span lang="en">Use a wider bead or a lower layer, turn the part, slice at an angle or non-planar.</span></td></tr><tr><td class="num">CROSSINGS / the path crosses itself</td><td><span lang="de">Die Düse würde durch frisches Material fahren.</span><span lang="en">The nozzle would run through fresh material.</span></td><td><span lang="de">Anderes Infill oder andere Größe wählen. Bei „Infill Sketch“: Linien dürfen sich nicht kreuzen.</span><span lang="en">Choose another infill or size. With Infill Sketch: lines must not cross.</span></td></tr><tr><td class="num">… layer(s) are narrower than one bead width</td><td><span lang="de">An diesen Stellen ist das Teil dünner als eine Bahn.</span><span lang="en">The part is thinner than one bead there.</span></td><td><span lang="de">Schmalere Bahn wählen oder das Teil dort dicker machen.</span><span lang="en">Use a narrower bead or make the part thicker there.</span></td></tr><tr><td class="num">No wave / ribs / cells fit into this part</td><td><span lang="de">Das Muster ist für das Teil zu groß.</span><span lang="en">The pattern is too large for the part.</span></td><td><span lang="de">Kleinere Infill-Größe wählen. Der Easy Slicer verkleinert sie bei Größe 0 selbst.</span><span lang="en">Choose a smaller infill size. Easy Slicer reduces it itself at size 0.</span></td></tr><tr><td class="num">Travel: … move(s) without extrusion</td><td><span lang="de">Die Bahn setzt ab, meist bei Öffnungen oder getrennten Inseln.</span><span lang="en">The path stops and restarts, usually at openings or separate islands.</span></td><td><span lang="de">Ein Infill wählen, das Öffnungen einbindet (Welle, Waben), oder Inseln durch einen Steg verbinden.</span><span lang="en">Choose an infill that ties in the openings (wave, honeycomb), or join islands with a rib.</span></td></tr><tr><td class="num">The layer height is … % of the bead width</td><td><span lang="de">Die Lage ist zu hoch für die Bahn; die Bahnen haften schlecht.</span><span lang="en">The layer is too high for the bead; the beads bond poorly.</span></td><td><span lang="de">Lagenhöhe auf ein Drittel bis die Hälfte der Bahnbreite setzen.</span><span lang="en">Set the layer height to a third to a half of the bead width.</span></td></tr><tr><td class="num">NOT REACHABLE: … point(s) are out of reach</td><td><span lang="de">Der Roboter kommt nicht an alle Punkte oder eine Achse müsste über ihren Bereich drehen.</span><span lang="en">The robot cannot get to every point, or an axis would have to turn beyond its range.</span></td><td><span lang="de">Bauteil näher an den Roboter rücken oder drehen. „Turn“ am Robot Program ändern.</span><span lang="en">Move the part closer to the robot or turn it. Change Turn on Robot Program.</span></td></tr><tr><td class="num">Wrist: axes 4 and 6 are in line</td><td><span lang="de">Handachsen-Singularität: Der Roboter kann dort langsamer werden oder stoppen.</span><span lang="en">Wrist singularity: the robot may slow down or stop there.</span></td><td><span lang="de">Werkzeug leicht neigen oder das Bauteil versetzen.</span><span lang="en">Tilt the tool slightly or move the part.</span></td></tr><tr><td class="num">Part of the path has negative coordinates</td><td><span lang="de">Der Ginger hat seinen Nullpunkt in der Ecke.</span><span lang="en">The Ginger has its origin in the corner.</span></td><td><span lang="de">Bauteil in Rhino auf positive Koordinaten schieben.</span><span lang="en">Move the part to positive coordinates in Rhino.</span></td></tr><tr><td class="num">The print settings do not use the Ginger machine profile</td><td><span lang="de">Die E-Werte sind nicht für den Granulatextruder umgerechnet.</span><span lang="en">The E values are not converted for the pellet extruder.</span></td><td><span lang="de">Maschine „Ginger“ wählen.</span><span lang="en">Choose the machine “Ginger”.</span></td></tr></tbody></table></div><p class="take"><span lang="de">Die Meldungen im Plug-in sind englisch. Bahnbreite, Überhang und Bauteilgestaltung erklärt der <a href="https://parametricsolutions.de/larger-slicer/lehrgang/">Lehrgang</a>.</span><span lang="en">The <a href="https://parametricsolutions.de/larger-slicer/lehrgang/">course</a> explains bead width, overhang and how to design the part.</span></p>
+</div></section>
+  <section class="end"><div class="wrap">
+    <h2><span lang="de">Und jetzt drucken.</span><span lang="en">And now print.</span></h2>
+    <div class="ctas"><a class="btn solid" href="https://github.com/Moeewe/LARGER.slicer/releases/latest"><span lang="de">Slicer herunterladen</span><span lang="en">Download the slicer</span></a><a class="btn" href="https://parametricsolutions.de/larger-slicer/lehrgang/"><span lang="de">Zum Lehrgang</span><span lang="en">To the course</span></a></div>
+  </div></section>
+</main>
+<footer><div class="wrap"><span>LARGER.slicer · Moritz Wesseler · FH Münster</span><span><span lang="de">Vor jedem Druck den Path Check lesen.</span><span lang="en">Read Path Check before every print.</span></span></div></footer>
+<script>
+(function () {
+  var root = document.documentElement;
+  function get() { try { return localStorage.getItem('ls-lang'); } catch (e) { return null; } }
+  function set(l) {
+    root.setAttribute('data-lang', l);
+    document.getElementById('lang-de').setAttribute('aria-pressed', l === 'de' ? 'true' : 'false');
+    document.getElementById('lang-en').setAttribute('aria-pressed', l === 'en' ? 'true' : 'false');
+    document.title = l === 'en' ? 'LARGER.slicer First Steps' : 'LARGER.slicer Erste Schritte';
+  }
+  var lang = get();
+  if (!lang) {
+    var nav = (navigator.language || 'de').toLowerCase();
+    lang = /\/de\//.test(location.pathname) ? 'de' : (nav.indexOf('de') === 0 ? 'de' : 'en');
+  }
+  ['de', 'en'].forEach(function (l) {
+    document.getElementById('lang-' + l).addEventListener('click', function () { try { localStorage.setItem('ls-lang', l); } catch (e) {} set(l); });
+  });
+  // logo mark: one continuous line climbing in loops
+  (function () {
+    var svg = document.getElementById('lm'), ns = 'http://www.w3.org/2000/svg', steps = 240, prev = null, segs = [];
+    for (var i = 0; i <= steps; i++) {
+      var tt = i / steps, a = 2 * Math.PI * 3 * tt - Math.PI * 0.25;
+      var p = { x: 32 + 23 * Math.cos(a), y: 49 - 31 * tt + 6.4 * Math.sin(a), d: Math.sin(a), t: tt };
+      if (prev) { segs.push([prev, p]); } prev = p;
+    }
+    [false, true].forEach(function (front) {
+      segs.forEach(function (sg) {
+        if ((sg[1].d >= 0) !== front) { return; }
+        var e = document.createElementNS(ns, 'path');
+        e.setAttribute('d', 'M' + sg[0].x.toFixed(2) + ' ' + sg[0].y.toFixed(2) + 'L' + sg[1].x.toFixed(2) + ' ' + sg[1].y.toFixed(2));
+        e.setAttribute('stroke', sg[1].t > 2 / 3 ? 'var(--coil-new)' : (front ? 'var(--coil-front)' : 'var(--coil-back)'));
+        e.setAttribute('stroke-width', '4.6'); e.setAttribute('stroke-linecap', 'round'); e.setAttribute('fill', 'none');
+        svg.appendChild(e);
+      });
+    });
+    var c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', prev.x.toFixed(2)); c.setAttribute('cy', prev.y.toFixed(2)); c.setAttribute('r', '4.4'); c.setAttribute('fill', 'var(--coil-new)'); svg.appendChild(c);
+  })();
+  set(lang);
+})();
+</script>

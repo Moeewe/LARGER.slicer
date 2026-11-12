@@ -50,7 +50,7 @@ Jede Zeichnung ist eine echte Lage aus dem Slicer (Bauteil 300 × 190 mm, Bahn 5
 
 ## Der Tab „Slicer“
 
-Die Komponenten werden in dieser Reihenfolge verbunden. `Quick Start` legt die ganze Kette samt Beispielteil auf die Leinwand.
+Neu hier? `Easy Slicer` ist ein einzelner Baustein vom Modell bis zur geprüften Druckbahn; die Seite [Erste Schritte](https://parametricsolutions.de/larger-slicer/erste-schritte/) führt hindurch. Die Komponenten werden in dieser Reihenfolge verbunden. `Quick Start` legt die ganze Kette samt Beispielteil auf die Leinwand.
 
 | Schritt | Komponente | Aufgabe |
 |---|---|---|
