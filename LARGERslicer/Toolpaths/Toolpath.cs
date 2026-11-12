@@ -26,6 +26,8 @@ namespace LARGERslicer.Toolpaths
         public double Resolution = 2.0;       // mm, smallest point spacing of the path
         public bool Preview = false;          // fast mode: coarse meshing, no rounding
         public double Density = 1.25;         // g/cm3 of the printed material, for the weight in file names and reports
+        public double Nozzle = 0.0;           // mm, 0 = not given (see Nozzles)
+        public Nozzles.Shape NozzleShape = Nozzles.Shape.Unknown;
         public MachineProfile Machine = new MachineProfile();
 
         /// <summary>Height of the first layer: the nozzle runs this high above the bottom of the part.</summary>

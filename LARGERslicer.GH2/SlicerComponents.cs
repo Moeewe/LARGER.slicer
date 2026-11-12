@@ -129,6 +129,7 @@ namespace LARGERslicer.GH2
             inputs.AddBoolean("Preview", "P", "Fast and coarse, for trying things out.").Set(false);
             inputs.AddNumber("Density", "D", "Density of the printed material in g/cm3, for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9.").Set(1.25);
             inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed, so the first bead is not pressed into it. 0 = the layer height.").Set(0.0);
+            inputs.AddInteger("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -148,6 +149,12 @@ namespace LARGERslicer.GH2
             double density; access.GetItem(6, out density); if (density > 0) s.Density = density;
             double first; access.GetItem(7, out first); s.FirstLayerHeight = Math.Max(0, first);
             if (first > 0 && (first < 0.5 * h || first > 1.5 * h)) access.AddWarning("First layer", $"The first layer is {first:0.##} mm, the others {h:0.##} mm. Stay between half and one and a half layer heights, or the first bead is crushed or does not stick.");
+            int nozzle; access.GetItem(8, out nozzle);
+            if (nozzle > 0)
+            {
+                Nozzles.Apply(s, nozzle); w = s.BeadWidth; h = s.LayerHeight;
+                foreach (var note in Nozzles.Check(s.Nozzle, s.NozzleShape, w, h)) access.AddWarning("Nozzle", note);
+            }
             double ratio = h / w;
             if (ratio > 0.6) access.AddWarning("Layer too high", $"The layer height is {ratio * 100:0} % of the bead width. Stay below half the bead width or the beads bond poorly.");
             access.SetItem(0, s);

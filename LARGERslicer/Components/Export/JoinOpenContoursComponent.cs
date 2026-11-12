@@ -16,7 +16,7 @@ namespace LARGERslicer.Components.Export
         public JoinOpenContoursComponent()
             : base("Join Open Contours", "JoinOpen",
                   "Connects open contours into a single continuous toolpath. Optimizes connection order for minimal travel distance.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer")
         {
         }
 
@@ -197,6 +197,8 @@ namespace LARGERslicer.Components.Export
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("JoinOpenContoursIcon.png", this);
         public override Guid ComponentGuid => new Guid("8bd82196-bc28-4897-893c-6d3885de8b94");
+        /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
     }
 }
 

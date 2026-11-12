@@ -17,12 +17,12 @@ namespace LARGERslicer.Components.Export
         public ContinuousInfillComponent()
             : base("Curve Continuous Infill", "C Infill",
                   "Fills a closed boundary with one continuous line that follows the outline inwards and never crosses itself. The line starts next to the seam point. Holes are walked around.",
-                  "LARGER", "Slicer Curves")
+                  "LARGER", "Slicer")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Slicer Curves";
+        public override string SubCategory => "Slicer";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -73,5 +73,7 @@ namespace LARGERslicer.Components.Export
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("ContinuousInfillIcon.png", this);
         public override Guid ComponentGuid => new Guid("e1ba197a-3460-4179-a284-f2bf265bd3be");
+        /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
     }
 }

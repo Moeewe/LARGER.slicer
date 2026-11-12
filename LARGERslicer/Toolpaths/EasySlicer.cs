@@ -14,7 +14,7 @@ namespace LARGERslicer.Toolpaths
     {
         public static readonly string[] Infills =
         {
-            "None (walls only)", "Ribs", "Wave", "Truss", "Meander", "Honeycomb", "Grid", "Chamber wall",
+            "None (walls only)", "Ribs", "Wave", "Truss", "Meander", "Honeycomb", "Grid", "Chamber wall", "Solid (rings along the wall)",
         };
 
         public class Options
@@ -30,6 +30,12 @@ namespace LARGERslicer.Toolpaths
             public int BrimLoops = 3;
             /// <summary>Join contours that lie inside others (inner shell, openings) by a bridge, so the line never stops.</summary>
             public bool Bridge = true;
+            /// <summary>Pattern of solid layers: 0 = auto, 1 = zigzag, 2 = contour (rings along the wall).</summary>
+            public int BottomPattern = 0;
+            /// <summary>Solid layers that close the top of the part.</summary>
+            public int TopLayers = 0;
+            /// <summary>Walls: 0 = inside the geometry, 1 = centred on it, 2 = outside.</summary>
+            public int WallPosition = 0;
         }
 
         public class Result
@@ -64,17 +70,26 @@ namespace LARGERslicer.Toolpaths
             double size = o.InfillSize > 0 ? o.InfillSize : DefaultSize(st, infill);
             r.Steps.Add($"{layers.Count} layers of {st.LayerHeight:0.##} mm{(layers.Count > 0 && Math.Abs(layers[0].Height - st.LayerHeight) > 1e-6 ? $" (the first {layers[0].Height:0.##} mm)" : "")}, bead {st.BeadWidth:0.##} mm");
 
-            layers = FillEngine.Walls(layers, st, Math.Max(1, o.Walls), 0, log);
+            layers = FillEngine.Walls(layers, st, Math.Max(1, o.Walls), Math.Max(0, Math.Min(2, o.WallPosition)), log);
             r.Steps.Add(o.Walls > 1 ? $"{o.Walls} walls" : "1 wall");
             if (layers.Count == 0) { r.Notes.Add("The part is thinner than one bead width everywhere: nothing to print. Use a narrower bead or a thicker part."); r.Notes.AddRange(log); return r; }
 
-            if (o.BottomLayers > 0)
+            int bottomPattern = Math.Max(0, Math.Min(2, o.BottomPattern));
+            bool solid = infill == 8;
+            if (solid)
             {
-                layers = FillEngine.Bottom(layers, st, o.BottomLayers, 0, 0, log, out int filled);
-                r.Steps.Add($"{filled} solid bottom layer(s)");
+                // a solid part: every layer filled with rings along the wall, joined into one line whose
+                // start and end lie at the wall (zigzag would need a move without extrusion between layers)
+                layers = FillEngine.Bottom(layers, st, layers.Count, 2, 0, log, out int filledAll);
+                r.Steps.Add($"solid, rings along the wall: {filledAll} layer(s) filled");
+            }
+            else if (o.BottomLayers > 0 || o.TopLayers > 0)
+            {
+                layers = FillEngine.Bottom(layers, st, Math.Max(0, o.BottomLayers), bottomPattern, 0, log, out int filled, Math.Max(0, o.TopLayers));
+                r.Steps.Add($"{filled} solid layer(s) ({(o.BottomLayers > 0 ? o.BottomLayers + " bottom" : "")}{(o.BottomLayers > 0 && o.TopLayers > 0 ? ", " : "")}{(o.TopLayers > 0 ? o.TopLayers + " top" : "")}, {new[] { "auto", "zigzag", "contour" }[bottomPattern]})");
             }
             int n = 0;
-            if (infill > 0)
+            if (infill > 0 && !solid)
             {
                 // With an automatic size: if nothing fits, try smaller ones before giving up.
                 var before = layers; double asked = size;
@@ -98,7 +113,7 @@ namespace LARGERslicer.Toolpaths
             }
             r.Layers = layers;
 
-            bool spiral = o.Spiral && infill == 0 && o.BottomLayers == 0;
+            bool spiral = o.Spiral && infill == 0 && o.BottomLayers == 0 && o.TopLayers == 0;
             if (o.Spiral && !spiral) r.Notes.Add("Spiral only works for walls without infill and bottom; printed as flat layers instead.");
             var tp = PathEngine.Build(layers, st, spiral ? ContinuousMode.Spiral : ContinuousMode.Layered, null, 0, false, log, o.Bridge);
             if (tp.Count < 2) { r.Notes.Add("No printable contour was found."); r.Notes.AddRange(log); return r; }

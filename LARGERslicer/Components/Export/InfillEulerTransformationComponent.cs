@@ -21,7 +21,7 @@ namespace LARGERslicer.Components.Export
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Slicer Curves";
+        public override string SubCategory => "Slicer";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

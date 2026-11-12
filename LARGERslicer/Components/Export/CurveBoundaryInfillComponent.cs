@@ -19,12 +19,12 @@ namespace LARGERslicer.Components.Export
         public CurveBoundaryInfillComponent()
             : base("Curve Fill Cross Lines", "C Cross",
                   "Generates boustrophedon infill pattern. Takes first curve as outer contour, offsets inward by layer width, then connects with cross-lines at configurable angle. Works for first layer and planar layers.",
-                  "LARGER", "Slicer Curves")
+                  "LARGER", "Slicer")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Slicer Curves";
+        public override string SubCategory => "Slicer";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -464,6 +464,8 @@ namespace LARGERslicer.Components.Export
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("InfillContourIcon.png", this);
         public override Guid ComponentGuid => new Guid("C1B2A3D4-E5F6-7890-ABCD-EF1234567890");
+        /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
     }
 }
 

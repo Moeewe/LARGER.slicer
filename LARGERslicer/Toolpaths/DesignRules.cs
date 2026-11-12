@@ -41,6 +41,11 @@ namespace LARGERslicer.Toolpaths
             Func<double, string> f = v => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
             r.Report.Add($"Nozzle {f(n)} mm{(nozzle > 0 ? "" : " (assumed: about bead width / 1.5)")}, bead width {f(lw)} mm.");
             r.Report.Add($"Layer height {f(r.LayerMin)} to {f(r.LayerMax)} mm (a quarter to half the nozzle).");
+            // Weber quick guide: the nozzle shape decides how wide a bead it lays
+            r.Report.Add($"Bead width for this nozzle (Weber): pointed nozzle {f(0.7 * n)} to {f(1.3 * n)} mm, flat nozzle {f(1.0 * n)} to {f(1.8 * n)} mm; Weber's own profiles use about {f(1.2 * n)} mm with a {f(0.4 * n)} mm layer.");
+            if (lw > 1.3 * n + 1e-9 && lw <= 1.8 * n + 1e-9) r.Report.Add($"Bead {f(lw)} mm needs a flat nozzle: a pointed {f(n)} mm nozzle lays at most {f(1.3 * n)} mm.");
+            else if (lw > 1.8 * n + 1e-9) { r.Ok = false; r.Report.Add($"BEAD TOO WIDE FOR THE NOZZLE: {f(lw)} mm is more than even a flat {f(n)} mm nozzle lays ({f(1.8 * n)} mm)."); }
+            r.Report.Add($"Milling allowance: print half a bead ({f(0.5 * lw)} mm) more where the surface is milled (Weber).");
             if (layerHeight > 0)
             {
                 if (layerHeight > 0.8 * n + 1e-9) { r.Ok = false; r.Report.Add($"LAYER TOO HIGH: {f(layerHeight)} mm is more than 80 % of the nozzle; the bead is hardly pressed and bonds poorly."); }
