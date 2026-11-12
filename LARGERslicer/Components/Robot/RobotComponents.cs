@@ -165,7 +165,8 @@ namespace LARGERslicer.Components.Robot
             p.AddPlaneParameter("Work Base", "WB", "The frame the program counts from, in the Rhino model", GH_ParamAccess.item, Plane.WorldXY);
             p.AddTextParameter("Base Name", "N", "Name of the work base, for the report", GH_ParamAccess.item, "Bed");
             p.AddMeshParameter("Environment", "Env", "Optional. What stands around the robot (floor, fence, walls, pedestal), as meshes: Robot Program checks the tool, wrist and forearm against them. Cell Geometry gives the cell of the FH Muenster", GH_ParamAccess.list);
-            p[0].Optional = true; p[1].Optional = true; p[4].Optional = true;
+            p.AddGenericParameter("External Axes", "Ext", "Optional. A rail the robot stands on and/or a turntable the part stands on, from External Axis. Robot Program then moves them along the print", GH_ParamAccess.list);
+            p[0].Optional = true; p[1].Optional = true; p[4].Optional = true; p[5].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -183,10 +184,33 @@ namespace LARGERslicer.Components.Robot
             if (!wb.IsValid) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The work base plane is not valid."); return; }
             var cell = new RobotCell { Arm = arm, Tool = tool, WorkBase = Frame.FromPlane(wb), BaseName = string.IsNullOrWhiteSpace(name) ? "Bed" : name.Trim() };
             if (Params.Input.Count > 4) { var env = new List<Mesh>(); if (da.GetDataList(4, env)) cell.Environment = env.Where(m => m != null && m.IsValid).ToList(); }
+            if (Params.Input.Count > 5)
+            {
+                var goos = new List<IGH_Goo>();
+                da.GetDataList(5, goos);
+                foreach (var g in goos)
+                {
+                    var ax = (g as GH_ObjectWrapper)?.Value as ExternalAxis ?? g?.ScriptVariable() as ExternalAxis;
+                    if (ax == null) { if (g != null) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "External Axes takes the output of External Axis only."); continue; }
+                    cell.ExternalAxes.Add(ax);
+                }
+                string why = ExternalAxisCheck(cell.ExternalAxes);
+                if (why != null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, why); return; }
+            }
             double away = cell.WorkBase.O.DistanceTo(arm.Base.O);
             if (away > arm.Reach) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The work base is {away:0} mm from the robot; its reach is {arm.Reach:0} mm.");
             da.SetData(0, new GH_ObjectWrapper(cell));
             da.SetData(1, $"{cell}; work base '{cell.BaseName}' {away:0} mm from the robot");
+        }
+
+        /// <summary>At most one rail and one turntable, each with its own name E1 ... E6. Null = fine.</summary>
+        internal static string ExternalAxisCheck(List<ExternalAxis> axes)
+        {
+            if (axes.Count(a => a.IsRail) > 1) return "Only one rail can be used.";
+            if (axes.Count(a => !a.IsRail) > 1) return "Only one turntable can be used.";
+            var names = axes.Select(a => a.Name.ToUpperInvariant()).ToList();
+            if (names.Distinct().Count() != names.Count) return "Two external axes have the same name. Give each its own: E1, E2 ...";
+            return null;
         }
     }
 
@@ -246,11 +270,14 @@ namespace LARGERslicer.Components.Robot
         private static readonly Rhino.Display.DisplayMaterial ArmMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(240, 110, 20));
         private static readonly Rhino.Display.DisplayMaterial ToolMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(90, 120, 150));
 
-        protected override void BeforeSolveInstance() { _robot.Clear(); base.BeforeSolveInstance(); }
+        private readonly List<Mesh> _axes = new List<Mesh>();
+        internal static readonly Rhino.Display.DisplayMaterial AxisMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(150, 152, 158));
+
+        protected override void BeforeSolveInstance() { _robot.Clear(); _axes.Clear(); base.BeforeSolveInstance(); }
 
         public override BoundingBox ClippingBox
         {
-            get { var b = base.ClippingBox; foreach (var m in _robot) b.Union(m.GetBoundingBox(false)); return b; }
+            get { var b = base.ClippingBox; foreach (var m in _robot.Concat(_axes)) b.Union(m.GetBoundingBox(false)); return b; }
         }
 
         public override void DrawViewportMeshes(IGH_PreviewArgs args)
@@ -258,6 +285,7 @@ namespace LARGERslicer.Components.Robot
             base.DrawViewportMeshes(args);
             for (int i = 0; i < _robot.Count; i++)
                 args.Display.DrawMeshShaded(_robot[i], i == 0 ? BaseMaterial : (i >= 7 ? ToolMaterial : ArmMaterial));
+            foreach (var m in _axes) args.Display.DrawMeshShaded(m, AxisMaterial);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -292,18 +320,22 @@ namespace LARGERslicer.Components.Robot
             da.SetData(4, r.Ok);
             if (check)
             {
-                da.SetDataList(6, r.Moves.Select(m => m.Axes == null ? "" : string.Join(", ", m.Axes.Select((v, i) => "A" + (i + 1) + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)))));
-                da.SetDataList(7, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => tp.Points[i]));
+                da.SetDataList(6, r.Moves.Select(m => m.Axes == null ? "" : string.Join(", ", m.Axes.Select((v, i) => "A" + (i + 1) + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)))
+                    + (m.External == null ? "" : string.Concat(m.External.Select((v, i) => ", " + cell.ExternalAxes[i].Name + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))))));
+                da.SetDataList(7, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => r.Moves[i].Part.Pt(tp.Points[i])));
                 int at = Math.Max(0, Math.Min(r.Moves.Count - 1, (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (r.Moves.Count - 1))));
                 if (r.Moves[at].Axes != null)
                 {
-                    var pts = cell.Arm.Skeleton(r.Moves[at].Axes);
-                    pts.Add(tp.Points[at]); // flange to tool tip
+                    var pts = cell.Arm.Skeleton(r.Moves[at].Axes, r.Moves[at].RobotBase);
+                    pts.Add(r.Moves[at].Part.Pt(tp.Points[at])); // flange to tool tip
                     da.SetData(8, new PolylineCurve(pts));
                     if (Params.Output.Count > 9)
                     {
-                        var model = RobotGeometry.Pose(cell, r.Moves[at].Axes);
-                        if (model != null) { da.SetDataList(9, model); if (!simulated) _robot.AddRange(model); }
+                        var model = RobotGeometry.Pose(cell, r.Moves[at].Axes, r.Moves[at].External);
+                        var axesModel = ExternalAxisGeometry.Pose(cell, r.Moves[at].External);
+                        if (model != null) { da.SetDataList(9, model.Concat(axesModel)); if (!simulated) _robot.AddRange(model); }
+                        else if (axesModel.Count > 0) da.SetDataList(9, axesModel);
+                        if (!simulated) _axes.AddRange(axesModel);
                     }
                 }
                 if (Params.Input.Count > 9 && Params.Output.Count > 10)
@@ -318,7 +350,7 @@ namespace LARGERslicer.Components.Robot
                         if (col.Hits > 0)
                         {
                             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, col.Report);
-                            da.SetDataList(10, col.Moves.Select(i => tp.Points[i]));
+                            da.SetDataList(10, col.Moves.Select(i => r.Moves[i].Part.Pt(tp.Points[i])));
                         }
                     }
                 }
@@ -364,19 +396,28 @@ namespace LARGERslicer.Components.Robot
             p.AddIntegerParameter("Move", "M", "Number of the move the robot is on (the line of the program)", GH_ParamAccess.item);
             p.AddNumberParameter("Seconds", "s", "Time since the start of the print", GH_ParamAccess.item);
             p.AddTextParameter("Info", "I", "Time, move, axis angles and whether this pose is within the axis ranges", GH_ParamAccess.item);
+            p.AddNumberParameter("External", "E", "Values of the external axes at that moment (rail in mm, turntable in degrees), in the order of the cell", GH_ParamAccess.list);
+            p.AddCurveParameter("Printed", "Pr", "The path printed up to that moment, where it is in the room: it turns with a turntable", GH_ParamAccess.item);
+            p.AddMeshParameter("Axes Model", "AM", "The rail with its carriage and the turntable at that moment", GH_ParamAccess.list);
+            p.AddMeshParameter("Environment", "Env", "What stands around the robot (the Environment of the cell), drawn with the simulation", GH_ParamAccess.list);
             p.HideParameter(0); // drawn by the component, in colour
+            p.HideParameter(8); p.HideParameter(9);
         }
 
         private readonly List<Mesh> _robot = new List<Mesh>();
+        private readonly List<Mesh> _axes = new List<Mesh>();
         private static readonly Rhino.Display.DisplayMaterial BaseMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(60, 60, 64));
         private static readonly Rhino.Display.DisplayMaterial ArmMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(240, 110, 20));
         private static readonly Rhino.Display.DisplayMaterial ToolMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(90, 120, 150));
 
-        protected override void BeforeSolveInstance() { _robot.Clear(); base.BeforeSolveInstance(); }
+        private readonly List<Mesh> _env = new List<Mesh>();
+        private static readonly Rhino.Display.DisplayMaterial EnvMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(200, 200, 196), 0.55);
+
+        protected override void BeforeSolveInstance() { _robot.Clear(); _axes.Clear(); _env.Clear(); base.BeforeSolveInstance(); }
 
         public override BoundingBox ClippingBox
         {
-            get { var b = base.ClippingBox; foreach (var m in _robot) b.Union(m.GetBoundingBox(false)); return b; }
+            get { var b = base.ClippingBox; foreach (var m in _robot.Concat(_axes).Concat(_env)) b.Union(m.GetBoundingBox(false)); return b; }
         }
 
         public override void DrawViewportMeshes(IGH_PreviewArgs args)
@@ -384,6 +425,8 @@ namespace LARGERslicer.Components.Robot
             base.DrawViewportMeshes(args);
             for (int i = 0; i < _robot.Count; i++)
                 args.Display.DrawMeshShaded(_robot[i], i == 0 ? BaseMaterial : (i >= 7 ? ToolMaterial : ArmMaterial));
+            foreach (var m in _axes) args.Display.DrawMeshShaded(m, RobotProgramComponent.AxisMaterial);
+            foreach (var m in _env) args.Display.DrawMeshShaded(m, EnvMaterial);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -408,11 +451,21 @@ namespace LARGERslicer.Components.Robot
             var axes = run.AxesAt(seconds, out int move, out double share);
             if (axes == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The robot cannot get to move {move}: nothing to show here. Read the Report of Robot Program."); da.SetData(3, move); da.SetData(4, seconds); return; }
             var arm = run.Cell.Arm;
-            var model = RobotGeometry.Pose(run.Cell, axes);
+            var ext = run.ExternalAt(seconds);
+            var model = RobotGeometry.Pose(run.Cell, axes, ext);
             if (model != null) { _robot.AddRange(model); da.SetDataList(0, model); }
             else AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The robot has no 3D model: see the Info of Robot.");
+            if (Params.Output.Count > 8)
+            {
+                var axesModel = ExternalAxisGeometry.Pose(run.Cell, ext);
+                _axes.AddRange(axesModel);
+                da.SetDataList(6, ext ?? new double[0]);
+                var printed = run.PrintedAt(seconds); if (printed.Count > 1) da.SetData(7, new PolylineCurve(printed));
+                da.SetDataList(8, axesModel);
+            }
+            if (Params.Output.Count > 9 && run.Cell.Environment != null) { _env.AddRange(run.Cell.Environment); da.SetDataList(9, run.Cell.Environment); }
             // the tool tip from the axis angles, the way the controller sees it
-            Frame flange = arm.Base.Times(arm.Forward(axes)).Times(Frame.World.TurnedAboutZ(Math.PI));
+            Frame flange = run.Cell.RobotBaseAt(ext).Times(arm.Forward(axes)).Times(Frame.World.TurnedAboutZ(Math.PI));
             Frame tip = flange.Times(run.Cell.Tool.Tcp);
             bool inRange = true;
             for (int k = 0; k < 6; k++) if (axes[k] < arm.MinDeg[k] - 1e-6 || axes[k] > arm.MaxDeg[k] + 1e-6) inRange = false;
@@ -424,7 +477,66 @@ namespace LARGERslicer.Components.Robot
             da.SetData(3, move);
             da.SetData(4, seconds);
             if (play) Message = "> " + Message;
-            da.SetData(5, $"{Message} of {TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci)}, move {move} of {run.Points.Count - 1}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci))) + (inRange ? "" : " - OUTSIDE THE AXIS RANGE"));
+            da.SetData(5, $"{Message} of {TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci)}, move {move} of {run.Points.Count - 1}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci)))
+                + (ext == null ? "" : string.Concat(ext.Select((v, k) => ", " + run.Cell.ExternalAxes[k].Name + " " + v.ToString("0.0", ci)))) + (inRange ? "" : " - OUTSIDE THE AXIS RANGE"));
+        }
+    }
+
+    // ============================================================== external axis
+    public class ExternalAxisComponent : RobotComponent
+    {
+        public ExternalAxisComponent()
+            : base("External Axis", "Ext Axis",
+                  "A rail (linear track) the robot stands on, or a turntable the part stands on. Connect it to External Axes of Robot Cell. Robot Program then moves it along the print: the rail keeps the robot beside the point being printed, the turntable turns the part so that point faces the robot. Both move smoothly and stay below their top speed.") { }
+
+        public override Guid ComponentGuid => new Guid("8B4D2E61-3F7A-4C95-A0E8-5D1C7B9F2A46");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotCellIcon.png", this);
+
+        internal static readonly string[] Kinds = { "Rail (the robot moves along it)", "Turntable (the part turns on it)" };
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddIntegerParameter("Kind", "K", "0 = rail, 1 = turntable", GH_ParamAccess.item, 0);
+            p.AddPlaneParameter("Place", "P", "Rail: the robot moves along the X axis of this plane (its origin does not matter; at 0 the robot stands where its Base says). Turntable: origin = centre of the table, Z axis = the axis it turns about, X axis = where 0 degrees is", GH_ParamAccess.item, Plane.WorldXY);
+            p.AddNumberParameter("Min", "Min", "Lowest value: mm for a rail, degrees for a turntable. Min and Max both 0 = rail 0 to 3000 mm, turntable -360 to 360 degrees", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Max", "Max", "Highest value: mm for a rail, degrees for a turntable", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Max Speed", "V", "Top speed: mm/s for a rail, degrees/s for a turntable. 0 = rail 1000 mm/s, turntable 90 degrees/s", GH_ParamAccess.item, 0.0);
+            p.AddTextParameter("Name", "N", "Name of the axis in the KUKA program: E1 ... E6. Empty = E1 for a rail, E2 for a turntable", GH_ParamAccess.item);
+            p.AddBooleanParameter("Endless", "End", "Turntable only: it turns on without end (no range)", GH_ParamAccess.item, false);
+            p.AddNumberParameter("Offset", "Off", "Rail: the robot stands this far ahead of the point being printed, along the rail, in mm. Turntable: the point being printed is turned this many degrees away from the robot side", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Smoothing", "S", "How much path (mm) the axis averages over: more = calmer, the arm does more of the work", GH_ParamAccess.item, 300.0);
+            p.AddBooleanParameter("Coupled", "Cpl", "Turntable only: the KRL targets are counted in a base that turns with the table (KUKA coupled base, EK). Off = counted in the fixed base, the table turns along", GH_ParamAccess.item, false);
+            p.AddNumberParameter("Size", "Sz", "Size of the drawing: width of the rail, radius of the table, in mm. 0 = 600 mm", GH_ParamAccess.item, 0.0);
+            p[5].Optional = true;
+        }
+
+        protected override void Options(List<LARGERslicer.Components.OptionRow> rows)
+        {
+            rows.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Choice, Input = 0, Label = "Kind", Items = Kinds });
+            rows.Add(Toggle(6, "Endless"));
+            rows.Add(Toggle(9, "Coupled"));
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddGenericParameter("External Axis", "Ext", "The axis: connect to External Axes of Robot Cell", GH_ParamAccess.item);
+            p.AddTextParameter("Info", "I", "What the axis is and its range", GH_ParamAccess.item);
+            p.AddMeshParameter("Model", "M", "The axis at 0, as a simple 3D model", GH_ParamAccess.list);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            int kind = 0; Plane place = Plane.WorldXY; double min = 0, max = 0, speed = 0, offset = 0, smooth = 300, size = 0; string name = null; bool endless = false, coupled = false;
+            da.GetData(0, ref kind); da.GetData(1, ref place); da.GetData(2, ref min); da.GetData(3, ref max); da.GetData(4, ref speed);
+            da.GetData(5, ref name); da.GetData(6, ref endless); da.GetData(7, ref offset); da.GetData(8, ref smooth); da.GetData(9, ref coupled); da.GetData(10, ref size);
+            var ax = ExternalAxisMaker.Make(kind, place, min, max, speed, name, endless, offset, smooth, coupled, size, out string error);
+            if (ax == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error); return; }
+            if (ax.IsRail && (endless || coupled)) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Endless and Coupled are for a turntable; a rail leaves them out.");
+            Message = ax.Name + (ax.IsRail ? " rail" : " table");
+            da.SetData(0, new GH_ObjectWrapper(ax));
+            da.SetData(1, ax.ToString());
+            da.SetDataList(2, ExternalAxisGeometry.Pose(new RobotCell { ExternalAxes = new List<ExternalAxis> { ax } }, null));
         }
     }
 

@@ -104,6 +104,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Tool", "T", "Robot Tool. Empty = tip on the flange.", Access.Item, Requirement.MayBeMissing);
             inputs.AddPlane("Work Base", "WB", "The frame the program counts from, in the Rhino model.").Set(Plane.WorldXY);
             inputs.AddMesh("Environment", "Env", "Optional. What stands around the robot (floor, fence, walls), for the collision check of Robot Program.", Access.Twig, Requirement.MayBeMissing);
+            inputs.AddGeneric("External Axes", "Ext", "Optional. A rail the robot stands on and/or a turntable the part stands on, from External Axis. Robot Program then moves them along the print.", Access.Twig, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -119,6 +120,15 @@ namespace LARGERslicer.GH2
             Plane wb; if (!access.GetItem(2, out wb)) wb = Plane.WorldXY;
             var cell = new RobotCell { Arm = arm, Tool = tool, WorkBase = Frame.FromPlane(wb) };
             Mesh[] env; if (access.GetItemArray(3, out env) && env != null) cell.Environment = env.Where(m => m != null && m.IsValid).ToList();
+            object[] ext;
+            if (access.GetItemArray(4, out ext) && ext != null)
+                foreach (var o in ext)
+                {
+                    if (o is ExternalAxis ax) cell.ExternalAxes.Add(ax);
+                    else if (o != null) access.AddWarning("Not an external axis", "External Axes takes the output of External Axis only.");
+                }
+            if (cell.ExternalAxes.Count(a => a.IsRail) > 1 || cell.ExternalAxes.Count(a => !a.IsRail) > 1) { access.AddError("Too many axes", "Use at most one rail and one turntable."); return; }
+            if (cell.ExternalAxes.Select(a => a.Name).Distinct().Count() != cell.ExternalAxes.Count) { access.AddError("Same name twice", "Give each external axis its own name: E1, E2 ..."); return; }
             double away = cell.WorkBase.O.DistanceTo(arm.Base.O);
             if (away > arm.Reach) access.AddWarning("Work base far away", $"The work base is {away:0} mm from the robot; its reach is {arm.Reach:0} mm.");
             access.SetItem(0, cell);
@@ -170,7 +180,7 @@ namespace LARGERslicer.GH2
             var col = RobotGeometry.Collisions(r, cell, cell.Environment, 500, tp.Points, tp.Settings.BeadWidth);
             if (col.Checked) r.Report.Add(col.Report);
             if (!r.Ok) access.AddWarning("Not runnable", string.Join("\n", r.Report.Where(l => l.StartsWith("NOT"))));
-            if (col.Hits > 0) { access.AddWarning("Collision", col.Report); access.SetTwig(11, col.Moves.Select(i => tp.Points[i]).ToArray(), null, null); }
+            if (col.Hits > 0) { access.AddWarning("Collision", col.Report); access.SetTwig(11, col.Moves.Select(i => r.Moves[i].Part.Pt(tp.Points[i])).ToArray(), null, null); }
             access.SetItem(10, RobotRun.Make(r, cell, tp));
             Files.Save(access, save, file, r.Krl, RobotProgram.ProgramName(name) + ".src");
             access.SetItem(8, OutputFile.Name("DXR", name, tp, ""));
@@ -180,15 +190,15 @@ namespace LARGERslicer.GH2
             access.SetTwig(3, r.Krl.ToArray(), null, null);
             access.SetItem(4, r.Ok);
             access.SetTwig(5, r.Report.ToArray(), null, null);
-            access.SetTwig(6, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => tp.Points[i]).ToArray(), null, null);
+            access.SetTwig(6, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => r.Moves[i].Part.Pt(tp.Points[i])).ToArray(), null, null);
             int at = Math.Max(0, Math.Min(r.Moves.Count - 1, (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (r.Moves.Count - 1))));
             if (r.Moves[at].Axes != null)
             {
-                var pts = cell.Arm.Skeleton(r.Moves[at].Axes);
-                pts.Add(tp.Points[at]);
+                var pts = cell.Arm.Skeleton(r.Moves[at].Axes, r.Moves[at].RobotBase);
+                pts.Add(r.Moves[at].Part.Pt(tp.Points[at]));
                 access.SetItem(7, new Polyline(pts));
-                var model = RobotGeometry.Pose(cell, r.Moves[at].Axes);
-                if (model != null) access.SetTwig(9, model.ToArray(), null, null);
+                var model = (RobotGeometry.Pose(cell, r.Moves[at].Axes, r.Moves[at].External) ?? new List<Mesh>()).Concat(ExternalAxisGeometry.Pose(cell, r.Moves[at].External)).ToArray();
+                if (model.Length > 0) access.SetTwig(9, model, null, null);
             }
         }
     }
@@ -214,6 +224,10 @@ namespace LARGERslicer.GH2
             outputs.AddInteger("Move", "M", "Number of the move the robot is on.");
             outputs.AddNumber("Seconds", "s", "Time since the start of the print.");
             outputs.AddText("Info", "I", "Time, move and axis angles.");
+            outputs.AddNumber("External", "E", "Values of the external axes at that moment (rail in mm, turntable in degrees).", Access.Twig);
+            outputs.AddPolyline("Printed", "Pr", "The path printed up to that moment, where it is in the room: it turns with a turntable.");
+            outputs.AddMesh("Axes Model", "AM", "The rail with its carriage and the turntable at that moment.", Access.Twig);
+            outputs.AddMesh("Environment", "Env", "What stands around the robot (the Environment of the cell), to see it in the simulation.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
@@ -227,13 +241,66 @@ namespace LARGERslicer.GH2
             access.SetItem(3, move); access.SetItem(4, seconds);
             if (axes == null) { access.AddWarning("Not reachable", $"The robot cannot get to move {move}."); return; }
             var arm = run.Cell.Arm;
-            var model = RobotGeometry.Pose(run.Cell, axes);
+            var ext = run.ExternalAt(seconds);
+            var model = RobotGeometry.Pose(run.Cell, axes, ext);
             if (model != null) access.SetTwig(0, model.ToArray(), null, null);
-            Frame tip = arm.Base.Times(arm.Forward(axes)).Times(Frame.World.TurnedAboutZ(Math.PI)).Times(run.Cell.Tool.Tcp);
+            else access.AddRemark("No 3D model", "The robot has no 3D model: see the Info of Robot.");
+            access.SetTwig(6, ext ?? new double[0], null, null);
+            var printed = run.PrintedAt(seconds); if (printed.Count > 1) access.SetItem(7, printed);
+            access.SetTwig(8, ExternalAxisGeometry.Pose(run.Cell, ext).ToArray(), null, null);
+            if (run.Cell.Environment != null) access.SetTwig(9, run.Cell.Environment.ToArray(), null, null);
+            Frame tip = run.Cell.RobotBaseAt(ext).Times(arm.Forward(axes)).Times(Frame.World.TurnedAboutZ(Math.PI)).Times(run.Cell.Tool.Tcp);
             access.SetTwig(1, axes, null, null);
             access.SetItem(2, tip.ToPlane());
             var ci = CultureInfo.InvariantCulture;
-            access.SetItem(5, TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", ci) + " of " + TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci) + $", move {move}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci))));
+            access.SetItem(5, TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", ci) + " of " + TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci) + $", move {move}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci)))
+                + (ext == null ? "" : string.Concat(ext.Select((v, k) => ", " + run.Cell.ExternalAxes[k].Name + " " + v.ToString("0.0", ci)))));
+        }
+    }
+
+    // ============================================================== external axis
+    [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4007")]
+    public sealed class ExternalAxisComponent : Component
+    {
+        public ExternalAxisComponent() : base(Io.Name("External Axis", "A rail (linear track) the robot stands on, or a turntable the part stands on. Connect it to External Axes of Robot Cell. Robot Program then moves it along the print: the rail keeps the robot beside the point being printed, the turntable turns the part so that point faces the robot.", Io.Robot, 6)) { }
+        public ExternalAxisComponent(IReader reader) : base(reader) { }
+
+        protected override void AddInputs(InputAdder inputs)
+        {
+            inputs.AddInteger("Kind", "K", "0 = rail (the robot moves along it), 1 = turntable (the part turns on it).").Set(0);
+            inputs.AddPlane("Place", "P", "Rail: the robot moves along the X axis of this plane; at 0 it stands where its Base says. Turntable: origin = centre of the table, Z axis = the axis it turns about, X axis = where 0 degrees is.").Set(Plane.WorldXY);
+            inputs.AddNumber("Min", "Min", "Lowest value: mm for a rail, degrees for a turntable. Min and Max both 0 = rail 0 to 3000 mm, turntable -360 to 360 degrees.").Set(0.0);
+            inputs.AddNumber("Max", "Max", "Highest value: mm for a rail, degrees for a turntable.").Set(0.0);
+            inputs.AddNumber("Max Speed", "V", "Top speed: mm/s for a rail, degrees/s for a turntable. 0 = rail 1000 mm/s, turntable 90 degrees/s.").Set(0.0);
+            inputs.AddText("Name", "N", "Name of the axis in the KUKA program: E1 ... E6. Empty = E1 for a rail, E2 for a turntable.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddBoolean("Endless", "End", "Turntable only: it turns on without end (no range).").Set(false);
+            inputs.AddNumber("Offset", "Off", "Rail: the robot stands this far ahead of the point being printed, along the rail, in mm. Turntable: the point being printed is turned this many degrees away from the robot side.").Set(0.0);
+            inputs.AddNumber("Smoothing", "S", "How much path (mm) the axis averages over: more = calmer, the arm does more of the work.").Set(300.0);
+            inputs.AddBoolean("Coupled", "Cpl", "Turntable only: KRL targets counted in a base that turns with the table (KUKA coupled base). Off = counted in the fixed base.").Set(false);
+            inputs.AddNumber("Size", "Sz", "Size of the drawing: width of the rail, radius of the table, in mm. 0 = 600 mm.").Set(0.0);
+        }
+
+        protected override void AddOutputs(OutputAdder outputs)
+        {
+            outputs.AddGeneric("External Axis", "Ext", "The axis: connect to External Axes of Robot Cell.");
+            outputs.AddText("Info", "I", "What the axis is and its range.");
+            outputs.AddMesh("Model", "M", "The axis at 0, as a simple 3D model.", Access.Twig);
+        }
+
+        protected override void Process(IDataAccess access)
+        {
+            int kind; Plane place; double min, max, speed, offset, smooth, size; string name; bool endless, coupled;
+            access.GetItem(0, out kind);
+            if (!access.GetItem(1, out place)) place = Plane.WorldXY;
+            access.GetItem(2, out min); access.GetItem(3, out max); access.GetItem(4, out speed); access.GetItem(5, out name);
+            access.GetItem(6, out endless); access.GetItem(7, out offset);
+            if (!access.GetItem(8, out smooth)) smooth = 300;
+            access.GetItem(9, out coupled); access.GetItem(10, out size);
+            var ax = ExternalAxisMaker.Make(kind, place, min, max, speed, name, endless, offset, smooth, coupled, size, out string error);
+            if (ax == null) { access.AddError("Invalid axis", error); return; }
+            access.SetItem(0, ax);
+            access.SetItem(1, ax.ToString());
+            access.SetTwig(2, ExternalAxisGeometry.Pose(new RobotCell { ExternalAxes = new List<ExternalAxis> { ax } }, null).ToArray(), null, null);
         }
     }
 

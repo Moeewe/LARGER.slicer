@@ -125,17 +125,21 @@ namespace LARGERslicer.Toolpaths
         /// world coordinates: base, six links, then the tool if it has a mesh. Null if the arm
         /// has no geometry.
         /// </summary>
-        public static List<Mesh> Pose(RobotCell cell, double[] axes)
+        public static List<Mesh> Pose(RobotCell cell, double[] axes) => Pose(cell, axes, null);
+
+        /// <summary>The same, with the robot standing where the external axes (a rail) have moved it.</summary>
+        public static List<Mesh> Pose(RobotCell cell, double[] axes, double[] external)
         {
             var arm = cell.Arm;
             if (arm.Links == null || axes == null) return null;
+            Frame foot = cell.RobotBaseAt(external);
             var now = arm.JointFrames(axes);
             var zero = arm.JointFrames(HomePose); // the pose the meshes are drawn in
             var list = new List<Mesh>();
             for (int i = 0; i < 7; i++)
             {
                 Mesh m = arm.Links[i].DuplicateMesh();
-                Frame f = i == 0 ? arm.Base : arm.Base.Times(now[i - 1]).Times(zero[i - 1].Inverse());
+                Frame f = i == 0 ? foot : foot.Times(now[i - 1]).Times(zero[i - 1].Inverse());
                 m.Transform(ToTransform(f));
                 Clean(m);
                 list.Add(m);
@@ -144,7 +148,7 @@ namespace LARGERslicer.Toolpaths
             {
                 Mesh t = cell.Tool.Mesh.DuplicateMesh();
                 // the flange of the controller is the model's last frame turned half a turn about its axis
-                t.Transform(ToTransform(arm.Base.Times(now[5]).Times(Frame.World.TurnedAboutZ(Math.PI))));
+                t.Transform(ToTransform(foot.Times(now[5]).Times(Frame.World.TurnedAboutZ(Math.PI))));
                 Clean(t);
                 list.Add(t);
             }
@@ -296,7 +300,8 @@ namespace LARGERslicer.Toolpaths
             int printHits = 0, firstPrintHit = -1;
             foreach (int i in picks)
             {
-                var pose = Pose(cell, program.Moves[i].Axes);
+                var pose = Pose(cell, program.Moves[i].Axes, program.Moves[i].External);
+                Frame part = program.Moves[i].Part; // the printed part turns with a turntable
                 r.Poses++;
                 var pairs = new List<KeyValuePair<Mesh, List<Mesh>>>();
                 var rearOfWrist = new List<Mesh> { pose[0], pose[1], pose[2] }; rearOfWrist.AddRange(env);
@@ -327,7 +332,7 @@ namespace LARGERslicer.Toolpaths
                 {
                     var tool = pose[7];
                     var box = tool.GetBoundingBox(false); box.Inflate(beadWidth);
-                    Point3d tip = path[i];
+                    Point3d tip = part.Pt(path[i]);
                     double keepOut = 2 * beadWidth + 10; // around the tip the nozzle sits on the beads
                     double limit = 0.5 * beadWidth + clearance;
                     int tested = 0;
@@ -335,7 +340,7 @@ namespace LARGERslicer.Toolpaths
                     {
                         // only what was printed: no travel moves, not the way in from above
                         if (j < program.Extrusion.Count && program.Extrusion[j] <= 0 && (j + 1 >= program.Extrusion.Count || program.Extrusion[j + 1] <= 0)) continue;
-                        Point3d q = path[j];
+                        Point3d q = part.Pt(path[j]);
                         if (!box.Contains(q) || q.DistanceTo(tip) < keepOut) continue;
                         tested++;
                         if (tool.ClosestPoint(q).DistanceTo(q) < limit) { hit = true; printHits++; if (firstPrintHit < 0) firstPrintHit = i; break; }
