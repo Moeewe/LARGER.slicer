@@ -280,8 +280,8 @@ namespace LARGERslicer.Components.Slicer
             if (cellC.Params.Input.Count > 4) cellC.Params.Input[4].AddSource(cellGeo.Params.Output[0]);
             all.Add(cellGeo);
             // the extruder of the FH Muenster cell, as its definition sets it up in the Robots plug-in
-            // (AE20 extruder): nozzle tip 460 mm along -X of the flange, the nozzle pointing along -X, 46 kg
-            setPlane(tool.Params.Input[1], new Plane(new Point3d(-460, 3, 108), Vector3d.YAxis, -Vector3d.ZAxis));
+            // (AE20 extruder): TCP = YZ plane at -460, 3, 108 of the flange, 46 kg
+            setPlane(tool.Params.Input[1], new Plane(new Point3d(-460, 3, 108), Vector3d.YAxis, Vector3d.ZAxis));
             { var tn = tool.Params.Input[0] as Grasshopper.Kernel.Parameters.Param_String; if (tn != null) { tn.PersistentData.Clear(); tn.PersistentData.Append(new GH_String("AE20_Extruder")); } }
             { var tw = tool.Params.Input[2] as Grasshopper.Kernel.Parameters.Param_Number; if (tw != null) { tw.PersistentData.Clear(); tw.PersistentData.Append(new GH_Number(46)); } }
             { var tc = tool.Params.Input[3] as Grasshopper.Kernel.Parameters.Param_Point; if (tc != null) { tc.PersistentData.Clear(); tc.PersistentData.Append(new GH_Point(new Point3d(-61, -28, 113))); } }

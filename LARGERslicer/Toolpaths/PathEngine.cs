@@ -875,9 +875,14 @@ namespace LARGERslicer.Toolpaths
 
                 if (flow <= 0)
                 {
+                    // a move without extrusion runs fast, except where it goes down towards the bed or
+                    // the part (the way in onto the start): there at print speed, so a wrong height
+                    // is seen before the nozzle hits
+                    double down = tp.Points[i - 1].Z - tp.Points[i].Z;
+                    double travel = down > 0.5 * len ? st.Speed : st.MaxSpeed;
                     r.Extrusion.Add(0);
-                    r.Speed.Add(st.MaxSpeed);
-                    r.Minutes += len / st.MaxSpeed;
+                    r.Speed.Add(travel);
+                    r.Minutes += len / travel;
                     continue;
                 }
 

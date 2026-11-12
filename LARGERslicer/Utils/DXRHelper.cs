@@ -676,9 +676,12 @@ namespace LARGERslicer.Utils
                 const double zTolerance = 0.1; // "same height"
                 const int minPointsInLayer = 5; // fewer points at one height are ramp, lift or travel
 
-                double levelZ = points[0].z;
-                int lastOnLevel = 0;
-                int i = 1;
+                // the first level is where the path first stays at one height: the way in from above is no layer
+                int start = 0;
+                while (start + minPointsInLayer < points.Count && !Enumerable.Range(start, minPointsInLayer).All(j => Math.Abs(points[j].z - points[start].z) < zTolerance)) start++;
+                double levelZ = points[start].z;
+                int lastOnLevel = start;
+                int i = start + 1;
                 while (i < points.Count)
                 {
                     double z = points[i].z;

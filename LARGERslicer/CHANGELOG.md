@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (robot, checked against the definition BeispielRoboter.gh of the FH Muenster)
+- `Robot Program` wrote the tool orientation the wrong way round: a vertical tool came out as `A 0, B 0, C 180` in the robot lines and so in the DXR file, while the Weber DXR expects `A 0, B 0, C 0` for a vertical extruder. Targets and TCP now follow the Robots plug-in: the target's Z axis is the layer normal (up for flat layers), the TCP's Z axis points from the nozzle tip back into the tool. A TCP from a Robots definition can be used as it is; the AE20 extruder is a YZ plane at -460, 3, 108. **TCP planes made for earlier versions of Robot Tool must be turned half a turn about their X axis.** The default of Robot Tool is now a straight tool on the flange.
+- The robot stands where the definition of the FH Muenster puts it: at 651.5, -1448, 211.1, turned like the bed (`Cell Geometry`, Quick Start; before: 196 mm high and turned by 90 degrees, read from the pedestal).
+- Axes 4 and 6 are followed round without a jump. Before, a value that would have passed the axis range was replaced by the same angle one turn back; the report said "within range", the real robot would have stopped at the limit. Now this is reported as NOT RUNNABLE.
+- A change of the arm configuration (shoulder, elbow or wrist turning over) between two points is an error: a linear move cannot do it. The solver keeps the configuration where it can.
+- A wrist singularity and an axis that would have to turn faster than it can are errors now, not only remarks.
+- Long moves (travel moves, the way in) are checked every 10 mm on the way, not only at their ends.
+- `$LOAD` is noted in the KRL file also when no weight is given.
+- `DXR Generator`: the way in from above is not counted as a layer.
+
+### Added
+- Way in from above: every path starts 30 mm above its first point and comes down onto it at print speed (Start and End, Easy Slicer), as the Weber converter does. Before, the machine moved to the start at print height across the bed.
+- Very short pieces of path (shorter than a fifth of the bead width) are left out. Rounded corners left pieces of a few hundredths of a millimetre; a machine slows down on them and the extruder leaves a blob.
+- Collision check: all links (link 3 and the tool against links 1 to 4 were missing), up to 500 poses spread along the path plus both ends of every travel move, 5 mm clearance, and the tool against what is already printed (except right at the nozzle tip).
+
 ### Added
 - `Robot Simulation` (Robot tab): plays the robot program. The robot with its tool stands at any moment of the print, `Time` from 0 to 1 following the real time of the print; `Play` lets it run by itself, `Film Length` says how many seconds one run takes on the screen. Outputs the axis angles, the tool tip (TCP), the move and the time. Moving the slider only places the robot, the program is not calculated again. `Robot Program` has the output `Program` for it. In `Quick Start` it is part of output B, with a slider and a Play switch. Example 3 (multi-axis) has a robot program and a simulation of its own, so you can watch the tool lean with the layers.
 - `Cell Geometry` (Robot tab): the print cell of the FH Muenster in 3D, as it is drawn in the definition of the FH Muenster: floor, pedestal of the robot, print bed, safety fence, glass and walls, in the coordinates of the print bed. It gives the place of the robot (in the middle of its pedestal, looking towards the bed), the work base and the environment for the collision check; `Robot Cell` has an `Environment` input for it. `Quick Start` uses it, so the robot of example 1 stands where it stands in the lab.

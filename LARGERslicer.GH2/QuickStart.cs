@@ -129,13 +129,15 @@ namespace LARGERslicer.GH2
             var program = put(new RobotProgramComponent(), xo + 2 * col, y1);
             var machine = put(new MachineSettingsComponent(), xo + 2 * col, y1 + 300);
             var dxr = put(new DxrGeneratorComponent(), xo + 3 * col + 40, y1 + 60);
-            // demo values: the robot stands 1 m beside the bed, in the middle of its side and 400 mm lower; the nozzle tip is 300 mm in front of the flange
-            set(robot, 2, new Plane(new Point3d(-1000, DemoParts.BedSize / 2, -400), Vector3d.XAxis, Vector3d.YAxis));
-            set(tool, 1, new Plane(new Point3d(0, 0, 300), Vector3d.XAxis, Vector3d.YAxis));
+            // the cell of the FH Muenster as its definition sets it up: robot on its pedestal, AE20 extruder (TCP = YZ plane at -460, 3, 108, 46 kg)
+            set(robot, 2, RobotGeometry.FhMuensterRobotBase());
+            set(tool, 0, "AE20_Extruder");
+            set(tool, 1, new Plane(new Point3d(-460, 3, 108), Vector3d.YAxis, Vector3d.ZAxis));
+            set(tool, 2, 46.0);
             wire(robot, 0, cell, 0); wire(tool, 0, cell, 1);
             wire(finish, 0, program, 0); wire(cell, 0, program, 1);
             wire(program, 0, dxr, 0); wire(program, 1, dxr, 1); wire(program, 2, dxr, 2); wire(machine, 0, dxr, 3);
-            group("OUTPUT B  -  ROBOT CELL, ROBOT PROGRAM AND DXR GENERATOR  (demo values: put in your tool and where robot and bed stand)", Family.Red, new IDocumentObject[] { robot, tool, cell, program, machine, dxr });
+            group("OUTPUT B  -  ROBOT CELL, ROBOT PROGRAM AND DXR GENERATOR  (the cell of the FH Muenster: robot on its pedestal, AE20 extruder)", Family.Red, new IDocumentObject[] { robot, tool, cell, program, machine, dxr });
 
             var desktop = put(new DesktopTestPrintComponent(), xo, y1 + 420);
             wire(finish, 0, desktop, 0);

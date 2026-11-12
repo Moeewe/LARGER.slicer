@@ -39,6 +39,54 @@ namespace LARGERslicer.Toolpaths
         /// extrusion.
         /// </summary>
         public static Toolpath StartEnd(Toolpath tp, int skirtLoops, double skirtDistance, int brimLoops, int brimSide,
+            double exitLength, double exitLift, Curve exitCurve, double exitFlow, List<string> log, double approachHeight = 30)
+        {
+            var done = StartEndOnly(tp, skirtLoops, skirtDistance, brimLoops, brimSide, exitLength, exitLift, exitCurve, exitFlow, log);
+            done = Thin(done, Math.Max(0.5, 0.2 * tp.Settings.BeadWidth));
+            return Approach(done, approachHeight);
+        }
+
+        /// <summary>
+        /// Leaves out points that lie closer than minDistance to the point before them. A machine
+        /// needs a few milliseconds for every line; on pieces of a few hundredths of a millimetre
+        /// it slows down, and the extruder, which keeps going, leaves a blob. A point is kept where
+        /// the role, the flow, the layer or the tool axis changes, and the last point always.
+        /// </summary>
+        public static Toolpath Thin(Toolpath tp, double minDistance)
+        {
+            if (tp == null || tp.Count < 3 || minDistance <= 0) return tp;
+            var r = new Toolpath { Settings = tp.Settings, Warp = tp.Warp };
+            r.AddFrom(tp, 0);
+            for (int i = 1; i < tp.Count; i++)
+            {
+                int k = r.Count - 1;
+                bool last = i == tp.Count - 1;
+                bool same = tp.Roles[i] == r.Roles[k] && Math.Abs(tp.Flows[i] - r.Flows[k]) < 1e-9 && tp.Layers[i] == r.Layers[k]
+                            && tp.Normals[i] * r.Normals[k] > 0.9994; // about 2 degrees
+                if (!last && same && tp.Points[i].DistanceTo(r.Points[k]) < minDistance) continue;
+                r.AddFrom(tp, i);
+            }
+            return r;
+        }
+
+        /// <summary>
+        /// Puts a point this far above the first point in front of the path, along the tool axis.
+        /// The machine comes down onto the start from above instead of moving towards it at print
+        /// height across the bed (the Weber converter does the same with 30 mm).
+        /// </summary>
+        public static Toolpath Approach(Toolpath tp, double height)
+        {
+            if (tp == null || tp.Count < 1 || height <= 0) return tp;
+            var r = new Toolpath { Settings = tp.Settings, Warp = tp.Warp };
+            Vector3d axis = tp.Normals[0]; if (!axis.Unitize()) axis = Vector3d.ZAxis;
+            r.Add(tp.Points[0] + axis * height, tp.Normals[0], tp.Heights[0], tp.Widths[0], 0, PathRole.Travel, tp.Layers[0]);
+            for (int i = 0; i < tp.Count; i++) r.AddFrom(tp, i);
+            // the way down onto the start prints nothing
+            r.Flows[1] = 0; r.Roles[1] = PathRole.Travel;
+            return r;
+        }
+
+        private static Toolpath StartEndOnly(Toolpath tp, int skirtLoops, double skirtDistance, int brimLoops, int brimSide,
             double exitLength, double exitLift, Curve exitCurve, double exitFlow, List<string> log)
         {
             var result = new Toolpath { Settings = tp.Settings, Warp = tp.Warp };
@@ -406,11 +454,16 @@ namespace LARGERslicer.Toolpaths
             for (int i = 0; i < n; i++) r.Offsets.Add(0);
             if (n < 2) { r.Report.Add("Empty path."); r.Ok = false; return r; }
 
+            // the way in from above, before the first printed move, is not part of the print
+            int firstPrint = 1;
+            while (firstPrint < n && tp.Flows[firstPrint] <= 0) firstPrint++;
+            firstPrint = Math.Max(0, firstPrint - 1);
+
             // point indices per layer, in print order
             var byLayer = new SortedDictionary<int, List<int>>();
             for (int i = 0; i < n; i++)
             {
-                if (tp.Roles[i] == PathRole.Skirt) continue;
+                if (tp.Roles[i] == PathRole.Skirt || i < firstPrint) continue;
                 if (!byLayer.TryGetValue(tp.Layers[i], out var list)) byLayer[tp.Layers[i]] = list = new List<int>();
                 list.Add(i);
             }
@@ -561,10 +614,10 @@ namespace LARGERslicer.Toolpaths
                 r.Report.Add($"Bead shape OK: layer height is {ratio:P0} of the bead width.");
 
             int travels = 0, tiny = 0; double travelLength = 0;
-            for (int i = 1; i < n; i++)
+            for (int i = firstPrint + 1; i < n; i++)
             {
                 double len = tp.Points[i].DistanceTo(tp.Points[i - 1]);
-                if (tp.Flows[i] <= 0) { travelLength += len; if (tp.Flows[i - 1] > 0 || i == 1) travels++; }
+                if (tp.Flows[i] <= 0) { travelLength += len; if (tp.Flows[i - 1] > 0 || i == firstPrint + 1) travels++; }
                 else if (len < 0.05) tiny++;
             }
             r.Report.Add(travels == 0 ? "Continuous: no travel moves." : $"Travel: {travels} move(s) without extrusion, {travelLength:0} mm in total.");

@@ -217,20 +217,15 @@ namespace LARGERslicer.Toolpaths
         private static Dictionary<string, Mesh> _cell;
 
         /// <summary>
-        /// Where the robot stands in that cell: in the middle of its pedestal, on top of it,
-        /// looking along +Y towards the bed. Read from the pedestal of the cell model (its top
-        /// plate carries a centring collar of 15 mm that the robot's foot sits around).
+        /// Where the robot stands in that cell: on top of its pedestal, at the point the definition
+        /// of the FH Muenster gives to Load Robot System, turned like the bed.
         /// </summary>
         public static Plane FhMuensterRobotBase()
         {
             var cell = FhMuensterCell();
-            Point3d at = new Point3d(651.5, -1448.5, 196);
-            if (cell != null && cell.TryGetValue("Pedestal", out Mesh pedestal))
-            {
-                var b = pedestal.GetBoundingBox(true);
-                at = new Point3d(0.5 * (b.Min.X + b.Max.X), 0.5 * (b.Min.Y + b.Max.Y), b.Max.Z - 15);
-            }
-            return new Plane(at, Vector3d.YAxis, -Vector3d.XAxis);
+            // as the robot is set up in the definition of the FH Muenster (BeispielRoboter.gh): the
+            // base point of Load Robot System, the robot's own X axis along the X axis of the bed
+            return new Plane(new Point3d(651.5, -1448.0, 211.107), Vector3d.XAxis, Vector3d.YAxis);
         }
 
         /// <summary>
@@ -266,13 +261,19 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>
-        /// Looks for collisions along the program. Poses are taken along the path, at most
-        /// maxPoses of them, evenly spread. In every pose the moving front of the robot (the
-        /// tool, the wrist and the forearm: links 4 to 6) is tested against the standing rear
-        /// (base, links 1 and 2) and against everything given as environment (bed, table, cage).
-        /// The print itself is not part of the test: the nozzle touches it all the time.
+        /// Looks for collisions along the program, in up to maxPoses poses spread evenly along the
+        /// path, plus the start and end of every move without extrusion (where the robot moves
+        /// furthest). In every pose:
+        ///  - the tool against the base, links 1 to 4 and the environment,
+        ///  - links 4 to 6 (wrist and forearm) against the base, links 1 and 2 and the environment,
+        ///  - link 3 against the base and the environment,
+        ///  - the tool against what is already printed (the path before this pose, as beads),
+        ///    except near the nozzle tip, where it has to touch.
+        /// Neighbouring links touch in their joints and are not tested against each other.
+        /// clearance: how close two parts may come, in mm.
         /// </summary>
-        public static CollisionResult Collisions(RobotProgramResult program, RobotCell cell, IList<Mesh> environment, int maxPoses)
+        public static CollisionResult Collisions(RobotProgramResult program, RobotCell cell, IList<Mesh> environment, int maxPoses,
+            IList<Point3d> path = null, double beadWidth = 5, double clearance = 5)
         {
             var r = new CollisionResult();
             if (cell.Arm.Links == null) { r.Report = "Collisions were not checked: the robot has no 3D model."; return r; }
@@ -280,41 +281,73 @@ namespace LARGERslicer.Toolpaths
             for (int i = 0; i < program.Moves.Count; i++) if (program.Moves[i].Axes != null && program.Moves[i].Reachable) usable.Add(i);
             if (usable.Count == 0) { r.Report = "Collisions were not checked: no reachable pose."; return r; }
             maxPoses = Math.Max(2, maxPoses);
-            int step = Math.Max(1, usable.Count / maxPoses);
+            var picks = new SortedSet<int>();
+            double stride = Math.Max(1.0, (usable.Count - 1) / (double)(maxPoses - 1));
+            for (double k = 0; k < usable.Count; k += stride) picks.Add(usable[(int)k]);
+            picks.Add(usable[usable.Count - 1]);
+            // both ends of every move without extrusion
+            if (program.Extrusion.Count == program.Moves.Count)
+                for (int i = 1; i < program.Moves.Count; i++)
+                    if (program.Extrusion[i] <= 0 && program.Moves[i].Axes != null && program.Moves[i - 1].Axes != null) { picks.Add(i - 1); picks.Add(i); }
             var env = (environment ?? new List<Mesh>()).Where(m => m != null && m.IsValid).ToList();
+            bool hasTool = cell.Tool != null && cell.Tool.Mesh != null;
             r.Checked = true;
-            for (int k = 0; k < usable.Count; k += step)
+            int printHits = 0, firstPrintHit = -1;
+            foreach (int i in picks)
             {
-                int i = usable[k];
                 var pose = Pose(cell, program.Moves[i].Axes);
                 r.Poses++;
-                var front = new List<Mesh> { pose[4], pose[5], pose[6] };
-                if (pose.Count > 7) front.Add(pose[7]);
-                var rear = new List<Mesh> { pose[0], pose[1], pose[2] };
-                rear.AddRange(env);
-                bool hit = false;
-                foreach (var a in front)
+                var pairs = new List<KeyValuePair<Mesh, List<Mesh>>>();
+                var rearOfWrist = new List<Mesh> { pose[0], pose[1], pose[2] }; rearOfWrist.AddRange(env);
+                foreach (int k in new[] { 4, 5, 6 }) pairs.Add(new KeyValuePair<Mesh, List<Mesh>>(pose[k], rearOfWrist));
+                var rearOf3 = new List<Mesh> { pose[0] }; rearOf3.AddRange(env);
+                pairs.Add(new KeyValuePair<Mesh, List<Mesh>>(pose[3], rearOf3));
+                if (hasTool && pose.Count > 7)
                 {
-                    foreach (var b in rear)
-                    {
-                        if (!Overlap(a.GetBoundingBox(false), b.GetBoundingBox(false))) continue;
-                        var lines = Rhino.Geometry.Intersect.Intersection.MeshMeshFast(a, b);
-                        if (lines != null && lines.Length > 0)
-                        {
-                            hit = true;
-                            if (r.FirstMove < 0) { r.FirstMove = i; r.Colliding.Add(a); r.Colliding.Add(b); }
-                            break;
-                        }
-                    }
-                    if (hit) break;
+                    var rearOfTool = new List<Mesh> { pose[0], pose[1], pose[2], pose[3], pose[4] }; rearOfTool.AddRange(env);
+                    pairs.Add(new KeyValuePair<Mesh, List<Mesh>>(pose[7], rearOfTool));
                 }
-                if (hit) { r.Hits++; r.Moves.Add(i); }
+                bool hit = false;
+                foreach (var pr in pairs)
+                {
+                    var box = pr.Key.GetBoundingBox(false); box.Inflate(clearance);
+                    var near = pr.Value.Where(m => Overlap(box, m.GetBoundingBox(false))).ToList();
+                    if (near.Count == 0) continue;
+                    var clashes = Rhino.Geometry.Intersect.MeshClash.Search(new[] { pr.Key }, near, clearance, 1);
+                    if (clashes != null && clashes.Length > 0)
+                    {
+                        hit = true;
+                        if (r.FirstMove < 0) { r.FirstMove = i; r.Colliding.Add(clashes[0].MeshA); r.Colliding.Add(clashes[0].MeshB); }
+                        break;
+                    }
+                }
+                // the tool against what is already printed
+                if (!hit && hasTool && pose.Count > 7 && path != null && i < path.Count)
+                {
+                    var tool = pose[7];
+                    var box = tool.GetBoundingBox(false); box.Inflate(beadWidth);
+                    Point3d tip = path[i];
+                    double keepOut = 2 * beadWidth + 10; // around the tip the nozzle sits on the beads
+                    double limit = 0.5 * beadWidth + clearance;
+                    int tested = 0;
+                    for (int j = i - 1; j >= 0 && tested < 4000; j--)
+                    {
+                        // only what was printed: no travel moves, not the way in from above
+                        if (j < program.Extrusion.Count && program.Extrusion[j] <= 0 && (j + 1 >= program.Extrusion.Count || program.Extrusion[j + 1] <= 0)) continue;
+                        Point3d q = path[j];
+                        if (!box.Contains(q) || q.DistanceTo(tip) < keepOut) continue;
+                        tested++;
+                        if (tool.ClosestPoint(q).DistanceTo(q) < limit) { hit = true; printHits++; if (firstPrintHit < 0) firstPrintHit = i; break; }
+                    }
+                }
+                if (hit) { r.Hits++; r.Moves.Add(i); if (r.FirstMove < 0) r.FirstMove = i; }
             }
-            string scope = env.Count > 0 ? $"itself and {env.Count} environment mesh(es)" : "itself (connect bed, table and cage as Environment to check them too)";
-            string tool = cell.Tool != null && cell.Tool.Mesh != null ? "with the tool" : "without the tool (give the tool a mesh)";
+            string scope = env.Count > 0 ? $"itself, {env.Count} environment mesh(es)" : "itself (connect floor, fence and walls as Environment to check them too)";
+            if (path != null && hasTool) scope += " and the part already printed";
+            string withTool = hasTool ? "with the tool" : "without the tool (give the tool a mesh)";
             r.Report = r.Hits == 0
-                ? $"No collision: {r.Poses} poses along the path checked, robot {tool} against {scope}."
-                : $"COLLISION in {r.Hits} of {r.Poses} checked poses, first at move {r.FirstMove}: robot {tool} against {scope}. Move the part, turn the tool (Turn) or change where the robot stands.";
+                ? $"No collision: {r.Poses} poses along the path checked with {clearance:0} mm clearance, robot {withTool} against {scope}."
+                : $"COLLISION in {r.Hits} of {r.Poses} checked poses, first at move {r.FirstMove}" + (printHits > 0 ? $" ({printHits} of them the tool touching the part already printed, first at move {firstPrintHit})" : "") + $": robot {withTool} against {scope}, {clearance:0} mm clearance. Move the part, turn the tool (Turn) or change where the robot stands.";
             return r;
         }
 

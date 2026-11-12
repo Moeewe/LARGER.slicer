@@ -90,7 +90,7 @@ namespace LARGERslicer.Components.Robot
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
             p.AddTextParameter("Name", "N", "Name of the tool. AE20_Extruder brings the 3D model of the extruder of the FH Muenster cell", GH_ParamAccess.item, "Extruder");
-            p.AddPlaneParameter("TCP", "TCP", "Tool centre point relative to the flange. Origin = nozzle tip, Z axis = out of the nozzle", GH_ParamAccess.item, Plane.WorldXY);
+            p.AddPlaneParameter("TCP", "TCP", "Tool centre point relative to the flange, as in the Robots plug-in: origin = nozzle tip, Z axis = from the tip back into the tool. A TCP from a Robots definition can be used as it is. The AE20 extruder of the FH Muenster: a YZ plane at -460, 3, 108. Default: a straight tool on the flange", GH_ParamAccess.item, new Plane(Point3d.Origin, Vector3d.XAxis, -Vector3d.YAxis));
             p.AddNumberParameter("Weight", "W", "Weight of the tool in kg (0 = not written to the program)", GH_ParamAccess.item, 0.0);
             p.AddPointParameter("Centroid", "C", "Centre of mass relative to the flange", GH_ParamAccess.item, Point3d.Origin);
             p.AddMeshParameter("Mesh", "M", "Optional. The tool as a 3D model, drawn where it sits on the flange: the flange is the world XY plane at the origin, as in the Robots plug-in. Shown on the robot and used by the collision check", GH_ParamAccess.list);
@@ -105,7 +105,7 @@ namespace LARGERslicer.Components.Robot
 
         protected override void SolveInstance(IGH_DataAccess da)
         {
-            string name = "Extruder"; Plane tcp = Plane.WorldXY; double weight = 0; Point3d centroid = Point3d.Origin;
+            string name = "Extruder"; Plane tcp = new Plane(Point3d.Origin, Vector3d.XAxis, -Vector3d.YAxis); double weight = 0; Point3d centroid = Point3d.Origin;
             da.GetData(0, ref name); da.GetData(1, ref tcp); da.GetData(2, ref weight); da.GetData(3, ref centroid);
             if (!tcp.IsValid) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The TCP plane is not valid."); return; }
             if (weight < 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The weight cannot be negative."); return; }
@@ -194,7 +194,7 @@ namespace LARGERslicer.Components.Robot
             p.AddTextParameter("File", "File", "Optional. File or folder for the KRL program. Empty = the Desktop, named like the program", GH_ParamAccess.item);
             p.AddBooleanParameter("Save", "Save", "True = write the KRL file", GH_ParamAccess.item, false);
             p.AddMeshParameter("Environment", "Env", "Optional. What stands around the robot: bed, table, cage, as meshes. The collision check tests the tool, wrist and forearm against them", GH_ParamAccess.list);
-            p.AddIntegerParameter("Collision Poses", "Col", "How many poses along the path the collision check looks at (evenly spread). 0 = no check. Needs the 3D model of the robot", GH_ParamAccess.item, 200);
+            p.AddIntegerParameter("Collision Poses", "Col", "How many poses along the path the collision check looks at (evenly spread), besides both ends of every move without extrusion. 0 = no check. Needs the 3D model of the robot", GH_ParamAccess.item, 500);
             p[1].Optional = true; p[6].Optional = true; p[8].Optional = true;
         }
 
@@ -284,12 +284,12 @@ namespace LARGERslicer.Components.Robot
                 }
                 if (Params.Input.Count > 9 && Params.Output.Count > 10)
                 {
-                    var env = new List<Mesh>(); int poses = 200;
+                    var env = new List<Mesh>(); int poses = 500;
                     da.GetDataList(8, env); da.GetData(9, ref poses);
                     if (cell.Environment != null) env.AddRange(cell.Environment);
                     if (poses > 0)
                     {
-                        var col = RobotGeometry.Collisions(r, cell, env, poses);
+                        var col = RobotGeometry.Collisions(r, cell, env, poses, tp.Points, tp.Settings.BeadWidth);
                         r.Report.Add(col.Report);
                         if (col.Hits > 0)
                         {
@@ -461,7 +461,7 @@ namespace LARGERslicer.Components.Robot
             Plane robotBase = RobotGeometry.FhMuensterRobotBase();
             var info = new List<string> { "Print cell of the FH Muenster: Weber DXR on a KUKA KR120 R2700-2, in the coordinates of the print bed." };
             foreach (var kv in cell) { var b = kv.Value.GetBoundingBox(true); info.Add($"{kv.Key}: X {b.Min.X:0}..{b.Max.X:0}, Y {b.Min.Y:0}..{b.Max.Y:0}, Z {b.Min.Z:0}..{b.Max.Z:0} mm"); }
-            info.Add($"Robot: foot at X {robotBase.OriginX:0.#}, Y {robotBase.OriginY:0.#}, Z {robotBase.OriginZ:0.#}, looking along +Y to the bed. Read from the pedestal of the model: check it against your cell before you trust reach and collisions.");
+            info.Add($"Robot: foot at X {robotBase.OriginX:0.#}, Y {robotBase.OriginY:0.#}, Z {robotBase.OriginZ:0.#}, turned like the bed, as in the definition of the FH Muenster (BeispielRoboter.gh).");
             Message = "FH Muenster";
             da.SetDataList(0, env);
             if (part("Bed") != null) da.SetData(1, part("Bed"));

@@ -61,7 +61,7 @@ namespace LARGERslicer.GH2
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddText("Name", "N", "Name of the tool.").Set("Extruder");
-            inputs.AddPlane("TCP", "TCP", "Tool centre point relative to the flange. Origin = nozzle tip, Z axis = out of the nozzle.").Set(Plane.WorldXY);
+            inputs.AddPlane("TCP", "TCP", "Tool centre point relative to the flange, as in the Robots plug-in: origin = nozzle tip, Z axis = from the tip back into the tool. The AE20 extruder of the FH Muenster: a YZ plane at -460, 3, 108. Default: a straight tool on the flange.").Set(new Plane(Point3d.Origin, Vector3d.XAxis, -Vector3d.YAxis));
             inputs.AddNumber("Weight", "W", "Weight of the tool in kg. 0 = not written to the program.").Set(0.0);
         }
 
@@ -75,10 +75,11 @@ namespace LARGERslicer.GH2
         {
             string name; Plane tcp; double weight;
             access.GetItem(0, out name);
-            if (!access.GetItem(1, out tcp)) tcp = Plane.WorldXY;
+            if (!access.GetItem(1, out tcp)) tcp = new Plane(Point3d.Origin, Vector3d.XAxis, -Vector3d.YAxis);
             access.GetItem(2, out weight);
             if (weight < 0) { access.AddError("Invalid weight", "The weight cannot be negative."); return; }
             var tool = new RobotTool { Name = string.IsNullOrWhiteSpace(name) ? "Extruder" : name.Trim(), Tcp = Frame.FromPlane(tcp), Weight = weight };
+            tool.Mesh = RobotGeometry.BuiltInTool(tool.Name);
             var abc = tool.Tcp.Abc();
             access.SetItem(0, tool);
             access.SetItem(1, string.Format(CultureInfo.InvariantCulture, "{0}: X {1:0.###}, Y {2:0.###}, Z {3:0.###}, A {4:0.###}, B {5:0.###}, C {6:0.###}, {7:0.##} kg", tool.Name, tcp.OriginX, tcp.OriginY, tcp.OriginZ, abc[0], abc[1], abc[2], weight));
