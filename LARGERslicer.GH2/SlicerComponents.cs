@@ -311,6 +311,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddInteger("Mode", "M", "1 = layered (default). 0 = spiral (vase mode).").Set(1);
             inputs.AddNumber("Seam Gap", "G", "Layered: the gap at the seam in mm. Every layer ends this far before its own start; the path crosses the gap on a short incline up to the next layer. 0 = one bead width.").Set(0.0);
+            inputs.AddGeneric("Seam", "Seam", "Optional. A point or a curve: where the seam is. Every layer starts at the place on its contour nearest to it. Empty = the seam stays where the first layer started.", Access.Item, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -326,7 +327,13 @@ namespace LARGERslicer.GH2
             var settings = Io.Settings(access, 1);
             int mode; double ramp; access.GetItem(2, out mode); access.GetItem(3, out ramp);
             var log = new List<string>();
-            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, null, Math.Max(0, ramp), false, log);
+            object seamIn; access.GetItem(4, out seamIn);
+            GeometryBase seam = null;
+            if (seamIn is Point3d sp) seam = new Point(sp);
+            else if (seamIn is Line sl) seam = new LineCurve(sl);
+            else if (seamIn is Polyline spl) seam = new PolylineCurve(spl);
+            else if (seamIn is GeometryBase sg) seam = sg;
+            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, Math.Max(0, ramp), false, log);
             Io.Remarks(access, log);
             if (tp.Count < 2) { access.AddError("No path", "The layers contain no printable contour."); return; }
             int travels = 0; for (int i = 1; i < tp.Count; i++) if (tp.Roles[i] == PathRole.Travel && tp.Roles[i - 1] != PathRole.Travel) travels++;

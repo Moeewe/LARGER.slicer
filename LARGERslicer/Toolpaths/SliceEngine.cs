@@ -14,6 +14,9 @@ namespace LARGERslicer.Toolpaths
     /// </summary>
     public static class SliceEngine
     {
+        /// <summary>Rhino's mesher, one call at a time (see ToMesh).</summary>
+        public static readonly object MeshLock = new object();
+
         /// <summary>Unwraps Grasshopper data and meshes it into one welded mesh.</summary>
         public static Mesh ToMesh(IEnumerable<object> geometry, double tolerance, List<string> log, double maxEdge = 0)
         {
@@ -43,13 +46,17 @@ namespace LARGERslicer.Toolpaths
                 else if (o is Surface srf) brep = srf.ToBrep();
                 else if (o is SubD sd)
                 {
-                    var sm = Mesh.CreateFromSubD(sd, 3);
+                    Mesh sm;
+                    lock (MeshLock) sm = Mesh.CreateFromSubD(sd, 3);
                     if (sm != null) { joined.Append(sm); used++; } else skipped++;
                     continue;
                 }
 
                 if (brep == null) { skipped++; continue; }
-                var parts = Mesh.CreateFromBrep(brep, mp);
+                // Grasshopper 2 solves components side by side; Rhino's mesher crashed when the same
+                // Brep was meshed on two threads at once. A copy per call, one call at a time.
+                Mesh[] parts;
+                lock (MeshLock) parts = Mesh.CreateFromBrep(brep.DuplicateBrep(), mp);
                 if (parts == null || parts.Length == 0) { skipped++; continue; }
                 foreach (var p in parts) joined.Append(p);
                 used++;

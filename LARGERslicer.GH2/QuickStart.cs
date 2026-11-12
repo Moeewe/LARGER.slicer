@@ -130,14 +130,24 @@ namespace LARGERslicer.GH2
             var machine = put(new MachineSettingsComponent(), xo + 2 * col, y1 + 300);
             var dxr = put(new DxrGeneratorComponent(), xo + 3 * col + 40, y1 + 60);
             // the cell of the FH Muenster as its definition sets it up: robot on its pedestal, AE20 extruder (TCP = YZ plane at -460, 3, 108, 46 kg)
-            set(robot, 2, RobotGeometry.FhMuensterRobotBase());
+            // the cell of the FH Muenster: where the robot stands, the bed corner, and what stands around it
+            var cellGeo = put(new CellGeometryComponent(), xo - col, y1 + 120);
+            wire(cellGeo, 2, robot, 2); wire(cellGeo, 3, cell, 2); wire(cellGeo, 0, cell, 3);
             set(tool, 0, "AE20_Extruder");
             set(tool, 1, new Plane(new Point3d(-460, 3, 108), Vector3d.YAxis, Vector3d.ZAxis));
             set(tool, 2, 46.0);
             wire(robot, 0, cell, 0); wire(tool, 0, cell, 1);
             wire(finish, 0, program, 0); wire(cell, 0, program, 1);
             wire(program, 0, dxr, 0); wire(program, 1, dxr, 1); wire(program, 2, dxr, 2); wire(machine, 0, dxr, 3);
-            group("OUTPUT B  -  ROBOT CELL, ROBOT PROGRAM AND DXR GENERATOR  (the cell of the FH Muenster: robot on its pedestal, AE20 extruder)", Family.Red, new IDocumentObject[] { robot, tool, cell, program, machine, dxr });
+            // play the program: the robot at any moment of the print
+            var simulate = put(new RobotSimulationComponent(), xo + 3 * col + 40, y1 + 300);
+            wire(program, 10, simulate, 0);
+            hide.Add(robot); hide.Add(program); // the simulation shows the robot
+            var simSlider = new Grasshopper2.Parameters.Special.NumberSliderObject("Simulation (0 = start, 1 = end)", new Grasshopper2.UI.UiNumber(3, 0.5m, 0m, 1m));
+            place(simSlider, xo + 2 * col + 40, y1 + 420);
+            Connections.Connect(simSlider, simulate.Parameters.Input(1), null);
+                        group("OUTPUT B  -  ROBOT CELL, ROBOT PROGRAM AND DXR GENERATOR  (the cell of the FH Muenster: robot on its pedestal, AE20 extruder)", Family.Red, new IDocumentObject[] { cellGeo, robot, tool, cell, program, machine, dxr });
+            group("ROBOT SIMULATION  -  move the slider: the robot runs the print in the Rhino viewport", Family.Orange, new IDocumentObject[] { simulate, simSlider });
 
             var desktop = put(new DesktopTestPrintComponent(), xo, y1 + 420);
             wire(finish, 0, desktop, 0);

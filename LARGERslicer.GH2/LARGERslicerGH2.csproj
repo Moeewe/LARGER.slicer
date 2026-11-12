@@ -31,5 +31,7 @@
     <Compile Include="../LARGERslicer/Toolpaths/*.cs" Exclude="../LARGERslicer/Toolpaths/ToolpathGoo.cs" LinkBase="Core" />
     <Compile Include="../LARGERslicer/Utils/DXRHelper.cs" LinkBase="Core" />
     <Compile Include="../LARGERslicer/Types/MachineSettings.cs" LinkBase="Core" />
+    <!-- 3D models of the extruder and the cell of the FH Muenster, shared with the Grasshopper 1 plug-in -->
+    <EmbeddedResource Include="../LARGERslicer/Resources/*.3dm" LogicalName="LARGERslicer.Resources.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

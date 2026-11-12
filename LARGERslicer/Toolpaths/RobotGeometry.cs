@@ -105,7 +105,8 @@ namespace LARGERslicer.Toolpaths
                         Mesh m = o.Geometry as Mesh;
                         if (m == null && o.Geometry is Brep b)
                         {
-                            var parts = Mesh.CreateFromBrep(b, MeshingParameters.FastRenderMesh);
+                            Mesh[] parts;
+                            lock (SliceEngine.MeshLock) parts = Mesh.CreateFromBrep(b, MeshingParameters.FastRenderMesh);
                             if (parts != null && parts.Length > 0) { m = new Mesh(); foreach (var p in parts) m.Append(p); }
                         }
                         // on the layer itself the order in the file counts; on sublayers their number

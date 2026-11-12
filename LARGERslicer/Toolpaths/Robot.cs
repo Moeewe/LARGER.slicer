@@ -343,7 +343,14 @@ namespace LARGERslicer.Toolpaths
                 if (i > 0)
                 {
                     double f = i < program.Speed.Count && program.Speed[i] > 0 ? program.Speed[i] : tp.Settings.Speed; // mm/min
-                    t += tp.Points[i].DistanceTo(tp.Points[i - 1]) / Math.Max(1.0, f) * 60.0;
+                    double seconds = tp.Points[i].DistanceTo(tp.Points[i - 1]) / Math.Max(1.0, f) * 60.0;
+                    // where an axis cannot turn fast enough the robot slows down: the move takes as
+                    // long as its slowest axis needs
+                    var a = program.Moves[i - 1].Axes; var b = program.Moves[i].Axes; var arm = cell.Arm;
+                    if (a != null && b != null)
+                        for (int k = 0; k < 6; k++)
+                            if (arm.MaxSpeed[k] > 0) seconds = Math.Max(seconds, Math.Abs(b[k] - a[k]) / arm.MaxSpeed[k]);
+                    t += seconds;
                 }
                 run.Seconds.Add(t);
             }

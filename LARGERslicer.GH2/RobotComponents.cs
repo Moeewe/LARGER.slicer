@@ -29,6 +29,7 @@ namespace LARGERslicer.GH2
         {
             outputs.AddGeneric("Robot", "R", "The robot arm, for Robot Cell.");
             outputs.AddText("Info", "I", "Link lengths, axis ranges and reach.", Access.Twig);
+            outputs.AddMesh("Meshes", "M", "The robot in its home position: base and six links, read from the library of the Robots plug-in (Documents/RobotSystems).", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
@@ -44,7 +45,11 @@ namespace LARGERslicer.GH2
             }
             catch (Exception e) { access.AddError("Robot not readable", e.Message); return; }
             arm.Base = Frame.FromPlane(basePlane).Times(arm.Base);
-            var info = new List<string> { arm.ToString() };
+            string libFile = !string.IsNullOrWhiteSpace(lib) && !lib.TrimStart().StartsWith("<") ? lib.Trim() : null;
+            string found = RobotGeometry.Load(arm, null, libFile, out string why);
+            var info = new List<string> { arm.ToString(), found != null ? "3D model from " + found : "No 3D model: " + why };
+            if (found == null) access.AddRemark("No 3D model", why);
+            else access.SetTwig(2, RobotGeometry.Pose(new RobotCell { Arm = arm, Tool = new RobotTool() }, RobotGeometry.HomePose).ToArray(), null, null);
             for (int i = 0; i < 6; i++) info.Add(string.Format(CultureInfo.InvariantCulture, "A{0}: a {1:0.#}, d {2:0.#}, range {3:0}..{4:0} degrees, {5:0} degrees/s", i + 1, arm.A[i], arm.D[i], arm.MinDeg[i], arm.MaxDeg[i], arm.MaxSpeed[i]));
             access.SetItem(0, arm);
             access.SetTwig(1, info.ToArray(), null, null);
@@ -98,6 +103,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Robot", "R", "Robot arm. Empty = KUKA KR120 R2700-2 at the world origin.", Access.Item, Requirement.MayBeMissing);
             inputs.AddGeneric("Tool", "T", "Robot Tool. Empty = tip on the flange.", Access.Item, Requirement.MayBeMissing);
             inputs.AddPlane("Work Base", "WB", "The frame the program counts from, in the Rhino model.").Set(Plane.WorldXY);
+            inputs.AddMesh("Environment", "Env", "Optional. What stands around the robot (floor, fence, walls), for the collision check of Robot Program.", Access.Twig, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -112,6 +118,7 @@ namespace LARGERslicer.GH2
             var tool = Io.Get<RobotTool>(access, 1) ?? new RobotTool();
             Plane wb; if (!access.GetItem(2, out wb)) wb = Plane.WorldXY;
             var cell = new RobotCell { Arm = arm, Tool = tool, WorkBase = Frame.FromPlane(wb) };
+            Mesh[] env; if (access.GetItemArray(3, out env) && env != null) cell.Environment = env.Where(m => m != null && m.IsValid).ToList();
             double away = cell.WorkBase.O.DistanceTo(arm.Base.O);
             if (away > arm.Reach) access.AddWarning("Work base far away", $"The work base is {away:0} mm from the robot; its reach is {arm.Reach:0} mm.");
             access.SetItem(0, cell);
@@ -148,6 +155,9 @@ namespace LARGERslicer.GH2
             outputs.AddPoint("Unreachable", "U", "Points the robot cannot get to.", Access.Twig);
             outputs.AddPolyline("Arm", "Arm", "The arm at the chosen Pose, as a line through its joints.");
             outputs.AddText("File Name", "Fn", "A name for the DXR file, made of DXR, date and time, the Name, weight and print time (DXR_2611051216_Test Object_2668g_53min): connect to File of the DXR Generator.");
+            outputs.AddMesh("Robot", "Rob", "The robot with its tool at the chosen Pose, as a 3D model.", Access.Twig);
+            outputs.AddGeneric("Program", "Prg", "The finished program with its cell: connect to Robot Simulation to play it.");
+            outputs.AddPoint("Collisions", "Hit", "Path points at which the robot collides with itself, the Environment of the cell or the part already printed.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
@@ -157,8 +167,11 @@ namespace LARGERslicer.GH2
             double turn, pose; string name, file; bool save;
             access.GetItem(2, out turn); access.GetItem(3, out name); access.GetItem(4, out pose); access.GetItem(5, out file); access.GetItem(6, out save);
             var r = RobotProgram.Build(tp, cell, turn, name, true);
-            if (!r.Ok) access.AddWarning("Not reachable", string.Join("\n", r.Report));
-            else if (r.Singular > 0) access.AddRemark("Wrist near singularity", r.Report.First(l => l.StartsWith("Wrist")));
+            var col = RobotGeometry.Collisions(r, cell, cell.Environment, 500, tp.Points, tp.Settings.BeadWidth);
+            if (col.Checked) r.Report.Add(col.Report);
+            if (!r.Ok) access.AddWarning("Not runnable", string.Join("\n", r.Report.Where(l => l.StartsWith("NOT"))));
+            if (col.Hits > 0) { access.AddWarning("Collision", col.Report); access.SetTwig(11, col.Moves.Select(i => tp.Points[i]).ToArray(), null, null); }
+            access.SetItem(10, RobotRun.Make(r, cell, tp));
             Files.Save(access, save, file, r.Krl, RobotProgram.ProgramName(name) + ".src");
             access.SetItem(8, OutputFile.Name("DXR", name, tp, ""));
             access.SetTwig(0, r.Lines.ToArray(), null, null);
@@ -174,7 +187,87 @@ namespace LARGERslicer.GH2
                 var pts = cell.Arm.Skeleton(r.Moves[at].Axes);
                 pts.Add(tp.Points[at]);
                 access.SetItem(7, new Polyline(pts));
+                var model = RobotGeometry.Pose(cell, r.Moves[at].Axes);
+                if (model != null) access.SetTwig(9, model.ToArray(), null, null);
             }
+        }
+    }
+
+    // ============================================================== simulation
+    [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4005")]
+    public sealed class RobotSimulationComponent : Component
+    {
+        public RobotSimulationComponent() : base(Io.Name("Robot Simulation", "Plays the robot program: the robot with its tool at any moment of the print. Time runs from 0 (start) to 1 (end) and follows the real time of the print, slower where an axis cannot turn faster. Moving the slider only places the robot: the program is not calculated again.", Io.Robot, 4)) { }
+        public RobotSimulationComponent(IReader reader) : base(reader) { }
+
+        protected override void AddInputs(InputAdder inputs)
+        {
+            inputs.AddGeneric("Program", "Prg", "Program of Robot Program.");
+            inputs.AddNumber("Time", "T", "Where in the print: 0 = start, 1 = end.").Set(0.0);
+        }
+
+        protected override void AddOutputs(OutputAdder outputs)
+        {
+            outputs.AddMesh("Robot", "Rob", "The robot with its tool at that moment.", Access.Twig);
+            outputs.AddNumber("Axes", "A", "Axis angles A1 to A6 in degrees.", Access.Twig);
+            outputs.AddPlane("TCP", "TCP", "The tool tip: origin on the path, Z along the tool axis.");
+            outputs.AddInteger("Move", "M", "Number of the move the robot is on.");
+            outputs.AddNumber("Seconds", "s", "Time since the start of the print.");
+            outputs.AddText("Info", "I", "Time, move and axis angles.");
+        }
+
+        protected override void Process(IDataAccess access)
+        {
+            var run = Io.Get<RobotRun>(access, 0);
+            if (run == null || run.Points.Count == 0) { access.AddError("No program", "Connect Program of Robot Program."); return; }
+            double time; access.GetItem(1, out time);
+            time = Math.Max(0, Math.Min(1, time));
+            double seconds = time * run.Duration;
+            var axes = run.AxesAt(seconds, out int move, out double share);
+            access.SetItem(3, move); access.SetItem(4, seconds);
+            if (axes == null) { access.AddWarning("Not reachable", $"The robot cannot get to move {move}."); return; }
+            var arm = run.Cell.Arm;
+            var model = RobotGeometry.Pose(run.Cell, axes);
+            if (model != null) access.SetTwig(0, model.ToArray(), null, null);
+            Frame tip = arm.Base.Times(arm.Forward(axes)).Times(Frame.World.TurnedAboutZ(Math.PI)).Times(run.Cell.Tool.Tcp);
+            access.SetTwig(1, axes, null, null);
+            access.SetItem(2, tip.ToPlane());
+            var ci = CultureInfo.InvariantCulture;
+            access.SetItem(5, TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", ci) + " of " + TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci) + $", move {move}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci))));
+        }
+    }
+
+    // ============================================================== cell geometry
+    [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4006")]
+    public sealed class CellGeometryComponent : Component
+    {
+        public CellGeometryComponent() : base(Io.Name("Cell Geometry", "The print cell of the FH Muenster in 3D: floor, pedestal of the robot, print bed, safety fence, glass and walls, in the coordinates of the print bed. It also says where the robot stands in it, as in the definition of the FH Muenster.", Io.Robot, 5)) { }
+        public CellGeometryComponent(IReader reader) : base(reader) { }
+
+        protected override void AddInputs(InputAdder inputs)
+        {
+            inputs.AddBoolean("Walls", "W", "Add the walls of the room. They hide the view from outside; the fence stands in front of them, so they rarely matter for the collision check.").Set(false);
+        }
+
+        protected override void AddOutputs(OutputAdder outputs)
+        {
+            outputs.AddMesh("Environment", "Env", "Floor, pedestal, fence and glass (and the walls if asked), for the collision check: connect to Environment of Robot Cell.", Access.Twig);
+            outputs.AddMesh("Bed", "Bed", "The print bed. Not part of the collision check: the nozzle runs right above it.");
+            outputs.AddPlane("Robot Base", "RB", "Where the robot stands: connect to Base of Robot.");
+            outputs.AddPlane("Work Base", "WB", "The corner of the bed the print counts from: connect to Work Base of Robot Cell.");
+        }
+
+        protected override void Process(IDataAccess access)
+        {
+            bool walls; access.GetItem(0, out walls);
+            var cell = RobotGeometry.FhMuensterCell();
+            if (cell == null) { access.AddError("No cell model", "The cell model could not be read from the plug-in."); return; }
+            Func<string, Mesh> part = n => cell.TryGetValue(n, out Mesh m) ? m : null;
+            var env = new[] { "Floor", "Pedestal", "Fence", "Glass" }.Concat(walls ? new[] { "Walls" } : new string[0]).Select(part).Where(m => m != null).ToArray();
+            access.SetTwig(0, env, null, null);
+            if (part("Bed") != null) access.SetItem(1, part("Bed"));
+            access.SetItem(2, RobotGeometry.FhMuensterRobotBase());
+            access.SetItem(3, Plane.WorldXY);
         }
     }
 }

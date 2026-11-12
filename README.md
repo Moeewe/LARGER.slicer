@@ -27,7 +27,7 @@ A pellet extruder cannot stop cleanly: every travel move pulls strings and every
 |---|---|
 | **One line** | Walls, bottom and infill are joined into a single path. Infill is spliced into the wall, not printed beside it. |
 | **Never crosses itself** | A crossing means the nozzle ploughs through fresh material. If a pattern cannot be printed without one, the slicer picks another. |
-| **Flat layers** | Every layer lies flat. The path climbs to the next layer over a short ramp, always in the same place. |
+| **Flat layers** | Every layer lies flat. The seam stays open by one bead width; the path crosses the gap on a short incline to the next layer, always in the same place. |
 | **Supported** | A bead may overhang the one below by half a bead width at most. `Path Check` reports where a part exceeds that. |
 
 ## Infill from one line
@@ -60,13 +60,14 @@ New here? `Easy Slicer` is one component from the model to the checked print pat
 | 4 | `Walls` | Bead inside, centred on or outside the geometry |
 | 5 | `Bottom Fill` | Closed bottom as one line: zigzag or contour |
 | 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill spliced into the wall path |
-| 7 | `Continuous Path` | Flat layers with a short ramp at a fixed seam, or a spiral for single walls |
+| 7 | `Continuous Path` | Flat layers with an open seam (gap of one bead width) at a fixed place, or a spiral for single walls |
 | 8 | `Round Corners` | Every corner becomes an arc |
-| 9 | `Start and End` | Skirt first, a move off the part at the end |
+| 9 | `Start and End` | Way in from 30 mm above, skirt first, brim outside, inside or both, a move off the part at the end |
 | 10 | `Path Check` | Support, self-crossings, bead shape, travel moves |
 | 11 | `Extrusion and Speed` | Plane, E and F per point for the DXR Generator or G-code |
 | | `Desktop Test Print` | The same path scaled down as G-code for a desktop filament printer |
 | | `Ginger G-code` | The path in full size as G-code for the Ginger One, with its start and end sequence |
+| | `Machine` · `Machine G-code` | Your own G-code machine: start, layer and end code and E factor as a `.machine` file in Documents/LARGER/Machines |
 
 ## The Robot tab
 
@@ -75,13 +76,17 @@ For printing with a robot: the cell is described once, then every toolpath becom
 | Component | What it does |
 |---|---|
 | `Robot` | The arm. KUKA KR120 R2700-2 by default; any six-axis arm with a spherical wrist from a Robots plug-in library file (.xml) |
-| `Robot Tool` | Tool centre point (relative to the flange) and weight |
+| `Robot Tool` | Tool centre point as in the Robots plug-in (AE20 extruder: YZ plane at -460, 3, 108), weight, centre of mass, 3D model |
 | `Robot Cell` | Robot, tool and the work base the program counts from (KUKA `$BASE`) |
 | `Robot Program` | Tool tip on every path point, tool along the path's tool axis. Checks reach, axis ranges, wrist singularity and axis speed. Outputs the moves for the `DXR Generator`, a KRL program and the arm at any place of the path |
+| `Robot Simulation` | Plays the program: the robot with its tool at any moment of the print (slider or Play) |
+| `Cell Geometry` | The print cell of the FH Muenster in 3D (floor, pedestal, bed, fence), the place of the robot, and the environment for the collision check |
 
 The curve-based tools of the former Toolpaths tab are now in **Slicer Curves**, named like their Slicer counterparts (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
 
 ## Machines
+
+File names follow the FH Muenster: `DXR_2611051216_Test Object_2668g_53min.dxr` - machine, date and time, part, weight, print time. A vertical extruder is written as A 0, B 0, C 0, as the Weber DXR expects.
 
 | | |
 |---|---|

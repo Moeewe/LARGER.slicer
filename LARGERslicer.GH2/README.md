@@ -42,6 +42,8 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 | Robot Tool | Tool centre point and weight |
 | Robot Cell | Robot, tool and the work base the program counts from |
 | Robot Program | Robot moves with the real tool orientation, reach and axis check, lines for the DXR Generator, KRL program |
+| Robot Simulation | The robot with its tool at any moment of the print (slider; no Play switch in Grasshopper 2 yet) |
+| Cell Geometry | The print cell of the FH Muenster in 3D, the place of the robot and the environment for the collision check |
 
 ## Build
 
@@ -69,7 +71,7 @@ accepted by Slice. Not yet tested: non-planar and multi-axis slicing on a real p
 `Toolpath to Robot Lines` writes one fixed tool orientation (A, B, C). Check it against your
 robot cell before the first run. For tilted tool axes use the planes from `Extrusion and Speed`.
 
-Quick Start was run in Grasshopper 2 (Rhino 9.1): it builds the five examples and all of them compute. Not tried by hand in Grasshopper 2 yet: Machine, Machine G-code, the brim and saving files (the code they share with the Grasshopper 1 plug-in is tested there).
+Quick Start was run in Grasshopper 2 (Rhino 9.1): it builds the five examples and all of them compute. The robot is shown in 3D and checked for collisions as in Grasshopper 1. Not tried by hand in Grasshopper 2 yet: Machine, Machine G-code, the brim and saving files (the code they share with the Grasshopper 1 plug-in is tested there).
 
 A definition saved with an earlier build of this plug-in can show Print Settings and Round and Lead as faulted, because they have more inputs now: place them again.
 

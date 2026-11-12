@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Grasshopper 2)
+- `Robot Simulation` and `Cell Geometry` in Grasshopper 2; `Robot` shows the arm in 3D, `Robot Program` checks collisions (with the environment of `Robot Cell` and the part already printed) and gives the robot at the chosen pose. `Continuous Path` has a `Seam` input. Quick Start uses the cell of the FH Muenster and plays the program with a slider.
+
+### Fixed (stability)
+- Rhino could crash when Grasshopper 2 solved several definitions at once: its mesher was called on the same part from two threads. Meshing is now done one call at a time, on a copy.
+- `Robot Simulation`: where an axis cannot turn fast enough, the time of the move follows the slowest axis.
+
 ### Fixed (bottom fill, compared with Bi et al. 2022)
 - `Bottom Fill` with Pattern Zigzag: a zigzag that openings split into pieces needed a move without extrusion between the pieces (9 to 11 on three layers of a plate with two openings). Now another direction is tried, and if no direction gives one line, the layer is filled following the wall, with a note. A zigzag that ended in a pointed corner far from where the layer below stopped could make the wall cross its own way into the fill; now the direction is chosen so the fill starts next to where the layer below stopped.
 - Grasshopper 2: the inputs and outputs have the same names as in Grasshopper 1 (Machine Profile, Machine Settings, Tool Axis, Cell Name, Filament Diameter, Path).
