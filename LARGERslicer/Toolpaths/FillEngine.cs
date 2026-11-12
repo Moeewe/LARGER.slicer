@@ -25,6 +25,25 @@ namespace LARGERslicer.Toolpaths
 
         private static Point3d To3d(Plane pl, Point2d p) => pl.Origin + pl.XAxis * p.X + pl.YAxis * p.Y;
 
+        /// <summary>
+        /// Where a place from another layer lies on this layer: straight above (or below) it.
+        /// On flat layers that is the same as dropping it onto the plane. On tilted layers
+        /// (Slice with an angle) it is not: the part stands upright, so its walls move sideways
+        /// within the tilted plane from layer to layer. Whatever is carried from one layer to the
+        /// next - the start of a pattern, a joint, a wave - has to move with the walls, or it
+        /// drifts through the part and the beads lose the bead below.
+        /// </summary>
+        private static Point2d Above2d(Plane pl, Point3d p)
+        {
+            double nz = pl.ZAxis.Z;
+            if (Math.Abs(nz) > 0.2 && Math.Abs(nz) < 1 - 1e-9)
+            {
+                double t = ((pl.Origin - p) * pl.ZAxis) / nz;
+                p = new Point3d(p.X, p.Y, p.Z + t);
+            }
+            return To2d(pl, p);
+        }
+
         /// <summary>Closed contour as 2D points without the repeated end point.</summary>
         private static List<Point2d> Ring2d(Plane pl, Polyline c)
         {

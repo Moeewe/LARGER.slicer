@@ -434,7 +434,9 @@ namespace LARGERslicer.Toolpaths
             string prog = new string((string.IsNullOrWhiteSpace(name) ? "LARGER_PRINT" : name).Where(ch => char.IsLetterOrDigit(ch) || ch == '_').ToArray());
             if (prog.Length == 0 || char.IsDigit(prog[0])) prog = "P" + prog;
             if (prog.Length > 24) prog = prog.Substring(0, 24);
-            var tcpAbc = cell.Tool.Tcp.Abc(); var bAbc = cell.WorkBase.Abc();
+            // $BASE is counted from the robot's foot ($ROBROOT), not from the origin of the Rhino model
+            var baseInRobot = arm.Base.Inverse().Times(cell.WorkBase);
+            var tcpAbc = cell.Tool.Tcp.Abc(); var bAbc = baseInRobot.Abc();
             var k = r.Krl;
             k.Add("&ACCESS RVP");
             k.Add("&REL 1");
@@ -445,7 +447,7 @@ namespace LARGERslicer.Toolpaths
             k.Add("$TOOL = {" + XyzAbc(new[] { cell.Tool.Tcp.O.X, cell.Tool.Tcp.O.Y, cell.Tool.Tcp.O.Z, tcpAbc[0], tcpAbc[1], tcpAbc[2] }) + "}");
             if (cell.Tool.Weight > 0)
                 k.Add("$LOAD = {M " + N(cell.Tool.Weight, 3) + ",CM {X " + N(cell.Tool.Centroid.X, 2) + ",Y " + N(cell.Tool.Centroid.Y, 2) + ",Z " + N(cell.Tool.Centroid.Z, 2) + ",A 0,B 0,C 0},J {X 0,Y 0,Z 0}}");
-            k.Add("$BASE = {" + XyzAbc(new[] { cell.WorkBase.O.X, cell.WorkBase.O.Y, cell.WorkBase.O.Z, bAbc[0], bAbc[1], bAbc[2] }) + "}");
+            k.Add("$BASE = {" + XyzAbc(new[] { baseInRobot.O.X, baseInRobot.O.Y, baseInRobot.O.Z, bAbc[0], bAbc[1], bAbc[2] }) + "}   ; work base '" + cell.BaseName + "', counted from the robot's foot");
             k.Add("$APO.CDIS = 0.5");
             double lastSpeed = -1;
             for (int i = 0; i < r.Moves.Count; i++)

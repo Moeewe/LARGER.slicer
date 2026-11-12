@@ -667,12 +667,21 @@ namespace LARGERslicer.Toolpaths
                 double tMax = Math.Min(Math.Min(first - lo, hi - last), 4 * radius);
                 if (tMax < 1e-3) { tooSharp++; continue; }
 
+                // A U-turn (the path comes back beside itself, one bead away) gets a half circle
+                // whose top touches the turn. Its cut follows from the distance of the two lines
+                // alone. No search: between two curved lines a long cut can reach the radius with
+                // a balloon-shaped loop, on one layer and not on the next, and the turn then
+                // sits centimetres beside the one below.
+                double tProbe = Math.Min(tMax, 0.5 * tp.Settings.BeadSpacing);
+                Point3d[] probe = Blend(tp, s, first - tProbe, last + tProbe, radius, out double turn);
+                bool uTurn = turn > 2.5;
+
                 // smallest cut distance whose arc reaches the radius
                 double t = -1;
                 double prevT = 0;
                 const int steps = 32;
                 var tried = new double[steps + 1];
-                for (int k = 1; k <= steps; k++)
+                for (int k = 1; k <= steps && !uTurn; k++)
                 {
                     double tk = tMax * k / steps;
                     double rk = BlendRadius(tp, s, first - tk, last + tk, radius);
@@ -693,24 +702,19 @@ namespace LARGERslicer.Toolpaths
                 // radius not reachable: the shortest cut that gets within 10 % of the best possible
                 // arc. Cutting further back would only shorten the path (e.g. a rib) for nothing.
                 double bestR = 0, bestT = tMax;
-                if (t < 0)
+                if (uTurn)
+                {
+                    double half = 0.5 * probe[0].DistanceTo(probe[3]) / Math.Sin(turn * 0.5);
+                    t = Math.Min(tMax, half);
+                    if (!thinCluster) tooSharp++;
+                }
+                else if (t < 0)
                 {
                     for (int k = 1; k <= steps; k++) bestR = Math.Max(bestR, tried[k]);
                     for (int k = 1; k <= steps; k++)
                         if (tried[k] >= 0.9 * bestR) { bestT = tMax * k / steps; break; }
-                }
-                if (t < 0)
-                {
-                    // radius not reachable: take the largest arc. For parallel lines that is a half
-                    // circle, which needs a cut distance equal to its own radius.
+                    // radius not reachable: the largest arc that fits
                     t = bestT;
-                    Point3d[] probe = Blend(tp, s, first - bestT, last + bestT, radius, out double turn);
-                    if (turn > 2.5)
-                    {
-                        // U-turn between parallel lines: half circle whose top touches the turn
-                        double half = 0.5 * probe[0].DistanceTo(probe[3]) / Math.Sin(turn * 0.5);
-                        t = Math.Min(tMax, Math.Max(bestT, half));
-                    }
                     if (!thinCluster) tooSharp++;
                 }
 

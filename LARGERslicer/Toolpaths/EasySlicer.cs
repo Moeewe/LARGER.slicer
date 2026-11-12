@@ -103,6 +103,15 @@ namespace LARGERslicer.Toolpaths
             r.Steps.Add((spiral ? "spiral path" : "flat layers with a ramp at one seam") + $", {corners} corner(s) rounded, skirt and exit");
             r.Check = LeadEngine.Check(tp, 0);
             r.Notes.AddRange(log.Distinct());
+            // travel moves inside the part: the extruder keeps flowing there, so say how to avoid them
+            // (the move from the skirt to the part and the exit move at the end do not count)
+            int travels = 0, firstPart = -1, lastPart = -1;
+            for (int i = 0; i < tp.Count; i++) if (tp.Roles[i] != PathRole.Skirt && tp.Roles[i] != PathRole.Travel) { if (firstPart < 0) firstPart = i; lastPart = i; }
+            for (int i = Math.Max(1, firstPart); i < lastPart; i++) if (tp.Roles[i] == PathRole.Travel && tp.Roles[i - 1] != PathRole.Travel) travels++;
+            if (travels > 0)
+                r.Notes.Add(infill == 2 || infill == 3 || infill == 4 || infill == 5 || infill == 6
+                    ? $"{travels} move(s) inside the part run without extrusion; a pellet extruder leaves a thread there."
+                    : $"{travels} move(s) inside the part run without extrusion (a pellet extruder leaves a thread there): the walls of openings or separate pieces are not joined to the outer wall. Infill Wave, Truss, Meander, Honeycomb or Grid joins them into one line.");
             return r;
         }
     }

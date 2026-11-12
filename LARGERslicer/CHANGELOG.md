@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Desktop Test Print`: every printer has its own start, layer change and end, taken from the BambuStudio, PrusaSlicer and OrcaSlicer profiles: Bambu Lab P1P / P1S / X1C (layer notifications `M73 L`, `M991`, purge line at the front), Prusa MK4 and MINI, Creality Ender-3 and K1, Elegoo Neptune 4. New presets: Bambu Lab A1, Bambu Lab H2D (start and end left open: no plain start is documented for it).
 - Grasshopper 2: `Ginger G-code` and `Desktop Test Print`.
 
+### Fixed
+- Found by running 1.3.0 in Grasshopper on a plate with a round opening:
+  - `Round Corners`: a U-turn (the path coming back beside itself, at every infill joint) now gets its half circle from the distance of the two lines alone. Before, the cut was searched for and landed on a different place from layer to layer, so the turn hung up to 11 mm beside the one below and `Path Check` reported unsupported beads.
+  - `Infill Cells`: a layer whose walls are the same as those below gets the same line, and every joint of the layer below is remembered as a pair of places. A round wall is cut into different pieces on every layer by the slicer; small cells next to it could appear on one layer and be gone on the next.
+  - `Robot Program`: `$BASE` in the KRL file is counted from the robot's foot, not from the origin of the Rhino model.
+- `Quick Start`: the flat demo part lies further on the bed, so its skirt stays on positive coordinates and `Ginger G-code` does not warn.
+- `Easy Slicer`: an empty Geometry input says "Connect your part" instead of a collect error; the report says when walls of openings are only reached by moves without extrusion and which infill joins them.
+- `Infill Chambers` on angled layers: what is carried from layer to layer moves straight up with the part.
+
 ### Changed
 - Icons: every icon sits on a light tile, so it reads on Rhino's dark toolbar and on the light component alike.
 - The Toolpaths section is now **Slicer Curves** and its components are named like their Slicer counterparts: `Curve Fill Zigzag` (was Single Path Fill with Lines), `Curve Fill Contour` (Single Line Fill with Offsets), `Curve Fill Cells`, `Curve Fill Euler`, `Curve Fill Cross Lines` (Curve Boundary Infill), `Curve Continuous Infill`, `Curve Continuous Path` (Continuous Toolpath), `Curve Wall and Zigzag` (Continuous Path from Boundary), `Curve Join and Order` (Optimized Toolpath), `Curve Uncross` (Suppress Self Intersections), `Curve Bridge`. Existing definitions keep working: only names and place changed.

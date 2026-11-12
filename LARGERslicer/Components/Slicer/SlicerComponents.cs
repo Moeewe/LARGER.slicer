@@ -153,7 +153,7 @@ namespace LARGERslicer.Components.Slicer
             var joined = Curve.JoinCurves(new Curve[] { outer, new LineCurve(outer.PointAtEnd, inner.PointAtStart), inner, new LineCurve(inner.PointAtEnd, outer.PointAtStart) });
             if (joined == null || joined.Length == 0) return null;
             // on the bed: every coordinate positive, as a machine with its origin in the corner needs it
-            joined[0].Translate(new Vector3d(300, 20, 0));
+            joined[0].Translate(new Vector3d(350, 60, 0)); // room for the skirt on the positive side
             return Surface.CreateExtrusion(joined[0], new Vector3d(0, 0, 60)).ToBrep();
         }
 
@@ -1538,6 +1538,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddIntegerParameter("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
             p.AddNumberParameter("Infill Size", "Sz", "Rib distance, wavelength or cell size (mm). 0 = chosen from the bead width", GH_ParamAccess.item, 0.0);
             p.AddBooleanParameter("Spiral", "Sp", "Vase mode: the path climbs all the time. Only for walls without infill and bottom", GH_ParamAccess.item, false);
+            p[0].Optional = true; // an empty input shows "Connect your part" instead of a collect error
         }
 
         protected override void CreateAutoInputs(GH_Document doc)
@@ -1560,7 +1561,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void SolveInstance(IGH_DataAccess da)
         {
             var geo = new List<object>();
-            if (!da.GetDataList(0, geo) || geo.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Connect your part to Geometry."); return; }
+            if (!da.GetDataList(0, geo) || geo.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Connect your part to Geometry: a Brep, surface, SubD or mesh that stands on the XY plane."); Message = "Connect a part"; return; }
             double w = 5, h = 2, f = 3000, size = 0; int machine = 0, walls = 1, bottom = 0, infill = 0; bool spiral = false;
             da.GetData(1, ref w); da.GetData(2, ref h); da.GetData(3, ref f); da.GetData(4, ref machine); da.GetData(5, ref walls);
             da.GetData(6, ref bottom); da.GetData(7, ref infill); da.GetData(8, ref size); da.GetData(9, ref spiral);
