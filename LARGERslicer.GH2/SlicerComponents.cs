@@ -348,6 +348,8 @@ namespace LARGERslicer.GH2
             inputs.AddInteger("Skirt Loops", "Sk", "Loops around the first layer, printed first. 0 = none.").Set(1);
             inputs.AddNumber("Exit Length", "E", "Sideways move off the part at the end, in mm.").Set(50.0);
             inputs.AddNumber("Exit Lift", "Z", "Lift at the very end, in mm.").Set(20.0);
+            inputs.AddInteger("Brim", "Br", "Beads right against the first layer, so the part holds on to the bed.\n0 = none\n1 = outside\n2 = inside (only where the first layer is open inside)\n3 = both sides").Set(0);
+            inputs.AddInteger("Brim Loops", "Bl", "Number of brim beads on each side.").Set(3);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -364,7 +366,8 @@ namespace LARGERslicer.GH2
             access.GetItem(1, out radius); access.GetItem(2, out loops); access.GetItem(3, out exit); access.GetItem(4, out lift);
             var log = new List<string>();
             var rounded = PathEngine.Round(tp, radius > 0 ? radius : tp.Settings.EffectiveMinRadius, 0, out int corners, out int tooSharp);
-            var result = LeadEngine.StartEnd(rounded, Math.Max(0, loops), 0, Math.Max(0, exit), Math.Max(0, lift), null, 0, log);
+            int brim, brimLoops; access.GetItem(5, out brim); access.GetItem(6, out brimLoops);
+            var result = LeadEngine.StartEnd(rounded, Math.Max(0, loops), 0, Math.Max(0, brimLoops), Math.Max(0, Math.Min(3, brim)), Math.Max(0, exit), Math.Max(0, lift), null, 0, log);
             Io.Remarks(access, log);
             if (tooSharp > 0) access.AddWarning("Tight corners", $"{tooSharp} corner(s) could not reach the radius; the largest possible arc was used.");
             access.SetItem(0, result);

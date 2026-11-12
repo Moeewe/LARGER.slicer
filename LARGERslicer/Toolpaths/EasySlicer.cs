@@ -25,6 +25,9 @@ namespace LARGERslicer.Toolpaths
             public double InfillSize = 0;   // 0 = chosen from the bead width
             public bool Spiral = false;     // vase mode: only for walls without infill and bottom
             public int SkirtLoops = 1;
+            /// <summary>Brim: 0 = none, 1 = outside, 2 = inside, 3 = both sides of the first layer.</summary>
+            public int BrimSide = 0;
+            public int BrimLoops = 3;
         }
 
         public class Result
@@ -98,9 +101,9 @@ namespace LARGERslicer.Toolpaths
             var tp = PathEngine.Build(layers, st, spiral ? ContinuousMode.Spiral : ContinuousMode.Layered, null, 0, false, log);
             if (tp.Count < 2) { r.Notes.Add("No printable contour was found."); r.Notes.AddRange(log); return r; }
             tp = PathEngine.Round(tp, st.EffectiveMinRadius, 0, out int corners, out _);
-            tp = LeadEngine.StartEnd(tp, Math.Max(0, o.SkirtLoops), 0, 10 * st.BeadWidth, 4 * st.BeadWidth, null, 0, log);
+            tp = LeadEngine.StartEnd(tp, Math.Max(0, o.SkirtLoops), 0, Math.Max(0, o.BrimLoops), o.BrimSide, 10 * st.BeadWidth, 4 * st.BeadWidth, null, 0, log);
             r.Path = tp;
-            r.Steps.Add((spiral ? "spiral path" : "flat layers with an open seam (gap of one bead width)") + $", {corners} corner(s) rounded, skirt and exit");
+            r.Steps.Add((spiral ? "spiral path" : "flat layers with an open seam (gap of one bead width)") + $", {corners} corner(s) rounded, skirt{(o.BrimSide > 0 && o.BrimLoops > 0 ? ", brim" : "")} and exit");
             r.Check = LeadEngine.Check(tp, 0);
             r.Notes.AddRange(log.Distinct());
             // travel moves inside the part: the extruder keeps flowing there, so say how to avoid them

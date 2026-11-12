@@ -24,11 +24,60 @@ namespace LARGERslicer.Toolpaths
         /// </summary>
         public static Toolpath StartEnd(Toolpath tp, int skirtLoops, double skirtDistance,
             double exitLength, double exitLift, Curve exitCurve, double exitFlow, List<string> log)
+            => StartEnd(tp, skirtLoops, skirtDistance, 0, 0, exitLength, exitLift, exitCurve, exitFlow, log);
+
+        /// <summary>
+        /// The same with a brim: beads that lie right against the first layer and widen its foot,
+        /// so the part holds on to the bed. brimSide: 0 = none, 1 = outside, 2 = inside, 3 = both.
+        ///
+        /// Outside: loops around the part, the outermost first; the last one ends next to the
+        /// start of the part and the bead runs on into the wall. Inside: printed when the first
+        /// layer is finished. The bead runs straight in to the innermost loop, then the loops
+        /// are printed from the inside out, each one the other way round than the one before,
+        /// and the last one ends back where the first layer ended. The loops leave a lane of two
+        /// bead spacings open for the way in, so nothing is crossed and nothing moves without
+        /// extrusion.
+        /// </summary>
+        public static Toolpath StartEnd(Toolpath tp, int skirtLoops, double skirtDistance, int brimLoops, int brimSide,
+            double exitLength, double exitLift, Curve exitCurve, double exitFlow, List<string> log)
         {
             var result = new Toolpath { Settings = tp.Settings, Warp = tp.Warp };
             if (tp.Count < 2) return tp.Duplicate();
             var st = tp.Settings;
             double w = st.BeadWidth, spacing = st.BeadSpacing;
+
+            // ---- brim: the outline of the first layer's beads, and what is free inside it
+            bool brimOut = brimLoops > 0 && (brimSide == 1 || brimSide == 3), brimIn = brimLoops > 0 && (brimSide == 2 || brimSide == 3);
+            int lastOfFirst = 0;
+            while (lastOfFirst + 1 < tp.Count && tp.Layers[lastOfFirst + 1] == tp.Layers[0]) lastOfFirst++;
+            var brimPlane = Geo.PlaneAt(tp.Points[0], tp.Normals[0]);
+            Func<Point3d, Point2d> flat = q => { Vector3d v = q - brimPlane.Origin; return new Point2d(v * brimPlane.XAxis, v * brimPlane.YAxis); };
+            Func<Point2d, Point3d> solid = q => brimPlane.Origin + brimPlane.XAxis * q.X + brimPlane.YAxis * q.Y;
+            double brimHeight = tp.Heights[0] > 0 ? tp.Heights[0] : st.LayerHeight;
+            PathsD beads = null;
+            if (brimOut || brimIn)
+            {
+                if (tp.Warp == null && Math.Abs(tp.Normals[0].Z) < 0.999)
+                {
+                    log?.Add("Brim skipped: with tilted layers the first layer is only a strip on the bed.");
+                    brimOut = brimIn = false;
+                }
+                else
+                {
+                    var lines = new PathsD(); PathD run = null;
+                    for (int i = 0; i <= lastOfFirst; i++)
+                    {
+                        Point2d q = flat(tp.Points[i]);
+                        if (i > 0 && tp.Flows[i] <= 0) run = null;
+                        if (run == null) { run = new PathD(); lines.Add(run); }
+                        run.Add(new PointD(q.X, q.Y));
+                    }
+                    lines.RemoveAll(l => l.Count < 2);
+                    beads = lines.Count > 0 ? Clipper.InflatePaths(lines, 0.5 * w, JoinType.Round, EndType.Round, 2.0, 3, 0.05) : null;
+                    if (beads == null || beads.Count == 0) { log?.Add("Brim skipped: the first layer is too small."); brimOut = brimIn = false; }
+                }
+            }
+            double outerBrim = brimOut ? brimLoops * spacing : 0;
 
             // ---- skirt
             double linkLength = -1, skirtUsed = skirtDistance;
@@ -65,6 +114,8 @@ namespace LARGERslicer.Toolpaths
                 if (hull.Count >= 3)
                 {
                     if (skirtDistance <= 0) skirtDistance = 3 * w;
+                    // the skirt stays clear of an outer brim
+                    if (outerBrim > 0) skirtDistance = Math.Max(skirtDistance, outerBrim + 3 * w);
                     skirtUsed = skirtDistance;
                     var path = new PathD(hull.Count);
                     foreach (var p in hull) path.Add(new PointD(p.X, p.Y));
@@ -98,11 +149,54 @@ namespace LARGERslicer.Toolpaths
                 else log?.Add("Skirt skipped: the first layer is too small.");
             }
 
+            // ---- outer brim: the outermost loop first, the last one ends next to the start of the part
+            if (brimOut)
+            {
+                Point2d start2 = flat(tp.Points[0]);
+                PathD outline = null; double nearest = double.MaxValue;
+                foreach (var path in beads)
+                {
+                    if (Clipper.Area(path) <= 0) continue;
+                    var ring0 = path.Select(q => new Point2d(q.x, q.y)).ToList();
+                    FillEngine.ClosestS(ring0, FillEngine.Cumulative(ring0), start2, out double d0);
+                    if (d0 < nearest) { nearest = d0; outline = path; }
+                }
+                int made = 0;
+                for (int k = brimLoops; k >= 1 && outline != null; k--)
+                {
+                    PathsD ring = Clipper.InflatePaths(new PathsD { outline }, k * spacing - 0.5 * w, JoinType.Round, EndType.Polygon, 2.0, 3, 0.05);
+                    if (ring == null || ring.Count == 0 || ring[0].Count < 3) continue;
+                    var loop = ring[0].Select(q => new Point2d(q.x, q.y)).ToList();
+                    var cum = FillEngine.Cumulative(loop);
+                    double len = cum[loop.Count];
+                    if (len < 4 * w) continue;
+                    double s0 = FillEngine.ClosestS(loop, cum, start2, out double away);
+                    if (k == 1) { linkLength = away; skirtUsed = spacing; }
+                    foreach (Point2d q in FillEngine.Sub(loop, cum, s0 + w, s0 + len))
+                    {
+                        Point3d p3 = solid(q);
+                        if (result.Count > 0 && p3.DistanceTo(result.Points[result.Count - 1]) < 1e-6) continue;
+                        result.Add(p3, tp.Normals[0], brimHeight, w, 1, PathRole.Skirt, tp.Layers[0]);
+                    }
+                    made++;
+                }
+                if (made == 0) log?.Add("Outer brim skipped: no room for it.");
+                else if (beads.Count(b => Clipper.Area(b) > 0) > 1) log?.Add("The first layer stands in several pieces: the outer brim goes around the piece the print starts on.");
+            }
+
+            // ---- inner brim: prepared here, printed when the first layer is finished
+            List<Point3d> innerBrim = brimIn ? InnerBrim(tp, beads, lastOfFirst, brimLoops, flat, solid, log) : null;
+
             // ---- the part itself. The skirt ends next to the first point of the part and the
             // nozzle keeps printing as it moves across: skirt and outer wall are one continuous
             // bead, the extruder never stops between them.
             int offset = result.Count;
-            for (int i = 0; i < tp.Count; i++) result.AddFrom(tp, i);
+            for (int i = 0; i < tp.Count; i++)
+            {
+                result.AddFrom(tp, i);
+                if (i == lastOfFirst && innerBrim != null)
+                    foreach (Point3d q in innerBrim) result.Add(q, tp.Normals[0], brimHeight, w, 1, PathRole.Skirt, tp.Layers[0]);
+            }
             if (offset > 0)
             {
                 // The move across to the part prints only if the part starts on its outside, right
@@ -161,6 +255,90 @@ namespace LARGERslicer.Toolpaths
                 if (exitLength > 0) { p += dir * exitLength; result.Add(p, axis, h, w, flow, exitRole, lastLayer); }
                 if (exitLift > 0) { p += axis * exitLift; result.Add(p, axis, h, w, 0, PathRole.Travel, lastLayer); }
             }
+            return result;
+        }
+
+        /// <summary>
+        /// The inner brim as one line that starts and ends where the first layer ended (that
+        /// point itself is not in the list). Null if there is no room for it.
+        /// </summary>
+        private static List<Point3d> InnerBrim(Toolpath tp, PathsD beads, int lastOfFirst, int loops,
+            Func<Point3d, Point2d> flat, Func<Point2d, Point3d> solid, List<string> log)
+        {
+            double w = tp.Settings.BeadWidth, spacing = tp.Settings.BeadSpacing;
+            Point2d end2 = flat(tp.Points[lastOfFirst]);
+            // the free room inside the first layer that lies next to its end
+            PathD room = null; double nearest = double.MaxValue;
+            foreach (var path in beads)
+            {
+                if (Clipper.Area(path) >= 0) continue;
+                var ring0 = path.Select(q => new Point2d(q.x, q.y)).ToList();
+                FillEngine.ClosestS(ring0, FillEngine.Cumulative(ring0), end2, out double d0);
+                if (d0 < nearest) { nearest = d0; room = path; }
+            }
+            if (room == null || nearest > w) { log?.Add("Inner brim skipped: the first layer does not end next to free room inside the part (a solid bottom fills it)."); return null; }
+            if (beads.Count(b => Clipper.Area(b) < 0) > 1) log?.Add("The first layer divides the inside of the part into several rooms: the inner brim lies in the one where the first layer ends.");
+            var hole = new PathD(room); hole.Reverse();
+            PathsD free = Clipper.Difference(new PathsD { hole }, beads, FillRule.NonZero, 3);
+            if (free == null || free.Count == 0) { log?.Add("Inner brim skipped: no room for it."); return null; }
+
+            // the loops, from the wall inwards; each one only if it has room for the lane
+            var rings = new List<List<Point2d>>(); var cums = new List<double[]>(); var at = new List<double>();
+            for (int k = 1; k <= loops; k++)
+            {
+                PathsD inset = Clipper.InflatePaths(free, -(k * spacing - 0.5 * w), JoinType.Round, EndType.Polygon, 2.0, 3, 0.05);
+                PathD best = null; double area = 0;
+                if (inset != null) foreach (var path in inset) { double a = Clipper.Area(path); if (a > area) { area = a; best = path; } }
+                if (best == null || best.Count < 3) break;
+                var loop = best.Select(q => new Point2d(q.x, q.y)).ToList();
+                var cum = FillEngine.Cumulative(loop);
+                if (cum[loop.Count] < 6 * spacing) break;
+                Point2d anchor = rings.Count == 0 ? end2 : FillEngine.Sub(rings[rings.Count - 1], cums[cums.Count - 1], at[at.Count - 1], at[at.Count - 1] + 1e-6)[0];
+                double s0 = FillEngine.ClosestS(loop, cum, anchor, out double away);
+                if (away > 1.5 * spacing) break; // this loop is no longer beside the one before
+                rings.Add(loop); cums.Add(cum); at.Add(s0);
+            }
+            if (rings.Count == 0) { log?.Add("Inner brim skipped: no room for it."); return null; }
+            if (rings.Count < loops) log?.Add($"Inner brim: room for {rings.Count} of {loops} loops.");
+
+            Func<int, double, Point2d> on = (k, s) => FillEngine.Sub(rings[k], cums[k], s, s + 1e-6)[0];
+            var line = new List<Point2d>();
+            // straight in, through the middle of the lane, to the innermost loop
+            for (int k = 0; k < rings.Count; k++) line.Add(on(k, at[k]));
+
+            // Which way round the loop next to the wall runs: so that it arrives at the end of
+            // the first layer moving the way the path goes on from there.
+            bool forward = true;
+            if (lastOfFirst + 1 < tp.Count || lastOfFirst > 0)
+            {
+                Point2d ahead = lastOfFirst + 1 < tp.Count ? flat(tp.Points[lastOfFirst + 1]) : end2;
+                Vector2d go = ahead - end2;
+                if (go.Length < 1e-6 && lastOfFirst + 2 < tp.Count) go = flat(tp.Points[lastOfFirst + 2]) - end2;
+                if (go.Length < 1e-6) go = end2 - flat(tp.Points[lastOfFirst - 1]);
+                double len0 = cums[0][rings[0].Count];
+                Point2d endForward = on(0, at[0] + len0 - spacing); // where the loop ends if it runs forward
+                forward = (end2 - endForward) * go >= 0;
+            }
+            for (int k = rings.Count - 1; k >= 0; k--)
+            {
+                double len = cums[k][rings[k].Count];
+                var piece = FillEngine.Sub(rings[k], cums[k], at[k] + spacing, at[k] + len - spacing);
+                // loop k runs the way loop 0 does if it is an even number of loops away from it
+                bool thisForward = (k % 2 == 0) == forward;
+                if (!thisForward) piece.Reverse();
+                line.AddRange(piece);
+            }
+            var result = new List<Point3d>();
+            Point3d last = tp.Points[lastOfFirst];
+            foreach (Point2d q in line)
+            {
+                Point3d p3 = solid(q);
+                if (p3.DistanceTo(last) < 1e-6) continue;
+                result.Add(p3); last = p3;
+            }
+            // back onto the end of the first layer, unless the path goes on from exactly there
+            Point3d home = tp.Points[lastOfFirst];
+            if (lastOfFirst + 1 >= tp.Count || tp.Points[lastOfFirst + 1].DistanceTo(home) > 1e-6) result.Add(home);
             return result;
         }
 

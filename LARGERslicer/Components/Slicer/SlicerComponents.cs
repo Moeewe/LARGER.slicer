@@ -1336,7 +1336,7 @@ namespace LARGERslicer.Components.Slicer
     {
         public StartEndComponent()
             : base("Start and End", "StartEnd",
-                  "Adds a skirt before the part and an exit move after it. The skirt is always printed first and runs on into the outer wall as one continuous bead; the exit moves the nozzle off the part before it stops, so no drop is left on it.") { }
+                  "Adds a skirt before the part, a brim against its first layer if you want one, and an exit move after it. The skirt is always printed first and runs on into the outer wall as one continuous bead; the exit moves the nozzle off the part before it stops, so no drop is left on it.") { }
 
         public override Guid ComponentGuid => new Guid("33D81FBE-3B35-431E-A621-D0944C613D7F");
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
@@ -1351,7 +1351,14 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Exit Lift", "Lift", "Then lift the nozzle by this height (mm)", GH_ParamAccess.item, 20.0);
             p.AddCurveParameter("Exit Curve", "Crv", "Optional: your own exit path. Replaces Exit Length and Exit Lift", GH_ParamAccess.item);
             p.AddNumberParameter("Exit Flow", "Fl", "Flow factor on the exit move. 0 = no extrusion, 1 = full extrusion", GH_ParamAccess.item, 0.0);
+            p.AddIntegerParameter("Brim", "Br", "Beads that lie right against the first layer and widen its foot, so the part holds on to the bed:\n0 = none\n1 = outside\n2 = inside (only where the first layer is open inside)\n3 = both sides\nThe brim is part of the one continuous line: outside it runs into the wall, inside it is printed when the first layer is finished", GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Brim Loops", "Bl", "Number of brim beads on each side", GH_ParamAccess.item, 3);
             p[5].Optional = true;
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddValueList(doc, 7, "Brim", "None", "Outside", "Inside", "Both sides");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -1367,14 +1374,17 @@ namespace LARGERslicer.Components.Slicer
             int loops = 1; double dist = 0, exit = 50, lift = 20, flow = 0; Curve crv = null;
             da.GetData(1, ref loops); da.GetData(2, ref dist); da.GetData(3, ref exit); da.GetData(4, ref lift);
             da.GetData(5, ref crv); da.GetData(6, ref flow);
+            int brim = 0, brimLoops = 3;
+            da.GetData(7, ref brim); da.GetData(8, ref brimLoops);
+            brim = Math.Max(0, Math.Min(3, brim));
 
             var log = new List<string>();
-            var result = LeadEngine.StartEnd(tp, Math.Max(0, loops), dist, Math.Max(0, exit), Math.Max(0, lift), crv, flow, log);
+            var result = LeadEngine.StartEnd(tp, Math.Max(0, loops), dist, Math.Max(0, brimLoops), brim, Math.Max(0, exit), Math.Max(0, lift), crv, flow, log);
             foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
             int skirt = result.Roles.Count(r => r == PathRole.Skirt);
-            Message = (loops > 0 ? "Skirt" : "No skirt") + (crv != null ? " + curve exit" : (exit > 0 || lift > 0 ? " + exit" : ""));
+            Message = (loops > 0 ? "Skirt" : "No skirt") + (brim > 0 && brimLoops > 0 ? " + brim" : "") + (crv != null ? " + curve exit" : (exit > 0 || lift > 0 ? " + exit" : ""));
             da.SetData(0, new GH_Toolpath(result));
-            da.SetData(1, $"{skirt} skirt points, {result.Count - tp.Count - skirt} exit points, path now {result.Length() / 1000.0:0.00} m");
+            da.SetData(1, $"{skirt} skirt and brim points, {result.Count - tp.Count - skirt} exit points, path now {result.Length() / 1000.0:0.00} m");
         }
     }
 
@@ -1661,6 +1671,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddIntegerParameter("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
             p.AddNumberParameter("Infill Size", "Sz", "Rib distance, wavelength or cell size (mm). 0 = chosen from the bead width", GH_ParamAccess.item, 0.0);
             p.AddBooleanParameter("Spiral", "Sp", "Vase mode: the path climbs all the time. Only for walls without infill and bottom", GH_ParamAccess.item, false);
+            p.AddIntegerParameter("Brim", "Br", "Three beads right against the first layer, so the part holds on to the bed:\n0 = none\n1 = outside\n2 = inside\n3 = both sides", GH_ParamAccess.item, 0);
             p[0].Optional = true; // an empty input shows "Connect your part" instead of a collect error
         }
 
@@ -1670,6 +1681,7 @@ namespace LARGERslicer.Components.Slicer
             AddSlider(doc, 2, "Layer Height", 0.5m, 10, 2, 1);
             AddValueList(doc, 4, "Machine", MachineProfile.PresetNames);
             AddValueList(doc, 7, "Infill", EasySlicer.Infills);
+            AddValueList(doc, 10, "Brim", "None", "Outside", "Inside", "Both sides");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -1688,6 +1700,7 @@ namespace LARGERslicer.Components.Slicer
             double w = 5, h = 2, f = 3000, size = 0; int machine = 0, walls = 1, bottom = 0, infill = 0; bool spiral = false;
             da.GetData(1, ref w); da.GetData(2, ref h); da.GetData(3, ref f); da.GetData(4, ref machine); da.GetData(5, ref walls);
             da.GetData(6, ref bottom); da.GetData(7, ref infill); da.GetData(8, ref size); da.GetData(9, ref spiral);
+            int brim = 0; da.GetData(10, ref brim); brim = Math.Max(0, Math.Min(3, brim));
             if (w <= 0 || h <= 0 || f <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Bead Width, Layer Height and Speed must be greater than 0."); return; }
             if (h > 0.6 * w) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The layer height is {h / w * 100:0} % of the bead width. Stay below half the bead width or the beads bond poorly.");
             machine = Math.Max(0, Math.Min(MachineProfile.PresetNames.Length - 1, machine));
@@ -1697,7 +1710,7 @@ namespace LARGERslicer.Components.Slicer
             Mesh mesh = SliceEngine.ToMesh(geo, Math.Max(0.01, st.Resolution * 0.025), log);
             if (mesh == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No usable geometry. Connect Breps, surfaces, SubDs or meshes."); return; }
             var layers = SliceEngine.Slice(mesh, Plane.WorldXY, st.LayerHeight, st.PointSpacing, log);
-            var r = EasySlicer.Run(layers, st, new EasySlicer.Options { Walls = walls, BottomLayers = Math.Max(0, bottom), Infill = infill, InfillSize = size, Spiral = spiral });
+            var r = EasySlicer.Run(layers, st, new EasySlicer.Options { Walls = walls, BottomLayers = Math.Max(0, bottom), Infill = infill, InfillSize = size, Spiral = spiral, BrimSide = brim });
 
             var report = new List<string>();
             report.Add("DONE: " + string.Join(" > ", r.Steps));

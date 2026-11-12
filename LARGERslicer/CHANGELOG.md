@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Brim: beads that lie right against the first layer and widen its foot, so the part holds on to the bed. `Start and End` has the new inputs `Brim` (none, outside, inside, both sides) and `Brim Loops` (3); `Easy Slicer` has `Brim`. The brim is part of the one continuous line. Outside, the loops are printed from the outermost in and the last one runs on into the wall. Inside, the brim is printed when the first layer is finished: the bead runs straight in to the innermost loop, the loops are printed from the inside out, each one the other way round than the one before, and the last one ends back where the first layer ended. The loops leave a lane of two bead spacings open at that place for the way in, so nothing is crossed and nothing moves without extrusion. Skirt and brim can be used together; the skirt then keeps clear of the brim.
+  - The inner brim needs free room inside the first layer: with a solid bottom it is left out, with infill it lies in the room where the first layer ends. A note says so.
+  - Not available on tilted layers.
+
 ### Changed
 - `Continuous Path`: open seam. The flat part of every layer ends one bead width before its own start, and the path crosses that gap on a short incline up to the next layer, at the same place on every layer. Before, the incline was 20 mm long. The input is now called `Seam Gap`; 0 = one bead width, a larger value gives a longer, softer seam. Definitions saved earlier keep the value stored in them.
 - `Start and End`: the skirt stays open by one bead width (before: one bead spacing).
