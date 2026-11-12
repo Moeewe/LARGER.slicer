@@ -33,6 +33,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Toolpath", "T", "The finished path.");
             inputs.AddText("File", "File", "Optional: file or folder. Empty = the Desktop.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Save", "Save", "True writes the file.").Set(false);
+            inputs.AddText("Name", "N", "Name of the part, for the file name: GIN_2611051216_Test Object_2668g_53min.gcode.").Set("Print");
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -44,10 +45,10 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             var tp = Io.Path(access, 0); if (tp == null) return;
-            string file; bool save; access.GetItem(1, out file); access.GetItem(2, out save);
+            string file, part; bool save; access.GetItem(1, out file); access.GetItem(2, out save); access.GetItem(3, out part);
             var r = GingerGCode.Build(tp);
             foreach (var w in r.Warnings) access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
-            Files.Save(access, save, file, r.Lines);
+            Files.Save(access, save, file, r.Lines, OutputFile.Name("GIN", part, tp, ".gcode"));
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             access.SetItem(1, r.Info);
         }
@@ -72,6 +73,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Speed", "V", "Print speed in mm/s. The first layer runs at half of it.").Set(40.0);
             inputs.AddText("File", "File", "Optional: file or folder. Empty = the Desktop.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Save", "Save", "True writes the file.").Set(false);
+            inputs.AddText("Name", "N", "Name of the part, for the file name.").Set("Print");
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -87,11 +89,12 @@ namespace LARGERslicer.GH2
             int printer; double scale, nozzle, filament, tn, tb, speed; string file; bool save;
             access.GetItem(1, out printer); access.GetItem(2, out scale); access.GetItem(3, out nozzle); access.GetItem(4, out filament);
             access.GetItem(5, out tn); access.GetItem(6, out tb); access.GetItem(7, out speed); access.GetItem(8, out file); access.GetItem(9, out save);
+            string part; access.GetItem(10, out part);
             if (nozzle <= 0 || filament <= 0) { access.AddError("Invalid values", "Nozzle and filament diameter must be larger than 0."); return; }
             printer = Math.Max(0, Math.Min(DesktopPrinter.Presets.Length - 1, printer));
             var r = DesktopGCode.Build(tp, DesktopPrinter.Presets[printer], scale, nozzle, filament, tn, tb, speed, 1.0);
             foreach (var w in r.Warnings) access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
-            Files.Save(access, save, file, r.Lines, "larger_testprint.gcode");
+            Files.Save(access, save, file, r.Lines, OutputFile.Name("TEST", part, null, ".gcode"));
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             if (r.Preview.Count > 1) access.SetItem(1, r.Preview);
             access.SetItem(2, r.Info);
@@ -158,6 +161,120 @@ namespace LARGERslicer.GH2
             access.SetItem(1, r.Path.ToPolyline());
             access.SetItem(2, r.Ok);
             access.SetTwig(3, report.ToArray(), null, null);
+        }
+    }
+
+    // ============================================================== machines
+    [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3004")]
+    public sealed class MachineComponent : Component
+    {
+        public MachineComponent() : base(Io.Name("Machine", "A machine that prints from G-code: its start code, end code, layer code and how it wants the extrusion. The Ginger One is built in. Add your own machine as a .machine text file in Documents/LARGER/Machines, or type its codes into the inputs here and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot has its own components.", Io.Slicer, 11)) { }
+        public MachineComponent(IReader reader) : base(reader) { }
+
+        protected override void AddInputs(InputAdder inputs)
+        {
+            inputs.AddInteger("Machine", "M", "0 = Ginger One\n1 = Generic G-code machine (Marlin)\nthen your own machines from Documents/LARGER/Machines, in the order of their file names.").Set(0);
+            inputs.AddText("File", "File", "Optional. A .machine file anywhere on the computer: used instead of the list.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddText("Name", "N", "Optional. Name of your own machine: everything you do not set below is taken from the machine chosen above.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddText("Start Code", "Start", "Optional. Your start code, one line per item.", Access.Twig, Requirement.MayBeMissing);
+            inputs.AddText("Layer Code", "Layer", "Optional. Code at every layer change. {layer} is the number of the layer, {z} its height.", Access.Twig, Requirement.MayBeMissing);
+            inputs.AddText("End Code", "End", "Optional. Your end code, one line per item.", Access.Twig, Requirement.MayBeMissing);
+            inputs.AddNumber("Extrusion Factor", "Ef", "E = bead width x layer height x length x flow x this factor. 0 = as the machine chosen above.").Set(0.0);
+            inputs.AddBoolean("Save", "Save", "True writes this machine as a .machine file into Documents/LARGER/Machines.").Set(false);
+        }
+
+        protected override void AddOutputs(OutputAdder outputs)
+        {
+            outputs.AddGeneric("Machine", "M", "The machine: connect to Machine G-code.");
+            outputs.AddText("Definition", "Def", "The machine as text, the way it is stored in a .machine file.", Access.Twig);
+            outputs.AddText("Info", "I", "Where the machine comes from and what it does.");
+        }
+
+        protected override void Process(IDataAccess access)
+        {
+            int index; string file, name; double factor; bool save; string[] start, layer, end;
+            access.GetItem(0, out index); access.GetItem(1, out file); access.GetItem(2, out name);
+            bool hasStart = access.GetItemArray(3, out start) && start != null && start.Length > 0;
+            bool hasLayer = access.GetItemArray(4, out layer) && layer != null && layer.Length > 0;
+            bool hasEnd = access.GetItemArray(5, out end) && end != null && end.Length > 0;
+            access.GetItem(6, out factor); access.GetItem(7, out save);
+
+            MachineDefinition m;
+            if (!string.IsNullOrWhiteSpace(file))
+            {
+                string path = file.Trim().Trim('"');
+                if (path.StartsWith("~")) path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + path.Substring(1);
+                m = MachineDefinition.Load(path, out string error);
+                if (m == null) { access.AddError("Machine file not read", error); return; }
+            }
+            else
+            {
+                var log = new List<string>();
+                var all = MachineDefinition.All(log);
+                foreach (var l in log) access.AddWarning("Machine file left out", l);
+                if (index < 0 || index >= all.Count) { access.AddWarning("Unknown machine", $"There are {all.Count} machines (0 to {all.Count - 1}); using the first."); index = 0; }
+                m = all[index].Duplicate();
+            }
+            Func<string[], List<string>> lines = t => t.SelectMany(x => (x ?? "").Replace("\r", "").Split('\n')).ToList();
+            bool own = !string.IsNullOrWhiteSpace(name) || hasStart || hasLayer || hasEnd || factor > 0;
+            if (!string.IsNullOrWhiteSpace(name)) { m.Name = name.Trim(); m.Prefix = OutputFile.Clean(m.Name).Replace(" ", "").ToUpperInvariant(); if (m.Prefix.Length > 4) m.Prefix = m.Prefix.Substring(0, 4); }
+            if (hasStart) m.Start = lines(start);
+            if (hasLayer) m.Layer = lines(layer);
+            if (hasEnd) m.End = lines(end);
+            if (factor > 0) m.Profile.Factor = factor;
+            m.Profile.Name = m.Name;
+            if (own) m.Source = "made here";
+            if (m.Start.Count == 0) access.AddWarning("No start code", "The G-code begins with the first move.");
+            if (save)
+            {
+                if (MachineDefinition.BuiltIn().Any(b => string.Equals(b.Name, m.Name, StringComparison.OrdinalIgnoreCase))) access.AddWarning("Not saved", m.Name + " is built in. Give your machine a Name of its own.");
+                else
+                {
+                    try { string path = m.Save(); m.Source = path; access.AddRemark("Saved", path); }
+                    catch (Exception ex) { access.AddError("Could not save", ex.Message); }
+                }
+            }
+            access.SetItem(0, m);
+            access.SetTwig(1, m.ToText().ToArray(), null, null);
+            access.SetItem(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}. Your own machines: {MachineDefinition.Folder}");
+        }
+    }
+
+    [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3005")]
+    public sealed class MachineGCodeComponent : Component
+    {
+        public MachineGCodeComponent() : base(Io.Name("Machine G-code", "Writes the toolpath as G-code for the machine you connect: its start code, the moves with one constant feedrate that is never 0, its layer code at every layer change, its end code.", Io.Slicer, 12)) { }
+        public MachineGCodeComponent(IReader reader) : base(reader) { }
+
+        protected override void AddInputs(InputAdder inputs)
+        {
+            inputs.AddGeneric("Toolpath", "T", "The finished path.");
+            inputs.AddGeneric("Machine", "M", "The machine, from the Machine component. Empty = Ginger One.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddText("Name", "N", "Name of the part, for the file name.").Set("Print");
+            inputs.AddText("File", "File", "Optional: file or folder. Empty = the Desktop, named with the machine's letters, date and time, the Name, weight and print time.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddBoolean("Save", "Save", "True writes the file.").Set(false);
+        }
+
+        protected override void AddOutputs(OutputAdder outputs)
+        {
+            outputs.AddText("G-code", "G", "G-code, line by line.", Access.Twig);
+            outputs.AddText("Info", "I", "Layers, length, extrusion, time and weight.");
+            outputs.AddText("File Name", "Fn", "The name the file gets on the Desktop.");
+        }
+
+        protected override void Process(IDataAccess access)
+        {
+            var tp = Io.Path(access, 0); if (tp == null) return;
+            var machine = Io.Get<MachineDefinition>(access, 1) ?? MachineDefinition.GingerOne();
+            string part, file; bool save; access.GetItem(2, out part); access.GetItem(3, out file); access.GetItem(4, out save);
+            var r = MachineGCode.Build(tp, machine);
+            foreach (var w in r.Warnings) access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
+            var named = tp.Duplicate(); named.Settings = tp.Settings.Duplicate(); named.Settings.Machine = machine.Profile.Duplicate();
+            string fileName = OutputFile.Name(machine.Prefix, part, named, machine.Extension);
+            Files.Save(access, save, file, r.Lines, fileName);
+            access.SetTwig(0, r.Lines.ToArray(), null, null);
+            access.SetItem(1, r.Info);
+            access.SetItem(2, fileName);
         }
     }
 }

@@ -89,6 +89,7 @@ namespace LARGERslicer.GH2
             inputs.AddInteger("Machine", "M", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0);
             inputs.AddNumber("Flow", "Fl", "Extrusion multiplier (1 = 100 %).").Set(1.0);
             inputs.AddBoolean("Preview", "P", "Fast and coarse, for trying things out.").Set(false);
+            inputs.AddNumber("Density", "D", "Density of the printed material in g/cm3, for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9.").Set(1.25);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -105,6 +106,7 @@ namespace LARGERslicer.GH2
             if (w <= 0 || h <= 0 || f <= 0) { access.AddError("Invalid values", "Bead width, layer height and speed must be larger than 0."); return; }
             if (machine < 0 || machine >= MachineProfile.PresetNames.Length) { access.AddWarning("Unknown machine", "Using the generic profile."); machine = 0; }
             var s = new PrintSettings { BeadWidth = w, LayerHeight = h, Speed = f, Flow = flow > 0 ? flow : 1.0, Preview = preview, Machine = MachineProfile.Preset(machine) };
+            double density; access.GetItem(6, out density); if (density > 0) s.Density = density;
             double ratio = h / w;
             if (ratio > 0.6) access.AddWarning("Layer too high", $"The layer height is {ratio * 100:0} % of the bead width. Stay below half the bead width or the beads bond poorly.");
             access.SetItem(0, s);

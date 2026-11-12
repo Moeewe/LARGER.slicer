@@ -129,13 +129,54 @@ namespace LARGERslicer.Toolpaths
         public static string Resolve(string file, string defaultName)
         {
             string ext = System.IO.Path.GetExtension(defaultName);
-            if (string.IsNullOrWhiteSpace(file))
-                return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), defaultName);
+            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (string.IsNullOrWhiteSpace(file)) return System.IO.Path.Combine(desktop, defaultName);
             file = file.Trim().Trim('"');
             if (file.StartsWith("~")) file = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + file.Substring(1);
             if (System.IO.Directory.Exists(file)) return System.IO.Path.Combine(file, defaultName);
-            if (string.IsNullOrEmpty(System.IO.Path.GetExtension(file))) file += ext;
+            // a name ending like the weight or the time of a print ("..._53min") is not a file ending
+            string given = System.IO.Path.GetExtension(file);
+            if (string.IsNullOrEmpty(given) || given.Length > 6 || given.Contains(" ")) file += ext;
+            // a bare name goes to the Desktop
+            if (string.IsNullOrEmpty(System.IO.Path.GetDirectoryName(file))) file = System.IO.Path.Combine(desktop, file);
             return file;
+        }
+
+        /// <summary>Letters, digits, spaces, minus and underscore only; everything else would trouble a controller or a file system.</summary>
+        public static string Clean(string name)
+        {
+            var chars = (name ?? "").Trim().Select(ch => char.IsLetterOrDigit(ch) && ch < 128 || ch == ' ' || ch == '-' || ch == '_' ? ch : '_').ToArray();
+            string s = new string(chars).Trim('_', ' ');
+            while (s.Contains("__")) s = s.Replace("__", "_");
+            return s.Length == 0 ? "Print" : s;
+        }
+
+        /// <summary>Weight of the printed material in grams: volume of the beads x density.</summary>
+        public static double Grams(double volumeMm3, PrintSettings st) => volumeMm3 / 1000.0 * (st != null && st.Density > 0 ? st.Density : 1.25);
+
+        /// <summary>
+        /// The name a print file gets when none is given, as the FH Muenster names its files:
+        /// PREFIX_date and time_name of the part_weight_time, e.g. DXR_2611051216_Test Object_2668g_53min.dxr.
+        /// The date and time (year month day hour minute) keep the files of a day in order; weight
+        /// and time say at a glance how much material and how long. At most 64 characters.
+        /// </summary>
+        public static string Name(string prefix, string part, Toolpath tp, string extension)
+        {
+            string stamp = DateTime.Now.ToString("yyMMddHHmm", System.Globalization.CultureInfo.InvariantCulture);
+            string tail = "";
+            if (tp != null && tp.Count > 1)
+            {
+                var pr = PathEngine.Process(tp, false);
+                tail = "_" + Math.Round(Grams(pr.Volume, tp.Settings)).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "g_"
+                     + Math.Max(1, Math.Round(pr.Minutes)).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "min";
+            }
+            string head = Clean(prefix).ToUpperInvariant() + "_" + stamp + "_";
+            extension = extension ?? "";
+            if (extension.Length > 0 && !extension.StartsWith(".")) extension = "." + extension;
+            string name = Clean(part);
+            int room = 64 - head.Length - tail.Length - extension.Length;
+            if (name.Length > room) name = name.Substring(0, Math.Max(1, room)).Trim();
+            return head + name + tail + extension;
         }
 
         /// <summary>Writes the lines; returns the path written, or throws with a message that says why not.</summary>

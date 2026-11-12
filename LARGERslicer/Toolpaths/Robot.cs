@@ -346,6 +346,15 @@ namespace LARGERslicer.Toolpaths
             return Math.Abs(turnDeg) > 1e-12 ? f.TurnedAboutZ(turnDeg * Math.PI / 180.0) : f;
         }
 
+        /// <summary>A name the KUKA controller accepts: letters, digits and underscore, not starting with a digit, at most 24 characters. The .src file must carry the same name.</summary>
+        public static string ProgramName(string name)
+        {
+            string prog = new string((string.IsNullOrWhiteSpace(name) ? "LARGER_PRINT" : name.Trim().Replace(' ', '_')).Where(ch => (char.IsLetterOrDigit(ch) && ch < 128) || ch == '_').ToArray());
+            if (prog.Length == 0 || char.IsDigit(prog[0])) prog = "P" + prog;
+            if (prog.Length > 24) prog = prog.Substring(0, 24);
+            return prog;
+        }
+
         public static RobotProgramResult Build(Toolpath tp, RobotCell cell, double turnDeg, string name, bool checkAxes)
         {
             var r = new RobotProgramResult();
@@ -431,9 +440,7 @@ namespace LARGERslicer.Toolpaths
             else r.Report.Add("Axis ranges were not checked.");
 
             // ---- KRL program: one file, tool and base written out, the path as linear moves
-            string prog = new string((string.IsNullOrWhiteSpace(name) ? "LARGER_PRINT" : name).Where(ch => char.IsLetterOrDigit(ch) || ch == '_').ToArray());
-            if (prog.Length == 0 || char.IsDigit(prog[0])) prog = "P" + prog;
-            if (prog.Length > 24) prog = prog.Substring(0, 24);
+            string prog = ProgramName(name);
             // $BASE is counted from the robot's foot ($ROBROOT), not from the origin of the Rhino model
             var baseInRobot = arm.Base.Inverse().Times(cell.WorkBase);
             var tcpAbc = cell.Tool.Tcp.Abc(); var bAbc = baseInRobot.Abc();

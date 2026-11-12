@@ -24,6 +24,7 @@ namespace LARGERslicer.Toolpaths
         public double FilamentDiameter = 0.0; // mm, 0 = report extrusion as volume (mm3)
         public double Resolution = 2.0;       // mm, smallest point spacing of the path
         public bool Preview = false;          // fast mode: coarse meshing, no rounding
+        public double Density = 1.25;         // g/cm3 of the printed material, for the weight in file names and reports
         public MachineProfile Machine = new MachineProfile();
 
         public double PointSpacing => Preview ? Resolution * 3.0 : Resolution;

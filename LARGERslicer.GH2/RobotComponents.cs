@@ -146,6 +146,7 @@ namespace LARGERslicer.GH2
             outputs.AddText("Report", "R", "Reach, axis ranges, wrist and axis speed.", Access.Twig);
             outputs.AddPoint("Unreachable", "U", "Points the robot cannot get to.", Access.Twig);
             outputs.AddPolyline("Arm", "Arm", "The arm at the chosen Pose, as a line through its joints.");
+            outputs.AddText("File Name", "Fn", "A name for the DXR file, made of DXR, date and time, the Name, weight and print time (DXR_2611051216_Test Object_2668g_53min): connect to File of the DXR Generator.");
         }
 
         protected override void Process(IDataAccess access)
@@ -157,7 +158,8 @@ namespace LARGERslicer.GH2
             var r = RobotProgram.Build(tp, cell, turn, name, true);
             if (!r.Ok) access.AddWarning("Not reachable", string.Join("\n", r.Report));
             else if (r.Singular > 0) access.AddRemark("Wrist near singularity", r.Report.First(l => l.StartsWith("Wrist")));
-            Files.Save(access, save, file, r.Krl, (string.IsNullOrWhiteSpace(name) ? "LARGER_PRINT" : name.Trim()) + ".src");
+            Files.Save(access, save, file, r.Krl, RobotProgram.ProgramName(name) + ".src");
+            access.SetItem(8, OutputFile.Name("DXR", name, tp, ""));
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             access.SetTwig(1, r.Extrusion.ToArray(), null, null);
             access.SetTwig(2, r.Speed.ToArray(), null, null);

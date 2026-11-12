@@ -31,9 +31,12 @@ namespace LARGERslicer.Components.Export
             pManager.AddNumberParameter("Print Speed", "Speed", "Movement speed values in mm/min (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Machine Settings", "Machine", "Printer configuration (connect Machine Settings component)", GH_ParamAccess.item);
             
+            pManager.AddTextParameter("File", "File", "Optional. File, folder or just a name (File Name of Robot Program). Empty = the Desktop, named DXR, date and time", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Save", "Save", "True = write the DXR file (to the Desktop if File is empty or only a name)", GH_ParamAccess.item, false);
             pManager[1].Optional = true;
             pManager[2].Optional = true;
             pManager[3].Optional = true;
+            pManager[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -137,6 +140,22 @@ namespace LARGERslicer.Components.Export
                 processInfo.Add($"Error during processing: {ex.Message}");
                 processInfo.Add($"Stack trace: {ex.StackTrace}");
                 result.Clear();
+            }
+
+            if (Params.Input.Count > 5 && result.Count > 0)
+            {
+                string file = null; bool save = false;
+                DA.GetData(4, ref file); DA.GetData(5, ref save);
+                if (save)
+                {
+                    try
+                    {
+                        string written = LARGERslicer.Toolpaths.OutputFile.Write(file, LARGERslicer.Toolpaths.OutputFile.Name("DXR", "Print", null, ".dxr"), result);
+                        processInfo.Add("Saved " + written);
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + written);
+                    }
+                    catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
+                }
             }
 
             DA.SetDataList(0, result);

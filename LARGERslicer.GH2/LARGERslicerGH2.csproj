@@ -23,6 +23,7 @@
   <ItemGroup>
     <Reference Include="RhinoCommon"><HintPath>$(Rhino9)/RhinoCommon.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Grasshopper2"><HintPath>$(Gh2Dir)/Grasshopper2.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Eto"><HintPath>$(Rhino9)/Eto.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="GrasshopperIO"><HintPath>$(Gh2Dir)/GrasshopperIO.dll</HintPath><Private>false</Private></Reference>
     <PackageReference Include="Clipper2" Version="1.5.4" />
   </ItemGroup>

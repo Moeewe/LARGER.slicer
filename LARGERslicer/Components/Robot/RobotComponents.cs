@@ -182,6 +182,7 @@ namespace LARGERslicer.Components.Robot
             p.AddTextParameter("Axes", "A", "Axis angles A1 to A6 of every point", GH_ParamAccess.list);
             p.AddPointParameter("Unreachable", "U", "Points the robot cannot get to", GH_ParamAccess.list);
             p.AddCurveParameter("Arm", "Arm", "The arm at the chosen Pose, as a line through its joints", GH_ParamAccess.item);
+            p.AddTextParameter("File Name", "Fn", "A name for the DXR file, made of DXR, date and time, the Name, weight and print time (DXR_2611051216_Test Object_2668g_53min): connect to File of the DXR Generator", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -198,13 +199,14 @@ namespace LARGERslicer.Components.Robot
             if (r.Speed.Any(v => v <= 0)) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A move has speed 0; the machine would stop there.");
             if (save)
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, (string.IsNullOrWhiteSpace(name) ? "LARGER_PRINT" : name.Trim()) + ".src", r.Krl)); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, RobotProgram.ProgramName(name) + ".src", r.Krl)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             Message = r.Ok ? r.Moves.Count + " moves" : "not reachable";
 
             var e = new List<double>(r.Extrusion) { 0 };
             var f = new List<double>(r.Speed) { r.Speed.Count > 0 ? r.Speed[r.Speed.Count - 1] : tp.Settings.Speed };
+            if (Params.Output.Count > 9) da.SetData(9, OutputFile.Name("DXR", name, tp, ""));
             da.SetDataList(0, r.Lines);
             da.SetDataList(1, e);
             da.SetDataList(2, f);

@@ -93,7 +93,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Speed", "F", "Speed in mm/min per move.", Access.Twig, Requirement.MayBeMissing);
             inputs.AddGeneric("Machine", "M", "Machine Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Trim Last", "Tr", "Drop the last extrusion and speed value. Needed for lists that carry one value more than there are moves, as the Grasshopper 1 definitions do. Not needed after Toolpath to Robot Lines.").Set(false);
-            inputs.AddText("File", "File", "Optional: full path of the .dxr file to write.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddText("File", "File", "Optional: file, folder or just a name (File Name of Robot Program). Empty = the Desktop. Full path of the .dxr file to write.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Save", "Save", "True writes the file.").Set(false);
         }
 
@@ -140,12 +140,9 @@ namespace LARGERslicer.GH2
 
             if (save)
             {
-                if (string.IsNullOrWhiteSpace(file)) access.AddWarning("No file", "Give a file path to save the DXR.");
-                else
-                {
-                    try { File.WriteAllLines(file, result); info.Add("Saved: " + file); }
-                    catch (Exception ex) { access.AddError("Could not save", ex.Message); }
-                }
+                // empty = the Desktop; a bare name (File Name of Robot Program) goes to the Desktop too
+                try { string written = OutputFile.Write(file, OutputFile.Name("DXR", "Print", null, ".dxr"), result); info.Add("Saved: " + written); access.AddRemark("Saved", written); }
+                catch (Exception ex) { access.AddError("Could not save", ex.Message); }
             }
             access.SetTwig(0, result.ToArray(), null, null);
             access.SetTwig(1, info.ToArray(), null, null);

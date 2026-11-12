@@ -170,14 +170,30 @@ namespace LARGERslicer.Components.Slicer
                 g.ExpireCaches();
             };
             Action<IGH_Param, int> setInt = (prm, v) => { var pi = prm as Grasshopper.Kernel.Parameters.Param_Integer; if (pi == null) return; pi.PersistentData.Clear(); pi.PersistentData.Append(new GH_Integer(v)); };
+            // Titles as on the canvas of the FH Muenster definition: a numbered title in capitals,
+            // one line below it that says what the section is for, then the blocks.
+            Action<string, float, float, float> write = (text, dx, dy, size) =>
+            {
+                var sc = new Grasshopper.Kernel.Special.GH_Scribble { Text = text, Font = new System.Drawing.Font("Arial", size, size >= 30 ? System.Drawing.FontStyle.Bold : System.Drawing.FontStyle.Regular) };
+                sc.CreateAttributes();
+                sc.Attributes.Pivot = new System.Drawing.PointF(x0 + dx, y0 + dy);
+                doc.AddObject(sc, false);
+            };
+            Action<string, string, float> section = (title, about, y) => { write(title, -200, y - 230, 44); write(about, -200, y - 160, 16); };
+            var yellow = System.Drawing.Color.FromArgb(255, 255, 250, 90);
+            write("LARGER.slicer", -760, -470, 72);
+            write("QUICK START  -  FIVE EXAMPLES ON ONE PRINT BED\nLarge-format 3D printing as one continuous line, FH Muenster", -760, -370, 18);
+            write("00. SETTINGS FOR ALL EXAMPLES", -200, -250, 44);
+            write("Bead width and layer height drive everything else. Print Bed shows the bed in the Rhino viewport and checks that every path lies on it.", -200, -180, 16);
             var all = new List<GH_Component>();
             var hide = new List<IGH_PreviewObject>();
 
             // ---- read me first
             var note = new Grasshopper.Kernel.Special.GH_Panel();
-            note.NickName = "Start here";
+            note.NickName = "INSTRUCTIONS";
+            note.Properties.Colour = yellow;
             note.UserText =
-                "START HERE\n\n" +
+                "INSTRUCTIONS\n\n" +
                 "The five examples stand side by side on one print bed (1000 x 1000 mm, origin in the front left corner). Look at the Rhino viewport.\n\n" +
                 "1  Replace 'Your part' (example 1) with your own geometry. It has to stand on the XY plane, in millimetres, on the positive side of the origin.\n" +
                 "2  Set Bead Width and Layer Height in the Settings group. Everything else follows from them.\n" +
@@ -186,6 +202,9 @@ namespace LARGERslicer.Components.Slicer
                 "     Output A - Ginger One: set Save on 'Ginger G-code'. The file lands on the Desktop.\n" +
                 "     Output B - robot with Weber DXR: put your tool and the place of robot and bed into the robot cell, read the Report of 'Robot Program', then save the DXR.\n" +
                 "5  Before the big print: Output C, 'Desktop Test Print', writes the same path small for a desktop printer.\n\n" +
+                "File names are made for you: GIN or DXR, date and time, the part name, weight and print time, e.g. DXR_2611051216_Test Object_2668g_53min.dxr. Type your part name into the yellow panel 'Part name'.\n" +
+                "Brim: choose a side at 'Brim' of 'Start and End'. Seam: 'Seam Gap' of 'Continuous Path' (0 = one bead width).\n" +
+                "Another machine: 'Machine' and 'Machine G-code' on the Slicer tab; your own machines live as .machine files in Documents/LARGER/Machines.\n" +
                 "Other infill: delete 'Infill Ribs' and put Infill Wave, Cells, Chambers or Sketch in its place.\n" +
                 "Curved layers: examples 2 and 3. A part with openings: example 4. Overhangs and roofs: example 5.\n" +
                 "Just want a path quickly? Use the single component 'Easy Slicer' instead of this chain.";
@@ -193,7 +212,7 @@ namespace LARGERslicer.Components.Slicer
             note.Properties.Wrap = true;
             note.CreateAttributes();
             note.Attributes.Pivot = new System.Drawing.PointF(x0 - 760, y0 - 80);
-            note.Attributes.Bounds = new System.Drawing.RectangleF(x0 - 760, y0 - 80, 500, 470);
+            note.Attributes.Bounds = new System.Drawing.RectangleF(x0 - 760, y0 - 80, 500, 620);
             doc.AddObject(note, false);
 
             // ---- settings, shared by all three examples
@@ -205,10 +224,11 @@ namespace LARGERslicer.Components.Slicer
             var bed = (GH_Component)place(new PrintBedComponent(), 380, -60);
             all.Add(bed);
             var beds = new List<IGH_Param>(); // the finished path of every example, for the bed check
-            group("Settings - shared by all examples. Set bead width and layer height here. 'Print Bed' shows the bed in the Rhino viewport (1000 x 1000 mm here: put in the size of your machine) and checks that every path lies on it.", System.Drawing.Color.FromArgb(70, 120, 130, 145), new IGH_DocumentObject[] { machine, settings, bed });
+            group("PRINT SETTINGS AND PRINT BED", System.Drawing.Color.FromArgb(70, 120, 130, 145), new IGH_DocumentObject[] { machine, settings, bed });
 
             // ---- 1 flat layers
-            float y1 = 420;
+            float y1 = 800;
+            section("01. FLAT LAYERS  -  FROM THE PART TO THE FILE", "The normal case. Replace 'Your part' with your own geometry, read Path Check, then take the file for your machine: output A, B or C.", y1 - 240);
             var part = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y1 + 20);
             part.NickName = "Your part";
             Brep demo = DemoPart();
@@ -239,9 +259,9 @@ namespace LARGERslicer.Components.Slicer
             meet.PersistentData.Clear(); meet.PersistentData.Append(new GH_Boolean(true));
             all.AddRange(new[] { slice, walls, bottom, ribs, path, round, lead, extrude, check });
             hide.AddRange(new IGH_PreviewObject[] { part, slice, walls, bottom, ribs, path, round, extrude });
-            group("1  Flat layers - the normal case. Replace 'Your part' with your own geometry. Swap Infill Ribs for Cells, Wave, Chambers or Sketch.", System.Drawing.Color.FromArgb(70, 10, 132, 255),
+            group("INPUT GEOMETRY AND SLICER", System.Drawing.Color.FromArgb(70, 10, 132, 255),
                 new IGH_DocumentObject[] { part, slice, walls, bottom, ribs, path, round, lead });
-            group("Result: Path Check says whether it can be printed, Extrusion and Speed gives the values for the machine.", System.Drawing.Color.FromArgb(70, 48, 176, 110), new IGH_DocumentObject[] { extrude, check });
+            group("CHECK AND VALUES FOR THE MACHINE", System.Drawing.Color.FromArgb(70, 48, 176, 110), new IGH_DocumentObject[] { extrude, check });
 
             // ---- output: the file for the machine
             var ginger = (GH_Component)place(new GingerGCodeComponent(), 2260, y1 - 90);
@@ -270,9 +290,9 @@ namespace LARGERslicer.Components.Slicer
             desktop.Params.Input[0].AddSource(lead.Params.Output[0]);
             all.AddRange(new[] { ginger, robot, tool, cellC, program, desktop });
             hide.Add(tool); hide.Add(desktop);
-            group("Output C - Desktop test print: the same path scaled down for a desktop filament printer, to check it before the big print. Choose your printer and set Save.", System.Drawing.Color.FromArgb(70, 150, 110, 200), new IGH_DocumentObject[] { desktop });
-            group("Output A - Ginger One: G-code with the machine's start and end. Give a file path and set Save to write it.", System.Drawing.Color.FromArgb(70, 232, 135, 12), new IGH_DocumentObject[] { ginger });
-            group("Output B - Robot with the Weber DXR: the robot cell (robot, tool, work base), the robot program with its reach check, then the DXR file. Put in your own tool and where robot and bed stand. Choose the matching preset in Machine Profile.", System.Drawing.Color.FromArgb(70, 210, 63, 69), new IGH_DocumentObject[] { robot, tool, cellC, program, dxrMachine, dxr });
+            group("OUTPUT C  -  DESKTOP TEST PRINT  (choose your printer, set Save)", System.Drawing.Color.FromArgb(70, 150, 110, 200), new IGH_DocumentObject[] { desktop });
+            group("OUTPUT A  -  GINGER ONE G-CODE  (set Save)", System.Drawing.Color.FromArgb(70, 232, 135, 12), new IGH_DocumentObject[] { ginger });
+            group("OUTPUT B  -  ROBOT CELL, ROBOT PROGRAM AND DXR GENERATOR  (demo values: put in your tool and where robot and bed stand)", System.Drawing.Color.FromArgb(70, 210, 63, 69), new IGH_DocumentObject[] { robot, tool, cellC, program, dxrMachine, dxr });
             // the demo is set up for the Ginger: its E values need the Ginger factor
             var presetList = machine.Params.Input[0].Sources.OfType<Grasshopper.Kernel.Special.GH_ValueList>().FirstOrDefault();
             if (presetList != null && presetList.ListItems.Count > 4) presetList.SelectItem(4);
@@ -301,7 +321,8 @@ namespace LARGERslicer.Components.Slicer
                 return new IGH_DocumentObject[] { sl, wa, pa, ro, le, ch };
             };
 
-            float y2 = 900;
+            float y2 = y1 + 780;
+            section("02. NON-PLANAR LAYERS", "The layers follow a guide surface. The first layer lies flat on the bed, the last one follows the top of the part. Draw the guide surface over your part.", y2);
             Brep npPart, npGuide; NonPlanarDemo(new Point3d(190, 700, 0), out npPart, out npGuide);
             var part2 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y2 - 20);
             part2.NickName = "Part";
@@ -311,9 +332,10 @@ namespace LARGERslicer.Components.Slicer
             if (npGuide != null) guide2.PersistentData.Append(new GH_Brep(npGuide));
             var row2 = chain(y2, part2, guide2, 0, 1).ToList(); row2.Add(part2); row2.Add(guide2);
             hide.Add(part2);
-            group("2  Non-planar - the layers follow a guide surface. The first layer lies flat on the bed, the last one follows the top of the part. Draw the guide surface over your part.", System.Drawing.Color.FromArgb(70, 255, 149, 0), row2.ToArray());
+            group("PART, GUIDE SURFACE AND SLICER", System.Drawing.Color.FromArgb(70, 255, 149, 0), row2.ToArray());
 
-            float y3 = 1320;
+            float y3 = y2 + 440;
+            section("03. MULTI-AXIS LAYERS", "The layers stand square to a guide curve, for parts that grow along a bent axis (robot with tilting tool). Draw the axis of your part as the guide curve.", y3);
             Brep maPart; Curve maGuide; MultiAxisDemo(new Point3d(445, 700, 0), out maPart, out maGuide);
             var part3 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y3 - 20);
             part3.NickName = "Part";
@@ -323,7 +345,7 @@ namespace LARGERslicer.Components.Slicer
             if (maGuide != null) guide3.PersistentData.Append(new GH_Curve(maGuide));
             var row3 = chain(y3, part3, guide3, 0, 1).ToList(); row3.Add(part3); row3.Add(guide3);
             hide.Add(part3);
-            group("3  Multi-axis - the layers stand square to a guide curve, for parts that grow along a bent axis (robot with tilting tool). Draw the axis of your part as the guide curve.", System.Drawing.Color.FromArgb(70, 175, 82, 222), row3.ToArray());
+            group("PART, GUIDE CURVE AND SLICER", System.Drawing.Color.FromArgb(70, 175, 82, 222), row3.ToArray());
 
             // ---- 4 part with an opening and 5 angled layers: part -> slice -> walls (-> infill) -> path -> round -> start/end -> check
             Func<float, IGH_Param, GH_Component, double, IGH_DocumentObject[]> flatChain = (y, partParam, infill, angle) =>
@@ -352,7 +374,8 @@ namespace LARGERslicer.Components.Slicer
                 return members.Cast<IGH_DocumentObject>().ToArray();
             };
 
-            float y4 = 1740;
+            float y4 = y3 + 440;
+            section("04. PART WITH AN OPENING", "Infill Wave joins the wall of the opening and the outer wall into one line, so no move inside the part runs without extrusion. Wavelength 60 mm here; try Shape 1 (Truss) or 2 (Meander).", y4);
             var part4 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y4);
             part4.NickName = "Part";
             Brep plate = PlateDemo(new Point3d(820, 700, 0));
@@ -364,16 +387,31 @@ namespace LARGERslicer.Components.Slicer
             if (wlSlider != null) wlSlider.SetSliderValue(60);
             else { var wl4 = (Grasshopper.Kernel.Parameters.Param_Number)wave4.Params.Input[3]; wl4.PersistentData.Clear(); wl4.PersistentData.Append(new GH_Number(60)); }
             hide.Add(part4);
-            group("4  Part with an opening - Infill Wave joins the wall of the opening and the outer wall into one line, so no move inside the part runs without extrusion. The wavelength decides whether a wave reaches the opening: 60 mm here. Try Shape 1 (Truss) or 2 (Meander).", System.Drawing.Color.FromArgb(70, 48, 176, 199), row4.ToArray());
+            group("PART AND SLICER WITH WAVE INFILL", System.Drawing.Color.FromArgb(70, 48, 176, 199), row4.ToArray());
 
-            float y5 = 2160;
+            float y5 = y4 + 440;
+            section("05. ANGLED LAYERS", "Slice with Angle 45: this block leans 55 degrees, more than a bead can overhang in flat layers. With leaning layers every bead rests on the one below. Needs a robot or a tilted bed.", y5);
             var part5 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y5);
             part5.NickName = "Part";
             Brep lean = LeanDemo(new Point3d(785, 380, 0));
             if (lean != null) part5.PersistentData.Append(new GH_Brep(lean));
             var row5 = flatChain(y5, part5, null, 45).ToList(); row5.Add(part5);
             hide.Add(part5);
-            group("5  Angled layers - Slice with Angle 45: this block leans 55 degrees, more than a bead can overhang in flat layers. With layers leaning the same way every bead rests on the one below. The print starts at the lowest edge. Needs a machine that can print on leaning layers (robot, or a tilted bed).", System.Drawing.Color.FromArgb(70, 230, 90, 140), row5.ToArray());
+            group("PART AND SLICER WITH ANGLE 45", System.Drawing.Color.FromArgb(70, 230, 90, 140), row5.ToArray());
+
+            // one name for all files of this part
+            var jobName = new Grasshopper.Kernel.Special.GH_Panel { NickName = "Part name" };
+            jobName.UserText = "Test Object";
+            jobName.Properties.Colour = yellow;
+            jobName.CreateAttributes();
+            jobName.Attributes.Pivot = new System.Drawing.PointF(x0 + 1930, y0 + y1 - 330);
+            jobName.Attributes.Bounds = new System.Drawing.RectangleF(x0 + 1930, y0 + y1 - 330, 160, 40);
+            doc.AddObject(jobName, false);
+            if (ginger.Params.Input.Count > 3) ginger.Params.Input[3].AddSource(jobName);
+            if (desktop.Params.Input.Count > 11) desktop.Params.Input[11].AddSource(jobName);
+            program.Params.Input[3].AddSource(jobName);
+            if (dxr.Params.Input.Count > 4 && program.Params.Output.Count > 9) dxr.Params.Input[4].AddSource(program.Params.Output[9]);
+            group("PART NAME  -  goes into every file name", System.Drawing.Color.FromArgb(70, 120, 130, 145), new IGH_DocumentObject[] { jobName });
 
             // the bed checks all five paths; its wires only show when it is selected
             foreach (var b in beds) bed.Params.Input[3].AddSource(b);
@@ -543,6 +581,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Max Speed", "Fmax", "Highest speed and travel speed (mm/min)", GH_ParamAccess.item, 12000.0);
             p.AddBooleanParameter("Preview", "Prev", "True = fast preview: coarse slicing, corners are not rounded", GH_ParamAccess.item, false);
             p.AddGenericParameter("Machine", "M", "Optional Machine Profile: how your printer wants the extrusion values (volume, filament length, or a value the controller scales). Empty = volume in mm3.", GH_ParamAccess.item);
+            p.AddNumberParameter("Density", "D", "Density of the printed material (g/cm3), for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9, with glass fibre more", GH_ParamAccess.item, 1.25);
             p[11].Optional = true;
         }
 
@@ -571,6 +610,7 @@ namespace LARGERslicer.Components.Slicer
                 var machine = SlicerIO.Get<MachineProfile>(da, 11);
                 if (machine != null) s.Machine = machine.Duplicate();
             }
+            if (Params.Input.Count > 12) { da.GetData(12, ref s.Density); if (s.Density <= 0) s.Density = 1.25; }
             if (s.Machine.FilamentDiameter <= 0 && s.FilamentDiameter > 0)
             {
                 s.Machine.FilamentDiameter = s.FilamentDiameter;
@@ -1607,8 +1647,9 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Bed Temperature", "Tb", "Degrees C", GH_ParamAccess.item, 60.0);
             p.AddNumberParameter("Speed", "V", "Print speed (mm/s). The first layer runs at half of it", GH_ParamAccess.item, 40.0);
             p.AddNumberParameter("Flow", "Fl", "Extrusion multiplier (1 = calculated amount)", GH_ParamAccess.item, 1.0);
-            p.AddTextParameter("File", "File", "Optional. File or folder. Empty = larger_print.gcode on the Desktop", GH_ParamAccess.item);
+            p.AddTextParameter("File", "File", "Optional. File or folder. Empty = the Desktop, with a name made of TEST, date and time and the Name: TEST_2611051216_Test Object.gcode", GH_ParamAccess.item);
             p.AddBooleanParameter("Save", "Save", "True = write the file (to the Desktop if File is empty)", GH_ParamAccess.item, false);
+            p.AddTextParameter("Name", "N", "Name of the part, for the file name", GH_ParamAccess.item, "Print");
             p[9].Optional = true;
         }
 
@@ -1639,12 +1680,19 @@ namespace LARGERslicer.Components.Slicer
             Message = "1 : " + (1.0 / (scale > 0 ? scale : r.SuggestedScale)).ToString("0.#");
             if (save)
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, "larger_testprint.gcode", r.Lines)); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, OutputFile.Name("TEST", TestName(da), null, ".gcode"), r.Lines)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             da.SetDataList(0, r.Lines);
             if (r.Preview.Count > 1) da.SetData(1, new PolylineCurve(r.Preview));
             da.SetData(2, r.Info);
+        }
+
+        private string TestName(IGH_DataAccess da)
+        {
+            string part = "Print";
+            if (Params.Input.Count > 11) da.GetData(11, ref part);
+            return part;
         }
     }
     // ============================================================== easy slicer
@@ -1748,8 +1796,9 @@ namespace LARGERslicer.Components.Slicer
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
             p.AddGenericParameter("Toolpath", "T", "Toolpath from Start and End", GH_ParamAccess.item);
-            p.AddTextParameter("File", "File", "Optional. File or folder. Empty = larger_print.gcode on the Desktop", GH_ParamAccess.item);
+            p.AddTextParameter("File", "File", "Optional. File or folder. Empty = the Desktop, with a name made of GIN, date and time, the Name, weight and print time: GIN_2611051216_Test Object_2668g_53min.gcode", GH_ParamAccess.item);
             p.AddBooleanParameter("Save", "Save", "True = write the file (to the Desktop if File is empty)", GH_ParamAccess.item, false);
+            p.AddTextParameter("Name", "N", "Name of the part, for the file name", GH_ParamAccess.item, "Print");
             p[1].Optional = true;
         }
 
@@ -1763,18 +1812,157 @@ namespace LARGERslicer.Components.Slicer
         {
             var tp = SlicerIO.Get<Toolpath>(da, 0);
             if (tp == null || tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect a Toolpath."); return; }
-            string file = null; bool save = false;
+            string file = null, part = "Print"; bool save = false;
             da.GetData(1, ref file); da.GetData(2, ref save);
+            if (Params.Input.Count > 3) da.GetData(3, ref part);
             var r = GingerGCode.Build(tp);
             foreach (var wmsg in r.Warnings) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, wmsg);
             if (save)
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, "larger_print.gcode", r.Lines)); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, OutputFile.Name("GIN", part, tp, ".gcode"), r.Lines)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             Message = r.Lines.Count + " lines";
             da.SetDataList(0, r.Lines);
             da.SetData(1, r.Info);
+        }
+    }
+
+    public class MachineComponent : SlicerComponent
+    {
+        public MachineComponent()
+            : base("Machine", "Machine",
+                  "A machine that prints from G-code: its start code, end code, layer code and how it wants the extrusion. The Ginger One is built in. Add your own machine in one of two ways: put a .machine text file into Documents/LARGER/Machines (it then appears in the list of every new Machine component), or type its codes into the inputs here and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot is not a G-code machine: it has its own components on the Robot tab.") { }
+
+        public override Guid ComponentGuid => new Guid("7C4E19A2-5B36-4D8F-A0C7-2E9B6F13D584");
+        public override GH_Exposure Exposure => GH_Exposure.senary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerDesktopIcon.png", this);
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddIntegerParameter("Machine", "M", "Which machine: 0 = Ginger One, 1 = Generic G-code machine (Marlin), then your own machines from Documents/LARGER/Machines in the order of their file names", GH_ParamAccess.item, 0);
+            p.AddTextParameter("File", "File", "Optional. A .machine file anywhere on the computer: used instead of the list", GH_ParamAccess.item);
+            p.AddTextParameter("Name", "N", "Optional. Name of your own machine: everything you do not set below is taken from the machine chosen above", GH_ParamAccess.item);
+            p.AddTextParameter("Start Code", "Start", "Optional. Your start code, one line per item", GH_ParamAccess.list);
+            p.AddTextParameter("Layer Code", "Layer", "Optional. Code at every layer change. {layer} is replaced by the number of the layer, {z} by its height", GH_ParamAccess.list);
+            p.AddTextParameter("End Code", "End", "Optional. Your end code, one line per item", GH_ParamAccess.list);
+            p.AddNumberParameter("Extrusion Factor", "Ef", "Optional. E = bead width x layer height x length x flow x this factor. Print a test wall, weigh it and correct the factor until the weight is right", GH_ParamAccess.item);
+            p.AddNumberParameter("Filament Diameter", "Fil", "Optional. 0 = E is a volume (pellet extruder). Larger = E is the length of filament of this diameter (mm)", GH_ParamAccess.item);
+            p.AddBooleanParameter("Save", "Save", "True = write this machine as a .machine file into Documents/LARGER/Machines, so it is in the list next time and you can pass it on", GH_ParamAccess.item, false);
+            for (int i = 1; i <= 7; i++) p[i].Optional = true;
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddValueList(doc, 0, "Machine", MachineDefinition.All().Select(m => m.Name).ToArray());
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddGenericParameter("Machine", "M", "The machine: connect to Machine G-code", GH_ParamAccess.item);
+            p.AddTextParameter("Definition", "Def", "The machine as text, the way it is stored in a .machine file", GH_ParamAccess.list);
+            p.AddTextParameter("Info", "I", "Where the machine comes from and what it does", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            int index = 0; string file = null, name = null; double factor = 0, filament = -1; bool save = false;
+            var start = new List<string>(); var layer = new List<string>(); var end = new List<string>();
+            da.GetData(0, ref index); da.GetData(1, ref file); da.GetData(2, ref name);
+            bool hasStart = da.GetDataList(3, start), hasLayer = da.GetDataList(4, layer), hasEnd = da.GetDataList(5, end);
+            bool hasFactor = da.GetData(6, ref factor), hasFilament = da.GetData(7, ref filament);
+            da.GetData(8, ref save);
+
+            var log = new List<string>();
+            MachineDefinition m;
+            if (!string.IsNullOrWhiteSpace(file))
+            {
+                string path = file.Trim().Trim('"');
+                if (path.StartsWith("~")) path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + path.Substring(1);
+                m = MachineDefinition.Load(path, out string error);
+                if (m == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The machine file could not be read: " + error); return; }
+            }
+            else
+            {
+                var all = MachineDefinition.All(log);
+                foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Machine file left out. " + l);
+                if (index < 0 || index >= all.Count) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"There are {all.Count} machines (0 to {all.Count - 1}); using the first."); index = 0; }
+                m = all[index].Duplicate();
+            }
+            bool own = !string.IsNullOrWhiteSpace(name) || hasStart || hasLayer || hasEnd || hasFactor || hasFilament;
+            if (!string.IsNullOrWhiteSpace(name)) { m.Name = name.Trim(); m.Prefix = OutputFile.Clean(m.Name).Replace(" ", "").ToUpperInvariant(); if (m.Prefix.Length > 4) m.Prefix = m.Prefix.Substring(0, 4); }
+            if (hasStart) m.Start = start.SelectMany(t => (t ?? "").Replace("\r", "").Split('\n')).ToList();
+            if (hasLayer) m.Layer = layer.SelectMany(t => (t ?? "").Replace("\r", "").Split('\n')).ToList();
+            if (hasEnd) m.End = end.SelectMany(t => (t ?? "").Replace("\r", "").Split('\n')).ToList();
+            if (hasFactor) { if (factor <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The extrusion factor must be greater than 0."); return; } m.Profile.Factor = factor; }
+            if (hasFilament && filament >= 0) m.Profile.FilamentDiameter = filament;
+            m.Profile.Name = m.Name;
+            if (own) m.Source = "made here";
+            if (own && string.IsNullOrWhiteSpace(name)) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Give your machine a Name, so its files and its entry in the list are not called " + m.Name + ".");
+            if (m.Start.Count == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The machine has no start code: the G-code begins with the first move.");
+            if (save)
+            {
+                if (MachineDefinition.BuiltIn().Any(b => string.Equals(b.Name, m.Name, StringComparison.OrdinalIgnoreCase))) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Not saved: " + m.Name + " is built in. Give your machine a Name of its own.");
+                else
+                {
+                    try { string path = m.Save(); m.Source = path; AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + path + ". New Machine components show it in their list."); }
+                    catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the machine file: " + ex.Message); }
+                }
+            }
+            Message = m.Name;
+            da.SetData(0, new GH_ObjectWrapper(m));
+            da.SetDataList(1, m.ToText());
+            da.SetData(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}. Your own machines: {MachineDefinition.Folder}");
+        }
+    }
+
+    public class MachineGCodeComponent : SlicerComponent
+    {
+        public MachineGCodeComponent()
+            : base("Machine G-code", "G-code",
+                  "Writes the toolpath as G-code for the machine you connect: its start code, absolute positions, relative extrusion scaled the way the machine wants it, one constant feedrate that is written on every line and never 0, its layer code at every layer change, its end code. For the Ginger One this gives the same file as Ginger G-code.") { }
+
+        public override Guid ComponentGuid => new Guid("A91F3D07-6E42-4B5C-8D19-4C7A0B2E63F5");
+        public override GH_Exposure Exposure => GH_Exposure.senary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerDesktopIcon.png", this);
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddGenericParameter("Toolpath", "T", "Toolpath from Start and End", GH_ParamAccess.item);
+            p.AddGenericParameter("Machine", "M", "The machine, from the Machine component. Empty = Ginger One", GH_ParamAccess.item);
+            p.AddTextParameter("Name", "N", "Name of the part, for the file name", GH_ParamAccess.item, "Print");
+            p.AddTextParameter("File", "File", "Optional. File or folder. Empty = the Desktop, with a name made of the machine's letters, date and time, the Name, weight and print time", GH_ParamAccess.item);
+            p.AddBooleanParameter("Save", "Save", "True = write the file (to the Desktop if File is empty)", GH_ParamAccess.item, false);
+            p[1].Optional = true; p[3].Optional = true;
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddTextParameter("G-code", "G", "G-code lines", GH_ParamAccess.list);
+            p.AddTextParameter("Info", "I", "Layers, length, extrusion, time and weight", GH_ParamAccess.item);
+            p.AddTextParameter("File Name", "Fn", "The name the file gets on the Desktop", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            var tp = SlicerIO.Get<Toolpath>(da, 0);
+            if (tp == null || tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect a Toolpath."); return; }
+            var machine = SlicerIO.Get<MachineDefinition>(da, 1) ?? MachineDefinition.GingerOne();
+            string part = "Print", file = null; bool save = false;
+            da.GetData(2, ref part); da.GetData(3, ref file); da.GetData(4, ref save);
+            var r = MachineGCode.Build(tp, machine);
+            foreach (var wmsg in r.Warnings) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, wmsg);
+            var named = tp.Duplicate(); named.Settings = tp.Settings.Duplicate(); named.Settings.Machine = machine.Profile.Duplicate();
+            string fileName = OutputFile.Name(machine.Prefix, part, named, machine.Extension);
+            if (save)
+            {
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, fileName, r.Lines)); }
+                catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
+            }
+            Message = machine.Name;
+            da.SetDataList(0, r.Lines);
+            da.SetData(1, r.Info);
+            da.SetData(2, fileName);
         }
     }
 

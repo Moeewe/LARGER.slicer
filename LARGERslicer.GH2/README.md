@@ -22,6 +22,9 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 | Extrusion and Speed | Points, planes, extrusion, speed, role and layer per point |
 | Ginger G-code | Full-size G-code for the Ginger One with its start and end sequence |
 | Desktop Test Print | The path scaled down for a desktop printer, with that printer's start, layer change and end |
+| Machine | Built-in machines and your own from `Documents/LARGER/Machines` (.machine text files), or typed in here |
+| Machine G-code | G-code for the machine you connect |
+| Quick Start | Puts five worked examples on the canvas |
 
 **LARGER > DXR**
 
@@ -66,5 +69,7 @@ accepted by Slice. Not yet tested: non-planar and multi-axis slicing on a real p
 `Toolpath to Robot Lines` writes one fixed tool orientation (A, B, C). Check it against your
 robot cell before the first run. For tilted tool axes use the planes from `Extrusion and Speed`.
 
-Not ported yet: Infill Sketch, Machine Profile with own factors, Quick Start,
+Not tested in Grasshopper 2 yet: Quick Start, Machine, Machine G-code, the brim and the file names (they compile; the code they share with the Grasshopper 1 plug-in is tested on the bench).
+
+Not ported yet: Infill Sketch, Machine Profile with own factors,
 the curve-based Toolpaths tab, and the DXR health check and post-processor.
