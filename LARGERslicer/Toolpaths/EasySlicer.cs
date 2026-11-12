@@ -28,6 +28,8 @@ namespace LARGERslicer.Toolpaths
             /// <summary>Brim: 0 = none, 1 = outside, 2 = inside, 3 = both sides of the first layer.</summary>
             public int BrimSide = 0;
             public int BrimLoops = 3;
+            /// <summary>Join contours that lie inside others (inner shell, openings) by a bridge, so the line never stops.</summary>
+            public bool Bridge = true;
         }
 
         public class Result
@@ -98,7 +100,7 @@ namespace LARGERslicer.Toolpaths
 
             bool spiral = o.Spiral && infill == 0 && o.BottomLayers == 0;
             if (o.Spiral && !spiral) r.Notes.Add("Spiral only works for walls without infill and bottom; printed as flat layers instead.");
-            var tp = PathEngine.Build(layers, st, spiral ? ContinuousMode.Spiral : ContinuousMode.Layered, null, 0, false, log);
+            var tp = PathEngine.Build(layers, st, spiral ? ContinuousMode.Spiral : ContinuousMode.Layered, null, 0, false, log, o.Bridge);
             if (tp.Count < 2) { r.Notes.Add("No printable contour was found."); r.Notes.AddRange(log); return r; }
             tp = PathEngine.Round(tp, st.EffectiveMinRadius, 0, out int corners, out _);
             tp = LeadEngine.StartEnd(tp, Math.Max(0, o.SkirtLoops), 0, Math.Max(0, o.BrimLoops), o.BrimSide, 10 * st.BeadWidth, 4 * st.BeadWidth, null, 0, log);

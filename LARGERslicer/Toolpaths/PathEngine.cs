@@ -159,10 +159,183 @@ namespace LARGERslicer.Toolpaths
             return null;
         }
 
+        // ------------------------------------------------------------------ bridges
+
+        /// <summary>Arc length position of the point of the loop closest to p.</summary>
+        private static double ArcAt(Loop lp, Point3d p)
+        {
+            int segs = lp.Closed ? lp.P.Count : lp.P.Count - 1;
+            double best = double.MaxValue, at = 0;
+            for (int i = 0; i < segs; i++)
+            {
+                Point3d a = lp.P[i], b = lp.P[(i + 1) % lp.P.Count];
+                Vector3d ab = b - a; double l2 = ab.SquareLength;
+                double t = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((p - a) * ab) / l2));
+                double d = (a + ab * t).DistanceToSquared(p);
+                if (d < best) { best = d; at = lp.S[i] + Math.Sqrt(l2) * t; }
+            }
+            return at;
+        }
+
+        private static Point2d To2(Plane pl, Point3d p) { Vector3d v = p - pl.Origin; return new Point2d(v * pl.XAxis, v * pl.YAxis); }
+
+        private static bool Inside(List<Point2d> poly, Point2d q)
+        {
+            bool c = false;
+            for (int i = 0, j = poly.Count - 1; i < poly.Count; j = i++)
+                if ((poly[i].Y > q.Y) != (poly[j].Y > q.Y) && q.X < (poly[j].X - poly[i].X) * (q.Y - poly[i].Y) / (poly[j].Y - poly[i].Y) + poly[i].X) c = !c;
+            return c;
+        }
+
+        private static double Area2(List<Point2d> poly)
+        {
+            double a = 0;
+            for (int i = 0, j = poly.Count - 1; i < poly.Count; j = i++) a += poly[j].X * poly[i].Y - poly[i].X * poly[j].Y;
+            return Math.Abs(0.5 * a);
+        }
+
+        private static bool SegmentsCross(Point2d a, Point2d b, Point2d c, Point2d d)
+        {
+            Func<Point2d, Point2d, Point2d, double> cr = (o, p, q) => (p.X - o.X) * (q.Y - o.Y) - (p.Y - o.Y) * (q.X - o.X);
+            double d1 = cr(a, b, c), d2 = cr(a, b, d), d3 = cr(c, d, a), d4 = cr(c, d, b);
+            return d1 * d2 < 0 && d3 * d4 < 0;
+        }
+
+        /// <summary>
+        /// Continuous-toolpath connection rule (Wesseler, Herrlein, Kiendl: 45-degree inclined LFAM,
+        /// boat hull case study): a closed contour that lies inside another one - the inner shell
+        /// inside the outer shell, the wall of an opening inside the outer wall, a second wall
+        /// inside the first - is joined to it by a bridge of two parallel lines one bead spacing
+        /// apart. Both contours are cut open where the bridge meets them, and outer contour,
+        /// bridge, inner contour (the other way round) and bridge become one closed line: no move
+        /// without extrusion, no start and stop. The bridge is put where the bridge of the layer
+        /// below was, so the bridges stack into a rib that stands on itself.
+        /// Returns the joined loops; bridges = where the bridges of this layer are.
+        /// </summary>
+        private static List<Loop> Bridge(List<Loop> list, Plane plane, double spacing, List<Point3d> below, List<Point3d> bridges, ref int made, ref int notMade, double minGap)
+        {
+            var loops = list.Where(l => l.Closed).ToList();
+            var open = list.Where(l => !l.Closed).ToList();
+            if (loops.Count < 2) return list;
+            var tried = new HashSet<Tuple<Loop, Loop>>();
+            for (int guard = 0; guard < 64 && loops.Count > 1; guard++)
+            {
+                var polys = loops.Select(l => l.P.Select(q => To2(plane, q)).ToList()).ToList();
+                var areas = polys.Select(Area2).ToList();
+                // inner contour and the smallest contour around it; smallest first. Two walls one bead
+                // apart are joined too: the bridge is then a short turn of one bead spacing.
+                int child = -1, parent = -1;
+                foreach (int c in Enumerable.Range(0, loops.Count).OrderBy(k => areas[k]))
+                {
+                    int best = -1;
+                    for (int k = 0; k < loops.Count; k++)
+                        if (k != c && areas[k] > areas[c] && Inside(polys[k], polys[c][0]) && (best < 0 || areas[k] < areas[best])) best = k;
+                    if (best < 0 || tried.Contains(Tuple.Create(loops[best], loops[c]))) continue;
+                    double gap = double.MaxValue;
+                    foreach (var q in loops[c].P) { int h = -1; gap = Math.Min(gap, loops[best].Closest(q, ref h, int.MaxValue).DistanceTo(q)); }
+                    tried.Add(Tuple.Create(loops[best], loops[c]));
+                    if (gap < minGap) continue;
+                    // a short turn between two walls only on contours long enough to keep it in one place
+                    if (gap < 1.8 * spacing && loops[c].Len < 30 * spacing) continue;
+                    child = c; parent = best; break;
+                }
+                if (child < 0) break; // nothing (more) to join: separate pieces stay separate
+                Loop P = loops[parent], C = loops[child];
+
+                // candidate places: every point of the inner loop with the nearest point of the outer one;
+                // where a bridge stood on the layer below, that place comes first
+                var cands = new List<Tuple<double, Point3d, Point3d>>();
+                // right above a bridge of the layer below (exactly there, so the rib does not wander)
+                if (below != null)
+                    foreach (var b in below)
+                    {
+                        Point3d onPlane = plane.ClosestPoint(b);
+                        int hc = -1; Point3d q = C.Closest(onPlane, ref hc, int.MaxValue);
+                        double db = To2(plane, q).DistanceTo(To2(plane, onPlane));
+                        if (db > 3 * spacing) continue;
+                        int hp = -1; Point3d pp = P.Closest(q, ref hp, int.MaxValue);
+                        cands.Add(Tuple.Create(-1e6 + db, pp, q));
+                    }
+                foreach (var q in C.P)
+                {
+                    int h = -1; Point3d pp = P.Closest(q, ref h, int.MaxValue);
+                    cands.Add(Tuple.Create(pp.DistanceTo(q), pp, q));
+                }
+                bool joined = false;
+                foreach (var cand in cands.OrderBy(t => t.Item1).Take(40))
+                {
+                    double sp = ArcAt(P, cand.Item2), sq = ArcAt(C, cand.Item3);
+                    double hs = 0.5 * spacing;
+                    if (P.Len < 4 * spacing || C.Len < 4 * spacing) break;
+                    Point3d pa = P.PointAt(sp - hs), pb = P.PointAt(sp + hs);
+                    Point3d c1 = C.PointAt(sq - hs), c2 = C.PointAt(sq + hs);
+                    // the bridge line that leaves pa must end on the inner point on pa's side
+                    Vector3d d = cand.Item3 - cand.Item2;
+                    if (d.Length < 1e-6) d = c2 - c1;
+                    Vector3d e = Vector3d.CrossProduct(plane.ZAxis, d);
+                    bool c1WithPa = Math.Sign((c1 - cand.Item2) * e) == Math.Sign((pa - cand.Item2) * e);
+                    Point3d qa = c1WithPa ? c1 : c2, qb = c1WithPa ? c2 : c1;
+                    double sa = c1WithPa ? sq - hs : sq + hs;
+                    int dir = c1WithPa ? -1 : 1; // walk the inner loop away from the bridge
+                    // the two bridge lines must not cross any other contour
+                    Point2d A1 = To2(plane, pa), A2 = To2(plane, qa), B1 = To2(plane, qb), B2 = To2(plane, pb);
+                    // the lines start and end on the contours: test them a little shortened, or the
+                    // contour they start on counts as crossed
+                    Func<Point2d, Point2d, double, Point2d> lerp = (x, y, t) => new Point2d(x.X + (y.X - x.X) * t, x.Y + (y.Y - x.Y) * t);
+                    { Point2d a1 = lerp(A1, A2, 0.02), a2 = lerp(A1, A2, 0.98), b1 = lerp(B1, B2, 0.02), b2 = lerp(B1, B2, 0.98); A1 = a1; A2 = a2; B1 = b1; B2 = b2; }
+                    bool clear = !SegmentsCross(A1, A2, B1, B2);
+                    for (int k = 0; k < loops.Count && clear; k++)
+                    {
+                        var poly = polys[k];
+                        for (int i = 0; i < poly.Count && clear; i++)
+                        {
+                            Point2d u = poly[i], v = poly[(i + 1) % poly.Count];
+                            if (SegmentsCross(A1, A2, u, v) || SegmentsCross(B1, B2, u, v)) clear = false;
+                        }
+                    }
+                    foreach (var ol in open) for (int i = 0; i + 1 < ol.P.Count && clear; i++)
+                        if (SegmentsCross(A1, A2, To2(plane, ol.P[i]), To2(plane, ol.P[i + 1])) || SegmentsCross(B1, B2, To2(plane, ol.P[i]), To2(plane, ol.P[i + 1]))) clear = false;
+                    if (!clear) continue;
+
+                    // outer loop from pb round to pa, bridge in, inner loop round, bridge back to pb
+                    var pts = new List<Point3d>();
+                    double step = Math.Max(0.5, spacing * 0.25);
+                    Action<Loop, double, double, int> walk = (lp, from, length, sign) =>
+                    {
+                        // the vertices passed on the way, from 'from' over 'length' in direction sign
+                        var inner = new List<Tuple<double, Point3d>>();
+                        for (int i = 0; i < lp.P.Count; i++)
+                        {
+                            double rel = sign > 0 ? lp.S[i] - from : from - lp.S[i];
+                            rel %= lp.Len; if (rel < 0) rel += lp.Len;
+                            if (rel > 1e-6 && rel < length - 1e-6) inner.Add(Tuple.Create(rel, lp.P[i]));
+                        }
+                        foreach (var t in inner.OrderBy(t => t.Item1)) pts.Add(t.Item2);
+                    };
+                    pts.Add(pb);
+                    walk(P, sp + hs, P.Len - spacing, 1);
+                    pts.Add(pa);
+                    pts.Add(qa);
+                    walk(C, sa, C.Len - spacing, dir);
+                    pts.Add(qb);
+                    var merged = new Loop(pts, true) { Role = P.Role };
+                    loops.RemoveAt(Math.Max(parent, child)); loops.RemoveAt(Math.Min(parent, child));
+                    loops.Add(merged);
+                    bridges.Add(cand.Item3); // where it meets the inner contour: the next layer's bridge stands on it
+                    made++; joined = true;
+                    break;
+                }
+                if (!joined) notMade++;
+            }
+            var result = new List<Loop>(loops);
+            result.AddRange(open);
+            return result;
+        }
+
         // ------------------------------------------------------------------ build
 
         public static Toolpath Build(List<SliceLayer> layers, PrintSettings settings, ContinuousMode mode,
-            GeometryBase seam, double rampLength, bool alternate, List<string> log)
+            GeometryBase seam, double rampLength, bool alternate, List<string> log, bool bridge = true)
         {
             var tp = new Toolpath { Settings = settings };
             if (layers == null || layers.Count == 0) return tp;
@@ -183,6 +356,7 @@ namespace LARGERslicer.Toolpaths
             var plain = new bool[layers.Count]; // exactly one closed wall: can be part of a spiral
             int infillLayers = 0;
             int slivers = 0;
+            int bridgesMade = 0, bridgesNotMade = 0; List<Point3d> bridgesBelow = null;
             for (int li = 0; li < layers.Count; li++)
             {
                 var layer = layers[li];
@@ -205,11 +379,32 @@ namespace LARGERslicer.Toolpaths
                 // infill would climb with the wall and no longer lie on the infill below
                 bool hasInfill = layer.Reference != null && layer.Reference.Count > 0 && list.Count == 1
                                  && list[0].Len > 1.05 * layer.Reference.Max(r => r.Length);
+                // contours inside contours (inner shell, openings, more walls) are joined by a bridge
+                bool fill = layer.EntryHints != null && layer.EntryHints.Count > 0;
+                bool spliced = layer.Reference != null && layer.Reference.Count > 0;
+                if (bridge && !fill && !spliced && list.Count(l => l.Closed) >= 2 && list.All(l => l.Role == PathRole.Wall))
+                {
+                    // Two walls one bead apart are joined by a short turn only where that makes the whole
+                    // layer one line; otherwise the layer keeps several lines and their seams move from
+                    // layer to layer, onto the turn. Contours further apart are always joined.
+                    var here = new List<Point3d>(); int m1 = 0, n1 = 0;
+                    var all = Bridge(list, layer.Plane, settings.BeadSpacing, bridgesBelow, here, ref m1, ref n1, 0.5 * settings.BeadSpacing);
+                    if (all.Count(l => l.Closed) > 1)
+                    {
+                        here = new List<Point3d>(); m1 = 0; n1 = 0;
+                        all = Bridge(list, layer.Plane, settings.BeadSpacing, bridgesBelow, here, ref m1, ref n1, 1.8 * settings.BeadSpacing);
+                    }
+                    list = all; bridgesMade += m1; bridgesNotMade += n1;
+                    bridgesBelow = here;
+                }
+                else bridgesBelow = null;
                 plain[li] = list.Count == 1 && list[0].Closed && list[0].Role == PathRole.Wall && !hasInfill;
                 if (hasInfill) infillLayers++;
                 loops.Add(list);
             }
             if (slivers > 0) log?.Add($"{slivers} contour(s) are smaller than one bead (slivers where a layer just touches the part) and were left out.");
+            if (bridgesMade > 0) log?.Add($"{bridgesMade} bridge(s) join inner contours to the ones around them (two lines one bead spacing apart, stacked into a rib): no travel move between them.");
+            if (bridgesNotMade > 0) log?.Add($"{bridgesNotMade} layer(s) have a contour inside another that could not be joined (no free way between them): a travel move remains there.");
 
             // Layers with fill (bottom, top) are printed flat. Every stretch of at least two plain
             // layers in between is printed as a spiral.

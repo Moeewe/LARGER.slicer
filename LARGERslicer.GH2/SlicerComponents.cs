@@ -74,6 +74,44 @@ namespace LARGERslicer.GH2
         }
     }
 
+    // ============================================================== design rules (CEAD and Ginger sheets)
+    [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1010")]
+    public sealed class DesignRulesComponent : Component
+    {
+        public DesignRulesComponent() : base(Io.Name("Design Rules", "Before you model: layer height range, overlap, how thick to model a wall of two beads (CO90, and CO45 at 45 degrees), the layer width for a finished wall at 45 degrees (LW45), corner radius, start and end feature. From the CEAD 45-degree sheets and the Ginger handbook.", Io.Slicer, 0)) { }
+        public DesignRulesComponent(IReader reader) : base(reader) { }
+
+        protected override void AddInputs(InputAdder inputs)
+        {
+            inputs.AddNumber("Bead Width", "W", "Layer width in mm.").Set(5.0);
+            inputs.AddNumber("Nozzle", "N", "Nozzle diameter in mm. 0 = bead width / 1.5.").Set(3.0);
+            inputs.AddNumber("Layer Height", "H", "Layer height in mm, to be checked. 0 = not checked.").Set(2.0);
+            inputs.AddNumber("Overlap", "OL", "Overlap of two beads side by side in mm. 0 = middle of 5 to 10 % of the bead width.").Set(0.0);
+            inputs.AddNumber("Finish Thickness", "t", "Optional: the wall thickness the finished part needs, in mm.").Set(0.0);
+            inputs.AddNumber("Milling", "Mill", "Optional: how much is milled away from that wall afterwards, in mm.").Set(0.0);
+        }
+
+        protected override void AddOutputs(OutputAdder outputs)
+        {
+            outputs.AddBoolean("OK", "OK", "True if bead width, nozzle and layer height fit together.");
+            outputs.AddText("Report", "R", "The rules with your numbers.", Access.Twig);
+            outputs.AddNumber("CO90", "CO90", "Wall of two beads, layers square to it: model it this thick (mm).");
+            outputs.AddNumber("CO45", "CO45", "Wall of two beads, layers crossing it at 45 degrees: model it this thick (mm).");
+            outputs.AddNumber("LW45", "LW45", "Layer width for the finished wall thickness at 45 degrees (mm).");
+        }
+
+        protected override void Process(IDataAccess access)
+        {
+            double w, n, h, ol, t, mill;
+            access.GetItem(0, out w); access.GetItem(1, out n); access.GetItem(2, out h); access.GetItem(3, out ol); access.GetItem(4, out t); access.GetItem(5, out mill);
+            if (w <= 0) { access.AddError("Invalid bead width", "Bead Width must be greater than 0."); return; }
+            var r = DesignRules.Evaluate(w, n, h, ol, t, mill);
+            if (!r.Ok) access.AddWarning("Rule not met", r.Report.Find(l => l.Contains("TOO")) ?? "See Report.");
+            access.SetItem(0, r.Ok); access.SetTwig(1, r.Report.ToArray(), null, null);
+            access.SetItem(2, r.CO90); access.SetItem(3, r.CO45); access.SetItem(4, r.LW45);
+        }
+    }
+
     // ============================================================== settings
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1001")]
     public sealed class PrintSettingsComponent : Component
@@ -315,6 +353,7 @@ namespace LARGERslicer.GH2
             inputs.AddInteger("Mode", "M", "1 = layered (default). 0 = spiral (vase mode).").Set(1);
             inputs.AddNumber("Seam Gap", "G", "Layered: the gap at the seam in mm. Every layer ends this far before its own start; the path crosses the gap on a short incline up to the next layer. 0 = one bead width.").Set(0.0);
             inputs.AddGeneric("Seam", "Seam", "Optional. A point or a curve: where the seam is. Every layer starts at the place on its contour nearest to it. Empty = the seam stays where the first layer started.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddBoolean("Bridge", "Br", "True = a contour inside another (inner shell, opening) is joined to it by a bridge of two lines one bead spacing apart, stacked on every layer: one line without travel moves.").Set(true);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -336,7 +375,8 @@ namespace LARGERslicer.GH2
             else if (seamIn is Line sl) seam = new LineCurve(sl);
             else if (seamIn is Polyline spl) seam = new PolylineCurve(spl);
             else if (seamIn is GeometryBase sg) seam = sg;
-            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, Math.Max(0, ramp), false, log);
+            bool bridge; access.GetItem(5, out bridge);
+            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, Math.Max(0, ramp), false, log, bridge);
             Io.Remarks(access, log);
             if (tp.Count < 2) { access.AddError("No path", "The layers contain no printable contour."); return; }
             int travels = 0; for (int i = 1; i < tp.Count; i++) if (tp.Roles[i] == PathRole.Travel && tp.Roles[i - 1] != PathRole.Travel) travels++;

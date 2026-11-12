@@ -698,6 +698,50 @@ namespace LARGERslicer.Components.Slicer
         }
     }
 
+    // ============================================================== design rules (CEAD and Ginger sheets)
+    public class DesignRulesComponent : SlicerComponent
+    {
+        public DesignRulesComponent()
+            : base("Design Rules", "Rules",
+                  "Before you model: what the bead width and the nozzle allow. Layer height range, overlap, how thick to model a wall of two beads (CO90 for layers square to it, CO45 for layers crossing it at 45 degrees), the layer width for a finished wall thickness at 45 degrees (LW45), corner radius, start and end feature. From the CEAD sheets 'Angled printing (45 deg) design process' and 'Nozzle size and layer width' and the Ginger handbook of the FH Muenster.") { }
+
+        public override Guid ComponentGuid => new Guid("4B8E2C71-9D35-4F0A-B6E2-7C1D9A3F5E08");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerSettingsIcon.png", this);
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddNumberParameter("Bead Width", "W", "Layer width (mm)", GH_ParamAccess.item, 5.0);
+            p.AddNumberParameter("Nozzle", "N", "Nozzle diameter (mm). 0 = bead width / 1.5, as CEAD pairs them", GH_ParamAccess.item, 3.0);
+            p.AddNumberParameter("Layer Height", "H", "Layer height (mm), to be checked. 0 = not checked", GH_ParamAccess.item, 2.0);
+            p.AddNumberParameter("Overlap", "OL", "Overlap of two beads side by side (mm). 0 = the middle of the recommended range (5 to 10 % of the bead width)", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Finish Thickness", "t", "Optional: the wall thickness the finished part needs (mm). Gives the layer width for 45-degree printing", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Milling", "Mill", "Optional: how much is milled away from that wall afterwards (mm). CEAD recommends 5", GH_ParamAccess.item, 0.0);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddBooleanParameter("OK", "OK", "True if bead width, nozzle and layer height fit together", GH_ParamAccess.item);
+            p.AddTextParameter("Report", "R", "The rules with your numbers", GH_ParamAccess.list);
+            p.AddNumberParameter("CO90", "CO90", "Model a wall of two beads this thick where the layers stand square to it (mm)", GH_ParamAccess.item);
+            p.AddNumberParameter("CO45", "CO45", "Model a wall of two beads this thick where the layers cross it at 45 degrees (mm)", GH_ParamAccess.item);
+            p.AddNumberParameter("LW45", "LW45", "Layer width for the finished wall thickness at 45 degrees (mm); 0 without a finish thickness", GH_ParamAccess.item);
+            p.AddIntervalParameter("Layer Height", "H", "Layer heights the nozzle allows (mm)", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            double w = 5, n = 3, h = 2, ol = 0, t = 0, mill = 0;
+            da.GetData(0, ref w); da.GetData(1, ref n); da.GetData(2, ref h); da.GetData(3, ref ol); da.GetData(4, ref t); da.GetData(5, ref mill);
+            if (w <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Bead Width must be greater than 0."); return; }
+            var r = DesignRules.Evaluate(w, n, h, ol, t, mill);
+            if (!r.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.Find(l => l.Contains("TOO")) ?? "See Report.");
+            Message = $"CO90 {r.CO90:0.#} / CO45 {r.CO45:0.#}";
+            da.SetData(0, r.Ok); da.SetDataList(1, r.Report); da.SetData(2, r.CO90); da.SetData(3, r.CO45); da.SetData(4, r.LW45);
+            da.SetData(5, new Interval(r.LayerMin, r.LayerMax));
+        }
+    }
+
     // ============================================================== 1b Machine Profile
     public class MachineProfileComponent : SlicerComponent
     {
@@ -1339,6 +1383,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddIntegerParameter("Mode", "M", "1 = Layered (default): every layer is flat, the path changes layer over a short ramp at one fixed place\n0 = Spiral (vase mode): the path climbs all the time. Only for single walls without infill - layers with ribs, cells or a bottom are always printed flat", GH_ParamAccess.item, 1);
             p.AddGeometryParameter("Seam", "Seam", "Optional point or curve: where the seam is. Every layer starts at the place on its contour nearest to it. Without it the seam stays where the first layer started", GH_ParamAccess.item);
             p.AddNumberParameter("Seam Gap", "Gap", "Layered only: the gap at the seam in mm. Every layer ends this far before its own start, so the end never runs into the beginning; the path crosses the gap on a short incline up to the next layer, at the same place on every layer. 0 = one bead width (default). Longer = softer seam, but more of the layer is inclined", GH_ParamAccess.item, 0.0);
+            p.AddBooleanParameter("Bridge", "Br", "True (default) = a contour that lies inside another (inner shell, the wall of an opening) is joined to it by a bridge of two lines one bead spacing apart, at the same place on every layer, so they stack into a rib: one line without travel moves, as in 45-degree printing of double shells. False = the nozzle moves between them without extrusion", GH_ParamAccess.item, true);
             p[1].Optional = true; p[3].Optional = true;
         }
 
@@ -1375,10 +1420,11 @@ namespace LARGERslicer.Components.Slicer
 
             var log = new List<string>();
             var sw = Stopwatch.StartNew();
-            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log);
+            bool bridge = true; if (Params.Input.Count > 5) da.GetData(5, ref bridge);
+            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log, bridge);
             sw.Stop();
             // slivers left out are a note, not a problem: they are where a layer just touches the part
-            foreach (var l in log) AddRuntimeMessage(l.Contains("(slivers") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
+            foreach (var l in log) AddRuntimeMessage(l.Contains("(slivers") || l.Contains("bridge(s) join") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
             if (tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty path."); return; }
 
             int travels = tp.Roles.Count(r => r == PathRole.Travel);

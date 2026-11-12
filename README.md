@@ -94,6 +94,12 @@ File names follow the FH Muenster: `DXR_2611051216_Test Object_2668g_53min.dxr` 
 | **Scaled test prints** | Bambu Lab, Prusa, Creality, Elegoo and other Marlin or Klipper printers, via `Desktop Test Print` |
 | **Other pellet and robot systems** | Not tested. The generic pellet profile outputs position, tool axis, E and F per point; controller format and extrusion factor have to be matched on the machine. |
 
+### 45-degree printing
+
+- **Before modelling:** `Design Rules` gives layer height range, overlap, how thick to model a wall of two beads (CO90, and CO45 where the layers cross it at 45 degrees), the layer width for a finished wall thickness (LW45) and the start and end feature, after the CEAD sheets and the Ginger handbook.
+- **Slicing:** `Slice` with `Angle` 45.
+- **One line:** `Continuous Path` joins contours that lie inside each other (inner and outer shell, openings) with a bridge of two lines that stacks into a rib on every layer, after the Continuous-Toolpath Connection Rule (Wesseler, Herrlein, Kiendl).
+
 ### Your own machine or print cell
 
 No code is needed. Everything is a text file or a Rhino file in `Documents/LARGER`:
