@@ -269,17 +269,20 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>The arm as a line through its joints, in world coordinates: for a quick look at a pose.</summary>
-        public List<Point3d> Skeleton(double[] degrees)
+        public List<Point3d> Skeleton(double[] degrees) => Skeleton(degrees, Base);
+
+        /// <summary>The same, with the robot standing on another base (moved by a rail).</summary>
+        public List<Point3d> Skeleton(double[] degrees, Frame foot)
         {
-            var pts = new List<Point3d> { Base.O };
+            var pts = new List<Point3d> { foot.O };
             Frame t = Frame.World;
             for (int i = 0; i < 6; i++)
             {
                 double q = ToRadians(degrees[i], i), c = Math.Cos(q), s = Math.Sin(q), ca = Math.Cos(Alpha[i]), sa = Math.Sin(Alpha[i]);
                 // up the offset d first, then out along the link a: shows the real shape of the arm
-                pts.Add(Base.Pt(t.Pt(new Point3d(0, 0, D[i]))));
+                pts.Add(foot.Pt(t.Pt(new Point3d(0, 0, D[i]))));
                 t = t.Times(new Frame { X = new Vector3d(c, s, 0), Y = new Vector3d(-s * ca, c * ca, sa), Z = new Vector3d(s * sa, -c * sa, ca), O = new Point3d(A[i] * c, A[i] * s, D[i]) });
-                pts.Add(Base.Pt(t.O));
+                pts.Add(foot.Pt(t.O));
             }
             return pts;
         }
@@ -317,7 +320,31 @@ namespace LARGERslicer.Toolpaths
         public string BaseName = "Bed";
         /// <summary>What stands around the robot, for the collision check. Null = nothing given.</summary>
         public List<Mesh> Environment;
-        public override string ToString() => $"{Arm}, tool {Tool.Name}";
+        /// <summary>Rail and turntable, if the cell has them (see ExternalAxes.cs). Empty = the arm alone.</summary>
+        public List<ExternalAxis> ExternalAxes = new List<ExternalAxis>();
+        public bool HasExternalAxes => ExternalAxes != null && ExternalAxes.Count > 0;
+
+        /// <summary>Where the robot foot is with the external axes at these values: moved along its rails.</summary>
+        public Frame RobotBaseAt(double[] ext)
+        {
+            var b = Arm.Base;
+            if (ext == null || ExternalAxes == null) return b;
+            for (int k = 0; k < ExternalAxes.Count && k < ext.Length; k++)
+                if (ExternalAxes[k].IsRail) b.O += ExternalAxes[k].Direction * ext[k];
+            return b;
+        }
+
+        /// <summary>How the part is moved with the external axes at these values: turned by its turntables. World = PartAt(ext) * drawn.</summary>
+        public Frame PartAt(double[] ext)
+        {
+            var f = Frame.World;
+            if (ext == null || ExternalAxes == null) return f;
+            for (int k = 0; k < ExternalAxes.Count && k < ext.Length; k++)
+                if (!ExternalAxes[k].IsRail) f = ExternalAxes[k].Motion(ext[k]).Times(f);
+            return f;
+        }
+
+        public override string ToString() => $"{Arm}, tool {Tool.Name}" + (HasExternalAxes ? ", " + string.Join(", ", ExternalAxes.Select(a => a.Name + (a.IsRail ? " rail" : " turntable"))) : "");
     }
 
     /// <summary>
@@ -350,6 +377,10 @@ namespace LARGERslicer.Toolpaths
                     if (a != null && b != null)
                         for (int k = 0; k < 6; k++)
                             if (arm.MaxSpeed[k] > 0) seconds = Math.Max(seconds, Math.Abs(b[k] - a[k]) / arm.MaxSpeed[k]);
+                    var ea = program.Moves[i - 1].External; var eb = program.Moves[i].External;
+                    if (ea != null && eb != null && cell.ExternalAxes != null)
+                        for (int k = 0; k < ea.Length && k < cell.ExternalAxes.Count; k++)
+                            if (cell.ExternalAxes[k].MaxSpeed > 0) seconds = Math.Max(seconds, Math.Abs(eb[k] - ea[k]) / cell.ExternalAxes[k].MaxSpeed);
                     t += seconds;
                 }
                 run.Seconds.Add(t);
@@ -381,6 +412,46 @@ namespace LARGERslicer.Toolpaths
             for (int k = 0; k < 6; k++) q[k] = a[k] + (b[k] - a[k]) * share;
             return q;
         }
+
+        /// <summary>The values of the external axes at a moment of the run (null if the cell has none).</summary>
+        public double[] ExternalAt(double seconds)
+        {
+            int n = Seconds.Count;
+            if (n == 0 || Program.Moves.Count == 0 || Program.Moves[0].External == null) return null;
+            seconds = Math.Max(0, Math.Min(Duration, seconds));
+            int lo = 0, hi = n - 1;
+            while (lo < hi) { int mid = (lo + hi) / 2; if (Seconds[mid] < seconds) lo = mid + 1; else hi = mid; }
+            var b = Program.Moves[lo].External;
+            if (lo == 0) return (double[])b.Clone();
+            var a = Program.Moves[lo - 1].External;
+            double span = Seconds[lo] - Seconds[lo - 1];
+            double share = span > 1e-12 ? (seconds - Seconds[lo - 1]) / span : 1;
+            var q = new double[b.Length];
+            for (int k = 0; k < b.Length; k++) q[k] = a[k] + (b[k] - a[k]) * share;
+            return q;
+        }
+
+        /// <summary>The path printed up to this moment, where it is in the room (turned with the table).</summary>
+        public Polyline PrintedAt(double seconds)
+        {
+            var pl = new Polyline();
+            int n = Seconds.Count;
+            if (n == 0) return pl;
+            var ext = ExternalAt(seconds);
+            var part = Cell.PartAt(ext);
+            seconds = Math.Max(0, Math.Min(Duration, seconds));
+            for (int i = 0; i < n && i < Points.Count; i++)
+            {
+                if (Seconds[i] <= seconds) { pl.Add(part.Pt(Points[i])); continue; }
+                if (i > 0)
+                {
+                    double span = Seconds[i] - Seconds[i - 1], u = span > 1e-12 ? (seconds - Seconds[i - 1]) / span : 1;
+                    pl.Add(part.Pt(Points[i - 1] + (Points[i] - Points[i - 1]) * u));
+                }
+                break;
+            }
+            return pl;
+        }
     }
 
     public class RobotMove
@@ -388,6 +459,9 @@ namespace LARGERslicer.Toolpaths
         public Frame Target;      // TCP in base coordinates
         public double[] Xyzabc;   // the six numbers of the program line
         public double[] Axes;     // axis angles in degrees
+        public double[] External; // values of the external axes (mm, degrees); null = none
+        public Frame Part = Frame.World;      // how the part is turned by a turntable at this move
+        public Frame RobotBase = Frame.World; // where the robot foot is at this move (moved by a rail)
         public bool Reachable = true, InLimits = true, Singular;
     }
 
@@ -403,6 +477,8 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Problems found between two path points (long moves are checked in steps).</summary>
         public int BetweenProblems;
         public double[] AxisMin = new double[6], AxisMax = new double[6];
+        /// <summary>The external axes along the program; null if the cell has none.</summary>
+        public ExternalAxisPlan External;
     }
 
     /// <summary>
@@ -413,6 +489,15 @@ namespace LARGERslicer.Toolpaths
     public static class RobotProgram
     {
         private static string N(double v, int digits) { v = Math.Round(v, digits); if (v == 0) v = 0; return v.ToString("0." + new string('#', digits), CultureInfo.InvariantCulture); }
+
+        /// <summary>The values of the external axes for an E6POS or E6AXIS: ",E1 1200.5,E2 90". Empty without external axes.</summary>
+        private static string Ext(List<ExternalAxis> axes, RobotMove mv)
+        {
+            if (axes == null || mv.External == null) return "";
+            var sb = new System.Text.StringBuilder();
+            for (int k = 0; k < axes.Count && k < mv.External.Length; k++) sb.Append(",").Append(axes[k].Name).Append(" ").Append(N(mv.External[k], 3));
+            return sb.ToString();
+        }
 
         private static string XyzAbc(double[] v) => $"X {N(v[0], 3)},Y {N(v[1], 3)},Z {N(v[2], 3)},A {N(v[3], 4)},B {N(v[4], 4)},C {N(v[5], 4)}";
 
@@ -458,6 +543,20 @@ namespace LARGERslicer.Toolpaths
             var pr = PathEngine.Process(tp, false);
             var arm = cell.Arm;
             Frame baseInv = cell.WorkBase.Inverse(), robotInv = arm.Base.Inverse();
+            // external axes: rail and turntable values for every move, chosen before the arm
+            var axesExt = cell.HasExternalAxes ? cell.ExternalAxes : null;
+            if (axesExt != null) r.External = ExternalAxisSolver.Solve(tp, cell, pr.Speed);
+            var table = axesExt?.FirstOrDefault(a => !a.IsRail);
+            bool coupled = table != null && table.Coupled;
+            Func<int, double, double[]> extAt = (i, u) =>
+            {
+                if (r.External == null) return null;
+                var b = r.External.Values[i];
+                if (u >= 1 || i == 0) return (double[])b.Clone();
+                var a = r.External.Values[i - 1]; var q = new double[b.Length];
+                for (int e = 0; e < b.Length; e++) q[e] = a[e] + (b[e] - a[e]) * u;
+                return q;
+            };
             // the flange of the model looks the other way round than the flange the tool is measured from
             Frame tcpInv = Frame.World.TurnedAboutZ(Math.PI).Times(cell.Tool.Tcp).Inverse();
             for (int i = 0; i < 6; i++) { r.AxisMin[i] = double.MaxValue; r.AxisMax[i] = double.MinValue; }
@@ -508,10 +607,16 @@ namespace LARGERslicer.Toolpaths
 
             for (int i = 0; i < tp.Count; i++)
             {
-                Frame world = Target(tp.Points[i], tp.Normals[i], turnDeg);
-                Frame inBase = baseInv.Times(world);
+                // with a turntable the point is where the table has turned it, the tool axis turned
+                // along (so it keeps its angle to the part) but its X axis taken from the room, so
+                // axis 6 does not wind up with every turn of the table
+                var ext = extAt(i, 1);
+                Frame part = cell.PartAt(ext);
+                Frame world = Target(part.Pt(tp.Points[i]), part.Dir(tp.Normals[i]), turnDeg);
+                // coupled: counted in the work base turning with the table; else in the fixed one
+                Frame inBase = coupled ? part.Times(cell.WorkBase).Inverse().Times(world) : baseInv.Times(world);
                 var abc = inBase.Abc();
-                var mv = new RobotMove { Target = inBase, Xyzabc = new[] { inBase.O.X, inBase.O.Y, inBase.O.Z, abc[0], abc[1], abc[2] } };
+                var mv = new RobotMove { Target = inBase, Xyzabc = new[] { inBase.O.X, inBase.O.Y, inBase.O.Z, abc[0], abc[1], abc[2] }, External = ext, Part = part, RobotBase = cell.RobotBaseAt(ext) };
 
                 if (checkAxes)
                 {
@@ -524,12 +629,15 @@ namespace LARGERslicer.Toolpaths
                         {
                             double u = st / (steps + 1.0);
                             Vector3d nrm = tp.Normals[i - 1] * (1 - u) + tp.Normals[i] * u;
-                            var q = solve(Target(tp.Points[i - 1] + (tp.Points[i] - tp.Points[i - 1]) * u, nrm, turnDeg));
+                            var eu = extAt(i, u); var partU = cell.PartAt(eu);
+                            robotInv = cell.RobotBaseAt(eu).Inverse();
+                            var q = solve(Target(partU.Pt(tp.Points[i - 1] + (tp.Points[i] - tp.Points[i - 1]) * u), partU.Dir(nrm), turnDeg));
                             string why = !solvedReach ? "out of reach" : solvedWound ? "axis 4 or 6 would wind past its range" : !solvedLimits ? "outside an axis range" : (prevCfg >= 0 && solvedCfg != prevCfg) ? "the arm would have to change its configuration" : solvedSing ? "wrist singularity" : null;
                             if (why != null) { r.BetweenProblems++; if (firstBetween < 0) { firstBetween = i; firstBetweenWhy = why; } }
                             if (solvedReach) { prev = q; prevCfg = solvedCfg; }
                         }
                     }
+                    robotInv = mv.RobotBase.Inverse();
                     var best = solve(world);
                     mv.Axes = best; mv.Reachable = solvedReach; mv.InLimits = solvedLimits; mv.Singular = solvedSing;
                     if (!solvedReach) { r.OutOfReach++; if (firstBad < 0) { firstBad = i; firstBadWhy = "out of reach"; } }
@@ -549,6 +657,11 @@ namespace LARGERslicer.Toolpaths
 
             // ---- report
             r.Report.Add($"{tp.Count} moves for {arm}, tool {cell.Tool.Name}, counted from '{cell.BaseName}'.");
+            if (r.External != null)
+            {
+                r.Report.AddRange(r.External.Report);
+                r.Report.Add("Robot Path lines for the DXR Generator carry no external axis values: with a rail or turntable use the KRL program.");
+            }
             if (checkAxes)
             {
                 if (r.OutOfReach == 0 && r.OverLimit == 0)
@@ -612,7 +725,22 @@ namespace LARGERslicer.Toolpaths
             if (cell.Tool.Weight <= 0) k.Add("; no tool weight given: the controller keeps the load it has. Give the weight in Robot Tool.");
             else
                 k.Add("$LOAD = {M " + N(cell.Tool.Weight, 3) + ",CM {X " + N(cell.Tool.Centroid.X, 2) + ",Y " + N(cell.Tool.Centroid.Y, 2) + ",Z " + N(cell.Tool.Centroid.Z, 2) + ",A 0,B 0,C 0},J {X 0,Y 0,Z 0}}");
-            k.Add("$BASE = {" + XyzAbc(new[] { baseInRobot.O.X, baseInRobot.O.Y, baseInRobot.O.Z, bAbc[0], bAbc[1], bAbc[2] }) + "}   ; work base '" + cell.BaseName + "', counted from the robot's foot");
+            if (axesExt != null)
+            {
+                foreach (var ax in axesExt)
+                    k.Add("; " + ax + (ax.IsRail ? ": carries the robot ($ROBROOT kinematic), $WORLD = robot foot at " + ax.Name + " 0"
+                        : ax.Coupled ? ": coupled, the targets are counted in the base that turns with the table"
+                        : ": not coupled, the targets are counted in the fixed base, the table turns along"));
+            }
+            if (coupled)
+            {
+                // the work base as it sits on the table flange: the table frame at 0 is its Place
+                var onTable = table.Place.Inverse().Times(cell.WorkBase); var tAbc = onTable.Abc();
+                k.Add($"; turntable = MACHINE_DEF[{table.Machine}] on the controller: check the number there");
+                k.Add($"$BASE = EK(MACHINE_DEF[{table.Machine}].ROOT, MACHINE_DEF[{table.Machine}].MECH_TYPE, {{" + XyzAbc(new[] { onTable.O.X, onTable.O.Y, onTable.O.Z, tAbc[0], tAbc[1], tAbc[2] }) + "})   ; work base '" + cell.BaseName + "' on the turntable");
+            }
+            else
+                k.Add("$BASE = {" + XyzAbc(new[] { baseInRobot.O.X, baseInRobot.O.Y, baseInRobot.O.Z, bAbc[0], bAbc[1], bAbc[2] }) + "}   ; work base '" + cell.BaseName + "', counted from the robot's foot");
             k.Add("$APO.CDIS = 0.5");
             double lastSpeed = -1;
             for (int i = 0; i < r.Moves.Count; i++)
@@ -621,13 +749,13 @@ namespace LARGERslicer.Toolpaths
                 if (i == 0)
                 {
                     k.Add("; approach in axis mode, then follow the path");
-                    if (mv.Axes != null && mv.Reachable) k.Add("PTP {" + string.Join(",", mv.Axes.Select((v, ax) => $"A{ax + 1} {N(v, 4)}")) + "}");
-                    else k.Add("PTP {" + XyzAbc(mv.Xyzabc) + "}");
+                    if (mv.Axes != null && mv.Reachable) k.Add("PTP {" + string.Join(",", mv.Axes.Select((v, ax) => $"A{ax + 1} {N(v, 4)}")) + Ext(axesExt, mv) + "}");
+                    else k.Add("PTP {" + XyzAbc(mv.Xyzabc) + Ext(axesExt, mv) + "}");
                     continue;
                 }
                 double mps = Math.Max(1e-4, pr.Speed[i] / 60000.0); // mm/min -> m/s
                 if (Math.Abs(mps - lastSpeed) > 1e-9) { k.Add("$VEL.CP = " + N(mps, 5)); lastSpeed = mps; }
-                k.Add("LIN {" + XyzAbc(mv.Xyzabc) + "} C_DIS");
+                k.Add("LIN {" + XyzAbc(mv.Xyzabc) + Ext(axesExt, mv) + "} C_DIS");
             }
             k.Add("END");
             return r;
