@@ -28,87 +28,69 @@ namespace LARGERslicer.Components.Slicer
     /// Base for all slicer components. A freshly placed component brings its own drop-down
     /// lists and sliders, so nobody has to remember what "Mode 1" means.
     /// </summary>
-    public abstract class SlicerComponent : GH_Component
+    public abstract class SlicerComponent : GH_Component, LARGERslicer.Components.IOptionRows
     {
-        private bool _autoInputsDone;
+        /// <summary>Kept for Quick Start; settings are rows on the component now, nothing is placed beside it.</summary>
+        internal static bool SuppressAutoInputs;
 
         protected SlicerComponent(string name, string nick, string description)
             : base(name, nick, description, SlicerIO.Category, SlicerIO.SubCategory) { }
 
-        /// <summary>Override to add value lists, sliders or toggles when the component is first placed.</summary>
+        /// <summary>Override to declare the settings drawn on the component: AddValueList (a choice),
+        /// AddSlider (a number), AddToggle (on/off), AddButton (a button, e.g. Save).</summary>
         protected virtual void CreateAutoInputs(GH_Document doc) { }
 
-        public override void AddedToDocument(GH_Document document)
+        private List<LARGERslicer.Components.OptionRow> _rows;
+        public List<LARGERslicer.Components.OptionRow> Rows
         {
-            base.AddedToDocument(document);
-            if (_autoInputsDone) return;
-            _autoInputsDone = true;
-            foreach (var p in Params.Input) if (p.SourceCount > 0) return;
-            try
+            get
             {
-                Attributes.ExpireLayout();
-                Attributes.PerformLayout();
-                CreateAutoInputs(document);
+                if (_rows == null)
+                {
+                    _rows = new List<LARGERslicer.Components.OptionRow>();
+                    try { CreateAutoInputs(null); } catch { }
+                    _rows = _rows.OrderBy(r => r.Kind == LARGERslicer.Components.RowKind.Button ? 1 : 0).ThenBy(r => r.Input).ToList();
+                }
+                return _rows;
             }
-            catch { /* helpers are a convenience; never block placing the component */ }
         }
 
-        public override bool Read(GH_IO.Serialization.GH_IReader reader)
+        public override void CreateAttributes()
         {
-            _autoInputsDone = true; // loaded or pasted: keep what the file says
-            return base.Read(reader);
+            if (Rows.Count > 0) m_attributes = new LARGERslicer.Components.OptionAttributes(this);
+            else base.CreateAttributes();
         }
 
-        private System.Drawing.PointF Beside(int input, float dx)
-        {
-            return new System.Drawing.PointF(Attributes.Bounds.Left - dx, Params.Input[input].Attributes.Pivot.Y - 10f);
-        }
+        protected void AddValueList(GH_Document doc, int input, string name, params string[] items) => AddValueListAt(doc, input, name, 0, items);
 
-        protected void AddValueList(GH_Document doc, int input, string name, params string[] items)
-        {
-            AddValueListAt(doc, input, name, 0, items);
-        }
-
-        /// <summary>Value list whose item i has the value i; 'selected' is the item shown first.</summary>
+        /// <summary>A choice on the component: item i has the value i.</summary>
         protected void AddValueListAt(GH_Document doc, int input, string name, int selected, params string[] items)
         {
-            var list = new Grasshopper.Kernel.Special.GH_ValueList();
-            list.CreateAttributes();
-            list.NickName = name;
-            list.ListMode = Grasshopper.Kernel.Special.GH_ValueListMode.DropDown;
-            list.ListItems.Clear();
-            for (int i = 0; i < items.Length; i++)
-                list.ListItems.Add(new Grasshopper.Kernel.Special.GH_ValueListItem(items[i], i.ToString(System.Globalization.CultureInfo.InvariantCulture)));
-            list.SelectItem(Math.Max(0, Math.Min(items.Length - 1, selected)));
-            list.Attributes.Pivot = Beside(input, 190f);
-            doc.AddObject(list, false);
-            Params.Input[input].AddSource(list);
+            _rows?.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Choice, Label = name, Input = input, Items = items });
         }
 
+        private static readonly double[] Nice = { 0.2, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 25, 30, 40, 50, 60, 70, 80, 100, 120, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1200, 1500, 1800, 2000, 2400, 3000, 3600, 4000, 5000, 6000, 8000, 10000, 12000 };
+
+        /// <summary>A number on the component: a few round values to pick and a field to type one.</summary>
         protected void AddSlider(GH_Document doc, int input, string name, decimal min, decimal max, decimal value, int decimals)
         {
-            var slider = new Grasshopper.Kernel.Special.GH_NumberSlider();
-            slider.CreateAttributes();
-            slider.NickName = name;
-            slider.Slider.Minimum = min;
-            slider.Slider.Maximum = max;
-            slider.Slider.DecimalPlaces = decimals;
-            slider.Slider.Type = decimals == 0 ? Grasshopper.GUI.Base.GH_SliderAccuracy.Integer : Grasshopper.GUI.Base.GH_SliderAccuracy.Float;
-            slider.SetSliderValue(value);
-            slider.Attributes.Pivot = Beside(input, 260f);
-            doc.AddObject(slider, false);
-            Params.Input[input].AddSource(slider);
+            var inRange = Nice.Where(v => v >= (double)min - 1e-9 && v <= (double)max + 1e-9).ToList();
+            if (!inRange.Contains((double)value)) inRange.Add((double)value);
+            inRange.Sort();
+            while (inRange.Count > 12) { int drop = inRange.Count - 1; for (int k = inRange.Count - 2; k > 0; k -= 2) if (Math.Abs(inRange[k] - (double)value) > 1e-9) { drop = k; break; } inRange.RemoveAt(drop); }
+            _rows?.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Number, Label = name, Input = input, Presets = inRange.ToArray(), Decimals = decimals });
         }
 
+        /// <summary>An on/off switch on the component.</summary>
         protected void AddToggle(GH_Document doc, int input, string name, bool value)
         {
-            var toggle = new Grasshopper.Kernel.Special.GH_BooleanToggle();
-            toggle.CreateAttributes();
-            toggle.NickName = name;
-            toggle.Value = value;
-            toggle.Attributes.Pivot = Beside(input, 150f);
-            doc.AddObject(toggle, false);
-            Params.Input[input].AddSource(toggle);
+            _rows?.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Toggle, Label = name, Input = input });
+        }
+
+        /// <summary>A button on the component for a Save-like input: true for one solution, then false again.</summary>
+        protected void AddButton(GH_Document doc, int input, string label)
+        {
+            _rows?.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Button, Label = label, Input = input, Momentary = true });
         }
     }
 
@@ -152,6 +134,12 @@ namespace LARGERslicer.Components.Slicer
         private static Brep LeanDemo(Point3d c) => DemoParts.Lean(c);
 
         private void Build(GH_Document doc)
+        {
+            SlicerComponent.SuppressAutoInputs = true;
+            try { BuildRows(doc); } finally { SlicerComponent.SuppressAutoInputs = false; }
+        }
+
+        private void BuildRows(GH_Document doc)
         {
             float x0 = Attributes.Pivot.X + 260f, y0 = Attributes.Pivot.Y;
             Func<IGH_DocumentObject, float, float, IGH_DocumentObject> place = (obj, dx, dy) =>
@@ -199,12 +187,12 @@ namespace LARGERslicer.Components.Slicer
                 "2  Set Bead Width and Layer Height in the Settings group. Everything else follows from them.\n" +
                 "3  Read Path Check. OK = the path can be printed. If not, it says what to change.\n" +
                 "4  Take the file for your machine:\n" +
-                "     Output A - Ginger One: set Save on 'Ginger G-code'. The file lands on the Desktop.\n" +
-                "     Output B - robot with Weber DXR: put your tool and the place of robot and bed into the robot cell, read the Report of 'Robot Program', then save the DXR.\n" +
-                "   Watch the robot first: move the slider 'Simulation' in output B, or double-click 'Play'. The robot, its extruder and the cell stand in the Rhino viewport.\n" +
+                "     Output A - Ginger One: click 'Save G-code' on 'Ginger G-code'. The file lands on the Desktop.\n" +
+                "     Output B - robot with Weber DXR: put your tool and the place of robot and bed into the robot cell, read the Report of 'Robot Program', then click 'Save DXR' on the DXR Generator.\n" +
+                "   Watch the robot first: move the slider 'Simulation' in output B, or click 'Play' on 'Robot Simulation'. The robot, its extruder and the cell stand in the Rhino viewport.\n" +
                 "5  Before the big print: Output C, 'Desktop Test Print', writes the same path small for a desktop printer.\n\n" +
                 "File names are made for you: GIN or DXR, date and time, the part name, weight and print time, e.g. DXR_2611051216_Test Object_2668g_53min.dxr. Type your part name into the yellow panel 'Part name'.\n" +
-                "Brim: choose a side at 'Brim' of 'Start and End'. Seam: 'Seam Gap' of 'Continuous Path' (0 = one bead width).\n" +
+                "Settings sit on the components themselves: click a row such as 'Brim: None' or 'Mode: Layered' to choose, a number to pick or type a value. A wire into the same input wins.\nSeam: 'Seam Gap' of 'Continuous Path' (0 = one bead width).\n" +
                 "Another machine: 'Machine' and 'Machine G-code' on the Slicer tab; your own machines live as .machine files in Documents/LARGER/Machines.\n" +
                 "Other infill: delete 'Infill Ribs' and put Infill Wave, Cells, Chambers or Sketch in its place.\n" +
                 "Curved layers: examples 2 and 3. A part with openings: example 4. Overhangs and roofs: example 5.\n" +
@@ -300,8 +288,8 @@ namespace LARGERslicer.Components.Slicer
             desktop.Params.Input[0].AddSource(lead.Params.Output[0]);
             all.AddRange(new[] { ginger, robot, tool, cellC, program, desktop });
             hide.Add(tool); hide.Add(desktop);
-            group("OUTPUT C  -  DESKTOP TEST PRINT  (choose your printer, set Save)", System.Drawing.Color.FromArgb(70, 150, 110, 200), new IGH_DocumentObject[] { desktop });
-            group("OUTPUT A  -  GINGER ONE G-CODE  (set Save)", System.Drawing.Color.FromArgb(70, 232, 135, 12), new IGH_DocumentObject[] { ginger });
+            group("OUTPUT C  -  DESKTOP TEST PRINT  (choose your printer, click Save G-code)", System.Drawing.Color.FromArgb(70, 150, 110, 200), new IGH_DocumentObject[] { desktop });
+            group("OUTPUT A  -  GINGER ONE G-CODE  (click Save G-code)", System.Drawing.Color.FromArgb(70, 232, 135, 12), new IGH_DocumentObject[] { ginger });
             group("OUTPUT B  -  ROBOT CELL, ROBOT PROGRAM AND DXR GENERATOR  (the cell of the FH Muenster: robot, AE20 extruder, fence; move Pose to watch the robot)", System.Drawing.Color.FromArgb(70, 210, 63, 69), new IGH_DocumentObject[] { cellGeo, robot, tool, cellC, program, dxrMachine, dxr });
             // the demo is set up for the Ginger: its E values need the Ginger factor
             var presetList = machine.Params.Input[0].Sources.OfType<Grasshopper.Kernel.Special.GH_ValueList>().FirstOrDefault();
@@ -344,7 +332,7 @@ namespace LARGERslicer.Components.Slicer
             hide.Add(part2);
             group("PART, GUIDE SURFACE AND SLICER", System.Drawing.Color.FromArgb(70, 255, 149, 0), row2.ToArray());
 
-            float y3 = y2 + 440;
+            float y3 = y2 + 520;
             section("03. MULTI-AXIS LAYERS", "The layers stand square to a guide curve, for parts that grow along a bent axis (robot with tilting tool). Draw the axis of your part as the guide curve.", y3);
             Brep maPart; Curve maGuide; MultiAxisDemo(new Point3d(445, 700, 0), out maPart, out maGuide);
             var part3 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y3 - 20);
@@ -371,17 +359,23 @@ namespace LARGERslicer.Components.Slicer
                 slider3.NickName = "Simulation (0 = start, 1 = end)";
                 slider3.Slider.Minimum = 0; slider3.Slider.Maximum = 1; slider3.Slider.DecimalPlaces = 3;
                 slider3.SetSliderValue(0.9m);
-                slider3.Attributes.Pivot = new System.Drawing.PointF(x0 + 1960, y0 + y3 + 20);
+                slider3.Attributes.Pivot = new System.Drawing.PointF(x0 + 1800, y0 + y3 + 20);
                 doc.AddObject(slider3, false);
                 simulate3.Params.Input[1].AddSource(slider3);
-                var play3 = new Grasshopper.Kernel.Special.GH_BooleanToggle { NickName = "Play" };
-                play3.CreateAttributes();
-                play3.Value = false;
-                play3.Attributes.Pivot = new System.Drawing.PointF(x0 + 2080, y0 + y3 + 60);
-                doc.AddObject(play3, false);
-                if (simulate3.Params.Input.Count > 2) simulate3.Params.Input[2].AddSource(play3);
+                // Play is a button on Robot Simulation itself
+                // slider and Play under the simulation, left-aligned with it, so nothing covers Robot Program
+                simulate3.Attributes.ExpireLayout(); simulate3.Attributes.PerformLayout();
+                float under = simulate3.Attributes.Bounds.Bottom + 12;
+                foreach (var h in new IGH_DocumentObject[] { slider3 })
+                {
+                    h.Attributes.ExpireLayout(); h.Attributes.PerformLayout();
+                    var hb = h.Attributes.Bounds;
+                    h.Attributes.Pivot = new System.Drawing.PointF(h.Attributes.Pivot.X + (simulate3.Attributes.Bounds.Left - hb.Left), h.Attributes.Pivot.Y + (under - hb.Top));
+                    h.Attributes.ExpireLayout(); h.Attributes.PerformLayout();
+                    under = h.Attributes.Bounds.Bottom + 6;
+                }
                 all.Add(program3); all.Add(simulate3);
-                group("ROBOT SIMULATION OF THE MULTI-AXIS PRINT  -  the tool leans with the layers: move the slider or double-click Play. Read the Report of Robot Program for reach and collisions", System.Drawing.Color.FromArgb(70, 240, 110, 20), new IGH_DocumentObject[] { program3, simulate3, slider3, play3 });
+                group("ROBOT SIMULATION OF THE MULTI-AXIS PRINT  -  the tool leans with the layers: move the slider or click Play on the component. Read the Report of Robot Program for reach and collisions", System.Drawing.Color.FromArgb(70, 240, 110, 20), new IGH_DocumentObject[] { program3, simulate3, slider3 });
             }
 
             // ---- 4 part with an opening and 5 angled layers: part -> slice -> walls (-> infill) -> path -> round -> start/end -> check
@@ -411,7 +405,7 @@ namespace LARGERslicer.Components.Slicer
                 return members.Cast<IGH_DocumentObject>().ToArray();
             };
 
-            float y4 = y3 + 440;
+            float y4 = y3 + 520;
             section("04. PART WITH AN OPENING", "Infill Wave joins the wall of the opening and the outer wall into one line, so no move inside the part runs without extrusion. Wavelength 60 mm here; try Shape 1 (Truss) or 2 (Meander).", y4);
             var part4 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y4);
             part4.NickName = "Part";
@@ -426,7 +420,7 @@ namespace LARGERslicer.Components.Slicer
             hide.Add(part4);
             group("PART AND SLICER WITH WAVE INFILL", System.Drawing.Color.FromArgb(70, 48, 176, 199), row4.ToArray());
 
-            float y5 = y4 + 440;
+            float y5 = y4 + 520;
             section("05. ANGLED LAYERS", "Slice with Angle 45: this block leans 55 degrees, more than a bead can overhang in flat layers. With leaning layers every bead rests on the one below. Needs a robot or a tilted bed.", y5);
             var part5 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y5);
             part5.NickName = "Part";
@@ -460,14 +454,9 @@ namespace LARGERslicer.Components.Slicer
             simSlider.Attributes.Pivot = new System.Drawing.PointF(x0 + 2640, y0 + y1 + 590);
             doc.AddObject(simSlider, false);
             simulate.Params.Input[1].AddSource(simSlider);
-            var playToggle = new Grasshopper.Kernel.Special.GH_BooleanToggle { NickName = "Play" };
-            playToggle.CreateAttributes();
-            playToggle.Value = false;
-            playToggle.Attributes.Pivot = new System.Drawing.PointF(x0 + 2760, y0 + y1 + 630);
-            doc.AddObject(playToggle, false);
-            if (simulate.Params.Input.Count > 2) simulate.Params.Input[2].AddSource(playToggle);
+            // Play is a button on Robot Simulation itself
             all.Add(simulate);
-            group("ROBOT SIMULATION  -  move the slider, or double-click Play: the robot runs the print in the Rhino viewport", System.Drawing.Color.FromArgb(70, 240, 110, 20), new IGH_DocumentObject[] { simulate, simSlider, playToggle });
+            group("ROBOT SIMULATION  -  move the slider, or click Play on the component: the robot runs the print in the Rhino viewport", System.Drawing.Color.FromArgb(70, 240, 110, 20), new IGH_DocumentObject[] { simulate, simSlider });
             group("PART NAME  -  goes into every file name", System.Drawing.Color.FromArgb(70, 120, 130, 145), new IGH_DocumentObject[] { jobName });
 
             // the bed checks all five paths; its wires only show when it is selected
@@ -650,6 +639,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
+            AddSlider(doc, 13, "First Layer", 0, 10, 0, 1);
             AddSlider(doc, 0, "Bead Width", 1m, 40m, 5m, 1);
             AddSlider(doc, 1, "Layer Height", 0.5m, 20m, 2m, 1);
             AddSlider(doc, 2, "Speed", 300m, 12000m, 3000m, 0);
@@ -837,6 +827,8 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
+            AddSlider(doc, 3, "Angle", 0, 60, 0, 0);
+            AddSlider(doc, 7, "Start/End Layers", 0, 10, 0, 0);
             AddValueList(doc, 5, "Guide Mode", "Flat bottom, top follows guide", "All layers follow guide");
             AddValueList(doc, 6, "Tool Axis", "Square to the layer (robot)", "Stays vertical (3-axis)");
         }
@@ -956,6 +948,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
+            AddSlider(doc, 2, "Walls", 1, 4, 1, 0);
             AddValueList(doc, 3, "Position", "Inside the geometry", "Centred on the geometry", "Outside the geometry");
         }
 
@@ -1338,6 +1331,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
+            AddSlider(doc, 2, "Bottom Layers", 0, 10, 0, 0);
             AddValueList(doc, 3, "Pattern", "Auto", "Zigzag", "Contour (follows the wall)");
         }
 
@@ -1403,6 +1397,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
+            AddToggle(doc, 5, "Bridge", true);
             AddValueListAt(doc, 2, "Mode", 1, "Spiral (vase, single wall only)", "Layered (flat layers)");
         }
 
@@ -1525,6 +1520,8 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
+            AddSlider(doc, 1, "Skirt Loops", 0, 5, 1, 0);
+            AddSlider(doc, 8, "Brim Loops", 1, 6, 3, 0);
             AddValueList(doc, 7, "Brim", "None", "Outside", "Inside", "Both sides");
         }
 
@@ -1782,6 +1779,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
+            AddButton(doc, 10, "Save G-code");
             AddValueList(doc, 1, "Printer", DesktopPrinter.Presets.Select(x => x.Name).ToArray());
         }
 
@@ -1853,6 +1851,11 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
+            AddSlider(doc, 3, "Speed", 300m, 12000m, 3000m, 0);
+            AddSlider(doc, 5, "Walls", 1, 4, 1, 0);
+            AddSlider(doc, 6, "Bottom Layers", 0, 10, 0, 0);
+            AddToggle(doc, 9, "Spiral", false);
+            AddSlider(doc, 11, "First Layer", 0, 10, 0, 1);
             AddSlider(doc, 1, "Bead Width", 2, 20, 5, 1);
             AddSlider(doc, 2, "Layer Height", 0.5m, 10, 2, 1);
             AddValueList(doc, 4, "Machine Profile", MachineProfile.PresetNames);
@@ -1931,6 +1934,11 @@ namespace LARGERslicer.Components.Slicer
             p[1].Optional = true;
         }
 
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddButton(doc, 2, "Save G-code");
+        }
+
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
             p.AddTextParameter("G-code", "G", "G-code lines", GH_ParamAccess.list);
@@ -1985,6 +1993,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
+            AddButton(doc, 8, "Save machine");
             AddValueList(doc, 0, "Machine", MachineDefinition.All().Select(m => m.Name).ToArray());
         }
 
@@ -2086,6 +2095,11 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("File", "File", "Optional. File or folder. Empty = the Desktop, with a name made of the machine's letters, date and time, the Name, weight and print time", GH_ParamAccess.item);
             p.AddBooleanParameter("Save", "Save", "True = write the file (to the Desktop if File is empty)", GH_ParamAccess.item, false);
             p[1].Optional = true; p[3].Optional = true;
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddButton(doc, 4, "Save G-code");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)

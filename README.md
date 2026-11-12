@@ -52,6 +52,8 @@ Every drawing is a real layer from the slicer (part 300 × 190 mm, bead 5 mm). S
 
 New here? `Easy Slicer` is one component from the model to the checked print path; the [first-steps page](https://parametricsolutions.de/larger-slicer/erste-schritte/) walks through it. For every option, components connect in this order; `Quick Start` places the whole chain with example parts.
 
+Settings sit on the components themselves: the rows under a component are choices, numbers, switches and buttons (`Save G-code`, `Play`). Click a row to change it; a wire into the same input still wins.
+
 | Step | Component | What it does |
 |---|---|---|
 | 1 | `Machine Profile` | How your printer wants its extrusion values: volume, filament length, or a factor for the controller |
@@ -186,7 +188,7 @@ Password-protected clusters: right-click the component and enter **Supersizedpri
 <summary><b>Part 1: 3D Print Path Maker</b></summary>
 
 1. **Input geometry:** right-click **Set One Surface** → pick your surface.
-2. **Skirt / Brim:** switch on or off with the True/False toggles.
+2. **Skirt / Brim:** set them in the rows under `Start and End` (click a row for its choices).
 3. **Parameters:**
    - **Corner Fillet Radius (mm)** – rounds off corners
    - **Min/Max Extrusion Width (mm)** – standard and adaptive widths

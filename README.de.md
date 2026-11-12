@@ -161,7 +161,7 @@ Passwortgeschützte Cluster: Rechtsklick auf die Komponente und **Supersizedprin
 <summary><b>Teil 1: 3D Print Path Maker</b></summary>
 
 1. **Eingangsgeometrie:** Rechtsklick auf **Set One Surface** → Fläche auswählen.
-2. **Skirt / Brim:** mit den True/False-Schaltern ein- oder ausschalten.
+2. **Skirt / Brim:** in den Zeilen unter `Start and End` einstellen (Klick auf die Zeile zeigt die Auswahl).
 3. **Parameter:**
    - **Corner Fillet Radius (mm)** – rundet Ecken ab
    - **Min/Max Extrusion Width (mm)** – Standard- und adaptive Breite

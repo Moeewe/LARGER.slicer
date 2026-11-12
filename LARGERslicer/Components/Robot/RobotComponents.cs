@@ -11,9 +11,27 @@ using Rhino.Geometry;
 namespace LARGERslicer.Components.Robot
 {
     /// <summary>Base of the Robot section: the cell (robot, tool, bed) and the program for it.</summary>
-    public abstract class RobotComponent : GH_Component
+    public abstract class RobotComponent : GH_Component, LARGERslicer.Components.IOptionRows
     {
         protected RobotComponent(string name, string nick, string description) : base(name, nick, description, "LARGER", "Robot") { }
+
+        /// <summary>Settings and buttons drawn on the component (see OptionRows).</summary>
+        protected virtual void Options(List<LARGERslicer.Components.OptionRow> rows) { }
+
+        private List<LARGERslicer.Components.OptionRow> _rows;
+        public List<LARGERslicer.Components.OptionRow> Rows
+        {
+            get { if (_rows == null) { _rows = new List<LARGERslicer.Components.OptionRow>(); try { Options(_rows); } catch { } } return _rows; }
+        }
+
+        public override void CreateAttributes()
+        {
+            if (Rows.Count > 0) m_attributes = new LARGERslicer.Components.OptionAttributes(this);
+            else base.CreateAttributes();
+        }
+
+        protected static LARGERslicer.Components.OptionRow Toggle(int input, string label, string on = null, string off = null) => new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Toggle, Input = input, Label = label, On = on, Off = off };
+        protected static LARGERslicer.Components.OptionRow Button(int input, string label) => new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Button, Input = input, Label = label, Momentary = true };
     }
 
     // ============================================================== robot
@@ -198,6 +216,12 @@ namespace LARGERslicer.Components.Robot
             p[1].Optional = true; p[6].Optional = true; p[8].Optional = true;
         }
 
+        protected override void Options(List<LARGERslicer.Components.OptionRow> rows)
+        {
+            rows.Add(Toggle(4, "Check reach"));
+            rows.Add(Button(7, "Save KRL"));
+        }
+
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
             p.AddTextParameter("Robot Path", "Path", "One PTP line per path point with X, Y, Z, A, B, C: connect to Robot Path of the DXR Generator", GH_ParamAccess.list);
@@ -327,6 +351,11 @@ namespace LARGERslicer.Components.Robot
         private DateTime _playSince;
         private double _playFrom;
 
+        protected override void Options(List<LARGERslicer.Components.OptionRow> rows)
+        {
+            rows.Add(Toggle(2, "Play", "\u25A0  Stop", "\u25B6  Play"));
+        }
+
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
             p.AddMeshParameter("Robot", "Rob", "The robot with its tool at that moment: base, six links, tool", GH_ParamAccess.list);
@@ -420,6 +449,14 @@ namespace LARGERslicer.Components.Robot
             p[3].Optional = true;
         }
 
+
+        protected override void Options(List<LARGERslicer.Components.OptionRow> rows)
+        {
+            rows.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Choice, Input = 2, Label = "Cell", Items = CellLibrary.Names() });
+            rows.Add(Toggle(0, "Walls"));
+            rows.Add(Toggle(1, "Fence"));
+            rows.Add(Button(4, "Export cell"));
+        }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {

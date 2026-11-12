@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (settings and buttons on the components)
+- Grasshopper 1: settings that used to need a value list, a slider or a True/False toggle in front of a component are now rows on the component itself, under its inputs and outputs: a choice (click: menu), a number (click: quick picks or type a value, Enter), an on/off switch and buttons. `Save G-code`, `Save KRL`, `Save DXR`, `Save machine` and `Export cell` write the file once per click and switch back by themselves; `Robot Simulation` has a `Play` / `Stop` row. Rows on Slice (Angle, Guide Mode, Tool Axis, Start/End Layers), Walls, Bottom Fill, Infill, Continuous Path (Mode, Bridge), Start and End (Skirt, Brim), Print Settings, Easy Slicer, Machine, Cell Geometry, Robot Program and the output components. The value goes into the input as if typed into it, so the file keeps it and a wire into the input still wins (the row then says "connected"). Quick Start places no value lists or toggles any more: 87 objects, no overlaps, all Path Checks OK.
+
 ### Added (start and end feature)
 - `Slice` (Grasshopper 1 and 2): input `Start/End Layers` adds sacrificial layers before the part's first and after its last layer, as the CEAD sheet for 45-degree printing recommends (about 5, milled away afterwards). With leaning layers each start layer is a band in front of the edge where the layers begin plus the first layer moved back and filled down to the bed, so the feature stands on the bed and the part's first layer lies on a full layer; the end layers are copies of the last one. Built layer by layer, without joining solids. Tested at 45 degrees on a box, the leaning demo block and a profile cut parallel to the layers: one line, check OK, every bead supported.
 

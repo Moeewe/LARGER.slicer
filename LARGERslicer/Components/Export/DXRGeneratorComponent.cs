@@ -12,7 +12,7 @@ namespace LARGERslicer.Components.Export
     /// DXR Generator - Converts robot path, extrusion, and speed data to DXR format.
     /// Use this component when you have individual path/extrusion/speed inputs.
     /// </summary>
-    public class DXRGeneratorComponent : GH_Component
+    public class DXRGeneratorComponent : GH_Component, LARGERslicer.Components.IOptionRows
     {
         public DXRGeneratorComponent()
           : base("DXR Generator", "DXR Gen",
@@ -20,6 +20,10 @@ namespace LARGERslicer.Components.Export
               "", "")
         {
         }
+
+        private List<LARGERslicer.Components.OptionRow> _rows;
+        public List<LARGERslicer.Components.OptionRow> Rows => _rows ?? (_rows = new List<LARGERslicer.Components.OptionRow> { new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Button, Input = 5, Label = "Save DXR", Momentary = true } });
+        public override void CreateAttributes() { m_attributes = new LARGERslicer.Components.OptionAttributes(this); }
 
         public override string Category => "LARGER";
         public override string SubCategory => "DXR";
