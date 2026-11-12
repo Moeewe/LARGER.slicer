@@ -710,10 +710,14 @@ namespace LARGERslicer.Toolpaths
                             }
                         }
                         var cur = new Loop(StartAt(pts, target), true);
+// the ramp, the closing pass and the move to the next contour run along the plain
+                        // wall, never inside a rib or support fin (the move would cut through its legs)
+                        double maxRamp = double.MaxValue;
+                        if (!usedHint && rampLength > 0) cur = OffExcursions(cur, layer, firstOfLayer, rampLength, tp.Settings.BeadSpacing, w, out maxRamp);
                         curStarts.Add(cur.P[0]);
 
                         bool ramp = firstOfLayer && !usedHint && !hasFill && rampLength > 0 && tp.Count > 0 && i > 0;
-                        double lr = ramp ? Math.Min(rampLength, cur.Len * 0.5) : 0;
+                        double lr = ramp ? Math.Min(Math.Min(rampLength, maxRamp), cur.Len * 0.5) : 0;
                         // does this ramp lie on the ramp of the layer below?
                         bool stacked = ramp && belowRamped && rampStart.IsValid && (rampStart + n * h).DistanceTo(cur.P[0]) < w;
                         double closeOver = 0;
@@ -795,6 +799,83 @@ namespace LARGERslicer.Toolpaths
                     firstOfLayer = false;
                 }
             }
+        }
+
+        /// <summary>
+        /// Keeps the seam off ribs and support fins spliced into a closed loop: the ramp, the closing
+        /// pass over it and the move to the next contour must run along the plain wall, or the move
+        /// would cut through the legs. The start slides by up to two bead widths to where the wall is
+        /// plain for two bead widths behind it, and the ramp ends two bead widths before the next
+        /// excursion (maxRamp). Only where there is no such place does the start move past the excursion.
+        /// A later contour of the layer (no ramp, reached by a short move from the contour before)
+        /// that would start just before an excursion starts two bead widths before it, so the turn
+        /// from the move onto the wall and the turn into the excursion do not run into each other.
+        /// </summary>
+        private static Loop OffExcursions(Loop cur, SliceLayer layer, bool ramped, double ramp, double spacing, double w, out double maxRamp)
+        {
+            maxRamp = double.MaxValue;
+            if (layer.Reference == null || layer.Reference.Count == 0 || cur.Len < 2 * ramp + 8 * w) return cur;
+            var refs = new List<Loop>();
+            foreach (var r in layer.Reference)
+            {
+                var pts = Clean(r, 1e-6, out bool closed);
+                if (pts.Count >= 2) refs.Add(new Loop(pts, closed));
+            }
+            double limit = 0.55 * spacing + 0.5;
+            Func<double, bool> away = s =>
+            {
+                Point3d p = cur.PointAt(s);
+                foreach (var lp in refs) { int hint = -1; if (lp.Closest(p, ref hint, int.MaxValue).DistanceTo(p) <= limit) return false; }
+                return true;
+            };
+            double start = 0, step = Math.Max(0.5, 0.25 * w);
+            if (!ramped)
+            {
+                // only an excursion just ahead matters: start two bead widths before it leaves the wall
+                // (further back the move from the contour before gets too long to print)
+                double back = 2 * w;
+                double found = double.NaN;
+                for (double s = 0; s <= back; s += step)
+                    if (away(s)) { found = s; break; }
+                if (double.IsNaN(found) || away(0)) return cur;
+                double leave = found;
+                while (leave > 0 && away(leave - step)) leave -= step;
+                return new Loop(StartAt(cur.P, cur.PointAt(leave - back)), true);
+            }
+            // The seam may slide by up to two bead widths (the move from the layer below stays short
+            // enough to print). Pick the place that leaves the longest ramp before the next excursion.
+            double gapBehind = 2 * w, gapAhead = 2 * w, window = 2 * w;
+            double bestScore = double.MinValue, bestShift = double.NaN, bestRamp = 0;
+            for (int k = 0; k <= (int)(2 * window / step); k++)
+            {
+                double d = ((k & 1) == 0 ? 1 : -1) * Math.Ceiling(k / 2.0) * step;
+                bool blocked = false;
+                for (double s = d - gapBehind; s <= d + gapAhead && !blocked; s += step) blocked = away(s);
+                if (blocked) continue;
+                double room = ramp;
+                for (double s = d + gapAhead; s <= d + ramp + gapAhead; s += step)
+                    if (away(s)) { room = s - d - gapAhead; break; }
+                double score = room - 0.5 * Math.Abs(d);
+                if (score > bestScore + 1e-9) { bestScore = score; bestShift = d; bestRamp = room; }
+                if (k == 0 && room >= ramp) return cur; // nothing near the seam
+            }
+            if (!double.IsNaN(bestShift))
+            {
+                start = bestShift;
+                if (bestRamp < ramp) maxRamp = Math.Max(0, bestRamp);
+            }
+            else
+            {
+                // no room next to the seam: go past the excursion
+                double first = double.NaN;
+                for (double s = -gapBehind; s <= gapAhead; s += step)
+                    if (away(s)) { first = s; break; }
+                if (double.IsNaN(first)) return cur;
+                double end = first;
+                while (end < first + cur.Len && away(end + step)) end += step;
+                start = end + gapAhead;
+            }
+            return Math.Abs(start) < 1e-9 ? cur : new Loop(StartAt(cur.P, cur.PointAt(start)), true);
         }
 
         // ------------------------------------------------------------------ rounding
