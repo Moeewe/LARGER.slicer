@@ -110,7 +110,11 @@ namespace LARGERslicer.Toolpaths
                 if (d < min) min = d;
                 if (d > max) max = d;
             }
-            int count = (int)Math.Ceiling((max - min) / layerHeight - 1e-6);
+            // as many layers as fit best: a part of 58.2 mm in 2 mm layers gets 29 (58 mm high),
+            // not 30 (60 mm, more than a layer above its top); 200 mm gets all 100. Only a part lower
+            // than half a layer gets none.
+            int count = (int)Math.Round((max - min) / layerHeight, MidpointRounding.AwayFromZero);
+            if (count < 1 && max - min > 0.5 * layerHeight) count = 1;
             if (count < 1) return layers;
 
             // cut levels: middle of each layer, but never above the model

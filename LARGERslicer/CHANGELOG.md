@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Robot Simulation` and `Cell Geometry` in Grasshopper 2; `Robot` shows the arm in 3D, `Robot Program` checks collisions (with the environment of `Robot Cell` and the part already printed) and gives the robot at the chosen pose. `Continuous Path` has a `Seam` input. Quick Start uses the cell of the FH Muenster and plays the program with a slider.
 
 ### Fixed (stability)
+- `Slice`: the number of layers is rounded to the nearest whole layer. Before it was rounded up, so a part of 58.2 mm in 2 mm layers was printed 60 mm high, almost a full layer above its top. Found by slicing two parts with the FH Muenster definition and with LARGER.slicer side by side (that definition rounds down and leaves out the top layer of a 200 mm part).
 - Rhino could crash when Grasshopper 2 solved several definitions at once: its mesher was called on the same part from two threads. Meshing is now done one call at a time, on a copy.
 - `Robot Simulation`: where an axis cannot turn fast enough, the time of the move follows the slowest axis.
 
