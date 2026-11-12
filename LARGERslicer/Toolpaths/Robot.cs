@@ -308,6 +308,8 @@ namespace LARGERslicer.Toolpaths
         /// <summary>The frame the program counts from ($BASE), in world coordinates. Usually a corner of the print bed.</summary>
         public Frame WorkBase = Frame.World;
         public string BaseName = "Bed";
+        /// <summary>What stands around the robot, for the collision check. Null = nothing given.</summary>
+        public List<Mesh> Environment;
         public override string ToString() => $"{Arm}, tool {Tool.Name}";
     }
 

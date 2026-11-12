@@ -146,7 +146,8 @@ namespace LARGERslicer.Components.Robot
             p.AddGenericParameter("Tool", "T", "Robot Tool. Empty = tip on the flange", GH_ParamAccess.item);
             p.AddPlaneParameter("Work Base", "WB", "The frame the program counts from, in the Rhino model", GH_ParamAccess.item, Plane.WorldXY);
             p.AddTextParameter("Base Name", "N", "Name of the work base, for the report", GH_ParamAccess.item, "Bed");
-            p[0].Optional = true; p[1].Optional = true;
+            p.AddMeshParameter("Environment", "Env", "Optional. What stands around the robot (floor, fence, walls, pedestal), as meshes: Robot Program checks the tool, wrist and forearm against them. Cell Geometry gives the cell of the FH Muenster", GH_ParamAccess.list);
+            p[0].Optional = true; p[1].Optional = true; p[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -163,6 +164,7 @@ namespace LARGERslicer.Components.Robot
             da.GetData(2, ref wb); da.GetData(3, ref name);
             if (!wb.IsValid) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The work base plane is not valid."); return; }
             var cell = new RobotCell { Arm = arm, Tool = tool, WorkBase = Frame.FromPlane(wb), BaseName = string.IsNullOrWhiteSpace(name) ? "Bed" : name.Trim() };
+            if (Params.Input.Count > 4) { var env = new List<Mesh>(); if (da.GetDataList(4, env)) cell.Environment = env.Where(m => m != null && m.IsValid).ToList(); }
             double away = cell.WorkBase.O.DistanceTo(arm.Base.O);
             if (away > arm.Reach) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The work base is {away:0} mm from the robot; its reach is {arm.Reach:0} mm.");
             da.SetData(0, new GH_ObjectWrapper(cell));
@@ -209,7 +211,28 @@ namespace LARGERslicer.Components.Robot
             p.AddCurveParameter("Arm", "Arm", "The arm at the chosen Pose, as a line through its joints", GH_ParamAccess.item);
             p.AddMeshParameter("Robot", "Rob", "The robot with its tool at the chosen Pose, as a 3D model: move the Pose slider to watch it run the path", GH_ParamAccess.list);
             p.AddPointParameter("Collisions", "Hit", "Path points at which the robot collides with itself or the Environment", GH_ParamAccess.list);
+            p.HideParameter(9); // the component draws the robot itself, in its colours
             p.AddTextParameter("File Name", "Fn", "A name for the DXR file, made of DXR, date and time, the Name, weight and print time (DXR_2611051216_Test Object_2668g_53min): connect to File of the DXR Generator", GH_ParamAccess.item);
+        }
+
+        // The robot at the chosen pose, drawn in its own colours: base dark, arm KUKA orange, tool steel blue.
+        private readonly List<Mesh> _robot = new List<Mesh>();
+        private static readonly Rhino.Display.DisplayMaterial BaseMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(60, 60, 64));
+        private static readonly Rhino.Display.DisplayMaterial ArmMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(240, 110, 20));
+        private static readonly Rhino.Display.DisplayMaterial ToolMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(90, 120, 150));
+
+        protected override void BeforeSolveInstance() { _robot.Clear(); base.BeforeSolveInstance(); }
+
+        public override BoundingBox ClippingBox
+        {
+            get { var b = base.ClippingBox; foreach (var m in _robot) b.Union(m.GetBoundingBox(false)); return b; }
+        }
+
+        public override void DrawViewportMeshes(IGH_PreviewArgs args)
+        {
+            base.DrawViewportMeshes(args);
+            for (int i = 0; i < _robot.Count; i++)
+                args.Display.DrawMeshShaded(_robot[i], i == 0 ? BaseMaterial : (i >= 7 ? ToolMaterial : ArmMaterial));
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -252,13 +275,14 @@ namespace LARGERslicer.Components.Robot
                     if (Params.Output.Count > 9)
                     {
                         var model = RobotGeometry.Pose(cell, r.Moves[at].Axes);
-                        if (model != null) da.SetDataList(9, model);
+                        if (model != null) { da.SetDataList(9, model); _robot.AddRange(model); }
                     }
                 }
                 if (Params.Input.Count > 9 && Params.Output.Count > 10)
                 {
                     var env = new List<Mesh>(); int poses = 200;
                     da.GetDataList(8, env); da.GetData(9, ref poses);
+                    if (cell.Environment != null) env.AddRange(cell.Environment);
                     if (poses > 0)
                     {
                         var col = RobotGeometry.Collisions(r, cell, env, poses);
@@ -272,6 +296,78 @@ namespace LARGERslicer.Components.Robot
                 }
             }
             da.SetDataList(5, r.Report);
+        }
+    }
+
+    // ============================================================== cell geometry
+    public class CellGeometryComponent : RobotComponent
+    {
+        public CellGeometryComponent()
+            : base("Cell Geometry", "Cell Geo",
+                  "The print cell of the FH Muenster in 3D: floor, pedestal of the robot, print bed, safety fence, glass and walls, in the coordinates of the print bed (the origin is the corner the print counts from). It also says where the robot stands in it. Connect Robot Base to Base of Robot, Work Base to Robot Cell and Environment to Robot Cell: the robot then stands where it stands in the lab and the collision check knows the fence, the walls and the floor. The model comes with the plug-in; it is the one drawn in the definition of the FH Muenster.") { }
+
+        public override Guid ComponentGuid => new Guid("C3A7E91D-2F64-4B08-9D53-6E1B8A4F0C72");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotCellIcon.png", this);
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddBooleanParameter("Walls", "W", "Show the walls of the room. They hide the view from outside, so they are off by default; the collision check knows them either way", GH_ParamAccess.item, false);
+            p.AddBooleanParameter("Fence", "F", "Show the safety fence and its glass", GH_ParamAccess.item, true);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddMeshParameter("Environment", "Env", "Floor, pedestal, fence, glass and walls, for the collision check: connect to Environment of Robot Cell", GH_ParamAccess.list);
+            p.AddMeshParameter("Bed", "Bed", "The print bed. Not part of the collision check: the nozzle runs right above it", GH_ParamAccess.item);
+            p.AddPlaneParameter("Robot Base", "RB", "Where the robot stands: connect to Base of Robot", GH_ParamAccess.item);
+            p.AddPlaneParameter("Work Base", "WB", "The corner of the bed the print counts from: connect to Work Base of Robot Cell", GH_ParamAccess.item);
+            p.AddTextParameter("Info", "I", "What the cell is made of and where the robot stands", GH_ParamAccess.list);
+            p.HideParameter(0); p.HideParameter(1); p.HideParameter(2); p.HideParameter(3); // the component draws the cell itself
+        }
+
+        private readonly List<KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>> _draw = new List<KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>>();
+        private static Rhino.Display.DisplayMaterial Mat(int r, int g, int b, double transparency = 0) => new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(r, g, b), transparency);
+        private static readonly Rhino.Display.DisplayMaterial FloorMat = Mat(190, 190, 186), BedMat = Mat(70, 72, 78), FenceMat = Mat(235, 190, 40), GlassMat = Mat(150, 200, 230, 0.75), WallMat = Mat(225, 225, 220, 0.6), PedestalMat = Mat(110, 112, 118);
+
+        protected override void BeforeSolveInstance() { _draw.Clear(); base.BeforeSolveInstance(); }
+
+        public override BoundingBox ClippingBox
+        {
+            get { var b = base.ClippingBox; foreach (var d in _draw) b.Union(d.Key.GetBoundingBox(false)); return b; }
+        }
+
+        public override void DrawViewportMeshes(IGH_PreviewArgs args)
+        {
+            base.DrawViewportMeshes(args);
+            foreach (var d in _draw) args.Display.DrawMeshShaded(d.Key, d.Value);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            bool walls = false, fence = true;
+            da.GetData(0, ref walls); da.GetData(1, ref fence);
+            var cell = RobotGeometry.FhMuensterCell();
+            if (cell == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The cell model could not be read from the plug-in."); return; }
+            Func<string, Mesh> part = name => cell.TryGetValue(name, out Mesh m) ? m : null;
+            var env = new List<Mesh>();
+            foreach (string name in new[] { "Floor", "Pedestal", "Fence", "Glass", "Walls" }) if (part(name) != null) env.Add(part(name));
+            if (part("Floor") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Floor"), FloorMat));
+            if (part("Pedestal") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Pedestal"), PedestalMat));
+            if (part("Bed") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Bed"), BedMat));
+            if (fence && part("Fence") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Fence"), FenceMat));
+            if (fence && part("Glass") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Glass"), GlassMat));
+            if (walls && part("Walls") != null) _draw.Add(new KeyValuePair<Mesh, Rhino.Display.DisplayMaterial>(part("Walls"), WallMat));
+            Plane robotBase = RobotGeometry.FhMuensterRobotBase();
+            var info = new List<string> { "Print cell of the FH Muenster: Weber DXR on a KUKA KR120 R2700-2, in the coordinates of the print bed." };
+            foreach (var kv in cell) { var b = kv.Value.GetBoundingBox(true); info.Add($"{kv.Key}: X {b.Min.X:0}..{b.Max.X:0}, Y {b.Min.Y:0}..{b.Max.Y:0}, Z {b.Min.Z:0}..{b.Max.Z:0} mm"); }
+            info.Add($"Robot: foot at X {robotBase.OriginX:0.#}, Y {robotBase.OriginY:0.#}, Z {robotBase.OriginZ:0.#}, looking along +Y to the bed. Read from the pedestal of the model: check it against your cell before you trust reach and collisions.");
+            Message = "FH Muenster";
+            da.SetDataList(0, env);
+            if (part("Bed") != null) da.SetData(1, part("Bed"));
+            da.SetData(2, robotBase);
+            da.SetData(3, Plane.WorldXY);
+            da.SetDataList(4, info);
         }
     }
 }

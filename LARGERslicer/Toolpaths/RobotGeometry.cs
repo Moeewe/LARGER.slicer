@@ -136,6 +136,7 @@ namespace LARGERslicer.Toolpaths
                 Mesh m = arm.Links[i].DuplicateMesh();
                 Frame f = i == 0 ? arm.Base : arm.Base.Times(now[i - 1]).Times(zero[i - 1].Inverse());
                 m.Transform(ToTransform(f));
+                Clean(m);
                 list.Add(m);
             }
             if (cell.Tool != null && cell.Tool.Mesh != null)
@@ -143,6 +144,7 @@ namespace LARGERslicer.Toolpaths
                 Mesh t = cell.Tool.Mesh.DuplicateMesh();
                 // the flange of the controller is the model's last frame turned half a turn about its axis
                 t.Transform(ToTransform(arm.Base.Times(now[5]).Times(Frame.World.TurnedAboutZ(Math.PI))));
+                Clean(t);
                 list.Add(t);
             }
             return list;
@@ -175,6 +177,73 @@ namespace LARGERslicer.Toolpaths
                 }
             }
             catch { return null; }
+        }
+
+        /// <summary>
+        /// The print cell of the FH Muenster (Weber DXR on the KUKA KR120 R2700-2) as it is drawn
+        /// in the definition of the FH Muenster, in the coordinates of the print bed: the origin
+        /// is the corner of the bed the print coordinates count from, the bed plate lies under
+        /// it. Parts by name: Floor, Bed, Fence, Walls, Glass, Pedestal. Null if not available.
+        /// </summary>
+        public static Dictionary<string, Mesh> FhMuensterCell()
+        {
+            lock (Cache)
+            {
+                if (_cell != null) return _cell;
+                try
+                {
+                    var asm = System.Reflection.Assembly.GetExecutingAssembly();
+                    string resource = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith(".FHMuenster_Cell.3dm", StringComparison.OrdinalIgnoreCase));
+                    if (resource == null) return null;
+                    using (var stream = asm.GetManifestResourceStream(resource))
+                    using (var memory = new MemoryStream())
+                    {
+                        stream.CopyTo(memory);
+                        using (var f = File3dm.FromByteArray(memory.ToArray()))
+                        {
+                            var names = new Dictionary<int, string>();
+                            foreach (var l in f.AllLayers) names[l.Index] = l.Name;
+                            var parts = new Dictionary<string, Mesh>();
+                            foreach (var o in f.Objects)
+                                if (o.Geometry is Mesh m && names.TryGetValue(o.Attributes.LayerIndex, out string name)) parts[name] = m.DuplicateMesh();
+                            _cell = parts.Count > 0 ? parts : null;
+                        }
+                    }
+                }
+                catch { _cell = null; }
+                return _cell;
+            }
+        }
+        private static Dictionary<string, Mesh> _cell;
+
+        /// <summary>
+        /// Where the robot stands in that cell: in the middle of its pedestal, on top of it,
+        /// looking along +Y towards the bed. Read from the pedestal of the cell model (its top
+        /// plate carries a centring collar of 15 mm that the robot's foot sits around).
+        /// </summary>
+        public static Plane FhMuensterRobotBase()
+        {
+            var cell = FhMuensterCell();
+            Point3d at = new Point3d(651.5, -1448.5, 196);
+            if (cell != null && cell.TryGetValue("Pedestal", out Mesh pedestal))
+            {
+                var b = pedestal.GetBoundingBox(true);
+                at = new Point3d(0.5 * (b.Min.X + b.Max.X), 0.5 * (b.Min.Y + b.Max.Y), b.Max.Z - 15);
+            }
+            return new Plane(at, Vector3d.YAxis, -Vector3d.XAxis);
+        }
+
+        /// <summary>
+        /// Moving a mesh can press the corners of a very small face onto one point; such a face
+        /// makes the whole mesh invalid, and Rhino then neither bakes nor intersects it.
+        /// </summary>
+        private static void Clean(Mesh m)
+        {
+            if (m.IsValid) return;
+            m.Faces.CullDegenerateFaces();
+            m.Vertices.CullUnused();
+            m.Normals.ComputeNormals();
+            m.Compact();
         }
 
         public static Transform ToTransform(Frame f)

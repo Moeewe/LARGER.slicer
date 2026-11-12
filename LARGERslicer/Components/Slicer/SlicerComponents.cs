@@ -272,8 +272,12 @@ namespace LARGERslicer.Components.Slicer
             var cellC = (GH_Component)place(new LARGERslicer.Components.Robot.RobotCellComponent(), 2500, y1 + 190);
             var program = (GH_Component)place(new LARGERslicer.Components.Robot.RobotProgramComponent(), 2720, y1 + 130);
             Action<IGH_Param, Plane> setPlane = (prm, pl) => { var pp = prm as Grasshopper.Kernel.Parameters.Param_Plane; if (pp == null) return; pp.PersistentData.Clear(); pp.PersistentData.Append(new GH_Plane(pl)); };
-            // demo values: the robot stands 1 m beside the bed, in the middle of its side and 400 mm lower; the nozzle tip is 300 mm in front of the flange
-            setPlane(robot.Params.Input[2], new Plane(new Point3d(-1000, BedSize / 2, -400), Vector3d.XAxis, Vector3d.YAxis));
+            // the cell of the FH Muenster: it says where the robot stands and what stands around it
+            var cellGeo = (GH_Component)place(new LARGERslicer.Components.Robot.CellGeometryComponent(), 2020, y1 + 330);
+            robot.Params.Input[2].AddSource(cellGeo.Params.Output[2]);
+            cellC.Params.Input[2].AddSource(cellGeo.Params.Output[3]);
+            if (cellC.Params.Input.Count > 4) cellC.Params.Input[4].AddSource(cellGeo.Params.Output[0]);
+            all.Add(cellGeo);
             // the extruder of the FH Muenster cell, as its definition sets it up in the Robots plug-in
             // (AE20 extruder): nozzle tip 460 mm along -X of the flange, the nozzle pointing along -X, 46 kg
             setPlane(tool.Params.Input[1], new Plane(new Point3d(-460, 3, 108), Vector3d.YAxis, -Vector3d.ZAxis));
@@ -297,7 +301,7 @@ namespace LARGERslicer.Components.Slicer
             hide.Add(tool); hide.Add(desktop);
             group("OUTPUT C  -  DESKTOP TEST PRINT  (choose your printer, set Save)", System.Drawing.Color.FromArgb(70, 150, 110, 200), new IGH_DocumentObject[] { desktop });
             group("OUTPUT A  -  GINGER ONE G-CODE  (set Save)", System.Drawing.Color.FromArgb(70, 232, 135, 12), new IGH_DocumentObject[] { ginger });
-            group("OUTPUT B  -  ROBOT CELL, ROBOT PROGRAM AND DXR GENERATOR  (demo values: put in your tool and where robot and bed stand)", System.Drawing.Color.FromArgb(70, 210, 63, 69), new IGH_DocumentObject[] { robot, tool, cellC, program, dxrMachine, dxr });
+            group("OUTPUT B  -  ROBOT CELL, ROBOT PROGRAM AND DXR GENERATOR  (the cell of the FH Muenster: robot, AE20 extruder, fence; move Pose to watch the robot)", System.Drawing.Color.FromArgb(70, 210, 63, 69), new IGH_DocumentObject[] { cellGeo, robot, tool, cellC, program, dxrMachine, dxr });
             // the demo is set up for the Ginger: its E values need the Ginger factor
             var presetList = machine.Params.Input[0].Sources.OfType<Grasshopper.Kernel.Special.GH_ValueList>().FirstOrDefault();
             if (presetList != null && presetList.ListItems.Count > 4) presetList.SelectItem(4);
