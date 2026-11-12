@@ -86,7 +86,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm.").Set(5.0);
             inputs.AddNumber("Layer Height", "H", "Layer height in mm. A third to a half of the bead width.").Set(2.0);
             inputs.AddNumber("Speed", "F", "Print speed in mm/min. The same for every move.").Set(3000.0);
-            inputs.AddInteger("Machine", "M", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0);
+            inputs.AddInteger("Machine Profile", "MP", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0);
             inputs.AddNumber("Flow", "Fl", "Extrusion multiplier (1 = 100 %).").Set(1.0);
             inputs.AddBoolean("Preview", "P", "Fast and coarse, for trying things out.").Set(false);
             inputs.AddNumber("Density", "D", "Density of the printed material in g/cm3, for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9.").Set(1.25);
@@ -128,7 +128,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Angle", "A", "Tilts the layers around the X axis, in degrees. 45 = 45 degree slicing.").Set(0.0);
             inputs.AddGeneric("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it. A curve: the layers stand square to it.", Access.Item, Requirement.MayBeMissing);
             inputs.AddInteger("Guide Mode", "GM", "Only with a guide surface: 0 = flat bottom, top follows the guide. 1 = all layers follow the guide.").Set(0);
-            inputs.AddInteger("Tool", "T", "Only with a guide: 0 = tool square to the layer (robot). 1 = tool stays vertical.").Set(0);
+            inputs.AddInteger("Tool Axis", "TA", "Only with a guide: 0 = tool square to the layer (robot). 1 = tool stays vertical.").Set(0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)

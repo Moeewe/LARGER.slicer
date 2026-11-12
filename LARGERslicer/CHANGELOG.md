@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (bottom fill, compared with Bi et al. 2022)
+- `Bottom Fill` with Pattern Zigzag: a zigzag that openings split into pieces needed a move without extrusion between the pieces (9 to 11 on three layers of a plate with two openings). Now another direction is tried, and if no direction gives one line, the layer is filled following the wall, with a note. A zigzag that ended in a pointed corner far from where the layer below stopped could make the wall cross its own way into the fill; now the direction is chosen so the fill starts next to where the layer below stopped.
+- Grasshopper 2: the inputs and outputs have the same names as in Grasshopper 1 (Machine Profile, Machine Settings, Tool Axis, Cell Name, Filament Diameter, Path).
+
 ### Fixed (robot, checked against the definition BeispielRoboter.gh of the FH Muenster)
 - `Robot Program` wrote the tool orientation the wrong way round: a vertical tool came out as `A 0, B 0, C 180` in the robot lines and so in the DXR file, while the Weber DXR expects `A 0, B 0, C 0` for a vertical extruder. Targets and TCP now follow the Robots plug-in: the target's Z axis is the layer normal (up for flat layers), the TCP's Z axis points from the nozzle tip back into the tool. A TCP from a Robots definition can be used as it is; the AE20 extruder is a YZ plane at -460, 3, 108. **TCP planes made for earlier versions of Robot Tool must be turned half a turn about their X axis.** The default of Robot Tool is now a straight tool on the flange.
 - The robot stands where the definition of the FH Muenster puts it: at 651.5, -1448, 211.1, turned like the bed (`Cell Geometry`, Quick Start; before: 196 mm high and turned by 90 degrees, read from the pedestal).

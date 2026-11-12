@@ -67,7 +67,7 @@ namespace LARGERslicer.GH2
             inputs.AddInteger("Printer", "P", string.Join("\n", DesktopPrinter.Presets.Select((x, i) => i + " = " + x.Name))).Set(0);
             inputs.AddNumber("Scale", "Sc", "Scale of the test print (0.1 = one tenth). 0 = automatic: the bead becomes 1.2 times the nozzle diameter.").Set(0.0);
             inputs.AddNumber("Nozzle", "Nz", "Nozzle diameter of the desktop printer in mm.").Set(0.4);
-            inputs.AddNumber("Filament", "Fil", "Filament diameter in mm.").Set(1.75);
+            inputs.AddNumber("Filament Diameter", "Fil", "Filament diameter in mm.").Set(1.75);
             inputs.AddNumber("Nozzle Temperature", "Tn", "Degrees C.").Set(215.0);
             inputs.AddNumber("Bed Temperature", "Tb", "Degrees C.").Set(60.0);
             inputs.AddNumber("Speed", "V", "Print speed in mm/s. The first layer runs at half of it.").Set(40.0);
@@ -79,7 +79,7 @@ namespace LARGERslicer.GH2
         protected override void AddOutputs(OutputAdder outputs)
         {
             outputs.AddText("G-code", "G", "G-code, line by line.", Access.Twig);
-            outputs.AddPolyline("Preview", "C", "The scaled path as it lies on the printer bed.");
+            outputs.AddPolyline("Path", "P", "The scaled path as it lies on the printer bed.");
             outputs.AddText("Info", "I", "Size, bead, filament and time.");
         }
 
@@ -114,7 +114,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm. Every dimension follows from it.").Set(5.0);
             inputs.AddNumber("Layer Height", "H", "Layer height in mm: a third to a half of the bead width.").Set(2.0);
             inputs.AddNumber("Speed", "F", "Print speed in mm/min, the same for every move.").Set(3000.0);
-            inputs.AddInteger("Machine", "M", string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0);
+            inputs.AddInteger("Machine Profile", "MP", string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0);
             inputs.AddInteger("Walls", "N", "Number of walls.").Set(1);
             inputs.AddInteger("Bottom Layers", "B", "Solid layers at the bottom. 0 = open.").Set(0);
             inputs.AddInteger("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n))).Set(0);

@@ -783,7 +783,7 @@ namespace LARGERslicer.Toolpaths
             var ordered = layers.OrderBy(l => l.Index).ToList();
             var result = new List<SliceLayer>(ordered.Count);
             filled = 0;
-            int failed = 0, uncrossed = 0;
+            int failed = 0, uncrossed = 0, zigzagReplaced = 0;
             Point3d lastEnd = Point3d.Unset; // where the fill of the layer below stops
             // Layers with the same outline get exactly the same fill line. Recomputing it would give
             // almost the same line, but small differences in the outline (a round hole is cut into
@@ -877,14 +877,32 @@ namespace LARGERslicer.Toolpaths
                 else if (pattern == 2) fills = contourFill();
                 else
                 {
-                    // two ways to run the same zigzag; take the one that has an end next to where
-                    // the fill of the layer below stopped, so the nozzle can carry straight on
+                    // Zigzag as asked, in the given direction (turned 90 degrees every layer) if it
+                    // can be one line that starts where the layer below stopped. Otherwise the
+                    // nearest direction that can, and if no direction gives one line (openings
+                    // split the area), the contour fill: a zigzag in pieces would need moves
+                    // without extrusion between them, and never crossing and never stopping come
+                    // before the pattern.
                     double a = angleDeg + ((li & 1) == 1 ? 90.0 : 0.0);
-                    fills = Zigzag(region, spacing, a, false);
-                    if (lastEnd.IsValid)
+                    fills = null;
+                    List<List<Point2d>> single = null; double singleGap = double.MaxValue;
+                    foreach (double turn in new[] { 0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0, 60.0, -60.0, 75.0, -75.0, 90.0 })
                     {
-                        var other = Zigzag(region, spacing, a, true);
-                        if (NearestEnd(other, src.Plane, lastEnd, out _, out _) < NearestEnd(fills, src.Plane, lastEnd, out _, out _)) fills = other;
+                        foreach (bool flip in new[] { false, true })
+                        {
+                            var z = Zigzag(region, spacing, a + turn, flip);
+                            if (z.Count != 1) continue;
+                            double gap = lastEnd.IsValid ? NearestEnd(z, src.Plane, lastEnd, out _, out _) : 0;
+                            if (gap <= 3 * settings.BeadWidth) { fills = z; break; }
+                            if (gap < singleGap) { singleGap = gap; single = z; }
+                        }
+                        if (fills != null) break;
+                    }
+                    if (fills == null) fills = single;
+                    if (fills == null)
+                    {
+                        fills = contourFill();
+                        zigzagReplaced++;
                     }
                 }
                 if (fills.Count == 0) { failed++; result.Add(src); continue; }
@@ -944,6 +962,7 @@ namespace LARGERslicer.Toolpaths
                 result.Add(dst);
             }
             if (uncrossed > 0) log?.Add($"{uncrossed} bottom layer(s): the fill line was re-joined at a place where it would have crossed itself.");
+            if (zigzagReplaced > 0) log?.Add($"{zigzagReplaced} bottom layer(s) are filled following the wall instead of in a zigzag: openings split them, and a zigzag in pieces would need moves without extrusion between them.");
             if (failed > 0) log?.Add($"{failed} bottom layer(s) could not be filled (no closed wall, or too narrow for a fill line).");
             return result;
         }

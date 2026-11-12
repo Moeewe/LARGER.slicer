@@ -29,7 +29,7 @@ namespace LARGERslicer.GH2
 
         protected override void AddOutputs(OutputAdder outputs)
         {
-            outputs.AddGeneric("Machine", "M", "Machine settings for the DXR Generator.");
+            outputs.AddGeneric("Machine Settings", "MS", "Machine settings for the DXR Generator.");
             outputs.AddText("Info", "I", "Summary.");
         }
 
@@ -91,7 +91,7 @@ namespace LARGERslicer.GH2
             inputs.AddText("Robot Path", "Path", "Robot moves, one PTP line each.", Access.Twig);
             inputs.AddNumber("Extrusion", "E", "Extrusion per move.", Access.Twig, Requirement.MayBeMissing);
             inputs.AddNumber("Speed", "F", "Speed in mm/min per move.", Access.Twig, Requirement.MayBeMissing);
-            inputs.AddGeneric("Machine", "M", "Machine Settings.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddGeneric("Machine Settings", "MS", "Machine Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Trim Last", "Tr", "Drop the last extrusion and speed value. Needed for lists that carry one value more than there are moves, as the Grasshopper 1 definitions do. Not needed after Toolpath to Robot Lines.").Set(false);
             inputs.AddText("File", "File", "Optional: file, folder or just a name (File Name of Robot Program). Empty = the Desktop. Full path of the .dxr file to write.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Save", "Save", "True writes the file.").Set(false);

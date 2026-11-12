@@ -21,7 +21,7 @@ namespace LARGERslicer.GH2
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddText("Library", "Lib", "Optional. Path of a robot library file of the Robots plug-in (.xml), or its text. Empty = KUKA KR120 R2700-2.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddText("Cell", "Cell", "Optional. Name of the RobotCell in the file. Empty = the first one.", Access.Item, Requirement.MayBeMissing);
+            inputs.AddText("Cell Name", "CN", "Optional. Name of the RobotCell in the file. Empty = the first one.", Access.Item, Requirement.MayBeMissing);
             inputs.AddPlane("Base", "B", "Where the robot stands in the Rhino model: the plane of its foot.").Set(Plane.WorldXY);
         }
 
