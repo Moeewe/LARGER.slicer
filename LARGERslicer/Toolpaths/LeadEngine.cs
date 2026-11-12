@@ -277,7 +277,6 @@ namespace LARGERslicer.Toolpaths
                 if (d0 < nearest) { nearest = d0; room = path; }
             }
             if (room == null || nearest > w) { log?.Add("Inner brim skipped: the first layer does not end next to free room inside the part (a solid bottom fills it)."); return null; }
-            if (beads.Count(b => Clipper.Area(b) < 0) > 1) log?.Add("The first layer divides the inside of the part into several rooms: the inner brim lies in the one where the first layer ends.");
             var hole = new PathD(room); hole.Reverse();
             PathsD free = Clipper.Difference(new PathsD { hole }, beads, FillRule.NonZero, 3);
             if (free == null || free.Count == 0) { log?.Add("Inner brim skipped: no room for it."); return null; }
@@ -300,6 +299,7 @@ namespace LARGERslicer.Toolpaths
             }
             if (rings.Count == 0) { log?.Add("Inner brim skipped: no room for it."); return null; }
             if (rings.Count < loops) log?.Add($"Inner brim: room for {rings.Count} of {loops} loops.");
+            if (beads.Count(b => Clipper.Area(b) < 0) > 1) log?.Add("The first layer divides the inside of the part into several rooms: the inner brim lies in the one where the first layer ends.");
 
             Func<int, double, Point2d> on = (k, s) => FillEngine.Sub(rings[k], cums[k], s, s + 1e-6)[0];
             var line = new List<Point2d>();

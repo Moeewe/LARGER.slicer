@@ -69,7 +69,9 @@ accepted by Slice. Not yet tested: non-planar and multi-axis slicing on a real p
 `Toolpath to Robot Lines` writes one fixed tool orientation (A, B, C). Check it against your
 robot cell before the first run. For tilted tool axes use the planes from `Extrusion and Speed`.
 
-Not tested in Grasshopper 2 yet: Quick Start, Machine, Machine G-code, the brim and the file names (they compile; the code they share with the Grasshopper 1 plug-in is tested on the bench).
+Quick Start was run in Grasshopper 2 (Rhino 9.1): it builds the five examples and all of them compute. Not tried by hand in Grasshopper 2 yet: Machine, Machine G-code, the brim and saving files (the code they share with the Grasshopper 1 plug-in is tested there).
+
+A definition saved with an earlier build of this plug-in can show Print Settings and Round and Lead as faulted, because they have more inputs now: place them again.
 
 Not ported yet: Infill Sketch, Machine Profile with own factors,
 the curve-based Toolpaths tab, and the DXR health check and post-processor.

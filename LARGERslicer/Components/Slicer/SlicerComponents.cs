@@ -179,12 +179,12 @@ namespace LARGERslicer.Components.Slicer
                 sc.Attributes.Pivot = new System.Drawing.PointF(x0 + dx, y0 + dy);
                 doc.AddObject(sc, false);
             };
-            Action<string, string, float> section = (title, about, y) => { write(title, -200, y - 230, 44); write(about, -200, y - 160, 16); };
+            Action<string, string, float> section = (title, about, y) => { write(title, -200, y - 300, 44); write(about, -200, y - 232, 16); };
             var yellow = System.Drawing.Color.FromArgb(255, 255, 250, 90);
-            write("LARGER.slicer", -760, -470, 72);
-            write("QUICK START  -  FIVE EXAMPLES ON ONE PRINT BED\nLarge-format 3D printing as one continuous line, FH Muenster", -760, -370, 18);
-            write("00. SETTINGS FOR ALL EXAMPLES", -200, -250, 44);
-            write("Bead width and layer height drive everything else. Print Bed shows the bed in the Rhino viewport and checks that every path lies on it.", -200, -180, 16);
+            write("LARGER.slicer", -980, -640, 72);
+            write("QUICK START  -  FIVE EXAMPLES ON ONE PRINT BED\nLarge-format 3D printing as one continuous line, FH Muenster", -980, -540, 18);
+            write("00. SETTINGS FOR ALL EXAMPLES", -200, -420, 44);
+            write("Bead width and layer height drive everything else. Print Bed shows the bed in the Rhino viewport and checks that every path lies on it.", -200, -352, 16);
             var all = new List<GH_Component>();
             var hide = new List<IGH_PreviewObject>();
 
@@ -211,8 +211,8 @@ namespace LARGERslicer.Components.Slicer
             note.Properties.Multiline = true;
             note.Properties.Wrap = true;
             note.CreateAttributes();
-            note.Attributes.Pivot = new System.Drawing.PointF(x0 - 760, y0 - 80);
-            note.Attributes.Bounds = new System.Drawing.RectangleF(x0 - 760, y0 - 80, 500, 620);
+            note.Attributes.Pivot = new System.Drawing.PointF(x0 - 980, y0 - 420);
+            note.Attributes.Bounds = new System.Drawing.RectangleF(x0 - 980, y0 - 420, 520, 640);
             doc.AddObject(note, false);
 
             // ---- settings, shared by all three examples
@@ -416,6 +416,11 @@ namespace LARGERslicer.Components.Slicer
             // the bed checks all five paths; its wires only show when it is selected
             foreach (var b in beds) bed.Params.Input[3].AddSource(b);
             bed.Params.Input[3].WireDisplay = GH_ParamWireDisplay.hidden;
+
+            // the settings reach every slicer component: thin wires, so the chains stay readable
+            foreach (var c in all)
+                foreach (var prm in c.Params.Input)
+                    if (prm.Sources.Contains(s)) prm.WireDisplay = GH_ParamWireDisplay.faint;
 
             // spell out every input and output, so nobody has to guess what "W" or "Fl" means
             foreach (var c in all)

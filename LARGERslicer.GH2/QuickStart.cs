@@ -80,12 +80,15 @@ namespace LARGERslicer.GH2
                 var sc = new ScribbleObject(text);
                 if (bold) sc.TextStyle = Eto.Drawing.FontStyle.Bold;
                 place(sc, dx, dy);
+                // the canvas centres a new object on the point: titles start at the left edge instead
+                RectangleF b = sc.Attributes.Bounds;
+                sc.Attributes.Move(origin.X + dx - b.X, origin.Y + dy - b.Y);
             };
-            Action<string, string, float> section = (title, about, y) => { write(title, 0, y - 190, true); write(about, 0, y - 150, false); };
-            write("LARGER.slicer  -  QUICK START", -420, -260, true);
-            write("Five examples on one print bed. Large-format 3D printing as one continuous line, FH Muenster.", -420, -220, false);
-            write("00. SETTINGS FOR ALL EXAMPLES", 0, -150, true);
-            write("Bead width and layer height drive everything else.", 0, -110, false);
+            Action<string, string, float> section = (title, about, y) => { write(title, -80, y - 190, true); write(about, -80, y - 150, false); };
+            write("LARGER.slicer  -  QUICK START", -700, -260, true);
+            write("Five examples on one print bed. Large-format 3D printing as one continuous line, FH Muenster.", -700, -220, false);
+            write("00. SETTINGS FOR ALL EXAMPLES", -80, -190, true);
+            write("Bead width and layer height drive everything else.", -80, -150, false);
             var hide = new List<IDocumentObject>();
             const float col = 230; // from one component to the next
 
@@ -210,7 +213,7 @@ namespace LARGERslicer.GH2
                 "Brim and seam: inputs Brim of 'Round and Lead' and Seam Gap of 'Continuous Path'. Another machine: 'Machine' and 'Machine G-code'.\n\n" +
                 "Just want a path quickly? Use the single component 'Easy Slicer' instead of this chain.");
             note.WrapWidth = 520;
-            place(note, -420, 60);
+            place(note, -440, 80);
 
             foreach (var h in hide) h.Display = ObjectDisplay.Hidden;
 
