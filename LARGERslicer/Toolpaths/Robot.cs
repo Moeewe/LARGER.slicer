@@ -313,6 +313,62 @@ namespace LARGERslicer.Toolpaths
         public override string ToString() => $"{Arm}, tool {Tool.Name}";
     }
 
+    /// <summary>
+    /// A finished robot program together with the cell it was made for, ready to be played:
+    /// where the robot is at any moment of the print.
+    /// </summary>
+    public class RobotRun
+    {
+        public RobotProgramResult Program;
+        public RobotCell Cell;
+        public List<Point3d> Points = new List<Point3d>();
+        /// <summary>Seconds from the start at which each move ends.</summary>
+        public List<double> Seconds = new List<double>();
+        public double Duration => Seconds.Count > 0 ? Seconds[Seconds.Count - 1] : 0;
+        public override string ToString() => $"Robot run ({Points.Count} moves, {Duration / 60:0.#} min)";
+
+        public static RobotRun Make(RobotProgramResult program, RobotCell cell, Toolpath tp)
+        {
+            var run = new RobotRun { Program = program, Cell = cell, Points = new List<Point3d>(tp.Points) };
+            double t = 0;
+            for (int i = 0; i < tp.Count; i++)
+            {
+                if (i > 0)
+                {
+                    double f = i < program.Speed.Count && program.Speed[i] > 0 ? program.Speed[i] : tp.Settings.Speed; // mm/min
+                    t += tp.Points[i].DistanceTo(tp.Points[i - 1]) / Math.Max(1.0, f) * 60.0;
+                }
+                run.Seconds.Add(t);
+            }
+            return run;
+        }
+
+        /// <summary>
+        /// The axis angles at a moment of the run (seconds from the start), between the two
+        /// moves around it. move = the move the robot is on; null where it cannot get to.
+        /// </summary>
+        public double[] AxesAt(double seconds, out int move, out double share)
+        {
+            move = 0; share = 0;
+            int n = Seconds.Count;
+            if (n == 0) return null;
+            seconds = Math.Max(0, Math.Min(Duration, seconds));
+            int lo = 0, hi = n - 1;
+            while (lo < hi) { int mid = (lo + hi) / 2; if (Seconds[mid] < seconds) lo = mid + 1; else hi = mid; }
+            move = lo;
+            var b = Program.Moves[lo].Axes;
+            if (b == null) return null;
+            if (lo == 0) return (double[])b.Clone();
+            var a = Program.Moves[lo - 1].Axes;
+            double span = Seconds[lo] - Seconds[lo - 1];
+            share = span > 1e-12 ? (seconds - Seconds[lo - 1]) / span : 1;
+            if (a == null) return (double[])b.Clone();
+            var q = new double[6];
+            for (int k = 0; k < 6; k++) q[k] = a[k] + (b[k] - a[k]) * share;
+            return q;
+        }
+    }
+
     public class RobotMove
     {
         public Frame Target;      // TCP in base coordinates

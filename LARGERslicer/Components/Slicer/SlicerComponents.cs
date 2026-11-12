@@ -201,6 +201,7 @@ namespace LARGERslicer.Components.Slicer
                 "4  Take the file for your machine:\n" +
                 "     Output A - Ginger One: set Save on 'Ginger G-code'. The file lands on the Desktop.\n" +
                 "     Output B - robot with Weber DXR: put your tool and the place of robot and bed into the robot cell, read the Report of 'Robot Program', then save the DXR.\n" +
+                "   Watch the robot first: move the slider 'Simulation' in output B, or double-click 'Play'. The robot, its extruder and the cell stand in the Rhino viewport.\n" +
                 "5  Before the big print: Output C, 'Desktop Test Print', writes the same path small for a desktop printer.\n\n" +
                 "File names are made for you: GIN or DXR, date and time, the part name, weight and print time, e.g. DXR_2611051216_Test Object_2668g_53min.dxr. Type your part name into the yellow panel 'Part name'.\n" +
                 "Brim: choose a side at 'Brim' of 'Start and End'. Seam: 'Seam Gap' of 'Continuous Path' (0 = one bead width).\n" +
@@ -420,6 +421,26 @@ namespace LARGERslicer.Components.Slicer
             if (desktop.Params.Input.Count > 11) desktop.Params.Input[11].AddSource(jobName);
             program.Params.Input[3].AddSource(jobName);
             if (dxr.Params.Input.Count > 4 && program.Params.Output.Count > 11) dxr.Params.Input[4].AddSource(program.Params.Output[11]);
+
+            // play the program: the robot at any moment of the print
+            var simulate = (GH_Component)place(new LARGERslicer.Components.Robot.RobotSimulationComponent(), 3020, y1 + 520);
+            if (program.Params.Output.Count > 12) simulate.Params.Input[0].AddSource(program.Params.Output[12]);
+            var simSlider = new Grasshopper.Kernel.Special.GH_NumberSlider();
+            simSlider.CreateAttributes();
+            simSlider.NickName = "Simulation (0 = start, 1 = end)";
+            simSlider.Slider.Minimum = 0; simSlider.Slider.Maximum = 1; simSlider.Slider.DecimalPlaces = 3;
+            simSlider.SetSliderValue(0.5m);
+            simSlider.Attributes.Pivot = new System.Drawing.PointF(x0 + 2640, y0 + y1 + 590);
+            doc.AddObject(simSlider, false);
+            simulate.Params.Input[1].AddSource(simSlider);
+            var playToggle = new Grasshopper.Kernel.Special.GH_BooleanToggle { NickName = "Play" };
+            playToggle.CreateAttributes();
+            playToggle.Value = false;
+            playToggle.Attributes.Pivot = new System.Drawing.PointF(x0 + 2760, y0 + y1 + 630);
+            doc.AddObject(playToggle, false);
+            if (simulate.Params.Input.Count > 2) simulate.Params.Input[2].AddSource(playToggle);
+            all.Add(simulate);
+            group("ROBOT SIMULATION  -  move the slider, or double-click Play: the robot runs the print in the Rhino viewport", System.Drawing.Color.FromArgb(70, 240, 110, 20), new IGH_DocumentObject[] { simulate, simSlider, playToggle });
             group("PART NAME  -  goes into every file name", System.Drawing.Color.FromArgb(70, 120, 130, 145), new IGH_DocumentObject[] { jobName });
 
             // the bed checks all five paths; its wires only show when it is selected

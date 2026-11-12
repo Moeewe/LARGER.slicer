@@ -213,6 +213,7 @@ namespace LARGERslicer.Components.Robot
             p.AddPointParameter("Collisions", "Hit", "Path points at which the robot collides with itself or the Environment", GH_ParamAccess.list);
             p.HideParameter(9); // the component draws the robot itself, in its colours
             p.AddTextParameter("File Name", "Fn", "A name for the DXR file, made of DXR, date and time, the Name, weight and print time (DXR_2611051216_Test Object_2668g_53min): connect to File of the DXR Generator", GH_ParamAccess.item);
+            p.AddGenericParameter("Program", "Prg", "The finished program with its cell: connect to Robot Simulation to play it", GH_ParamAccess.item);
         }
 
         // The robot at the chosen pose, drawn in its own colours: base dark, arm KUKA orange, tool steel blue.
@@ -257,6 +258,9 @@ namespace LARGERslicer.Components.Robot
             var e = new List<double>(r.Extrusion) { 0 };
             var f = new List<double>(r.Speed) { r.Speed.Count > 0 ? r.Speed[r.Speed.Count - 1] : tp.Settings.Speed };
             if (Params.Output.Count > 11) da.SetData(11, OutputFile.Name("DXR", name, tp, ""));
+            if (Params.Output.Count > 12) da.SetData(12, new GH_ObjectWrapper(RobotRun.Make(r, cell, tp)));
+            // with a Robot Simulation connected, that one shows the robot
+            bool simulated = Params.Output.Count > 12 && Params.Output[12].Recipients.Count > 0;
             da.SetDataList(0, r.Lines);
             da.SetDataList(1, e);
             da.SetDataList(2, f);
@@ -275,7 +279,7 @@ namespace LARGERslicer.Components.Robot
                     if (Params.Output.Count > 9)
                     {
                         var model = RobotGeometry.Pose(cell, r.Moves[at].Axes);
-                        if (model != null) { da.SetDataList(9, model); _robot.AddRange(model); }
+                        if (model != null) { da.SetDataList(9, model); if (!simulated) _robot.AddRange(model); }
                     }
                 }
                 if (Params.Input.Count > 9 && Params.Output.Count > 10)
@@ -296,6 +300,102 @@ namespace LARGERslicer.Components.Robot
                 }
             }
             da.SetDataList(5, r.Report);
+        }
+    }
+
+    // ============================================================== simulation
+    public class RobotSimulationComponent : RobotComponent
+    {
+        public RobotSimulationComponent()
+            : base("Robot Simulation", "Simulate",
+                  "Plays the robot program: the robot with its tool at any moment of the print, as in Program Simulation of the Robots plug-in. Time runs from 0 (start) to 1 (end) and follows the real time of the print, so half way on the slider is half way through the print. Move the slider, or set Play and it runs by itself (Film Length = how many seconds one run takes on the screen). Outputs the axis angles and the place of the tool tip at that moment; with tilted layers (angled, non-planar, multi-axis) you see the tool lean. Moving the slider only places the robot: the program is not calculated again.") { }
+
+        public override Guid ComponentGuid => new Guid("5D2E8B14-9A63-4F70-B1C8-3A6F0D9E2475");
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotProgramIcon.png", this);
+
+        protected override void RegisterInputParams(GH_InputParamManager p)
+        {
+            p.AddGenericParameter("Program", "Prg", "Program of Robot Program", GH_ParamAccess.item);
+            p.AddNumberParameter("Time", "T", "Where in the print: 0 = start, 1 = end", GH_ParamAccess.item, 0.0);
+            p.AddBooleanParameter("Play", "Play", "True = the simulation runs by itself, from where Time stands, and starts again at the end. False = it stands where Time says", GH_ParamAccess.item, false);
+            p.AddNumberParameter("Film Length", "Len", "How long one run of the whole print takes on the screen, in seconds. A print of an hour in 30 seconds runs 120 times faster than in the lab", GH_ParamAccess.item, 30.0);
+        }
+
+        // Play: the component keeps its own clock and asks Grasshopper for the next picture.
+        private bool _playing;
+        private DateTime _playSince;
+        private double _playFrom;
+
+        protected override void RegisterOutputParams(GH_OutputParamManager p)
+        {
+            p.AddMeshParameter("Robot", "Rob", "The robot with its tool at that moment: base, six links, tool", GH_ParamAccess.list);
+            p.AddNumberParameter("Axes", "A", "Axis angles A1 to A6 in degrees", GH_ParamAccess.list);
+            p.AddPlaneParameter("TCP", "TCP", "The tool tip: origin on the path, Z along the tool axis", GH_ParamAccess.item);
+            p.AddIntegerParameter("Move", "M", "Number of the move the robot is on (the line of the program)", GH_ParamAccess.item);
+            p.AddNumberParameter("Seconds", "s", "Time since the start of the print", GH_ParamAccess.item);
+            p.AddTextParameter("Info", "I", "Time, move, axis angles and whether this pose is within the axis ranges", GH_ParamAccess.item);
+            p.HideParameter(0); // drawn by the component, in colour
+        }
+
+        private readonly List<Mesh> _robot = new List<Mesh>();
+        private static readonly Rhino.Display.DisplayMaterial BaseMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(60, 60, 64));
+        private static readonly Rhino.Display.DisplayMaterial ArmMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(240, 110, 20));
+        private static readonly Rhino.Display.DisplayMaterial ToolMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(90, 120, 150));
+
+        protected override void BeforeSolveInstance() { _robot.Clear(); base.BeforeSolveInstance(); }
+
+        public override BoundingBox ClippingBox
+        {
+            get { var b = base.ClippingBox; foreach (var m in _robot) b.Union(m.GetBoundingBox(false)); return b; }
+        }
+
+        public override void DrawViewportMeshes(IGH_PreviewArgs args)
+        {
+            base.DrawViewportMeshes(args);
+            for (int i = 0; i < _robot.Count; i++)
+                args.Display.DrawMeshShaded(_robot[i], i == 0 ? BaseMaterial : (i >= 7 ? ToolMaterial : ArmMaterial));
+        }
+
+        protected override void SolveInstance(IGH_DataAccess da)
+        {
+            var run = SlicerIO.Get<RobotRun>(da, 0);
+            if (run == null || run.Points.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect Program of Robot Program."); return; }
+            double time = 0; da.GetData(1, ref time);
+            time = Math.Max(0, Math.Min(1, time));
+            bool play = false; double film = 30;
+            if (Params.Input.Count > 3) { da.GetData(2, ref play); da.GetData(3, ref film); }
+            if (play)
+            {
+                if (!_playing) { _playing = true; _playSince = DateTime.UtcNow; _playFrom = time >= 1 ? 0 : time; }
+                double ran = (DateTime.UtcNow - _playSince).TotalSeconds / Math.Max(1.0, film);
+                time = _playFrom + ran;
+                time -= Math.Floor(time); // start again at the end
+                var ghDoc = OnPingDocument();
+                if (ghDoc != null) ghDoc.ScheduleSolution(40, d => ExpireSolution(false));
+            }
+            else _playing = false;
+            double seconds = time * run.Duration;
+            var axes = run.AxesAt(seconds, out int move, out double share);
+            if (axes == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The robot cannot get to move {move}: nothing to show here. Read the Report of Robot Program."); da.SetData(3, move); da.SetData(4, seconds); return; }
+            var arm = run.Cell.Arm;
+            var model = RobotGeometry.Pose(run.Cell, axes);
+            if (model != null) { _robot.AddRange(model); da.SetDataList(0, model); }
+            else AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The robot has no 3D model: see the Info of Robot.");
+            // the tool tip from the axis angles, the way the controller sees it
+            Frame flange = arm.Base.Times(arm.Forward(axes)).Times(Frame.World.TurnedAboutZ(Math.PI));
+            Frame tip = flange.Times(run.Cell.Tool.Tcp);
+            bool inRange = true;
+            for (int k = 0; k < 6; k++) if (axes[k] < arm.MinDeg[k] - 1e-6 || axes[k] > arm.MaxDeg[k] + 1e-6) inRange = false;
+            if (!inRange) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "At this moment an axis is outside its range.");
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            Message = TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", ci);
+            da.SetDataList(1, axes);
+            da.SetData(2, tip.ToPlane());
+            da.SetData(3, move);
+            da.SetData(4, seconds);
+            if (play) Message = "> " + Message;
+            da.SetData(5, $"{Message} of {TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci)}, move {move} of {run.Points.Count - 1}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci))) + (inRange ? "" : " - OUTSIDE THE AXIS RANGE"));
         }
     }
 
