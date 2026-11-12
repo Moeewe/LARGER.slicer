@@ -15,13 +15,13 @@ namespace LARGERslicer.Components.Export
     public class InfillContourComponent : BottomLayerPatternBase
     {
         public InfillContourComponent()
-            : base("Single Line Fill with Offsets", "SLF Offsets",
+            : base("Curve Fill Contour", "C Contour",
                   "Fills a region with one line that follows the outline inwards (connected Fermat spiral). Works on shapes with bays and holes; the line never crosses itself. The curve is the outside of the print.")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

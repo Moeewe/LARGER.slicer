@@ -258,17 +258,29 @@ namespace LARGERslicer.Components.Slicer
             // ---- output: the file for the machine
             var ginger = (GH_Component)place(new GingerGCodeComponent(), 2260, y1 - 90);
             ginger.Params.Input[0].AddSource(lead.Params.Output[0]);
-            var ptp = (GH_Component)place(new ToolpathToRobotLinesComponent(), 2260, y1 + 110);
-            ptp.Params.Input[0].AddSource(lead.Params.Output[0]);
-            var dxrMachine = (GH_Component)place(new LARGERslicer.Components.Export.MachineSettingsComponent(), 2260, y1 + 290);
-            var dxr = (GH_Component)place(new LARGERslicer.Components.Export.DXRGeneratorComponent(), 2560, y1 + 150);
-            dxr.Params.Input[0].AddSource(ptp.Params.Output[0]);
-            dxr.Params.Input[1].AddSource(ptp.Params.Output[1]);
-            dxr.Params.Input[2].AddSource(ptp.Params.Output[2]);
+            // the robot cell: robot behind the bed, tool, work base in the bed corner
+            var robot = (GH_Component)place(new LARGERslicer.Components.Robot.RobotArmComponent(), 2260, y1 + 130);
+            var tool = (GH_Component)place(new LARGERslicer.Components.Robot.RobotToolComponent(), 2260, y1 + 270);
+            var cellC = (GH_Component)place(new LARGERslicer.Components.Robot.RobotCellComponent(), 2500, y1 + 190);
+            var program = (GH_Component)place(new LARGERslicer.Components.Robot.RobotProgramComponent(), 2720, y1 + 130);
+            Action<IGH_Param, Plane> setPlane = (prm, pl) => { var pp = prm as Grasshopper.Kernel.Parameters.Param_Plane; if (pp == null) return; pp.PersistentData.Clear(); pp.PersistentData.Append(new GH_Plane(pl)); };
+            // demo values: the robot stands 1.2 m behind the bed corner and 400 mm lower; the nozzle tip is 300 mm in front of the flange
+            setPlane(robot.Params.Input[2], new Plane(new Point3d(-1200, 170, -400), Vector3d.XAxis, Vector3d.YAxis));
+            setPlane(tool.Params.Input[1], new Plane(new Point3d(0, 0, 300), Vector3d.XAxis, Vector3d.YAxis));
+            cellC.Params.Input[0].AddSource(robot.Params.Output[0]);
+            cellC.Params.Input[1].AddSource(tool.Params.Output[0]);
+            program.Params.Input[0].AddSource(lead.Params.Output[0]);
+            program.Params.Input[1].AddSource(cellC.Params.Output[0]);
+            var dxrMachine = (GH_Component)place(new LARGERslicer.Components.Export.MachineSettingsComponent(), 2720, y1 + 420);
+            var dxr = (GH_Component)place(new LARGERslicer.Components.Export.DXRGeneratorComponent(), 3020, y1 + 190);
+            dxr.Params.Input[0].AddSource(program.Params.Output[0]);
+            dxr.Params.Input[1].AddSource(program.Params.Output[1]);
+            dxr.Params.Input[2].AddSource(program.Params.Output[2]);
             dxr.Params.Input[3].AddSource(dxrMachine.Params.Output[0]);
-            all.AddRange(new[] { ginger, ptp });
+            all.AddRange(new[] { ginger, robot, tool, cellC, program });
+            hide.Add(tool);
             group("Output A - Ginger One: G-code with the machine's start and end. Give a file path and set Save to write it.", System.Drawing.Color.FromArgb(70, 232, 135, 12), new IGH_DocumentObject[] { ginger });
-            group("Output B - Weber DXR on a robot: robot moves, then the DXR file. Set A, B, C to your cell's tool orientation, or feed the DXR Generator from the Robots plug-in. Choose the matching preset in Machine Profile.", System.Drawing.Color.FromArgb(70, 210, 63, 69), new IGH_DocumentObject[] { ptp, dxrMachine, dxr });
+            group("Output B - Robot with the Weber DXR: the robot cell (robot, tool, work base), the robot program with its reach check, then the DXR file. Put in your own tool and where robot and bed stand. Choose the matching preset in Machine Profile.", System.Drawing.Color.FromArgb(70, 210, 63, 69), new IGH_DocumentObject[] { robot, tool, cellC, program, dxrMachine, dxr });
             // the demo is set up for the Ginger: its E values need the Ginger factor
             var presetList = machine.Params.Input[0].Sources.OfType<Grasshopper.Kernel.Special.GH_ValueList>().FirstOrDefault();
             if (presetList != null && presetList.ListItems.Count > 4) presetList.SelectItem(4);
@@ -1231,7 +1243,7 @@ namespace LARGERslicer.Components.Slicer
                   "Rounds every corner of the path with an arc that leaves and rejoins the path tangentially. Zigzag turns and rib tips become half circles. Skipped while Preview is on in the Print Settings.") { }
 
         public override Guid ComponentGuid => new Guid("602A12F1-F59C-4403-8CBE-D2E54491A9B7");
-        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerRoundIcon.png");
 
         protected override void RegisterInputParams(GH_InputParamManager p)
@@ -1280,7 +1292,7 @@ namespace LARGERslicer.Components.Slicer
                   "Adds a skirt before the part and an exit move after it. The skirt is always printed first and runs on into the outer wall as one continuous bead; the exit moves the nozzle off the part before it stops, so no drop is left on it.") { }
 
         public override Guid ComponentGuid => new Guid("33D81FBE-3B35-431E-A621-D0944C613D7F");
-        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerStartEndIcon.png");
 
         protected override void RegisterInputParams(GH_InputParamManager p)
@@ -1327,7 +1339,7 @@ namespace LARGERslicer.Components.Slicer
                   "Checks whether the path can be printed. Main test: every bead must lie on the bead below. The path is the middle of the bead, so it may sit at most half a bead width beside the layer below. Points further out are shown; they would hang in the air.") { }
 
         public override Guid ComponentGuid => new Guid("8D9D06FF-B358-4D10-AAB8-6531B0F20E1E");
-        public override GH_Exposure Exposure => GH_Exposure.senary;
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerCheckIcon.png");
 
         protected override void RegisterInputParams(GH_InputParamManager p)
@@ -1369,7 +1381,7 @@ namespace LARGERslicer.Components.Slicer
                   "Calculates extrusion and speed for every move from the local layer height and bead width. Outputs points, tool planes, E and F ready for the DXR/GCode components.") { }
 
         public override Guid ComponentGuid => new Guid("273EE2E4-32D8-4874-B0F5-47F32A4D5E1F");
-        public override GH_Exposure Exposure => GH_Exposure.senary;
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerExtrusionIcon.png");
 
         protected override void RegisterInputParams(GH_InputParamManager p)
@@ -1426,7 +1438,7 @@ namespace LARGERslicer.Components.Slicer
                   "Scaled-down G-code of the same toolpath for a small filament printer (Bambu Lab, Prusa, Creality, Elegoo and other Marlin or Klipper machines). Path, bead width and layer height shrink by the same factor, so you can check the line pattern, seams and overhangs on the desk before the large print. It checks the path, not the material: cooling and sagging of a pellet extruder do not scale. Start and end code are generic; compare them with your printer before the first run.") { }
 
         public override Guid ComponentGuid => new Guid("960F3310-1853-4750-A622-E2FBFD8DBE5D");
-        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        public override GH_Exposure Exposure => GH_Exposure.senary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerDesktopIcon.png");
 
         protected override void RegisterInputParams(GH_InputParamManager p)
@@ -1488,7 +1500,7 @@ namespace LARGERslicer.Components.Slicer
                   "Writes the toolpath as G-code for the Ginger One, in full size: the start and end sequence of the Ginger quick start guide, absolute positions, relative extrusion, one constant feedrate. Use Machine Profile with the Ginger preset so the E values fit the pellet extruder.") { }
 
         public override Guid ComponentGuid => new Guid("3B1D6C52-9E0A-4F37-8C1B-5D2A7E9F4A10");
-        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        public override GH_Exposure Exposure => GH_Exposure.senary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerDesktopIcon.png");
 
         protected override void RegisterInputParams(GH_InputParamManager p)
@@ -1531,7 +1543,7 @@ namespace LARGERslicer.Components.Slicer
                   "Writes the toolpath as robot moves for the DXR Generator: one PTP line per point, with the matching extrusion and speed. The tool orientation A, B, C is the same for every point: use it for flat layers with a vertical tool and check it against your robot cell before the first run. With the Robots plug-in, take its program instead.") { }
 
         public override Guid ComponentGuid => new Guid("7C4E9A21-63B8-4D15-A0F2-1E8B5C7D3F92");
-        public override GH_Exposure Exposure => GH_Exposure.quinary;
+        public override GH_Exposure Exposure => GH_Exposure.senary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerOpenIcon.png");
 
         protected override void RegisterInputParams(GH_InputParamManager p)

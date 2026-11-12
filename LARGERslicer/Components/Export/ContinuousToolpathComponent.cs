@@ -15,13 +15,13 @@ namespace LARGERslicer.Components.Export
     public class ContinuousToolpathComponent : BottomLayerPatternBase
     {
         public ContinuousToolpathComponent()
-            : base("Continuous Toolpath", "ContTP",
+            : base("Curve Continuous Path", "C Path",
                   "Turns a closed outline into one continuous print line: the wall first, then the inside following the wall inwards, without lifting and without crossing itself. Holes are walked around.")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

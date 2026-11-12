@@ -15,14 +15,14 @@ namespace LARGERslicer.Components.Export
     public class ContinuousInfillComponent : GH_Component
     {
         public ContinuousInfillComponent()
-            : base("Continuous Infill", "ContInfill",
+            : base("Curve Continuous Infill", "C Infill",
                   "Fills a closed boundary with one continuous line that follows the outline inwards and never crosses itself. The line starts next to the seam point. Holes are walked around.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer Curves")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

@@ -16,14 +16,14 @@ namespace LARGERslicer.Components.Export
     public class BridgeCurvesComponent : GH_Component
     {
         public BridgeCurvesComponent()
-            : base("Bridge Curves", "Bridge",
+            : base("Curve Bridge", "C Bridge",
                   "Connects separate curves with bridges to create continuous paths. Prevents overfill between disconnected segments. Based on Nautilus plugin approach.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer Curves")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

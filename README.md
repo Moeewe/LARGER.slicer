@@ -66,6 +66,20 @@ Components connect in this order. `Quick Start` places the whole chain with an e
 | 10 | `Path Check` | Support, self-crossings, bead shape, travel moves |
 | 11 | `Extrusion and Speed` | Plane, E and F per point for the DXR Generator or G-code |
 | | `Desktop Test Print` | The same path scaled down as G-code for a desktop filament printer |
+| | `Ginger G-code` | The path in full size as G-code for the Ginger One, with its start and end sequence |
+
+## The Robot tab
+
+For printing with a robot: the cell is described once, then every toolpath becomes robot moves with the real tool orientation.
+
+| Component | What it does |
+|---|---|
+| `Robot` | The arm. KUKA KR120 R2700-2 by default; any six-axis arm with a spherical wrist from a Robots plug-in library file (.xml) |
+| `Robot Tool` | Tool centre point (relative to the flange) and weight |
+| `Robot Cell` | Robot, tool and the work base the program counts from (KUKA `$BASE`) |
+| `Robot Program` | Tool tip on every path point, tool along the path's tool axis. Checks reach, axis ranges, wrist singularity and axis speed. Outputs the moves for the `DXR Generator`, a KRL program and the arm at any place of the path |
+
+The curve-based tools of the former Toolpaths tab are now in **Slicer Curves**, named like their Slicer counterparts (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
 
 ## Machines
 

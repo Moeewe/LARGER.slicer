@@ -4,7 +4,8 @@ One icon set for the whole plug-in.
 
 Style: minimal line glyphs in one ink colour with a single accent colour per group,
 2 px strokes with round ends, generous white space. Follows the Grasshopper icon rules:
-24 x 24 px, 2 px margin (drawing area 20 x 20), no pure black, transparent ground.
+24 x 24 px, 2 px margin (drawing area 20 x 20), no pure black. Each glyph sits on a light
+rounded tile, so it reads on a dark toolbar and on the light component alike.
 Drawn at 16x and scaled down, so curves stay smooth.
 
 Run from anywhere:  python3 scripts/generate_icons.py
@@ -17,6 +18,8 @@ S = 16
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'Resources')
 
+TILE = (247, 249, 252, 255)    # light ground under every glyph
+TILE_EDGE = (120, 132, 150, 110)
 INK = (38, 44, 58, 255)        # dark slate, not black
 SOFT = (38, 44, 58, 90)        # same ink, light: secondary lines
 BLUE = (10, 132, 255, 255)     # slicer
@@ -59,7 +62,13 @@ class G:
         return self
 
     def save(self, name):
-        self.img.resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, name))
+        # Every glyph sits on a light tile. The same icon is shown on Rhino's dark toolbar and on
+        # the light component on the canvas, so it has to carry its own ground to be readable on both.
+        tile = Image.new('RGBA', (24 * S, 24 * S), (0, 0, 0, 0))
+        d = ImageDraw.Draw(tile)
+        d.rounded_rectangle([0.5 * S, 0.5 * S, 23.5 * S, 23.5 * S], radius=5.5 * S, fill=TILE, outline=TILE_EDGE, width=int(0.6 * S))
+        tile.alpha_composite(self.img)
+        tile.resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, name))
 
 
 def arc(cx, cy, r, a0, a1, n=28, ry=None):
@@ -391,6 +400,31 @@ def _(g):
 @icon('StreamFreezeIcon')
 def _(g):
     g.circle(12, 12, 9, INK, 2); g.line([(9.6, 8), (9.6, 16)], PURPLE, 2.4); g.line([(14.4, 8), (14.4, 16)], PURPLE, 2.4)
+
+
+# ---- robot
+@icon('RobotArmIcon')
+def _(g):
+    g.line([(5, 20), (11, 20)], INK, 2.4); g.line([(8, 20), (8, 14.5), (14, 7), (19, 10)], INK, 2)
+    g.dot(8, 14.5, 2.0, ORANGE); g.dot(14, 7, 2.0, ORANGE); g.dot(19, 10, 1.6, INK)
+
+
+@icon('RobotToolIcon')
+def _(g):
+    g.rrect(7, 3.5, 17, 9.5, 1.6, INK, 2); g.line([(12, 9.5), (12, 14)], INK, 3); g.poly([(9.2, 14), (14.8, 14), (12, 18.2)], INK)
+    g.line([(6, 20.5), (18, 20.5)], ORANGE, 2); g.dot(12, 20.5, 1.7, ORANGE)
+
+
+@icon('RobotCellIcon')
+def _(g):
+    g.rrect(3, 3, 21, 21, 3, SOFT, 1.6)
+    g.line([(7, 17.5), (7, 13), (11.5, 8.5), (15, 11)], INK, 2); g.dot(7, 13, 1.7, ORANGE)
+    g.line([(13, 17.5), (19, 17.5)], ORANGE, 2.2)
+
+
+@icon('RobotProgramIcon')
+def _(g):
+    doc(g); g.line([(8, 16.5), (8, 13.5), (10.8, 10.8), (13.4, 12.6)], ORANGE, 1.8); g.dot(8, 13.5, 1.3, ORANGE)
 
 
 def helix(n, turns=3.0, steps=720):

@@ -30,6 +30,15 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 | Toolpath to Robot Lines | One PTP line per path point with one fixed tool orientation |
 | DXR Generator | Robot lines, extrusion and speed to a DXR file for the Weber DXR |
 
+**LARGER > Robot**
+
+| Component | What it does |
+|---|---|
+| Robot | The arm: KUKA KR120 R2700-2 by default, or any six-axis arm from a Robots library file |
+| Robot Tool | Tool centre point and weight |
+| Robot Cell | Robot, tool and the work base the program counts from |
+| Robot Program | Robot moves with the real tool orientation, reach and axis check, lines for the DXR Generator, KRL program |
+
 ## Build
 
 ```bash

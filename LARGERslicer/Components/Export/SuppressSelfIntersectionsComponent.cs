@@ -15,14 +15,14 @@ namespace LARGERslicer.Components.Export
     public class SuppressSelfIntersectionsComponent : GH_Component
     {
         public SuppressSelfIntersectionsComponent()
-            : base("Suppress Self Intersections", "SuppressIX",
+            : base("Curve Uncross", "C Uncross",
                   "Removes the crossings of a line with itself. By default the line stays one continuous line: the stretch between two crossing parts is run the other way round. With Split the line is cut at the crossings instead.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer Curves")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

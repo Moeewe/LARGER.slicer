@@ -15,13 +15,13 @@ namespace LARGERslicer.Components.Export
     public class InfillCellsCurveComponent : BottomLayerPatternBase
     {
         public InfillCellsCurveComponent()
-            : base("Single Line Fill with Cells", "SLF Cells",
+            : base("Curve Fill Cells", "C Cells",
                   "One closed print line made of the wall and honeycomb or grid cells. Every cell is a loop; neighbouring loops lie one print width apart and fuse into double walls; short bridges join everything into a single line that never crosses itself. The curve is the outside of the print.")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

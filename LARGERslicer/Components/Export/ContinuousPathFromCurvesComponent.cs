@@ -15,13 +15,13 @@ namespace LARGERslicer.Components.Export
     public class ContinuousPathFromCurvesComponent : BottomLayerPatternBase
     {
         public ContinuousPathFromCurvesComponent()
-            : base("Continuous Path from Boundary", "ContPath",
+            : base("Curve Wall and Zigzag", "C Wall",
                   "One continuous print line from a boundary: one wall loop along the outline, then a zigzag infill at the chosen angle inside it. The curve is the outside of the print.")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

@@ -15,13 +15,13 @@ namespace LARGERslicer.Components.Export
     public class InfillEulerTransformationComponent : BottomLayerPatternBase
     {
         public InfillEulerTransformationComponent()
-            : base("Single Line Fill with Euler", "SLF Euler",
+            : base("Curve Fill Euler", "C Euler",
                   "Fills a region with one line that can be drawn without lifting the pen. Concentric = true follows the outline inwards, false prints a wall loop and a zigzag inside. Offset Distance moves the first bead further inside.")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

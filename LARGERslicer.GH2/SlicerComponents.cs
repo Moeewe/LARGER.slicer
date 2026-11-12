@@ -26,6 +26,7 @@ namespace LARGERslicer.GH2
         public const string Chapter = "LARGER";
         public const string Slicer = "Slicer";
         public const string Dxr = "DXR";
+        public const string Robot = "Robot";
 
         public static Nomen Name(string name, string info, string section, int slot) => new Nomen(name, info, Chapter, section, slot, Rank.Normal);
 

@@ -17,14 +17,14 @@ namespace LARGERslicer.Components.Export
     public class CurveBoundaryInfillComponent : GH_Component
     {
         public CurveBoundaryInfillComponent()
-            : base("Curve Boundary Infill", "CBI",
+            : base("Curve Fill Cross Lines", "C Cross",
                   "Generates boustrophedon infill pattern. Takes first curve as outer contour, offsets inward by layer width, then connects with cross-lines at configurable angle. Works for first layer and planar layers.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer Curves")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

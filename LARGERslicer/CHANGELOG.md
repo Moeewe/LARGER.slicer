@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-12
+
 ### Added
+- **Robot tab**: `Robot` (KUKA KR120 R2700-2 by default, or any six-axis arm with a spherical wrist from a Robots plug-in library file), `Robot Tool`, `Robot Cell` and `Robot Program`. The program puts the tool tip on every path point with the tool along the path's tool axis, so angled, non-planar and multi-axis paths tilt the tool. It calculates the axis angles of every point (same conventions as the Robots plug-in) and reports points out of reach, axis ranges, wrist singularities and axis speed. Outputs: the moves with X, Y, Z, A, B, C for the `DXR Generator`, a KRL program with tool and base, and the arm at any place of the path.
+- `Quick Start`: output B now runs through the robot cell and `Robot Program` into the DXR file.
 - `Ginger G-code`: full-size G-code for the Ginger One with the start and end sequence of the Ginger quick start guide, relative extrusion and one constant feedrate on every line.
 - `Toolpath to Robot Lines`: the toolpath as PTP lines with extrusion and speed for the `DXR Generator`, for flat layers with a vertical tool.
 - `Quick Start`: the flat example now ends in the file for the machine (Ginger G-code, and robot lines into a DXR file); the demo parts lie on positive coordinates.
@@ -15,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Grasshopper 2: `Ginger G-code` and `Desktop Test Print`.
 
 ### Changed
+- Icons: every icon sits on a light tile, so it reads on Rhino's dark toolbar and on the light component alike.
+- The Toolpaths section is now **Slicer Curves** and its components are named like their Slicer counterparts: `Curve Fill Zigzag` (was Single Path Fill with Lines), `Curve Fill Contour` (Single Line Fill with Offsets), `Curve Fill Cells`, `Curve Fill Euler`, `Curve Fill Cross Lines` (Curve Boundary Infill), `Curve Continuous Infill`, `Curve Continuous Path` (Continuous Toolpath), `Curve Wall and Zigzag` (Continuous Path from Boundary), `Curve Join and Order` (Optimized Toolpath), `Curve Uncross` (Suppress Self Intersections), `Curve Bridge`. Existing definitions keep working: only names and place changed.
+- Slicer toolbar order: settings, slice, walls and fill, path, check and values, output, open interface.
 - Angled printing (`Slice` with an angle): every layer now starts in the middle of its lowest edge, on the bed; the skirt goes around the whole footprint on the bed; contours smaller than one bead (where a layer just touches the part) are left out; `Path Check` counts beads that lie on the bed as supported.
 - `Infill Wave` on angled layers: sides that climb from the bed keep their wavelength and count their waves from the bed, and a wave grows by a small step per layer instead of appearing at full depth.
 

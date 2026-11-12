@@ -15,13 +15,13 @@ namespace LARGERslicer.Components.Export
     public class InfillLinesComponent : BottomLayerPatternBase
     {
         public InfillLinesComponent()
-            : base("Single Path Fill with Lines", "SPF Lines",
+            : base("Curve Fill Zigzag", "C Zigzag",
                   "Fills a region with one zigzag line at a chosen angle. The curve is the outside of the print; lines are one print width apart. Best for simple shapes - on shapes with bays or holes use Single Line Fill with Offsets.")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

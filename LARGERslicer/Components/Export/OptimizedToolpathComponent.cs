@@ -32,14 +32,14 @@ namespace LARGERslicer.Components.Export
     public class OptimizedToolpathComponent : GH_Component
     {
         public OptimizedToolpathComponent()
-            : base("Optimized Toolpath", "OptPath",
+            : base("Curve Join and Order", "C Join",
                   "Combines multiple curves into an optimized continuous path. Removes self-intersections, optimizes curve order using nearest-neighbor algorithm, and adds connections between gaps. Ideal for combining output from multiple pattern components.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer Curves")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer Curves";
 
         public override Guid ComponentGuid => new Guid("8F3D2A1C-9B4E-4F2A-A1C3-5D6E7F8A9B0C");
 
