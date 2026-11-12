@@ -2,24 +2,25 @@
 """
 One icon set for the whole plug-in.
 
-Style: minimal line glyphs in one ink colour with a single accent colour per group,
-2 px strokes with round ends, generous white space. Follows the Grasshopper icon rules:
-24 x 24 px, 2 px margin (drawing area 20 x 20), no pure black, transparent ground.
-Every icon is written twice: X.png with dark ink (canvas, light toolbar) and X.dark.png with
-light ink (toolbar in dark mode). Grasshopper 1 has no icon pairs; IconHelper picks one.
-Drawn at 16x and scaled down, so curves stay smooth.
+Style: a white line glyph with one accent colour per group, on a small dark chip with round
+corners - the same dark ground as the logo. Grasshopper 1 has only one icon per component and
+shows it on very different grounds: a light or a dark toolbar, the grey capsule on the canvas,
+green when selected, orange and red for warnings and errors. Dark lines vanish on the dark
+ones, light lines on the light ones; a chip brings its own ground and reads the same
+everywhere, so there is one file per icon and nothing to switch.
+The glyphs are drawn at 16x in a 24 x 24 field with dark ink, then turned white, made a little
+smaller and bolder, and set on the chip.
 
 Run from anywhere:  python3 scripts/generate_icons.py
 Writes Resources/*.png, icon.png (256 px logo for Yak/GitHub) and the 24 px tab icon.
 """
 import math, os
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 S = 16
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'Resources')
 
-INK_ON_DARK = (232, 236, 244)  # the ink colour on a dark toolbar
 INK = (38, 44, 58, 255)        # dark slate, not black
 SOFT = (38, 44, 58, 90)        # same ink, light: secondary lines
 BLUE = (10, 132, 255, 255)     # slicer
@@ -62,18 +63,47 @@ class G:
         return self
 
     def save(self, name):
-        self.img.resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, name))
-        on_dark(self.img).resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, name.replace('.png', '.dark.png')))
+        chip(self.img).save(os.path.join(OUT, name))
 
 
-def on_dark(img):
-    """The same drawing with the ink turned light; accent colours stay."""
-    px = img.copy(); data = px.load()
+# the accent colours a little brighter, so they carry on the dark chip
+BRIGHT = {BLUE[:3]: (64, 160, 255), TEAL[:3]: (70, 205, 225), ORANGE[:3]: (255, 170, 40), GREEN[:3]: (70, 215, 115), PURPLE[:3]: (200, 120, 240)}
+
+
+def chip_ground():
+    n = 24 * S
+    img = Image.new('RGBA', (n, n), (0, 0, 0, 0))
+    grad = Image.new('RGBA', (n, n)); gd = ImageDraw.Draw(grad)
+    top, bottom = (40, 49, 70), (20, 25, 40)
+    for y in range(n):
+        t = y / (n - 1)
+        gd.line([(0, y), (n, y)], fill=tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(3)) + (255,))
+    mask = Image.new('L', (n, n), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, n - 1, n - 1], radius=int(5.5 * S), fill=255)
+    img.paste(grad, (0, 0), mask)
+    # a hairline of light around it, so the chip keeps its edge on a dark toolbar
+    ImageDraw.Draw(img).rounded_rectangle([S * 0.25, S * 0.25, n - 1 - S * 0.25, n - 1 - S * 0.25], radius=int(5.3 * S), outline=(255, 255, 255, 46), width=int(S * 0.5))
+    return img
+
+
+def chip(src, scale=0.78, bolder=3):
+    """The drawing in white on the dark chip, 24 x 24."""
+    n = 24 * S
+    px = src.copy(); data = px.load()
     for y in range(px.height):
         for x in range(px.width):
             r, g, b, a = data[x, y]
-            if a and (r, g, b) == INK[:3]: data[x, y] = INK_ON_DARK + (a,)
-    return px
+            if not a: continue
+            if (r, g, b) == INK[:3]: data[x, y] = (246, 248, 252, 255 if a > 200 else 150)   # ink white, soft lines half
+            elif (r, g, b) in BRIGHT: data[x, y] = BRIGHT[(r, g, b)] + (a,)
+    m = int(n * scale)
+    small = px.resize((m, m), Image.LANCZOS)
+    if bolder:
+        r_, g_, b_, a_ = small.split()
+        small = Image.merge('RGBA', (r_.filter(ImageFilter.MaxFilter(bolder)), g_.filter(ImageFilter.MaxFilter(bolder)), b_.filter(ImageFilter.MaxFilter(bolder)), a_.filter(ImageFilter.MaxFilter(bolder))))
+    out = chip_ground()
+    out.alpha_composite(small, ((n - m) // 2, (n - m) // 2))
+    return out.resize((24, 24), Image.LANCZOS)
 
 
 def arc(cx, cy, r, a0, a1, n=28, ry=None):
@@ -505,6 +535,5 @@ if __name__ == '__main__':
     logo(256).save(os.path.join(HERE, '..', 'icon.png'))
     logo(256).save(os.path.join(OUT, 'plugin-icon.png'))
     logo(1024).save(os.path.join(HERE, '..', '..', 'docs', 'logo-1024.png'))
-    tab_icon().resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, 'LARGERslicer_24x24.png'))
-    on_dark(tab_icon()).resize((24, 24), Image.LANCZOS).save(os.path.join(OUT, 'LARGERslicer_24x24.dark.png'))
+    chip(tab_icon()).save(os.path.join(OUT, 'LARGERslicer_24x24.png'))
     print(len(ICONS), 'icons, logo and tab icon written')
