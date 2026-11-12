@@ -48,8 +48,8 @@ and restart Rhino.
 ## Status
 
 Tested in Grasshopper 2 (Rhino 9.1) on a box: slice, walls, bottom, honeycomb infill,
-continuous path, check and DXR all compute. Not yet tested: non-planar and multi-axis
-slicing in Grasshopper 2, Windows, installation through the package manager, and a real print.
+continuous path, check and DXR all compute. A guide curve from a native arc component is
+accepted by Slice. Not yet tested: non-planar and multi-axis slicing on a real part, Windows, installation through the package manager, and a real print.
 
 `Toolpath to Robot Lines` writes one fixed tool orientation (A, B, C). Check it against your
 robot cell before the first run. For tilted tool axes use the planes from `Extrusion and Speed`.

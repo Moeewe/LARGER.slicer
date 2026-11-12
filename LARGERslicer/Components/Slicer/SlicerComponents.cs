@@ -929,6 +929,9 @@ namespace LARGERslicer.Components.Slicer
             }
             var log = new List<string>();
             var sw = Stopwatch.StartNew();
+            var crossLog = new List<string>();
+            sketch = FillEngine.WithoutCrossingSketches(sketch, crossLog);
+            foreach (var l in crossLog) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
             var result = FillEngine.Ribs(layers, settings, sketch, 0, 0, meet, stagger, log, out int ribs);
             sw.Stop();
             foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);

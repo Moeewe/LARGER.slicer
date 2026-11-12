@@ -411,6 +411,7 @@ namespace LARGERslicer.Toolpaths
             bool first = tp.Count == 0;
             Point3d rampStart = Point3d.Unset; // where the layer below began (the next ramp starts above it)
             bool belowRamped = false;          // did the layer below climb over a ramp there?
+            var prevStarts = new List<Point3d>(); var curStarts = new List<Point3d>(); // where the closed walls of a layer begin
             for (int i = fromLayer; i < toLayer; i++)
             {
                 var layer = layers[i];
@@ -426,6 +427,7 @@ namespace LARGERslicer.Toolpaths
 
                 var todo = new List<Loop>(loops[i]);
                 bool firstOfLayer = true;
+                prevStarts = curStarts; curStarts = new List<Point3d>();
                 while (todo.Count > 0)
                 {
                     Point3d from = tp.Count > 0 ? tp.Points[tp.Count - 1] : todo[0].P[0];
@@ -476,7 +478,21 @@ namespace LARGERslicer.Toolpaths
                                 if (first) break;
                             }
                         }
+                        // A wall the nozzle reaches by a travel move starts where it started on the
+                        // layer below, not wherever the nozzle happens to come from: its seam stays
+                        // in one place and the bead beside it lies on the one below.
+                        if (!firstOfLayer && !usedHint && !hasFill && prevStarts.Count > 0)
+                        {
+                            double bestStart = w;
+                            foreach (var ps in prevStarts)
+                            {
+                                Point3d up = ps + n * h; int hs = -1;
+                                double ds = src.Closest(up, ref hs, int.MaxValue).DistanceTo(up);
+                                if (ds < bestStart) { bestStart = ds; target = up; }
+                            }
+                        }
                         var cur = new Loop(StartAt(pts, target), true);
+                        curStarts.Add(cur.P[0]);
 
                         bool ramp = firstOfLayer && !usedHint && !hasFill && rampLength > 0 && tp.Count > 0 && i > 0;
                         double lr = ramp ? Math.Min(rampLength, cur.Len * 0.5) : 0;

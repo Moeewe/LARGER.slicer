@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `Infill Sketch`: a sketch line that crosses an earlier one is left out, with a warning naming both lines. Before, both were built and the path crossed itself on every layer.
+- `Continuous Path`: a wall the nozzle reaches by a travel move (the wall of an opening next to a chamber wall, for example) starts where it started on the layer below, so its seam stays in one place.
+
 ## [1.2.1] - 2026-11-11
 
 Found by running the whole Slicer tab in Grasshopper (Rhino 9) on parts with openings.

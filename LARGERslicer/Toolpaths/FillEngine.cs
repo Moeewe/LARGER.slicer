@@ -529,6 +529,36 @@ namespace LARGERslicer.Toolpaths
         // ------------------------------------------------------------------ drawn ribs
 
         /// <summary>A curve that runs along the layer (drawn in top view) rather than through it.</summary>
+        /// <summary>
+        /// Sketched rib lines that cross each other in top view cannot both be printed: the path
+        /// would have to run across itself. The line drawn later is left out and named in the log.
+        /// </summary>
+        public static List<object> WithoutCrossingSketches(List<object> sketch, List<string> log)
+        {
+            var flat = new List<Curve>();
+            foreach (var o in sketch)
+            {
+                var c = (o as Curve)?.DuplicateCurve();
+                if (c != null) c.Transform(Transform.PlanarProjection(Plane.WorldXY));
+                flat.Add(c);
+            }
+            var keep = new List<object>(); var kept = new List<int>();
+            for (int i = 0; i < sketch.Count; i++)
+            {
+                int hit = -1;
+                if (flat[i] != null)
+                    foreach (int k in kept)
+                    {
+                        if (flat[k] == null) continue;
+                        var x = Rhino.Geometry.Intersect.Intersection.CurveCurve(flat[i], flat[k], 0.01, 0.01);
+                        if (x != null && x.Count > 0) { hit = k; break; }
+                    }
+                if (hit >= 0) log?.Add($"Sketch line {i + 1} crosses line {hit + 1}. A printed line cannot run across itself, so line {i + 1} was left out.");
+                else { keep.Add(sketch[i]); kept.Add(i); }
+            }
+            return keep;
+        }
+
         private static bool IsGuide(Curve crv, SliceLayer layer)
         {
             BoundingBox bb = crv.GetBoundingBox(layer.Plane);
