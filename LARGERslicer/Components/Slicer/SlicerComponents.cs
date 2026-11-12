@@ -830,6 +830,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddGenericParameter("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it (non-planar). A curve: the layers stand square to it (multi-axis, for parts that grow along a bent axis). Empty = flat layers.", GH_ParamAccess.item);
             p.AddIntegerParameter("Guide Mode", "GM", "Only with a guide surface:\n0 = Flat bottom, top follows the guide: the first layer lies flat on the bed and the layers bend gradually\n1 = All layers follow the guide: for printing on a curved base or mould", GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Tool Axis", "TA", "Only with a guide:\n0 = Tool square to the layer (robot)\n1 = Tool stays vertical (3-axis printer)", GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Start/End Layers", "SE", "Sacrificial layers before the part's first and after its last layer, milled away afterwards (CEAD recommends about 5 for angled printing). The start feature stands on the bed and gives the first leaning layer a full layer to lie on; flat layers get only the end feature. 0 = none", GH_ParamAccess.item, 0);
             p[1].Optional = true;
             p[4].Optional = true;
         }
@@ -900,7 +901,20 @@ namespace LARGERslicer.Components.Slicer
                 return;
             }
             long meshMs = sw.ElapsedMilliseconds;
+            int extra = 0; if (Params.Input.Count > 7) da.GetData(7, ref extra);
             var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
+            if (extra > 0 && warp == null)
+            {
+                // sacrificial layers before and after the part (CEAD: about 5 for angled printing)
+                int before = layers.Count;
+                layers = StartEndFeature.AddStart(layers, extra, 0.0, log);
+                int startMade = layers.Count - before;
+                layers = StartEndFeature.AddEnd(layers, extra, log);
+                log.Add(startMade > 0
+                    ? $"Start and end feature: {startMade} layer(s) in front of the part, standing on the bed, and {extra} on top of its last layer. They are sacrificial: mill them away."
+                    : $"End feature: {extra} layer(s) on top of the last one{(Math.Abs(plane.Normal.Z) > 0.999 ? " (flat layers start on the bed and need no start feature)" : "")}. Mill them away.");
+            }
+            else if (extra > 0) log.Add("Start and end feature: only for flat or angled layers, not with a guide.");
             sw.Stop();
 
             foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);

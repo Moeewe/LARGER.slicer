@@ -170,6 +170,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it. A curve: the layers stand square to it.", Access.Item, Requirement.MayBeMissing);
             inputs.AddInteger("Guide Mode", "GM", "Only with a guide surface: 0 = flat bottom, top follows the guide. 1 = all layers follow the guide.").Set(0);
             inputs.AddInteger("Tool Axis", "TA", "Only with a guide: 0 = tool square to the layer (robot). 1 = tool stays vertical.").Set(0);
+            inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away afterwards (about 5 for angled printing). The start feature stands on the bed. 0 = none.").Set(0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -211,7 +212,20 @@ namespace LARGERslicer.GH2
 
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), tol, log, warp != null ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
+            int extra; access.GetItem(6, out extra);
             var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
+            if (extra > 0 && warp == null)
+            {
+                // sacrificial layers before and after the part (CEAD: about 5 for angled printing)
+                int before = layers.Count;
+                layers = StartEndFeature.AddStart(layers, extra, 0.0, log);
+                int startMade = layers.Count - before;
+                layers = StartEndFeature.AddEnd(layers, extra, log);
+                log.Add(startMade > 0
+                    ? $"Start and end feature: {startMade} layer(s) in front of the part, standing on the bed, and {extra} on top of its last layer. They are sacrificial: mill them away."
+                    : $"End feature: {extra} layer(s) on top of the last one{(Math.Abs(plane.Normal.Z) > 0.999 ? " (flat layers start on the bed and need no start feature)" : "")}. Mill them away.");
+            }
+            else if (extra > 0) log.Add("Start and end feature: only for flat or angled layers, not with a guide.");
             Io.Remarks(access, log);
             if (layers.Count == 0) { access.AddWarning("No layers", "Check the layer height and where the part stands."); return; }
 

@@ -61,7 +61,7 @@ namespace LARGERslicer.Toolpaths
             }
             r.Report.Add($"Corners: radius at least {f(r.MinCornerRadius)} mm (half the nozzle); Round Corners uses the bead width.");
             r.Report.Add($"Two beads in one go (double bead): 0.8 to 0.9 x the layer width apart, {f(0.8 * lw)} to {f(0.9 * lw)} mm.");
-            r.Report.Add($"At an angle: add a start and an end feature of about {r.StartLayers:0} layers ({f(r.StartLayers * (layerHeight > 0 ? layerHeight : r.LayerRecommended))} mm) before and after the part, milled away afterwards, so the part itself starts and ends on full layers.");
+            r.Report.Add($"At an angle: add a start and an end feature of about {r.StartLayers:0} layers ({f(r.StartLayers * (layerHeight > 0 ? layerHeight : r.LayerRecommended))} mm) before and after the part, milled away afterwards, so the part itself starts and ends on full layers: set Start/End Layers on Slice.");
             r.Report.Add("Overhang: flat layers up to 45 degrees; printed at 45 degrees up to 90 degrees. Contours inside contours are joined by bridges in Continuous Path, so the line never stops.");
             return r;
         }

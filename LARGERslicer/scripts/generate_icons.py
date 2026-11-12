@@ -2,14 +2,13 @@
 """
 One icon set for the whole plug-in.
 
-Style: a white line glyph with one accent colour per group, on a small dark chip with round
-corners - the same dark ground as the logo. Grasshopper 1 has only one icon per component and
-shows it on very different grounds: a light or a dark toolbar, the grey capsule on the canvas,
-green when selected, orange and red for warnings and errors. Dark lines vanish on the dark
-ones, light lines on the light ones; a chip brings its own ground and reads the same
-everywhere, so there is one file per icon and nothing to switch.
-The glyphs are drawn at 16x in a 24 x 24 field with dark ink, then turned white, made a little
-smaller and bolder, and set on the chip.
+Style: as Grasshopper draws its own icons - light bodies and one accent colour per group, each
+with a dark edge and a faint shadow, and no ground of their own. Grasshopper 1 has one icon per
+component and shows it on very different grounds: a light or a dark toolbar, the grey capsule on
+the canvas, green when selected. The light body carries on the dark ones, the dark edge on the
+light ones, so one file reads everywhere. (Until 1.2 the glyphs sat on a dark chip.)
+The glyphs are drawn at 16x in a 24 x 24 field with dark ink; finish() turns the ink light, adds
+the edge and the shadow and scales to 24 px.
 
 Run from anywhere:  python3 scripts/generate_icons.py
 Writes Resources/*.png, icon.png (256 px logo for Yak/GitHub) and the 24 px tab icon.
@@ -19,7 +18,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 S = 16
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, '..', 'Resources')
+OUT = os.environ.get('ICON_OUT') or os.path.join(HERE, '..', 'Resources')
 
 INK = (38, 44, 58, 255)        # dark slate, not black
 SOFT = (38, 44, 58, 90)        # same ink, light: secondary lines
@@ -63,7 +62,7 @@ class G:
         return self
 
     def save(self, name):
-        chip(self.img).save(os.path.join(OUT, name))
+        finish(self.img).save(os.path.join(OUT, name))
 
 
 # the accent colours a little brighter, so they carry on the dark chip
@@ -103,6 +102,41 @@ def chip(src, scale=0.78, bolder=3):
         small = Image.merge('RGBA', (r_.filter(ImageFilter.MaxFilter(bolder)), g_.filter(ImageFilter.MaxFilter(bolder)), b_.filter(ImageFilter.MaxFilter(bolder)), a_.filter(ImageFilter.MaxFilter(bolder))))
     out = chip_ground()
     out.alpha_composite(small, ((n - m) // 2, (n - m) // 2))
+    return out.resize((24, 24), Image.LANCZOS)
+
+
+LIGHT = (250, 251, 253)        # ink becomes a light body ...
+MID = (168, 175, 188)          # ... secondary lines a quiet grey ...
+EDGE = (30, 34, 43)            # ... and everything gets a dark edge, as Grasshopper draws its objects
+
+
+def finish(src, scale=0.92):
+    """The Grasshopper way, no ground of its own: light bodies and coloured accents with a dark
+    edge and a faint shadow. The light body carries on a dark toolbar, the dark edge on a light
+    one and on the grey and green capsules of the canvas. 24 x 24."""
+    n = 24 * S
+    px = src.copy(); data = px.load()
+    for y in range(px.height):
+        for x in range(px.width):
+            r, g, b, a = data[x, y]
+            if not a: continue
+            if (r, g, b) == INK[:3]:
+                data[x, y] = (LIGHT + (255,)) if a > 160 else (MID + (min(255, a * 3),))   # soft ink = quiet grey
+    m = int(n * scale)
+    small = px.resize((m, m), Image.LANCZOS)
+    canvas = Image.new('RGBA', (n, n), (0, 0, 0, 0))
+    canvas.alpha_composite(small, ((n - m) // 2, (n - m) // 2))
+    k = 96                                         # work at 4x for a clean edge
+    fill = canvas.resize((k, k), Image.LANCZOS)
+    a = fill.split()[3].point(lambda v: 255 if v > 50 else 0)
+    edge_a = a.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.GaussianBlur(0.7))
+    shadow_a = edge_a.point(lambda v: v * 30 // 100).filter(ImageFilter.GaussianBlur(2.5))
+    out = Image.new('RGBA', (k, k), (0, 0, 0, 0))
+    sh = Image.new('RGBA', (k, k), (0, 0, 0, 255)); sh.putalpha(shadow_a)
+    out.alpha_composite(sh, (0, 3))
+    ed = Image.new('RGBA', (k, k), EDGE + (255,)); ed.putalpha(edge_a)
+    out.alpha_composite(ed)
+    out.alpha_composite(fill)
     return out.resize((24, 24), Image.LANCZOS)
 
 
@@ -535,5 +569,5 @@ if __name__ == '__main__':
     logo(256).save(os.path.join(HERE, '..', 'icon.png'))
     logo(256).save(os.path.join(OUT, 'plugin-icon.png'))
     logo(1024).save(os.path.join(HERE, '..', '..', 'docs', 'logo-1024.png'))
-    chip(tab_icon()).save(os.path.join(OUT, 'LARGERslicer_24x24.png'))
+    finish(tab_icon()).save(os.path.join(OUT, 'LARGERslicer_24x24.png'))
     print(len(ICONS), 'icons, logo and tab icon written')

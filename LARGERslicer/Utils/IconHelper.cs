@@ -7,9 +7,10 @@ using Grasshopper.Kernel;
 namespace LARGERslicer.Utils
 {
     /// <summary>
-    /// Icons from the embedded resources. Every icon is a white glyph on a small dark chip, so
-    /// one file reads on every ground Grasshopper puts it on: light or dark toolbar, the grey
-    /// capsule on the canvas, green when selected. There is nothing to choose.
+    /// Icons from the embedded resources, drawn the way Grasshopper draws its own: light bodies and
+    /// coloured accents with a dark edge and a faint shadow, no ground of their own. The light
+    /// body carries on a dark toolbar, the dark edge on a light one and on the grey and green
+    /// capsules of the canvas, so one file reads everywhere. Made by scripts/generate_icons.py.
     /// </summary>
     public static class IconHelper
     {
