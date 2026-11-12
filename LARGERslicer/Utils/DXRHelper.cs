@@ -668,60 +668,37 @@ namespace LARGERslicer.Utils
 
             if (isPlanar)
             {
-                // Planar: Detect layer changes by checking if after a Z jump, many points have similar Z height
-                // This works for any layer height (1mm, 1.5mm, 2mm, 6mm, etc.)
-                const double zTolerance = 0.1; // Tolerance for "same Z height" (0.1mm)
-                const int minPointsInLayer = 5; // Minimum points with same Z to consider it a new layer
-                const double minZJump = 0.2; // Minimum Z jump to consider (0.2mm)
-                
-                double previousZ = points[0].z;
-                double lastLayerZ = points[0].z;
-                int lookAheadWindow = Math.Min(20, points.Count / 10); // Look ahead 20 points or 10% of total
-                
-                for (int i = 1; i < points.Count - lookAheadWindow; i++)
+                // Planar: a layer is a stretch of points at one height. The ramp between two
+                // layers is a few single points at heights of their own; it belongs to the
+                // new layer, so the change sits on the first point that leaves the old height.
+                // The size of the single steps does not matter (a ramp may end 0.1 mm below
+                // the next layer), only that the path settles at another height.
+                const double zTolerance = 0.1; // "same height"
+                const int minPointsInLayer = 5; // fewer points at one height are ramp, lift or travel
+
+                double levelZ = points[0].z;
+                int lastOnLevel = 0;
+                int i = 1;
+                while (i < points.Count)
                 {
-                    double currentZ = points[i].z;
-                    double zDiff = currentZ - previousZ;
-                    
-                    // Check if there's a significant Z jump (potential layer change)
-                    if (zDiff > minZJump && currentZ > lastLayerZ + minZJump)
+                    double z = points[i].z;
+                    if (Math.Abs(z - levelZ) < zTolerance)
                     {
-                        // Look ahead to see if many points have similar Z height after this jump
-                        int sameZCount = 0;
-                        double targetZ = currentZ;
-                        
-                        for (int j = i; j < Math.Min(i + lookAheadWindow, points.Count); j++)
-                        {
-                            if (Math.Abs(points[j].z - targetZ) < zTolerance)
-                            {
-                                sameZCount++;
-                            }
-                        }
-                        
-                        // If many points have the same Z after the jump, it's a new layer
-                        if (sameZCount >= minPointsInLayer)
-                        {
-                            // Find the start of the jump (where Z started to increase)
-                            int jumpStartIndex = i;
-                            for (int j = i - 1; j >= 0 && j >= i - 5; j--) // Check up to 5 points back
-                            {
-                                if (Math.Abs(points[j].z - previousZ) < zTolerance)
-                                {
-                                    jumpStartIndex = j + 1; // Jump starts at next point
-                                    break;
-                                }
-                            }
-                            
-                            layerChangeIndices.Add(jumpStartIndex);
-                            double layerHeight = targetZ - lastLayerZ;
-                            processInfo.Add($"Layer change detected at movement {jumpStartIndex}: Z {lastLayerZ:F3} -> {targetZ:F3} (height: {layerHeight:F3}mm, {sameZCount} points at new Z)");
-                            lastLayerZ = targetZ;
-                            previousZ = targetZ;
-                            i += sameZCount - 1; // Skip ahead to avoid detecting same layer multiple times
-                            continue;
-                        }
+                        lastOnLevel = i;
+                        i++;
+                        continue;
                     }
-                    previousZ = currentZ;
+                    int run = 1;
+                    while (i + run < points.Count && Math.Abs(points[i + run].z - z) < zTolerance) run++;
+                    if (run >= minPointsInLayer)
+                    {
+                        int change = lastOnLevel + 1;
+                        layerChangeIndices.Add(change);
+                        processInfo.Add($"Layer change detected at movement {change}: Z {levelZ:F3} -> {z:F3} ({run} points at new Z)");
+                        levelZ = z;
+                        lastOnLevel = i + run - 1;
+                    }
+                    i += run;
                 }
             }
             else

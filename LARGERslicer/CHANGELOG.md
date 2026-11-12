@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Quick Start`: the flat demo part lies further on the bed, so its skirt stays on positive coordinates and `Ginger G-code` does not warn.
 - `Easy Slicer`: an empty Geometry input says "Connect your part" instead of a collect error; the report says when walls of openings are only reached by moves without extrusion and which infill joins them.
 - `Infill Chambers` on angled layers: what is carried from layer to layer moves straight up with the part.
+- `DXR Generator`: every layer is counted. Before, a layer was only seen when the last step of the ramp climbed more than 0.2 mm; where the ramp ended closer below the next layer, that layer got no `layer_sub.nc` call and the number of layers in the header was too low (102 instead of 120 on the demo part). A layer is now a stretch of at least five points at one height, and the call sits on the first point of the ramp.
 
 ### Changed
 - Icons: no ground behind the glyph. Every icon exists twice, with dark lines and with light lines. The toolbar gets the light lines when Rhino 8 or 9 on the Mac runs in dark mode; components on the canvas always get the dark lines (the canvas stays light). Grasshopper 1 has no icon pairs of its own, so the plug-in chooses. The toolbar keeps what it got at start: after switching the appearance, restart Rhino.
