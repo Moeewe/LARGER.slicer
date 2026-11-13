@@ -89,6 +89,7 @@ namespace LARGERslicer.GH2
                     try { string path = m.Save(); m.Source = path; access.AddRemark("Saved", path); }
                     catch (Exception ex) { access.AddError("Could not save", ex.Message); }
                 }
+                Files.Reset(this, 11);
             }
             var text = new[]
             {

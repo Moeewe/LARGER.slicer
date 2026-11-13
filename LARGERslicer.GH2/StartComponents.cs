@@ -47,7 +47,8 @@ namespace LARGERslicer.GH2
             if (m.Factor <= 0) { access.AddError("Factor", "Factor must be greater than 0. A factor of 0 gives no extrusion at all."); return; }
             if (m.FirstLayerFactor <= 0) { access.AddError("First Layer Factor", "First Layer Factor must be greater than 0."); return; }
             string section = m.RectangleSection ? "width x height" : "squashed bead (width - height) x height + pi/4 x height2";
-            access.SetItem(0, m);
+ access.SetItem(0, m);
+            Io.Label(this, MachineProfile.ShortName(m.Name));
             access.SetItem(1, $"{m.Name}: E = {section} x length x Flow x {m.Factor:0.####}" +
                               (m.FirstLayerFactor != 1 ? $" (first layer x {m.FirstLayerFactor:0.##})" : "") +
                               (m.FilamentDiameter > 0 ? $" / filament area ({m.FilamentDiameter:0.##} mm)" : "") + $", unit: {m.Unit}");
@@ -56,11 +57,13 @@ namespace LARGERslicer.GH2
 
     // ============================================================== print bed
     [IoId("2341c9e1-b844-4809-80da-4ef9d1ae1054")]
-    public sealed class PrintBedComponent : Component
+    public sealed class PrintBedComponent : PreviewComponent
     {
         public PrintBedComponent() : base(Io.Name("Print Bed", "Gives the print bed of your machine, origin in the front left corner, and checks that every connected path lies on it: no negative coordinates, nothing beyond the edge, nothing higher than the machine. Place your part on the bed before slicing.", Io.Slicer, Group.Start)) { }
         public PrintBedComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SlicerBedIcon");
+        // the plate, grid, outline and origin are drawn as in Grasshopper 1 (red outline when a path does not fit)
+        protected override int[] OwnOutputs => new[] { 0, 3 };
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -81,6 +84,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             double x, y, z; access.GetItem(0, out x); access.GetItem(1, out y); access.GetItem(2, out z);
+            Picture.Clear();
             if (x <= 0 || y <= 0 || z <= 0) { access.AddError("Invalid size", "Size X, Size Y and Height must be greater than 0."); return; }
             bool fits = true;
             var info = new List<string> { $"Bed {x:0} x {y:0} mm, height {z:0} mm, origin in the front left corner." };
@@ -112,10 +116,32 @@ namespace LARGERslicer.GH2
             var grid = new List<Line>();
             for (double gx = 100; gx < x - 1e-6; gx += 100) grid.Add(new Line(gx, 0, 0, gx, y, 0));
             for (double gy = 100; gy < y - 1e-6; gy += 100) grid.Add(new Line(0, gy, 0, x, gy, 0));
+            Picture.Show(Plate(x, y, fits));
             access.SetItem(0, new Rectangle3d(Plane.WorldXY, x, y).ToNurbsCurve());
             access.SetItem(1, fits);
+            Io.Label(this, paths > 0 ? (fits ? "Fits" : "Does not fit") : $"{x:0} x {y:0}");
             access.SetTwig(2, info.ToArray(), null, null);
             access.SetTwig(3, grid.ToArray(), null, null);
+        }
+
+        /// <summary>The bed as Grasshopper 1 draws it: a light plate, a 100 mm grid, the outline (red when a
+        /// path does not fit) and the origin with X red and Y green, as in Rhino.</summary>
+        private static ShadedPreview.Frame Plate(double x, double y, bool fits)
+        {
+            var f = new ShadedPreview.Frame();
+            var plate = new Mesh();
+            plate.Vertices.Add(0, 0, -0.2); plate.Vertices.Add(x, 0, -0.2); plate.Vertices.Add(x, y, -0.2); plate.Vertices.Add(0, y, -0.2);
+            plate.Faces.AddFace(0, 1, 2, 3); plate.Normals.ComputeNormals();
+            f.Mesh(plate, fits ? System.Drawing.Color.FromArgb(214, 218, 224) : System.Drawing.Color.FromArgb(240, 200, 196), 0.35);
+            var fine = System.Drawing.Color.FromArgb(150, 158, 170);
+            for (double gx = 100; gx < x - 1e-6; gx += 100) f.Line(new Line(gx, 0, 0, gx, y, 0), fine);
+            for (double gy = 100; gy < y - 1e-6; gy += 100) f.Line(new Line(0, gy, 0, x, gy, 0), fine);
+            f.Polyline(new Polyline(new[] { new Point3d(0, 0, 0), new Point3d(x, 0, 0), new Point3d(x, y, 0), new Point3d(0, y, 0), new Point3d(0, 0, 0) }),
+                fits ? System.Drawing.Color.FromArgb(70, 80, 96) : System.Drawing.Color.FromArgb(200, 50, 40), 2);
+            double a = Math.Min(80, 0.12 * Math.Min(x, y));
+            f.Arrow(new Line(Point3d.Origin, new Point3d(a, 0, 0)), System.Drawing.Color.FromArgb(215, 60, 50));
+            f.Arrow(new Line(Point3d.Origin, new Point3d(0, a, 0)), System.Drawing.Color.FromArgb(50, 160, 70));
+            return f;
         }
     }
 }

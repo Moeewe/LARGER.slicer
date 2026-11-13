@@ -1139,7 +1139,7 @@ namespace LARGERslicer.GH2
 
     // ============================================================== DXR variable width
     [IoId("8fe1dfa9-4512-41bb-b483-32999b0a2662")]
-    public sealed class DxrVariableWidthComponent : Component
+    public sealed class DxrVariableWidthComponent : PreviewComponent
     {
         private static readonly Regex XRegex = new Regex(@" X(-?\d+\.?\d*)", RegexOptions.Compiled);
         private static readonly Regex YRegex = new Regex(@" Y(-?\d+\.?\d*)", RegexOptions.Compiled);
@@ -1153,6 +1153,8 @@ namespace LARGERslicer.GH2
         public DxrVariableWidthComponent() : base(Io.Name("DXR Variable Width", "Scales the XE extrusion values of a DXR program along X, Y or Z so the printed line width runs from Width Start to Width End. Use it between DXR Generator and Safe Component. Only lines with XE=[value*P1] are changed; all other lines are passed through unchanged.", Io.Utilities, 0)) { }
         public DxrVariableWidthComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("DXRVariableWidthIcon");
+        // the segments in their colours, thicker where the bead gets wider (as in Grasshopper 1)
+        protected override int[] OwnOutputs => new[] { 1 };
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -1185,6 +1187,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             object[] raw;
+            Picture.Clear();
             if (!access.ItemArray(0, out raw) || raw == null) return;
             double baseWidth = 3.0, widthA = 4.0, widthB = 10.0, gamma = 2.0, rangeMin = double.NaN, rangeMax = double.NaN, maxFactor = 0.0;
             int axis = 0, mode = 0; bool flip = false, ignoreFirstLayer = true, active = true;
@@ -1339,12 +1342,15 @@ namespace LARGERslicer.GH2
             double fMax = Math.Max(fA, fB);
             if (maxFactor > 0.0) fMax = Math.Min(fMax, maxFactor);
             var colors = new List<System.Drawing.Color>(factors.Count);
+            var picture = new ShadedPreview.Frame();
             for (int i = 0; i < factors.Count; i++)
             {
                 double t = fMax > fMin ? (factors[i] - fMin) / (fMax - fMin) : 0.0;
                 var c = Blend(ColorThin, ColorThick, t);
                 colors.Add(c);
+                picture.Line(segments[i], c, 1 + (int)Math.Round(t * 4.0));
             }
+            Picture.Show(picture);
 
             string modeName = mode == 0 ? "Linear" : (mode == 1 ? "Smooth" : "Gamma " + gamma.ToString("0.##", CultureInfo.InvariantCulture));
             info.Add($"Axis: {axisName}   Range: {F3(lo)} .. {F3(hi)}   Mode: {modeName}{(flip ? "   Flipped" : "")}");

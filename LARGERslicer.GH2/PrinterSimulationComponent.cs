@@ -15,11 +15,13 @@ namespace LARGERslicer.GH2
     /// moved so the nozzle stands on the path, and the part printed so far.
     /// </summary>
     [IoId("f9091a5c-02b5-4792-9761-cae6887b50bb")]
-    public sealed class PrinterSimulationComponent : Component
+    public sealed class PrinterSimulationComponent : PreviewComponent
     {
         public PrinterSimulationComponent() : base(Io.Name("Printer Simulation", "Plays the toolpath on the machine: the Ginger One (or your own machine with a 3D model) with its gantry, beam and head moved so the nozzle tip stands on the path, and the part printed up to that moment. Connect Simulation of Machine G-code, or a Machine and a Toolpath. Pose runs from 0 (start) to 1 (end) and follows the print time of the G-code. Move the slider, or set Play and it runs by itself (Film Length = seconds for one run). The model of your own machine moves when its .3dm has the layers Z, Y and X and a point on layer TCP at the nozzle tip (see docs/OWN_MACHINES.md); a bed slinger moves its bed. Head, beam and frame are checked against the printed part and the bed: Colliding shows what collides.", Io.Slicer, Group.Output)) { }
         public PrinterSimulationComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SlicerPrinterSimulationIcon");
+        // the machine in its own colours, what collides in red (as in Grasshopper 1)
+        protected override int[] OwnOutputs => new[] { 0, 5 };
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -73,6 +75,8 @@ namespace LARGERslicer.GH2
             access.GetItem(2, out pose); access.GetItem(3, out play); access.GetItem(4, out film);
             if (!access.GetItem(5, out collide)) collide = true;
             pose = Math.Max(0, Math.Min(1, pose));
+            var picture = new ShadedPreview.Frame();
+            Picture.Clear();
 
             var printer = machine.Printer(out string note);
             if (note != null) access.AddWarning("3D model", note);
@@ -81,7 +85,9 @@ namespace LARGERslicer.GH2
 
             if (tp == null || tp.Count < 1)
             {
-                if (printer != null) access.SetTwig(0, printer.Parts.Select(p => p.Mesh).ToArray(), null, null);
+                if (printer != null) { access.SetTwig(0, printer.Parts.Select(p => p.Mesh).ToArray(), null, null); foreach (var pp in printer.Parts) picture.Mesh(pp.Mesh, pp.Color); }
+                else foreach (var pp in machine.PreviewParts(out _)) picture.Mesh(pp.Mesh, pp.Color);
+                Picture.Show(picture);
                 access.AddWarning("No toolpath", "Connect Simulation of Machine G-code, or a Toolpath, to play it.");
                 return;
             }
@@ -117,6 +123,10 @@ namespace LARGERslicer.GH2
             {
                 var posed = printer.Pose(tip, machine.Kind, out shift);
                 access.SetTwig(0, posed.Select(p => p.Mesh).ToArray(), null, null);
+                var red = new HashSet<string>();
+                if (hit != null && hit.Head) red.Add("X");
+                if (hit != null && hit.Beam) red.Add(machine.Kind == MachineKind.BedSlinger ? "Z" : "Y");
+                foreach (var pp in posed) if (red.Contains(pp.Group)) picture.Hit(pp.Mesh); else picture.Mesh(pp.Mesh, pp.Color);
                 if (printer.CanMove && machine.BedX > 0 && (tip.X < -1 || tip.Y < -1 || tip.X > machine.BedX + 1 || tip.Y > machine.BedY + 1 || tip.Z < -1))
                     access.AddWarning("Outside the bed", Inv.F($"At this moment the nozzle is outside the bed of {machine.Name} ({machine.BedX:0} x {machine.BedY:0} mm, from 0, 0): {tip.X:0.0}, {tip.Y:0.0}, {tip.Z:0.0}."));
             }
@@ -126,8 +136,8 @@ namespace LARGERslicer.GH2
                 var colliding = new List<Mesh>();
                 if (hit.Head && printer != null) { var m = printer.Joined("X"); if (m != null) { m = m.DuplicateMesh(); m.Translate(printer.Move("X", tip, machine.Kind, out _)); colliding.Add(m); } }
                 if (hit.Beam && printer != null) { string g = machine.Kind == MachineKind.BedSlinger ? "Z" : "Y"; var m = printer.Joined(g); if (m != null) { m = m.DuplicateMesh(); m.Translate(printer.Move(g, tip, machine.Kind, out _)); colliding.Add(m); } }
-                foreach (int i in hit.Frame) if (i < run.Collider.FramePieces.Count) colliding.Add(run.Collider.FramePieces[i]);
-                foreach (var w in hit.Where) { var ball = Mesh.CreateFromSphere(new Sphere(w, 12), 12, 8); if (ball != null) colliding.Add(ball); }
+                foreach (int i in hit.Frame) if (i < run.Collider.FramePieces.Count) { colliding.Add(run.Collider.FramePieces[i]); picture.Hit(run.Collider.FramePieces[i]); }
+                foreach (var w in hit.Where) { var ball = Mesh.CreateFromSphere(new Sphere(w, 12), 12, 8); if (ball != null) { colliding.Add(ball); picture.Hit(ball); } }
                 access.SetTwig(5, colliding.ToArray(), null, null);
                 var what = hit.Events.Select(e => e.A + " - " + e.B).Distinct().ToList();
                 collision = " - COLLISION: " + string.Join(", ", what);
@@ -138,6 +148,8 @@ namespace LARGERslicer.GH2
                 access.SetTwig(6, run.Report.Lines.ToArray(), null, null);
                 if (run.Report.Events.Count > 0) access.AddWarning("Collisions in the print", string.Join("\n", run.Report.Lines.Take(3)));
             }
+            if (printer == null) foreach (var pp in machine.PreviewParts(out _)) picture.Mesh(pp.Mesh, pp.Color);
+            Picture.Show(picture);
             if (printed.Count > 1) { if (!shift.IsZero) printed.Transform(Transform.Translation(shift)); access.SetItem(1, printed); }
             access.SetItem(2, tip + shift);
             access.SetItem(4, seconds);

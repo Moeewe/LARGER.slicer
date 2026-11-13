@@ -39,10 +39,10 @@ namespace LARGERslicer.GH2
         {
             inputs.AddGeneric("Geometry", "G", "Breps, surfaces, extrusions, SubDs or meshes.", Access.Twig);
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddNumber("Angle", "A", "Tilts the layers around the X axis, in degrees, as on Slice.").Set(0.0);
+            inputs.AddNumber("Angle", "A", "Tilts the layers around the X axis, in degrees, as on Slice.").Set(0.0).Angles();
             inputs.AddGeneric("Guide", "Gd", "Optional, as on Slice. A curve: the build direction is its tangent. A surface: the normal of the bent layer.", Access.Item, Requirement.MayBeMissing);
             inputs.AddInteger("Guide Mode", "GM", "Only with a guide surface: 0 = flat bottom, top follows the guide. 1 = all layers follow the guide.").Set(0).Choices("Flat bottom, top follows guide", "All layers follow guide");
-            inputs.AddNumber("Factor", "F", "How far a bead may lie beside the bead below, as a share of the bead width. 0.5 = half a bead.").Set(SelfSupport.DefaultFactor);
+            inputs.AddNumber("Factor", "F", "How far a bead may lie beside the bead below, as a share of the bead width. 0.5 = half a bead.").Set(SelfSupport.DefaultFactor).Values(0.25, 0.4, 0.5, 0.6, 0.75);
             inputs.AddPlane("Plane", "P", "Layer plane, as on Slice. Its normal is the build direction. Empty = World XY.", Access.Item, Requirement.MayBeMissing);
         }
 
@@ -98,7 +98,7 @@ namespace LARGERslicer.GH2
         {
             inputs.AddGeneric("Layers", "L", "Layers from Slice (before Walls).");
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddNumber("Factor", "F", "How far a layer may reach beyond the layer below, as a share of the bead width. 0.5 = half a bead.").Set(SelfSupport.DefaultFactor);
+            inputs.AddNumber("Factor", "F", "How far a layer may reach beyond the layer below, as a share of the bead width. 0.5 = half a bead.").Set(SelfSupport.DefaultFactor).Values(0.25, 0.4, 0.5, 0.6, 0.75);
             inputs.AddBoolean("Geometry", "Geo", "True = also build the new part and the added material as geometry.").Set(true);
         }
 
@@ -141,10 +141,10 @@ namespace LARGERslicer.GH2
         {
             inputs.AddGeneric("Geometry", "G", "Breps, surfaces, extrusions, SubDs or meshes.", Access.Twig);
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddNumber("Min Angle", "A0", "Smallest slice angle to try, in degrees.").Set(0.0);
-            inputs.AddNumber("Max Angle", "A1", "Largest slice angle to try, in degrees.").Set(75.0);
+            inputs.AddNumber("Min Angle", "A0", "Smallest slice angle to try, in degrees.").Set(0.0).Angles();
+            inputs.AddNumber("Max Angle", "A1", "Largest slice angle to try, in degrees.").Set(75.0).Angles();
             inputs.AddBoolean("Turn", "T", "True = also try every tilt direction (30 degree steps about Z).").Set(true);
-            inputs.AddNumber("Factor", "F", "How far a bead may lie beside the bead below, as a share of the bead width.").Set(SelfSupport.DefaultFactor);
+            inputs.AddNumber("Factor", "F", "How far a bead may lie beside the bead below, as a share of the bead width.").Set(SelfSupport.DefaultFactor).Values(0.25, 0.4, 0.5, 0.6, 0.75);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
