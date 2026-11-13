@@ -288,6 +288,122 @@ def _(g):
     for y in (6.5, 12, 17.5): g.line([(3.5, y), (12.5, y)], INK, 2)
     arrow(g, 15.5, 12, 21, 12, BLUE, 2)
 
+# ---- slicer: one icon per component (1.2.2)
+@icon('SlicerCurvesToLayersIcon')
+def _(g):
+    # loose curves come in from the left and are stacked into layers
+    arrow(g, 3, 12, 9, 12, BLUE, 2)
+    g.line([(20.5, 6.5), (12.5, 6.5), (12.5, 17.5), (20.5, 17.5)], INK, 2); g.line([(12.5, 12), (20.5, 12)], INK, 2)
+
+@icon('SlicerRobotLinesIcon')
+def _(g):
+    # the path as straight moves from point to point, as the robot drives it
+    p = [(4.5, 18.5), (8.5, 9), (14, 15), (19.5, 5.5)]
+    g.line(p, INK, 1.9)
+    for x, y in p: g.dot(x, y, 2.0, BLUE)
+
+def portal(g, col=INK):
+    """Gantry: two uprights and the beam, x 4..20."""
+    g.line([(4, 20.5), (4, 4.5), (20, 4.5), (20, 20.5)], col, 2)
+
+@icon('SlicerGantryIcon')
+def _(g):
+    portal(g)
+    g.line([(12, 4.5), (12, 8)], INK, 2)
+    g.rrect(9.3, 8, 14.7, 12.6, 1.3, INK, 2)
+    g.poly([(10.6, 12.6), (13.4, 12.6), (12, 15.8)], BLUE)
+    g.line([(7.5, 18.5), (16.5, 18.5)], BLUE, 2)
+
+@icon('SlicerGingerIcon')
+def _(g):
+    # the Ginger One: a tall pellet hopper on the head
+    g.line([(3.5, 12.5), (20.5, 12.5)], SOFT, 1.6)
+    g.line([(7.5, 3.5), (16.5, 3.5), (14, 9.6), (10, 9.6)], INK, 1.9, closed=True)
+    g.rrect(9.4, 9.6, 14.6, 15, 1.3, INK, 2)
+    g.poly([(10.7, 15), (13.3, 15), (12, 18)], BLUE)
+    g.line([(5, 20.5), (19, 20.5)], BLUE, 2)
+
+@icon('SlicerMachineGCodeIcon')
+def _(g):
+    doc(g)
+    g.line([(7.8, 9.5), (11.5, 9.5)], SOFT, 1.5); g.line([(7.8, 12.5), (14.2, 12.5)], SOFT, 1.5)
+    g.poly([(9.4, 15), (14.6, 15), (12, 18.8)], BLUE)
+
+@icon('SlicerPrinterSimulationIcon')
+def _(g):
+    portal(g)
+    g.poly([(9.6, 8.6), (9.6, 17.4), (16.6, 13)], BLUE)
+
+@icon('SlicerImportGCodeIcon')
+def _(g):
+    g.line([(13, 3), (8.5, 3), (7, 4.5), (7, 19.5), (8.5, 21), (17.5, 21), (19, 19.5), (19, 7), (15, 3), (15, 7), (19, 7)], INK, 1.8)
+    g.line([(12.5, 11), (16, 11)], SOFT, 1.5); g.line([(12.5, 17), (16, 17)], SOFT, 1.5)
+    arrow(g, 2.5, 14, 12.5, 14, BLUE, 2, 2.8)
+
+@icon('SlicerMaterialIcon')
+def _(g):
+    # a heap of pellets
+    for x, y in ((6.6, 17.6), (12, 17.6), (17.4, 17.6), (9.3, 12.6), (14.7, 12.6)):
+        g.circle(x, y, 2.4, INK, 1.8)
+    g.dot(12, 7.6, 2.6, BLUE)
+
+@icon('SlicerMaterialFactorIcon')
+def _(g):
+    # a bead, its width taken with callipers
+    g.line([(3.5, 5), (20.5, 5)], INK, 2)
+    g.line([(5.5, 5), (5.5, 12.5)], INK, 2); g.line([(18.5, 5), (18.5, 12.5)], INK, 2)
+    g.rrect(5.5, 12, 18.5, 19, 3.5, None, 0, BLUE)
+
+@icon('SlicerMaterialFieldIcon')
+def _(g):
+    # the bead direction at every sample point of the part
+    for i, y in enumerate((5.5, 12, 18.5)):
+        for j, x in enumerate((5.5, 12, 18.5)):
+            a = math.radians(-60 + 30 * (i + j))
+            dx, dy = 1.4 * math.cos(a), 1.4 * math.sin(a)
+            g.line([(x - dx, y - dy), (x + dx, y + dy)], BLUE if (i, j) == (1, 1) else INK, 2)
+
+@icon('SlicerNonPlanarCheckIcon')
+def _(g):
+    # curved layers and the cone of the nozzle above them
+    g.line(arc(12, 21, 8.5, 180, 360, 28, 3.6), SOFT, 1.8)
+    g.line(arc(12, 17, 8.5, 180, 360, 28, 3.6), INK, 2)
+    g.poly([(8.2, 3.5), (15.8, 3.5), (12, 11)], BLUE)
+
+@icon('SlicerSelfSupportCheckIcon')
+def _(g):
+    # a wall leaning out, and the angle it may lean
+    g.line([(3.5, 20.5), (20.5, 20.5)], INK, 2)
+    g.line([(6, 18.5), (6, 3.5)], SOFT, 1.5)
+    g.line([(6, 20.5), (17.5, 4)], INK, 2.2)
+    g.line(arc(6, 20.5, 11, -90, -60, 12), BLUE, 2.2)
+
+@icon('SlicerEnvelopeIcon')
+def _(g):
+    # an overhang, and the material added under it so it holds itself
+    g.line([(4, 4), (20, 4), (20, 9), (13.5, 9), (13.5, 20.5), (10.5, 20.5), (10.5, 9), (4, 9)], INK, 2, closed=True)
+    g.line([(4, 9), (8, 20.5)], BLUE, 2); g.line([(20, 9), (16, 20.5)], BLUE, 2)
+    g.line([(8, 20.5), (10.5, 20.5)], BLUE, 2); g.line([(13.5, 20.5), (16, 20.5)], BLUE, 2)
+
+@icon('SlicerBestAngleIcon')
+def _(g):
+    # tilted layers and the angle they are tilted by
+    a = math.radians(-32); d = (math.cos(a), math.sin(a)); nrm = (d[1], -d[0])
+    x0, y0 = 3.5, 19.5
+    g.line([(x0, y0), (20.5, y0)], SOFT, 1.5)
+    for k, (s0, s1) in enumerate(((0, 17.5), (5, 16.5))):
+        ox, oy = x0 + nrm[0] * 6 * k, y0 + nrm[1] * 6 * k
+        g.line([(ox + d[0] * s0, oy + d[1] * s0), (ox + d[0] * s1, oy + d[1] * s1)], INK, 2)
+    g.line(arc(x0, y0, 12.5, -32, 0, 14), BLUE, 2.2)
+
+@icon('SlicerDesignRulesIcon')
+def _(g):
+    # a ruler over the bead section
+    g.rrect(3.5, 3.5, 9, 20.5, 1.5, INK, 1.9)
+    for y, w in ((7.5, 2.4), (12, 3.2), (16.5, 2.4)): g.line([(3.5, y), (3.5 + w, y)], INK, 1.5)
+    g.rrect(12, 4, 20, 8.6, 2.2, None, 0, BLUE)
+    g.rrect(12, 10, 20, 14.6, 2.2, INK, 1.7); g.rrect(12, 16, 20, 20.6, 2.2, INK, 1.7)
+
 # ---------------------------------------------------------------- older toolpath tools (teal)
 @icon('AlignCurvesIcon')
 def _(g):
@@ -330,6 +446,13 @@ def _(g):
 
 @icon('InfillContourIcon')
 def _(g): frame(g); g.rrect(7, 7, 17, 17, 2.5, TEAL, 1.8); g.dot(12, 12, 1.7, TEAL)
+
+@icon('CurveBoundaryInfillIcon')
+def _(g):
+    # any boundary curve, filled with cross lines in one go
+    blob = [(12 + 8.6 * math.cos(t) + 0.9 * math.cos(3 * t), 12 + 8.2 * math.sin(t) + 0.7 * math.sin(2 * t)) for t in [2 * math.pi * i / 60 for i in range(60)]]
+    g.line(blob, INK, 1.9, closed=True)
+    g.line([(9.5, 6.8), (6.8, 9.5), (8.4, 15.6), (15.6, 8.4), (17.2, 14.5), (14.5, 17.2)], TEAL, 1.8)
 
 @icon('InfillEulerTransformationIcon')
 def _(g):
@@ -411,6 +534,14 @@ def _(g): g.line(arc(12, 15, 9, 180, 360, 30), INK, 2); g.line([(12, 15), (16.8,
 # ---------------------------------------------------------------- CNC (green)
 @icon('CNCProgramIcon')
 def _(g): g.line([(12, 3.5), (12, 9)], INK, 3.2); g.poly([(9.4, 9), (14.6, 9), (12, 13)], INK); g.line(zigzag(4.5, 19.5, (16, 20)), GREEN, 2)
+
+@icon('CNCCutterSelectorIcon')
+def _(g):
+    # three end mills side by side, the picked one green: flat, ball, V
+    for x, col in ((6, INK), (12, GREEN), (18, INK)): g.line([(x, 3.5), (x, 9)], col, 2.2)
+    g.rrect(4.4, 9, 7.6, 19.5, 0.6, None, 0, INK)
+    g.rrect(10.4, 9, 13.6, 20.5, 1.6, None, 0, GREEN)
+    g.poly([(16.4, 9), (19.6, 9), (19.6, 16), (18, 20), (16.4, 16)], INK)
 
 @icon('CncUtilityOrientIcon')
 def _(g):
@@ -507,6 +638,31 @@ def _(g):
 @icon('RobotProgramIcon')
 def _(g):
     doc(g); g.line([(8, 16.5), (8, 13.5), (10.8, 10.8), (13.4, 12.6)], ORANGE, 1.8); g.dot(8, 13.5, 1.3, ORANGE)
+
+
+@icon('RobotSimulationIcon')
+def _(g):
+    # the arm, played
+    g.line([(3.5, 20), (9.5, 20)], INK, 2.4); g.line([(6.5, 20), (6.5, 14), (11, 7.5), (15.5, 9.5)], INK, 2)
+    g.dot(6.5, 14, 1.7, INK); g.dot(11, 7.5, 1.7, INK)
+    g.poly([(13.4, 12.6), (13.4, 20.4), (20.4, 16.5)], ORANGE)
+
+
+@icon('RobotCellGeometryIcon')
+def _(g):
+    # the cell: floor and fence, the robot's pedestal in it
+    g.line([(3.5, 20.5), (7.5, 13.5), (20.5, 13.5), (16.5, 20.5)], INK, 1.8, closed=True)
+    for x in (7.5, 14, 20.5): g.line([(x, 13.5), (x, 4)], SOFT, 1.5)
+    g.line([(7.5, 4), (20.5, 4)], SOFT, 1.5)
+    g.rrect(10, 11.5, 14.5, 17.5, 1, None, 0, ORANGE)
+
+
+@icon('RobotExternalAxisIcon')
+def _(g):
+    # a turntable above, a rail with its carriage below
+    g.line(arc(12, 7.5, 7.5, 0, 360, 40, 3), INK, 1.9, closed=True); g.dot(12, 7.5, 1.6, ORANGE)
+    g.line([(3.5, 17), (20.5, 17)], INK, 1.8); g.line([(3.5, 20.5), (20.5, 20.5)], INK, 1.8)
+    g.rrect(6.5, 14, 12.5, 18.5, 1.2, None, 0, ORANGE)
 
 
 def helix(n, turns=3.0, steps=720):

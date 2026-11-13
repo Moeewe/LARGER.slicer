@@ -35,7 +35,7 @@ namespace LARGERslicer.Components.Slicer
 
         public override Guid ComponentGuid => new Guid("14890845-5658-4603-AC6E-1A3E5683607A");
         public override GH_Exposure Exposure => GH_Exposure.secondary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerCheckIcon.png", this);
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerSelfSupportCheckIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
@@ -104,7 +104,7 @@ namespace LARGERslicer.Components.Slicer
 
         public override Guid ComponentGuid => new Guid("2B61FC3E-692F-4FD7-B3A6-F2683F342DE6");
         public override GH_Exposure Exposure => GH_Exposure.secondary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerStartEndIcon.png", this);
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerEnvelopeIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
@@ -165,7 +165,7 @@ namespace LARGERslicer.Components.Slicer
 
         public override Guid ComponentGuid => new Guid("BC0AD6F4-FE4C-47BB-86A4-3AB699E040DE");
         public override GH_Exposure Exposure => GH_Exposure.secondary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerSliceIcon.png", this);
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerBestAngleIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {

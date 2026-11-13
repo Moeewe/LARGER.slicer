@@ -19,7 +19,7 @@ namespace LARGERslicer.Components.Slicer
 
         public override Guid ComponentGuid => new Guid("8E2DA5D2-C15D-4F27-BB61-A6037ABED240");
         public override GH_Exposure Exposure => GH_Exposure.quinary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerCheckIcon.png", this);
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerNonPlanarCheckIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {

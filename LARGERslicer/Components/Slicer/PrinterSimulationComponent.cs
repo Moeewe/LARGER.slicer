@@ -20,7 +20,7 @@ namespace LARGERslicer.Components.Slicer
 
         public override Guid ComponentGuid => new Guid("3E7B2C91-4A6D-4F18-9B05-C8D1E2F47A36");
         public override GH_Exposure Exposure => GH_Exposure.senary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotProgramIcon.png", this);
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerPrinterSimulationIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
