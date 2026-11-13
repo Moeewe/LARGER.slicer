@@ -150,7 +150,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             object[] geo;
-            if (!access.GetItemArray(0, out geo) || geo == null || geo.Length == 0) { access.AddRemark("Connect a part", "Connect your part to Geometry: a Brep, surface, SubD or mesh that stands on the XY plane."); return; }
+            if (!access.ItemArray(0, out geo) || geo == null || geo.Length == 0) { access.AddRemark("Connect a part", "Connect your part to Geometry: a Brep, surface, SubD or mesh that stands on the XY plane."); return; }
             double w, h, f, size; int machine, walls, bottom, infill;
             access.GetItem(1, out w); access.GetItem(2, out h); access.GetItem(3, out f); access.GetItem(4, out machine);
             access.GetItem(5, out walls); access.GetItem(6, out bottom); access.GetItem(7, out infill); access.GetItem(8, out size);
@@ -213,7 +213,7 @@ namespace LARGERslicer.GH2
 
         protected override void AddInputs(InputAdder inputs)
         {
-            inputs.AddInteger("Machine", "M", "Which machine (manufacturer \u00B7 machine):\n" + string.Join("\n", MachineDefinition.BuiltIn().Select((m, i) => i + " = " + m.Title)) + "\nthen your own machines from Documents/LARGER/Machines, in the order of their file names.").Set(0);
+            inputs.AddInteger("Machine", "M", "Which machine (manufacturer \u00B7 machine):\n" + string.Join("\n", MachineDefinition.BuiltIn().Select((m, i) => i + " = " + m.Title)) + "\nthen your own machines from Documents/LARGER/Machines, in the order of their file names.").Set(0).Choices(Io.MachineTitles());
             inputs.AddText("File", "File", "Optional. A .machine file anywhere on the computer: used instead of the list.", Access.Item, Requirement.MayBeMissing);
             inputs.AddText("Name", "N", "Optional. Name of your own machine: everything you do not set below is taken from the machine chosen above.", Access.Item, Requirement.MayBeMissing);
             inputs.AddText("Start Code", "Start", "Optional. Your start code, one line per item.", Access.Twig, Requirement.MayBeMissing);
@@ -240,12 +240,12 @@ namespace LARGERslicer.GH2
         {
             int index; string file, name; double factor; bool save; string[] start, layer, end;
             access.GetItem(0, out index); access.GetItem(1, out file); access.GetItem(2, out name);
-            bool hasStart = access.GetItemArray(3, out start) && start != null && start.Length > 0;
-            bool hasLayer = access.GetItemArray(4, out layer) && layer != null && layer.Length > 0;
-            bool hasEnd = access.GetItemArray(5, out end) && end != null && end.Length > 0;
+            bool hasStart = access.ItemArray(3, out start) && start != null && start.Length > 0;
+            bool hasLayer = access.ItemArray(4, out layer) && layer != null && layer.Length > 0;
+            bool hasEnd = access.ItemArray(5, out end) && end != null && end.Length > 0;
             access.GetItem(6, out factor); access.GetItem(7, out save);
             List<Mesh> ownModel = null;
-            if (access.GetItemArray(8, out object[] modelIn) && modelIn != null && modelIn.Length > 0)
+            if (access.ItemArray(8, out object[] modelIn) && modelIn != null && modelIn.Length > 0)
             {
                 var mesh = SliceEngine.ToMesh(modelIn.Where(g => g != null).Select(Io.Solid), 0.5, null);
                 if (mesh != null) ownModel = new List<Mesh> { mesh }; else access.AddWarning("Model", "Connect meshes, Breps, surfaces or SubDs.");

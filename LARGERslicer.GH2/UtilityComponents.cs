@@ -37,7 +37,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             double[] lengths; double targetSpeed;
-            if (!access.GetItemArray(0, out lengths)) return;
+            if (!access.ItemArray(0, out lengths)) return;
             access.GetItem(1, out targetSpeed);
             var debugging = new List<string>();
             if (lengths == null || lengths.Length == 0)
@@ -183,7 +183,7 @@ namespace LARGERslicer.GH2
             if (!access.GetItem(0, out folder)) return;
             if (!access.GetItem(1, out name)) name = string.Empty;
             if (!access.GetItem(2, out ext) || ext == null) ext = ".txt";
-            if (!access.GetItemArray(3, out linesIn) || linesIn == null) return;
+            if (!access.ItemArray(3, out linesIn) || linesIn == null) return;
             access.GetItem(4, out write);
             var lines = linesIn.Select(l => l ?? string.Empty).ToList();
 

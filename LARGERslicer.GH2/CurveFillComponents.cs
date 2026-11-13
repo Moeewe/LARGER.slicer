@@ -40,7 +40,7 @@ namespace LARGERslicer.GH2
         public static List<Curve> Curves(IDataAccess access, int index)
         {
             object[] items;
-            if (!access.GetItemArray(index, out items) || items == null) return new List<Curve>();
+            if (!access.ItemArray(index, out items) || items == null) return new List<Curve>();
             return items.Select(ToCurve).Where(c => c != null).ToList();
         }
 

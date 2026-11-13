@@ -84,7 +84,7 @@ namespace LARGERslicer.GH2
             if (x <= 0 || y <= 0 || z <= 0) { access.AddError("Invalid size", "Size X, Size Y and Height must be greater than 0."); return; }
             bool fits = true;
             var info = new List<string> { $"Bed {x:0} x {y:0} mm, height {z:0} mm, origin in the front left corner." };
-            access.GetItemArray(3, out object[] raw);
+            access.ItemArray(3, out object[] raw);
             var box = BoundingBox.Empty; int paths = 0;
             foreach (var o in raw ?? new object[0])
             {

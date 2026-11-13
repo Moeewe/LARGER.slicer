@@ -74,11 +74,11 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
-            if (!access.GetTree(0, out Tree<Curve> tree) || tree == null || tree.PathCount == 0) return;
-            access.GetItemArray(1, out Plane[] planeArr);
+            if (!access.TreeOf(0, out Tree<Curve> tree) || tree == null || tree.PathCount == 0) return;
+            access.ItemArray(1, out Plane[] planeArr);
             var planes = planeArr ?? new Plane[0];
             var settings = Io.Settings(access, 2);
-            access.GetTree(3, out Tree<string> roleTree);
+            access.TreeOf(3, out Tree<string> roleTree);
             var roleTwigs = roleTree?.AllTwigs?.ToList();
 
             var layers = new List<SliceLayer>();

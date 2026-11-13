@@ -25,7 +25,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Overhang Angle", "A", "Steepest overhang that prints without support, in degrees from vertical. 0 = half a bead width per layer.").Set(0.0);
             inputs.AddNumber("Spacing", "Sp", "Distance between fins along the overhang, in bead widths.").Set(15.0);
             inputs.AddNumber("Reach", "R", "How far a fin reaches beyond the overhanging wall, in bead widths.").Set(1.0);
-            inputs.AddInteger("Contact", "C", "0 = neck about one bead wide (cut off). 1 = neck, and the top fin layer is printed lower by Gap (breaks off). 2 = full width (strongest).").Set(0);
+            inputs.AddInteger("Contact", "C", "0 = neck about one bead wide (cut off). 1 = neck, and the top fin layer is printed lower by Gap (breaks off). 2 = full width (strongest).").Set(0).Choices("Neck (cut off)", "Neck + gap (breaks off)", "Full (strongest)");
             inputs.AddNumber("Gap", "G", "Contact 1 only: how much lower the top fin layer is printed, in mm (0.2 to 0.5).").Set(0.3);
         }
 

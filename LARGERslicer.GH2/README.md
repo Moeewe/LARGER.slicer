@@ -14,7 +14,7 @@ Start, Layers, Walls & fill, Path, Check, Output, Curve tools.
 
 | Group | Component | What it does |
 |---|---|---|
-| Start | Quick Start | Puts five worked examples on the canvas |
+| Start | Quick Start | Puts eight worked examples on the canvas (as in Grasshopper 1) |
 | Start | Easy Slicer | Model in, checked path out: the whole chain in one component |
 | Start | Print Settings | Bead width, layer height, speed (mm/s; 50 mm/s = F3000), nozzle, overlap, radius, resolution, machine profile |
 | Start | Machine Profile | What E means for your machine (Generic, Weber Additive · DXR25, Ginger Additive · Ginger One ...), factors to calibrate it |
@@ -107,7 +107,7 @@ cd ../LARGERslicer
 ICON_SIZE=48 ICON_OUT=../LARGERslicer.GH2/Icons/48 python3 scripts/generate_icons.py
 ```
 
-Both are embedded in the assembly and handed to Grasshopper 2 as one `PixelIcon` (`Icons.cs`).
+Both are embedded in the assembly; Grasshopper 2 gets the largest one as a `PixelIcon` (`Icons.cs`): its `PixelIcon` (9.1) refuses several sizes of one picture, and with that every icon was empty and Grasshopper 2 drew lettered stand-ins.
 
 ### Not in Grasshopper 2
 
@@ -137,7 +137,15 @@ is somewhere else.
 Grasshopper 2 reads extra plug-ins from the file `CustomPluginInclude.txt` in its settings
 folder (macOS: `~/Library/Application Support/Grasshopper2/Settings`, Windows:
 `%APPDATA%\Grasshopper2\Settings`). Add the full path of `LARGERslicerGH2.rhp` as one line
-and restart Rhino.
+and restart Rhino. The folder of the .rhp needs `Clipper2Lib.dll` next to it.
+
+Do not put the .rhp into the framework folder of a Rhino package (e.g.
+`packages/9.0/LARGERslicer/<version>/net8.0/` beside the Grasshopper 1 .gha). Grasshopper 2 would
+find it there, but Rhino 9 (9.1) tries to load every new .rhp of a package as a Rhino plug-in at
+startup, before Grasshopper 2 is loaded; the .rhp cannot be read without Grasshopper2.dll, and the
+plug-in installer then waits in a dialog, so Rhino does not finish starting. A sub-folder of the
+package (e.g. `.../LARGERslicer/<version>/gh2/`) is not scanned by Rhino, and a line in
+`CustomPluginInclude.txt` pointing there loads it (tested on macOS, Rhino 9.1).
 
 ## Status
 
@@ -148,10 +156,18 @@ accepted by Slice. Not yet tested: non-planar and multi-axis slicing on a real p
 `Toolpath to Robot Lines` writes one fixed tool orientation (A, B, C). Check it against your
 robot cell before the first run. For tilted tool axes use the planes from `Extrusion and Speed`.
 
-Quick Start was run in Grasshopper 2 (Rhino 9.1): it builds the five examples and all of them compute. The robot is shown in 3D and checked for collisions as in Grasshopper 1. Not tried by hand in Grasshopper 2 yet: Machine, Machine G-code, the brim and saving files (the code they share with the Grasshopper 1 plug-in is tested there).
+Quick Start was run on the Grasshopper 2 canvas (Rhino 9.1, November 2026): it builds the eight
+examples of Grasshopper 1 (flat with ribs, non-planar, multi-axis, opening with waves, angled,
+Easy Slicer, non-planar head on the Ginger One with Printer Simulation, vase with Surface
+Pattern); no errors, all eight Path Checks OK, Print Bed: 8 paths fit. Also tried on the canvas:
+Print Settings, Slice, Walls, Continuous Path, Round Corners, Start and End, Path Check,
+Non-Planar Check, Surface Pattern, Machine, Machine G-code, Printer Simulation (Play runs),
+Robot, Robot Tool, Robot Cell, Robot Program, Robot Simulation (Show Cell off), Material,
+Material Factor, Easy Slicer; the icons of all 70 visible components; the presets; progress on
+Slice and Walls. Not tried: saving files, Windows, a real print.
 
 A definition saved with an earlier build of this plug-in can show Print Settings and Round and Lead as faulted, because they have more inputs now: place them again.
 
 All Grasshopper 1 components that the example and setup definitions use are in Grasshopper 2 now
-(see the lists above). The components added after the first Grasshopper 2 version, the presets on
-their inputs and the icons are built and compiled, but not yet tried on a Grasshopper 2 canvas.
+(see the lists above). Components not listed under Status above are built and compiled but have
+not been placed on a Grasshopper 2 canvas.
