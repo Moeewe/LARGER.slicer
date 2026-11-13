@@ -451,6 +451,11 @@ namespace LARGERslicer.Toolpaths
                     // A closed loop shorter than three bead widths is smaller than the bead itself
                     // (the slivers where a tilted layer just touches the part): it cannot be printed.
                     if (closed && lp.Len < (warp?.MinLoopFactor ?? 3.0) * w) { slivers++; continue; }
+                    // A closed loop around almost nothing (mean width 2 x area / length under a tenth of a bead:
+                    // the strip where a tilted layer just stands on the bed, a top layer that only grazes the part)
+                    // is one bead with itself: going round it, the way back lies a fraction of a millimetre beside
+                    // the way out, and rounding its ends makes the two cross.
+                    if (closed && warp == null && 2 * Area2(pts.Select(q => To2(layer.Plane, q)).ToList()) / lp.Len < 0.1 * w) { slivers++; continue; }
                     if (layer.ContourRoles != null && ci < layer.ContourRoles.Count) lp.Role = layer.ContourRoles[ci];
                     list.Add(lp);
                 }
@@ -958,6 +963,7 @@ namespace LARGERslicer.Toolpaths
                 var todo = new List<Loop>(loops[i]);
                 bool firstOfLayer = true;
                 prevStarts = curStarts; curStarts = new List<Point3d>();
+                int layerStart = tp.Count; // the first point of this layer in the path
                 while (todo.Count > 0)
                 {
                     Point3d from = tp.Count > 0 ? tp.Points[tp.Count - 1] : todo[0].P[0];
@@ -1030,6 +1036,33 @@ namespace LARGERslicer.Toolpaths
                                 Point3d up = ps + n * h; int hs = -1;
                                 double ds = src.Closest(up, ref hs, int.MaxValue).DistanceTo(up);
                                 if (ds < bestStart) { bestStart = ds; target = up; }
+                            }
+                        }
+                        // The move over to a further wall of the layer must not run across what this layer has
+                        // printed already, nor across the wall it goes to: with several walls (and no bridges, e.g. with ribs) the wall before
+                        // ends with its closing pass over the seam, and a start right above the start below can
+                        // lie behind that pass. Then the wall starts at the point nearest to the nozzle.
+                        if (!firstOfLayer && tp.Count > layerStart + 1)
+                        {
+                            int ht = -1;
+                            Point3d onWall = src.Closest(target, ref ht, int.MaxValue);
+                            if (LinkCrosses(tp, layerStart, from, onWall, n, h) || LinkCrossesLoop(src, from, onWall, n))
+                            {
+                                // from the point nearest to the nozzle outwards along the wall, half a bead at a
+                                // time, the first place that is clear of corners (rounding a corner and the turn
+                                // onto the wall would meet) and reached without a crossing
+                                int hf = -1;
+                                Point3d near0 = src.Closest(from, ref hf, int.MaxValue);
+                                double s0 = ArcAt(src, near0);
+                                target = near0;
+                                for (int k = 0; k <= 16; k++)
+                                {
+                                    double ds = (k + 1) / 2 * 0.5 * w * (k % 2 == 0 ? 1 : -1);
+                                    if (k == 0) ds = 0;
+                                    Point3d q = src.PointAt(s0 + ds);
+                                    if (CornerNear(src, s0 + ds, w) || LinkCrosses(tp, layerStart, from, q, n, h) || LinkCrossesLoop(src, from, q, n)) continue;
+                                    target = q; break;
+                                }
                             }
                         }
                         // seam in a corner: the corner right above the seam below, on every flat wall layer
@@ -1153,6 +1186,56 @@ namespace LARGERslicer.Toolpaths
                     firstOfLayer = false;
                 }
             }
+        }
+
+        /// <summary>
+        /// True if the straight move from 'from' to 'to' crosses a printed move of the path from index 'first' on
+        /// (in the plane square to n, at the same height within a quarter layer), apart from the last move, which ends where this one starts.
+        /// </summary>
+        internal static bool LinkCrosses(Toolpath tp, int first, Point3d from, Point3d to, Vector3d n, double h)
+        {
+            // a ramp that climbs from the layer below lies lower: the move passes over it (as Path Check sees it)
+            Plane pl = Geo.PlaneAt(from, n);
+            Point2d a = To2(pl, from), b = To2(pl, to);
+            double lab = a.DistanceTo(b);
+            if (lab < 1e-6) return false;
+            for (int k = Math.Max(1, first + 1); k < tp.Count - 1; k++)
+            {
+                if (tp.Flows[k] <= 0) continue;
+                if (Math.Abs((tp.Points[k] - from) * n) > 0.25 * h) continue;
+                Point2d c = To2(pl, tp.Points[k - 1]), d = To2(pl, tp.Points[k]);
+                double lcd = c.DistanceTo(d);
+                if (lcd < 1e-9) continue;
+                Func<Point2d, Point2d, Point2d, double> cr = (o, p, q) => (p.X - o.X) * (q.Y - o.Y) - (p.Y - o.Y) * (q.X - o.X);
+                double d1 = cr(a, b, c), d2 = cr(a, b, d), d3 = cr(c, d, a), d4 = cr(c, d, b);
+                if (d1 * d2 >= 0 || d3 * d4 >= 0) continue;
+                // an end lying right on the other move touches it, it does not cross it
+                if (Math.Min(Math.Abs(d1), Math.Abs(d2)) / lab < 1e-3 || Math.Min(Math.Abs(d3), Math.Abs(d4)) / lcd < 1e-3) continue;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>True if the straight move from 'from' to 'to' (a point on the loop) crosses the loop itself on its way.</summary>
+        private static bool LinkCrossesLoop(Loop lp, Point3d from, Point3d to, Vector3d n)
+        {
+            Plane pl = Geo.PlaneAt(from, n);
+            Point2d a = To2(pl, from), b = To2(pl, to);
+            double lab = a.DistanceTo(b);
+            if (lab < 1e-6) return false;
+            int segs = lp.Closed ? lp.P.Count : lp.P.Count - 1;
+            for (int i = 0; i < segs; i++)
+            {
+                Point2d c = To2(pl, lp.P[i]), d = To2(pl, lp.P[(i + 1) % lp.P.Count]);
+                double lcd = c.DistanceTo(d);
+                if (lcd < 1e-9) continue;
+                Func<Point2d, Point2d, Point2d, double> cr = (o, p, q) => (p.X - o.X) * (q.Y - o.Y) - (p.Y - o.Y) * (q.X - o.X);
+                double d1 = cr(a, b, c), d2 = cr(a, b, d), d3 = cr(c, d, a), d4 = cr(c, d, b);
+                if (d1 * d2 >= 0 || d3 * d4 >= 0) continue;
+                if (Math.Min(Math.Abs(d1), Math.Abs(d2)) / lab < 1e-3 || Math.Min(Math.Abs(d3), Math.Abs(d4)) / lcd < 1e-3) continue;
+                return true;
+            }
+            return false;
         }
 
         /// <summary>

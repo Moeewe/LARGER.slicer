@@ -129,7 +129,7 @@ namespace LARGERslicer.Toolpaths
                         continue;
                     }
                     double exit = Exit(rings[j], fin.P, fin.D, uRoot, w);
-                    if (exit - uRoot > allowed + 0.1 * w) tip = Math.Max(tip, exit + margin);
+                    if (exit - uRoot > allowed + Slack(w)) tip = Math.Max(tip, exit + margin);
                     fin.Plan[i] = tip;
                     roots[fin] = uRoot;
                 }
@@ -141,7 +141,7 @@ namespace LARGERslicer.Toolpaths
                     {
                         Point2d p = cand.P; Vector2d d = cand.D;
                         double exit = Exit(rings[j], p, d, 0, w);
-                        if (exit <= allowed + 0.1 * w) continue;
+                        if (exit <= allowed + Slack(w)) continue;
                         double tip = exit + margin;
                         bool near = false;
                         foreach (var other in active)
@@ -343,7 +343,7 @@ namespace LARGERslicer.Toolpaths
             {
                 double s = k * len / n;
                 if (!Normal(ring, cum, here, s, spacing, out Point2d p, out Vector2d d)) continue;
-                Point2d probe = p + d * (allowed + 0.1 * w);
+                Point2d probe = p + d * (allowed + Slack(w));
                 if (!Inside(above, probe) || Inside(here, probe)) continue;
                 flag[k] = true; count++;
                 reachPt[k] = p + d * Exit(above, p, d, 0, w);
@@ -407,7 +407,7 @@ namespace LARGERslicer.Toolpaths
                         Vector2d v1 = m - a, v2 = b - m;
                         if (!Unit(ref v1) || !Unit(ref v2) || v1 * v2 < 0.94) continue;
                         if (!Normal(ring, cum, here, s, spacing, out Point2d p, out Vector2d d)) continue;
-                        if (!Inside(above, p + d * (allowed + 0.1 * w))) continue;
+                        if (!Inside(above, p + d * (allowed + Slack(w)))) continue;
                         result.Add(new Candidate { P = p, D = d, Clear = clear });
                         break;
                     }
@@ -415,6 +415,15 @@ namespace LARGERslicer.Toolpaths
             }
             return result;
         }
+
+        /// <summary>
+        /// How far beyond the allowed offset a layer must reach before it counts as overhanging: a tenth of
+        /// a millimetre per 5 mm bead, only to keep the noise of sliced meshes out. The rule is the one of
+        /// Path Check and Self Support Check: a bead may lie half a bead width beside the bead below, more
+        /// is unsupported. (It was 0.1 bead width: a block leaning 2.86 mm per 2 mm layer with a 5 mm bead
+        /// got no fins although both checks called it unsupported.)
+        /// </summary>
+        private static double Slack(double w) => 0.02 * w;
 
         /// <summary>Point on the wall and the outward direction square to it.</summary>
         private static bool Normal(List<Point2d> ring, double[] cum, List<List<Point2d>> here, double s, double spacing, out Point2d p, out Vector2d d)
