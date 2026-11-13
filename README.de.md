@@ -73,7 +73,7 @@ Der Tab hat sieben Gruppen, in der Reihenfolge, in der du verbindest (das Auskla
 | | `Bottom Fill` | Geschlossener Boden als eine Linie: Zickzack oder Kontur |
 | | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill, in die Wandlinie eingebunden |
 | | `Support Fins` | Dünne Stützrippen außen am Bauteil, die Überhänge tragen, als Teil derselben Linie |
-| **4 Bahn** | `Continuous Path` | Flache Lagen mit offener Naht (Lücke von einer Bahnbreite) oder Spirale für einfache Wände. Seam Mode, Min Layer Time, Max Volume Rate |
+| **4 Bahn** | `Continuous Path` | Flache Lagen mit offener Naht (Lücke von einer Bahnbreite) oder Spirale für einfache Wände. Seam Mode, Min Layer Time, Short Lap Time, Max Volume Rate |
 | | `Round Corners` | Jede Ecke wird ein Bogen |
 | | `Start and End` | Anfahrt von 30 mm oberhalb, Skirt zuerst, Brim außen, innen oder beidseitig, am Ende vom Bauteil wegfahren |
 | | `Surface Pattern` | Texturen in der Wand: Strick, Pixel, Rippen, Wellen, Zickzack, Punkte, hängende Schlaufen oder ein Bild, am ganzen Bauteil oder in einer gezeichneten Region |
@@ -188,6 +188,8 @@ Die Grenze für Überhänge ergibt sich aus der Bahn: Eine Bahn darf um `Factor`
 **`Continuous Path`, neue Eingänge** (Lagenmodus):
 - `Seam Mode`: Fixed point (wie bisher), Inner corner (in einer Innenecke der Außenwand, wo sie am wenigsten auffällt; ohne Innenecke die schärfste Außenecke) oder Sharpest corner. Die Ecke wird von Lage zu Lage verfolgt, höchstens eine halbe Bahn zur Seite.
 - `Min Layer Time` (s, 0 = aus): Lagen, die schneller fertig wären, werden langsamer gedruckt, mit einer Geschwindigkeit pro Lage, nie unter Min Speed. Etwa 60 s passen zu vielen großen Granulatdrucken.
+- `Short Lap Time` (s, 0 = Min Layer Time): die Mindestzeit für kurze Runden, kürzer als min + 0,7464 x (max - min) aller Rundenlängen, mit einem Übergang über 5 Runden, wie beim 2024 gedruckten Kopf (Min Layer Time 35 s, Short Lap Time 40 s).
+- Ecken und gerade Kanten bleiben, wo die Wand ist; die Nahtrampe läuft entlang der Wand und schneidet keine Ecke ab. Skirt- und Brim-Ringe enden eine Bahnbreite vor ihrem Anfang und gehen rechtwinklig in den nächsten Ring über, der innerste läuft in den Anfang des Teils.
 - `Max Volume Rate` (mm³/s, 0 = aus): Bewegungen, die mehr vom Extruder verlangen würden, laufen langsamer. Der Ginger One schafft etwa 330 mm³/s.
 
 **`Path Check`**: Eingang `Min Layer Time` (s, 0 = der Wert von `Continuous Path`) und Ausgang `Layer Times` (s pro Lage). Für zu kurze Lagen nennt der Bericht drei Abhilfen: langsamer drucken, mehrere Teile nebeneinander, oder als letzte Möglichkeit eine Pause.

@@ -1561,6 +1561,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddIntegerParameter("Seam Mode", "Sm", "Layered only: where the seam goes\n0 = Fixed point (default): at the Seam point, or where the first layer starts\n1 = Inner corner: in an inner corner of the outer wall, where it shows least and milling does not run over it (no inner corner: the sharpest outer corner)\n2 = Sharpest corner: the sharpest corner of the outer wall\nThe corner is followed from layer to layer, at most half a bead to the side. A Seam point picks which corner", GH_ParamAccess.item, 0);
             p.AddNumberParameter("Min Layer Time", "Tmin", "Shortest time a layer may take (s). A layer that would be done sooner is printed slower, so the layer below can cool: F stays constant within the layer and never goes below Min Speed. 0 = off (default). About 60 s suits many large pellet prints", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Max Volume Rate", "Qmax", "Most the extruder can deliver (mm3/s). Moves that would ask for more run slower, never below Min Speed. 0 = off (default). The Ginger gives about 330 mm3/s", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Short Lap Time", "Tshort", "Minimum time for short laps (s), as the printed head of 2024: laps shorter than min + 0.7464 x (max - min) of all lap lengths get this time, the longer ones Min Layer Time, with a change over 5 laps between them. Small laps (neck, crown) then cool longer than wide ones. 0 = Min Layer Time for all (default). The head: Min Layer Time 35 s, Short Lap Time 40 s", GH_ParamAccess.item, 0.0);
             p[1].Optional = true; p[3].Optional = true;
         }
 
@@ -1603,16 +1604,18 @@ namespace LARGERslicer.Components.Slicer
             int seamMode = 0; if (Params.Input.Count > 6) da.GetData(6, ref seamMode);
             double minTime = 0, maxRate = 0;
             if (Params.Input.Count > 8) { da.GetData(7, ref minTime); da.GetData(8, ref maxRate); }
+            double shortTime = 0; if (Params.Input.Count > 9) da.GetData(9, ref shortTime);
 
             Async.Run(da, job =>
             {
                 var log = new List<string>();
                 var sw = Stopwatch.StartNew();
-                if (minTime > 0 || maxRate > 0)
+                if (minTime > 0 || maxRate > 0 || shortTime > 0)
                 {
                     // the limits travel with the path, so every machine output (G-code, DXR, robot) uses them
                     settings = settings.Duplicate();
                     settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
+                    settings.ShortLapTime = Math.Max(0, shortTime);
                 }
                 var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
                 sw.Stop();

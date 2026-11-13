@@ -48,6 +48,8 @@ namespace LARGERslicer.Toolpaths
         public override bool UseBeadLaw => FollowSurface;
         public override double MinLoopFactor => FollowSurface ? 1.5 : 3.0;
         private SurfaceField _field;
+        /// <summary>Follow the surface on a part that closes at the top (a head, not a vase with a flat top): the last lap closes the crown.</summary>
+        public bool ClosedTop => FollowSurface && _field != null && !_field.FlatTop;
 
         private const int Bins = 720; // half a degree
         private double _cx, _cy, _z0, _zTop, _h;

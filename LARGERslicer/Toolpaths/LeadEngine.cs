@@ -50,13 +50,15 @@ namespace LARGERslicer.Toolpaths
         /// Leaves out points that lie closer than minDistance to the point before them. A machine
         /// needs a few milliseconds for every line; on pieces of a few hundredths of a millimetre
         /// it slows down, and the extruder, which keeps going, leaves a blob. A point is kept where
-        /// the role, the flow, the layer or the tool axis changes, and the last point always.
+        /// the role, the flow, the layer or the tool axis changes, where leaving it out would move the path
+        /// more than 0.02 mm (a corner, the start of a ramp), and the last point always.
         /// </summary>
         public static Toolpath Thin(Toolpath tp, double minDistance)
         {
             if (tp == null || tp.Count < 3 || minDistance <= 0) return tp;
             var r = new Toolpath { Settings = tp.Settings, Warp = tp.Warp };
             r.AddFrom(tp, 0);
+            int kept = 0; // index in tp of the last point kept
             for (int i = 1; i < tp.Count; i++)
             {
                 int k = r.Count - 1;
@@ -64,12 +66,20 @@ namespace LARGERslicer.Toolpaths
                 bool same = tp.Roles[i] == r.Roles[k] && Math.Abs(tp.Flows[i] - r.Flows[k]) < 1e-9 && tp.Layers[i] == r.Layers[k]
                             && tp.Normals[i] * r.Normals[k] > 0.9994; // about 2 degrees
                 double d = tp.Points[i].DistanceTo(r.Points[k]);
-                if (!last && same && d < minDistance) continue;
+                if (!last && same && d < minDistance)
+                {
+                    // only where the line to the next point stays on the path: a corner or the start of a
+                    // ramp is never cut off (the wall would step in there)
+                    bool onLine = true;
+                    for (int j = kept + 1; j <= i && onLine; j++)
+                        onLine = PathEngine.DistToSegment(tp.Points[j], r.Points[k], tp.Points[i + 1]) <= PathEngine.ShapeTolerance;
+                    if (onLine) continue;
+                }
                 // the same point twice (where a wall hands over to the seam, for example) is a move of
                 // length 0 that carries nothing: no machine needs it, and some controllers stop on it.
                 // The moves before and after keep their own role, flow and layer.
-                if (d < 1e-6 && tp.Normals[i] * r.Normals[k] > 0.9994) continue;
-                r.AddFrom(tp, i);
+                if (d < 1e-6 && tp.Normals[i] * r.Normals[k] > 0.9994) { kept = i; continue; }
+                r.AddFrom(tp, i); kept = i;
             }
             return r;
         }
@@ -126,30 +136,46 @@ namespace LARGERslicer.Toolpaths
                         run.Add(new PointD(q.X, q.Y));
                     }
                     lines.RemoveAll(l => l.Count < 2);
+                    // a ring that leaves its seam gap open (end one bead before its start) counts as closed:
+                    // the brim follows the wall, not the little notch of the gap
+                    foreach (var l in lines)
+                    {
+                        PointD a = l[0], b = l[l.Count - 1];
+                        double gapLen = Math.Sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+                        if (l.Count > 3 && gapLen > 1e-6 && gapLen <= 1.5 * w) l.Add(a);
+                    }
                     beads = lines.Count > 0 ? Clipper.InflatePaths(lines, 0.5 * w, JoinType.Round, EndType.Round, 2.0, 3, 0.05) : null;
                     if (beads == null || beads.Count == 0) { log?.Add("Brim skipped: the first layer is too small."); brimOut = brimIn = false; }
                 }
             }
             double outerBrim = brimOut ? brimLoops * spacing : 0;
 
-            // ---- skirt
+            // ---- skirt and outer brim: closed rings around the first layer, printed from the outermost in.
+            // Every ring leaves a gap of one bead before its own start (its end never runs over its start;
+            // with round bead ends the two just touch), and the bead goes straight across to the next ring,
+            // square to both, right where that ring starts. So each ring starts one bead further on than the
+            // one inside it ends: the links form a staircase, never lie side by side and cross nothing, and
+            // neighbouring rings stay exactly one bead spacing apart. The innermost ring ends right beside
+            // the start of the part (the seam, or where the spiral starts) and runs on into it.
             double linkLength = -1, skirtUsed = skirtDistance;
-            bool skirtClear = false; // the skirt ends where a free straight line leads to the start (see below)
+            bool tilted = tp.Warp == null && Math.Abs(tp.Normals[0].Z) < 0.999;
+            Vector3d ringAxis = tp.Normals[0];
+            Plane ringPlane = brimPlane;
+            double ringHeight = tp.Heights[0] > 0 ? tp.Heights[0] : st.LayerHeight;
+            var rings = new List<List<Point2d>>();   // in print order
+            Point2d? skirtAim = null;                // where the innermost skirt ring ends when it leads straight to the part
             if (skirtLoops > 0)
             {
-                int firstLayer = tp.Layers[0];
-                Vector3d n = tp.Normals[0];
-                var plane = Geo.PlaneAt(tp.Points[0], n);
                 var pts2 = new List<Point2d>();
                 Point2d startOnPlane;
-                if (tp.Warp == null && Math.Abs(n.Z) < 0.999)
+                if (tilted)
                 {
                     // Tilted layers (angled printing): the first layer is only a strip. The skirt
                     // goes around everything that stands on the bed, flat on the bed.
                     double zBed = double.MaxValue;
                     for (int i = 0; i < tp.Count; i++) if (tp.Flows[i] > 0 && tp.Points[i].Z < zBed) zBed = tp.Points[i].Z;
                     if (zBed == double.MaxValue) zBed = tp.Points[0].Z;
-                    plane = Plane.WorldXY; plane.Origin = new Point3d(0, 0, zBed);
+                    ringPlane = Plane.WorldXY; ringPlane.Origin = new Point3d(0, 0, zBed); ringAxis = Vector3d.ZAxis;
                     double reach = st.LayerHeight + 0.5 * w;
                     for (int i = 0; i < tp.Count; i++)
                         if (tp.Points[i].Z <= zBed + reach) pts2.Add(new Point2d(tp.Points[i].X, tp.Points[i].Y));
@@ -157,11 +183,7 @@ namespace LARGERslicer.Toolpaths
                 }
                 else
                 {
-                    for (int i = 0; i < tp.Count && tp.Layers[i] == firstLayer; i++)
-                    {
-                        Vector3d v = tp.Points[i] - plane.Origin;
-                        pts2.Add(new Point2d(v * plane.XAxis, v * plane.YAxis));
-                    }
+                    for (int i = 0; i <= lastOfFirst; i++) pts2.Add(flat(tp.Points[i]));
                     startOnPlane = pts2.Count > 0 ? pts2[0] : new Point2d(0, 0);
                 }
                 var hull = ConvexHull(pts2);
@@ -173,63 +195,44 @@ namespace LARGERslicer.Toolpaths
                     skirtUsed = skirtDistance;
                     var path = new PathD(hull.Count);
                     foreach (var p in hull) path.Add(new PointD(p.X, p.Y));
-                    Point2d start2 = startOnPlane, aim = startOnPlane;
-                    Point3d last = Point3d.Unset;
                     // A part that starts in a hollow of its outline (an inner corner) lies further from
                     // the skirt. Then the skirt ends at the nearest point from which a straight line
                     // reaches the start without touching the first layer, and that line prints: skirt
                     // and wall stay one bead.
-                    if (tp.Warp != null || Math.Abs(n.Z) >= 0.999)
+                    if (!tilted && !brimOut)
                     {
                         PathsD inner = Clipper.InflatePaths(new PathsD { path }, skirtDistance, JoinType.Round, EndType.Polygon, 2.0, 3, 0.05);
                         if (inner != null && inner.Count > 0 && inner[0].Count >= 3)
                         {
                             var ring0 = inner[0].Select(p => new Point2d(p.x, p.y)).ToList();
-                            FillEngine.ClosestS(ring0, FillEngine.Cumulative(ring0), start2, out double away0);
+                            var cum0 = FillEngine.Cumulative(ring0);
+                            FillEngine.ClosestS(ring0, cum0, startOnPlane, out double away0);
                             if (away0 > skirtDistance + 0.75 * w)
                             {
                                 double bestD = double.MaxValue;
-                                var cum0 = FillEngine.Cumulative(ring0);
                                 double len0 = cum0[ring0.Count];
                                 foreach (var q in Enumerable.Range(0, (int)(len0 / (0.5 * w))).Select(k => FillEngine.PointAt(ring0, cum0, k * 0.5 * w)))
                                 {
-                                    double d = q.DistanceTo(start2);
+                                    double d = q.DistanceTo(startOnPlane);
                                     if (d >= bestD) continue;
-                                    if (LinkClear(plane.Origin + plane.XAxis * q.X + plane.YAxis * q.Y, tp, lastOfFirst, w)) { bestD = d; aim = q; }
+                                    if (LinkClear(ringPlane.Origin + ringPlane.XAxis * q.X + ringPlane.YAxis * q.Y, tp, lastOfFirst, w)) { bestD = d; skirtAim = q; }
                                 }
-                                if (bestD < double.MaxValue) skirtClear = true;
                             }
                         }
                     }
-                    // outermost loop first, so the skirt ends on the loop nearest to the part
                     for (int k = skirtLoops - 1; k >= 0; k--)
                     {
                         PathsD ring = Clipper.InflatePaths(new PathsD { path }, skirtDistance + k * spacing, JoinType.Round, EndType.Polygon, 2.0, 3, 0.05);
                         if (ring == null || ring.Count == 0 || ring[0].Count < 3) continue;
                         var loop = ring[0].Select(p => new Point2d(p.x, p.y)).ToList();
-                        // The loop starts one bead width after the point that lies exactly
-                        // opposite the first point of the part and ends on that point. So the end
-                        // of the skirt does not run into its own beginning, and the way across to
-                        // the part is the shortest one: square to the wall, never alongside it.
-                        var cum = FillEngine.Cumulative(loop);
-                        double len = cum[loop.Count];
-                        if (len < 4 * w) continue;
-                        double s0 = FillEngine.ClosestS(loop, cum, aim, out double away);
-                        if (k == 0) linkLength = away;
-                        foreach (Point2d q in FillEngine.Sub(loop, cum, s0 + w, s0 + len))
-                        {
-                            Point3d p3 = plane.Origin + plane.XAxis * q.X + plane.YAxis * q.Y;
-                            if (last.IsValid && p3.DistanceTo(last) < 1e-6) continue;
-                            // the short step from one loop to the next prints, the first point does not
-                            result.Add(p3, n, tp.Heights[0] > 0 ? tp.Heights[0] : st.LayerHeight, w, 1, PathRole.Skirt, firstLayer);
-                            last = p3;
-                        }
+                        if (FillEngine.Cumulative(loop)[loop.Count] < 4 * w) continue;
+                        rings.Add(loop);
                     }
                 }
                 else log?.Add("Skirt skipped: the first layer is too small.");
             }
 
-            // ---- outer brim: the outermost loop first, the last one ends next to the start of the part
+            int brimMade = 0;
             if (brimOut)
             {
                 Point2d start2 = flat(tp.Points[0]);
@@ -241,50 +244,65 @@ namespace LARGERslicer.Toolpaths
                     FillEngine.ClosestS(ring0, FillEngine.Cumulative(ring0), start2, out double d0);
                     if (d0 < nearest) { nearest = d0; outline = path; }
                 }
-                int made = 0;
-                // Every loop ends one bead before its own start, and a short diagonal leads into the
-                // next loop inside. If all loops ended at the same place, these diagonals would lie
-                // side by side, 0.7 bead apart, and overlap by more than a quarter of a bead (the
-                // printed head of 2024 shows it: a "V" of stacked links where the brim runs into the
-                // part). So each loop ends half a bead further on than the one inside it: the links
-                // form a staircase and stay clear of each other (at most a tenth of a bead touches).
-                // The innermost loop ends next to the start of the part, as before.
-                var loops = new List<Point2d>[brimLoops + 1];
-                var cums = new double[brimLoops + 1][];
-                for (int k = 1; k <= brimLoops && outline != null; k++)
+                for (int k = brimLoops; k >= 1 && outline != null; k--)
                 {
                     PathsD ring = Clipper.InflatePaths(new PathsD { outline }, k * spacing - 0.5 * w, JoinType.Round, EndType.Polygon, 2.0, 3, 0.05);
                     if (ring == null || ring.Count == 0 || ring[0].Count < 3) continue;
                     var loop = ring[0].Select(q => new Point2d(q.x, q.y)).ToList();
-                    var cum = FillEngine.Cumulative(loop);
-                    if (cum[loop.Count] < 4 * w) continue;
-                    loops[k] = loop; cums[k] = cum;
+                    if (FillEngine.Cumulative(loop)[loop.Count] < 4 * w) continue;
+                    rings.Add(loop); brimMade++;
                 }
-                var ends = new double[brimLoops + 1];
-                Point2d aim = start2;
-                double link = 0.5 * w; // how far along the loop the diagonal into the next loop runs
-                for (int k = 1; k <= brimLoops; k++)
-                {
-                    if (loops[k] == null) continue;
-                    ends[k] = FillEngine.ClosestS(loops[k], cums[k], aim, out double away);
-                    if (k == 1) { linkLength = away; skirtUsed = spacing; }
-                    // the loop outside ends beside the point 'link' before this loop's start
-                    aim = FillEngine.PointAt(loops[k], cums[k], ends[k] + w - link);
-                }
-                for (int k = brimLoops; k >= 1; k--)
-                {
-                    if (loops[k] == null) continue;
-                    double len = cums[k][loops[k].Count];
-                    foreach (Point2d q in FillEngine.Sub(loops[k], cums[k], ends[k] + w, ends[k] + len))
-                    {
-                        Point3d p3 = solid(q);
-                        if (result.Count > 0 && p3.DistanceTo(result.Points[result.Count - 1]) < 1e-6) continue;
-                        result.Add(p3, tp.Normals[0], brimHeight, w, 1, PathRole.Skirt, tp.Layers[0]);
-                    }
-                    made++;
-                }
-                if (made == 0) log?.Add("Outer brim skipped: no room for it.");
+                if (brimMade == 0) log?.Add("Outer brim skipped: no room for it.");
                 else if (beads.Count(b => Clipper.Area(b) > 0) > 1) log?.Add("The first layer stands in several pieces: the outer brim goes around the piece the print starts on.");
+            }
+
+            if (rings.Count > 0)
+            {
+                Func<Point3d, Point2d> to2 = q => { Vector3d v = q - ringPlane.Origin; return new Point2d(v * ringPlane.XAxis, v * ringPlane.YAxis); };
+                Point2d s2 = to2(tp.Points[0]);
+                // the rings run round the same way as the part, so the bead goes on from the last ring into
+                // the part without turning back
+                Vector2d go = Vector2d.Zero;
+                for (int i = 1; i <= lastOfFirst && go.Length < 1e-6; i++) go = to2(tp.Points[i]) - s2;
+                var lastRing = rings[rings.Count - 1];
+                var lastCum = FillEngine.Cumulative(lastRing);
+                double sNear = FillEngine.ClosestS(lastRing, lastCum, s2, out _);
+                Vector2d along = FillEngine.PointAt(lastRing, lastCum, sNear + 0.5) - FillEngine.PointAt(lastRing, lastCum, sNear - 0.5);
+                if (go.Length > 1e-6 && along * go < 0) foreach (var r in rings) r.Reverse();
+
+                double gap = w;
+                var cums = rings.Select(FillEngine.Cumulative).ToList();
+                var ends = new double[rings.Count];
+                Point2d target = s2;
+                for (int j = rings.Count - 1; j >= 0; j--)
+                {
+                    bool aimed = j == rings.Count - 1 && skirtAim.HasValue && !brimOut;
+                    ends[j] = FillEngine.ClosestS(rings[j], cums[j], aimed ? skirtAim.Value : target, out _);
+                    if (j == rings.Count - 1)
+                    {
+                        linkLength = FillEngine.PointAt(rings[j], cums[j], ends[j]).DistanceTo(s2);
+                        if (brimMade > 0) skirtUsed = spacing;
+                    }
+                    target = FillEngine.PointAt(rings[j], cums[j], ends[j] + gap);
+                }
+                // the whole line, with the points where it turns from a ring onto a link and back
+                var line = new List<Point2d>(); var turns = new HashSet<int>();
+                for (int j = 0; j < rings.Count; j++)
+                {
+                    double len = cums[j][rings[j].Count];
+                    var piece = FillEngine.Sub(rings[j], cums[j], ends[j] + gap, ends[j] + len);
+                    if (j > 0) turns.Add(line.Count);
+                    foreach (var q in piece) if (line.Count == 0 || q.DistanceTo(line[line.Count - 1]) > 1e-6) line.Add(q);
+                    turns.Add(line.Count - 1);
+                }
+                line.Add(s2); // the start of the part (printed by the part itself)
+                line = Fillet(line, turns, 0.25 * w);
+                for (int k = 0; k + 1 < line.Count; k++)
+                {
+                    Point3d p3 = ringPlane.Origin + ringPlane.XAxis * line[k].X + ringPlane.YAxis * line[k].Y;
+                    if (result.Count > 0 && p3.DistanceTo(result.Points[result.Count - 1]) < 1e-6) continue;
+                    result.Add(p3, ringAxis, ringHeight, w, 1, PathRole.Skirt, tp.Layers[0]);
+                }
             }
 
             // ---- inner brim: prepared here, printed when the first layer is finished
@@ -298,7 +316,22 @@ namespace LARGERslicer.Toolpaths
             {
                 result.AddFrom(tp, i);
                 if (i == lastOfFirst && innerBrim != null)
-                    foreach (Point3d q in innerBrim) result.Add(q, tp.Normals[0], brimHeight, w, 1, PathRole.Skirt, tp.Layers[0]);
+                {
+                    // The way back from the last brim loop to the wall runs over beads printed already
+                    // (the end of the first layer): it carries no bead height, so nothing is printed
+                    // twice. The nozzle keeps moving at print speed; the next layer grows from there.
+                    Point3d home = tp.Points[lastOfFirst];
+                    bool homeAdded = innerBrim.Count > 1 && innerBrim[innerBrim.Count - 1].DistanceTo(home) < 1e-6;
+                    int ringEnd = homeAdded ? innerBrim.Count - 2 : innerBrim.Count - 1;
+                    for (int k = 0; k <= ringEnd; k++) result.Add(innerBrim[k], tp.Normals[0], brimHeight, w, 1, PathRole.Skirt, tp.Layers[0]);
+                    Point3d next = homeAdded ? home : (i + 1 < tp.Count ? tp.Points[i + 1] : home);
+                    Vector3d back = next - innerBrim[ringEnd];
+                    if (back.Unitize())
+                    {
+                        result.Add(innerBrim[ringEnd] + back * 0.05, tp.Normals[0], 0, w, 1, PathRole.Seam, tp.Layers[0]);
+                        if (homeAdded) result.Add(home, tp.Normals[0], 0, w, 1, PathRole.Seam, tp.Layers[0]);
+                    }
+                }
             }
             if (offset > 0)
             {
@@ -359,6 +392,54 @@ namespace LARGERslicer.Toolpaths
                 if (exitLift > 0) { p += axis * exitLift; result.Add(p, axis, h, w, 0, PathRole.Travel, lastLayer); }
             }
             return result;
+        }
+
+        /// <summary>
+        /// Rounds the given corners of a line with a curve that leaves and rejoins it r from the
+        /// corner (a quadratic arc inside the corner), so the nozzle does not stop dead on a link.
+        /// </summary>
+        private static List<Point2d> Fillet(List<Point2d> line, HashSet<int> corners, double r)
+        {
+            if (r <= 0 || corners.Count == 0 || line.Count < 3) return line;
+            var cum = new double[line.Count];
+            for (int i = 1; i < line.Count; i++) cum[i] = cum[i - 1] + line[i].DistanceTo(line[i - 1]);
+            Func<double, Point2d> at = s =>
+            {
+                s = Math.Max(0, Math.Min(cum[cum.Length - 1], s));
+                int i = Array.BinarySearch(cum, s); if (i >= 0) return line[i];
+                i = ~i; if (i <= 0) return line[0];
+                double seg = cum[i] - cum[i - 1];
+                return seg < 1e-12 ? line[i] : line[i - 1] + (line[i] - line[i - 1]) * ((s - cum[i - 1]) / seg);
+            };
+            var cut = new List<Tuple<double, double, int>>();
+            foreach (int c in corners.OrderBy(c => c))
+            {
+                if (c <= 0 || c >= line.Count - 1) continue;
+                Vector2d a = line[c] - line[c - 1], b = line[c + 1] - line[c];
+                if (a.Length < 1e-9 || b.Length < 1e-9 || Math.Acos(Math.Max(-1, Math.Min(1, (a * b) / (a.Length * b.Length)))) < 0.2) continue;
+                // never more than half the straight piece on either side (the link between two corners)
+                double room = cum[c] - (cut.Count > 0 ? cut[cut.Count - 1].Item2 : 0);
+                double t = Math.Min(r, Math.Min(0.5 * room, 0.5 * (cum[c + 1] - cum[c])));
+                if (t < 1e-3) continue;
+                cut.Add(Tuple.Create(cum[c] - t, cum[c] + t, c));
+            }
+            if (cut.Count == 0) return line;
+            var r2 = new List<Point2d>();
+            int idx = 0;
+            foreach (var k in cut)
+            {
+                while (idx < line.Count && cum[idx] < k.Item1 - 1e-9) r2.Add(line[idx++]);
+                Point2d p0 = at(k.Item1), p1 = line[k.Item3], p2 = at(k.Item2);
+                for (int j = 0; j <= 6; j++)
+                {
+                    double u = j / 6.0, v = 1 - u;
+                    var q = new Point2d(v * v * p0.X + 2 * u * v * p1.X + u * u * p2.X, v * v * p0.Y + 2 * u * v * p1.Y + u * u * p2.Y);
+                    if (r2.Count == 0 || q.DistanceTo(r2[r2.Count - 1]) > 1e-6) r2.Add(q);
+                }
+                while (idx < line.Count && cum[idx] <= k.Item2 + 1e-9) idx++;
+            }
+            while (idx < line.Count) r2.Add(line[idx++]);
+            return r2;
         }
 
         /// <summary>
@@ -816,7 +897,7 @@ namespace LARGERslicer.Toolpaths
             if (pr.LayerFeed.Count > 0)
             {
                 var low = pr.LayerFeed.OrderBy(kv => kv.Value).First();
-                slowed = Inv.F($"{pr.LayerFeed.Count} short layer(s) are printed slower to reach {st.MinLayerTime:0} s (down to {low.Value / 60:0.#} mm/s at layer {low.Key + 1}). ");
+                slowed = Inv.F($"{pr.LayerFeed.Count} short layer(s) are printed slower to reach {st.MinLayerTime:0} s") + (st.ShortLapTime > 0 ? Inv.F($" ({st.ShortLapTime:0} s on short laps)") : "") + Inv.F($" (down to {low.Value / 60:0.#} mm/s at layer {low.Key + 1}). ");
             }
             if (minSeconds <= 0)
             {
@@ -824,7 +905,9 @@ namespace LARGERslicer.Toolpaths
                              "Set Min Layer Time (for example 60 s for a large pellet print) to check that every layer has cooled enough before the next one lands on it.");
                 return;
             }
-            int tooShort = pr.LayerSeconds.Count(kv => kv.Value < minSeconds - 0.5);
+            // with Short Lap Time every layer has its own minimum (the one Process slowed it down to)
+            var targets = st.ShortLapTime > 0 && Math.Abs(minSeconds - st.MinLayerTime) < 1e-9 ? PathEngine.LayerTargets(tp) : null;
+            int tooShort = pr.LayerSeconds.Count(kv => kv.Value < (targets != null && targets.TryGetValue(kv.Key, out double tk) ? tk : minSeconds) - 0.5);
             if (tooShort == 0)
             {
                 r.Report.Add(Inv.F($"Layer time OK: {slowed}Every layer takes at least {minSeconds:0} s (shortest {shortest:0} s at layer {shortLayer + 1})."));

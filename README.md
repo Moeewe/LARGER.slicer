@@ -73,7 +73,7 @@ The tab has seven groups, in the order you connect them (the dropdown of the Sli
 | | `Bottom Fill` | Closed bottom as one line: zigzag or contour |
 | | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill spliced into the wall path |
 | | `Support Fins` | Thin fins outside the part that hold up overhangs, as part of the same line |
-| **4 Path** | `Continuous Path` | Flat layers with an open seam (gap of one bead width), or a spiral for single walls. Seam Mode, Min Layer Time, Max Volume Rate |
+| **4 Path** | `Continuous Path` | Flat layers with an open seam (gap of one bead width), or a spiral for single walls. Seam Mode, Min Layer Time, Short Lap Time, Max Volume Rate |
 | | `Round Corners` | Every corner becomes an arc |
 | | `Start and End` | Way in from 30 mm above, skirt first, brim outside, inside or both, a move off the part at the end |
 | | `Surface Pattern` | Textures in the wall: knit, pixels, ribs, waves, zigzag, dots, hanging loops or a picture, on the whole part or inside a region you draw |
@@ -188,6 +188,8 @@ The overhang limit comes from the bead: a bead may lie `Factor` × bead width be
 **`Continuous Path`, new inputs** (layered mode):
 - `Seam Mode`: Fixed point (as before), Inner corner (in an inner corner of the outer wall, where it shows least; without one, the sharpest outer corner), or Sharpest corner. The corner is followed from layer to layer, at most half a bead to the side.
 - `Min Layer Time` (s, 0 = off): layers that would be done sooner are printed slower, at one speed within the layer, never below Min Speed. About 60 s suits many large pellet prints.
+- `Short Lap Time` (s, 0 = Min Layer Time): the minimum for short laps, shorter than min + 0.7464 x (max - min) of all lap lengths, with a change over 5 laps, as on the head printed in 2024 (Min Layer Time 35 s, Short Lap Time 40 s).
+- Corners and straight edges stay where the wall is; the seam ramp runs along the wall and never cuts a corner. Skirt and brim rings end one bead before their start and step into the next ring square to it, the innermost ring runs into the start of the part.
 - `Max Volume Rate` (mm³/s, 0 = off): moves that would ask more of the extruder run slower. The Ginger One gives about 330 mm³/s.
 
 **`Path Check`**: input `Min Layer Time` (s, 0 = the value of `Continuous Path`) and output `Layer Times` (s per layer). Layers that are too short get three remedies in the report: a slower speed, several parts side by side, or a pause as a last resort.

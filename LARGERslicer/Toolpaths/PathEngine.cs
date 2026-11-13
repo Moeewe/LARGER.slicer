@@ -83,20 +83,59 @@ namespace LARGERslicer.Toolpaths
             }
         }
 
-        /// <summary>Removes points closer than minSpacing and reports whether the contour is closed.</summary>
+        /// <summary>How far thinning may move the path off the contour (mm): corners and straight edges stay where they are.</summary>
+        internal const double ShapeTolerance = 0.02;
+
+        /// <summary>
+        /// Removes points closer than minSpacing and reports whether the contour is closed. A point is
+        /// only left out where the line without it stays within ShapeTolerance of every point left out
+        /// since the last one kept: a corner is never cut off, however short the pieces next to it.
+        /// </summary>
         private static List<Point3d> Clean(Polyline pl, double minSpacing, out bool closed)
         {
             closed = Geo.Closed(pl);
-            var pts = new List<Point3d>(pl.Count);
             int last = closed ? pl.Count - 1 : pl.Count;
-            for (int i = 0; i < last; i++)
-            {
-                if (pts.Count == 0 || pl[i].DistanceTo(pts[pts.Count - 1]) >= minSpacing) pts.Add(pl[i]);
-                else if (!closed && i == last - 1) pts[pts.Count - 1] = pl[i]; // keep the true end of open contours
-            }
-            if (closed && pts.Count > 1 && pts[0].DistanceTo(pts[pts.Count - 1]) < minSpacing) pts.RemoveAt(pts.Count - 1);
+            var src = new List<Point3d>(last);
+            for (int i = 0; i < last; i++) if (src.Count == 0 || pl[i].DistanceTo(src[src.Count - 1]) > 1e-9) src.Add(pl[i]);
+            if (closed && src.Count > 1 && src[0].DistanceTo(src[src.Count - 1]) <= 1e-9) src.RemoveAt(src.Count - 1);
+            var pts = Thin(src, closed, minSpacing, ShapeTolerance);
             if (closed && pts.Count < 3) closed = false;
             return pts;
+        }
+
+        /// <summary>
+        /// Leaves out points closer than minSpacing to the last kept point, but only while the line
+        /// from the last kept point to the next one stays within tol of all points left out. The first
+        /// and (open) last point are kept; on a closed list the closing piece is checked too.
+        /// </summary>
+        internal static List<Point3d> Thin(List<Point3d> src, bool closed, double minSpacing, double tol)
+        {
+            var pts = new List<Point3d>(src.Count);
+            if (src.Count == 0) return pts;
+            pts.Add(src[0]);
+            int lastKept = 0;
+            int n = src.Count;
+            for (int i = 1; i < n; i++)
+            {
+                bool lastOpen = !closed && i == n - 1;
+                Point3d next = i + 1 < n ? src[i + 1] : (closed ? src[0] : Point3d.Unset);
+                if (!lastOpen && next.IsValid && src[i].DistanceTo(pts[pts.Count - 1]) < minSpacing)
+                {
+                    // can src[i] (and everything left out since the last kept point) go?
+                    bool ok = true;
+                    for (int k = lastKept + 1; k <= i && ok; k++) ok = DistToSegment(src[k], pts[pts.Count - 1], next) <= tol;
+                    if (ok) continue;
+                }
+                pts.Add(src[i]); lastKept = i;
+            }
+            return pts;
+        }
+
+        internal static double DistToSegment(Point3d p, Point3d a, Point3d b)
+        {
+            Vector3d ab = b - a; double l2 = ab.SquareLength;
+            double t = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((p - a) * ab) / l2));
+            return (a + ab * t).DistanceTo(p);
         }
 
         private static bool IsCounterClockwise(List<Point3d> pts, Plane plane)
@@ -186,6 +225,25 @@ namespace LARGERslicer.Toolpaths
             return at;
         }
 
+        /// <summary>
+        /// True if a closed loop has a corner within r of arc length s: a vertex that turns by more
+        /// than 10 degrees, or more than 25 degrees of turn over the whole stretch (a tight bend).
+        /// </summary>
+        private static bool CornerNear(Loop lp, double s, double r)
+        {
+            if (!lp.Closed || lp.Len < 2 * r) return true;
+            for (int i = 0; i < lp.P.Count; i++)
+            {
+                double d = Math.Abs(lp.S[i] - s) % lp.Len; d = Math.Min(d, lp.Len - d);
+                if (d > r) continue;
+                // directions over half a millimetre: a pair of nearly equal points is no corner
+                Vector3d a = lp.P[i] - lp.PointAt(lp.S[i] - 0.5), b = lp.PointAt(lp.S[i] + 0.5) - lp.P[i];
+                if (a.Unitize() && b.Unitize() && a * b < Math.Cos(10 * Math.PI / 180)) return true;
+            }
+            Vector3d d0 = lp.PointAt(s - r + 1) - lp.PointAt(s - r), d1 = lp.PointAt(s + r) - lp.PointAt(s + r - 1);
+            return d0.Unitize() && d1.Unitize() && d0 * d1 < Math.Cos(25 * Math.PI / 180);
+        }
+
         private static Point2d To2(Plane pl, Point3d p) { Vector3d v = p - pl.Origin; return new Point2d(v * pl.XAxis, v * pl.YAxis); }
 
         private static bool Inside(List<Point2d> poly, Point2d q)
@@ -265,13 +323,24 @@ namespace LARGERslicer.Toolpaths
                         int hp = -1; Point3d pp = P.Closest(q, ref hp, int.MaxValue);
                         cands.Add(Tuple.Create(-1e6 + db, pp, q));
                     }
-                foreach (var q in C.P)
+                // every vertex of the inner loop and points every half bead spacing between them (a
+                // rectangle offset by Clipper has only its four corners as vertices)
+                var onInner = new List<Point3d>(C.P);
+                double every = Math.Max(0.5, 0.5 * spacing);
+                for (double s = 0; s < C.Len; s += every) onInner.Add(C.PointAt(s));
+                foreach (var q in onInner)
                 {
                     int h = -1; Point3d pp = P.Closest(q, ref h, int.MaxValue);
                     cands.Add(Tuple.Create(pp.DistanceTo(q), pp, q));
                 }
+                // A bridge cuts both walls open over one bead spacing. On a corner that would cut the
+                // corner off (the wall steps in there on every layer, as the bridges stack): bridges go
+                // where both walls run on without a corner for a bead width to either side.
+                double footClear = 1.5 * spacing;
+                Func<Tuple<double, Point3d, Point3d>, double> rank = t =>
+                    t.Item1 + (CornerNear(P, ArcAt(P, t.Item2), footClear) || CornerNear(C, ArcAt(C, t.Item3), footClear) ? 1e7 : 0);
                 bool joined = false;
-                foreach (var cand in cands.OrderBy(t => t.Item1).Take(40))
+                foreach (var cand in cands.Select(t => Tuple.Create(rank(t), t)).OrderBy(t => t.Item1).Select(t => t.Item2).Take(40))
                 {
                     double sp = ArcAt(P, cand.Item2), sq = ArcAt(C, cand.Item3);
                     double hs = 0.5 * spacing;
@@ -769,13 +838,15 @@ namespace LARGERslicer.Toolpaths
 
                 if (i == from)
                 {
-                    // flat first loop (on the bed or on the bottom layers). It stops one bead before its own
-                    // start, as the foot ring of the printed head of 2024 did (4.0 mm with a 4 mm bead), so its
-                    // end does not pile onto its start, where the brim or skirt also comes in; the first
-                    // climbing loop starts there with nearly no height.
+                    // flat first loop (on the bed or on the bottom layers). It leaves a gap of one bead before
+                    // its own start, as the foot ring of the printed head of 2024 did (4.0 mm with a 4 mm bead),
+                    // so its end does not pile onto its start, where the brim or skirt also comes in. The loop
+                    // begins one bead after the seam and ends on it, and the first climbing loop starts right
+                    // there with nearly no height: no move crosses the gap, so nothing is printed twice.
                     int startIndex = tp.Count;
-                    double firstEnd = cur.Len > 6 * w ? cur.Len - w : cur.Len;
-                    foreach (var kv in Traverse(cur, 0, firstEnd))
+                    bool gap = cur.Len > 6 * w;
+                    var flatLoop = gap ? new Loop(StartAt(cur.P, cur.PointAt(w)), true) : cur;
+                    foreach (var kv in Traverse(flatLoop, 0, gap ? flatLoop.Len - w : flatLoop.Len))
                         tp.Add(kv.Key, n, h, w, 1, from == 0 ? PathRole.Bottom : PathRole.Wall, layer.Index);
                     if (startIndex > 0 && tp.Points[startIndex].DistanceTo(tp.Points[startIndex - 1]) > 3 * w)
                     {
@@ -787,7 +858,9 @@ namespace LARGERslicer.Toolpaths
                 {
                     int hint = -1;
                     int window = Math.Max(12, prev.P.Count / 6);
-                    foreach (var kv in Traverse(cur, 0, cur.Len))
+                    // the first climbing loop grows from nothing where the flat loop ended at full height: a
+                    // point 0.05 mm on keeps the move between them (mean of both heights) tiny
+                    foreach (var kv in Traverse(cur, 0, cur.Len, i == from + 1 ? 0.05 : -1))
                     {
                         double t = kv.Value / cur.Len;
                         Point3d p = kv.Key;
@@ -811,9 +884,26 @@ namespace LARGERslicer.Toolpaths
                     }
                 }
 
+                // Follow the surface on a closed part: the last lap runs from the last ring into its middle
+                // (as the stand-alone app and the printed head close the crown), so no hole stays open on
+                // top. It runs over the open middle, so it keeps half a layer height (the app's value) and
+                // the law of the printed head leaves it alone (role Seam).
+                bool crown = i == to - 1 && i > from && layer.Warp is MeridianWarp mw && mw.ClosedTop && cur.Len < 4 * Math.PI * w;
+                if (crown)
+                {
+                    Point3d mid = Point3d.Origin;
+                    foreach (var q in cur.P) mid += q;
+                    mid /= cur.P.Count;
+                    foreach (var kv in Traverse(cur, 0, cur.Len))
+                    {
+                        double t = kv.Value / cur.Len;
+                        if (t <= 0) continue;
+                        tp.Add(kv.Key + (mid - kv.Key) * t, n, 0.5 * h, w, 1, PathRole.Seam, layer.Index);
+                    }
+                }
                 // (not on a ring smaller than three beads round: the crown of a closed part, which the bead
                 // covers already; a second pass there would run across the first)
-                if (i == to - 1 && i > from && cur.Len >= 3 * w)
+                else if (i == to - 1 && i > from && cur.Len >= 3 * w)
                 {
                     // flat last loop: fills the wedge left by the spiral, height fades to 0
                     foreach (var kv in Traverse(cur, 0, cur.Len))
@@ -991,8 +1081,22 @@ namespace LARGERslicer.Toolpaths
                         // (with several walls the next layer ramps on another wall, so close it here too)
                         bool closeWedge = ramp && (!nextRamps || multi);
                         double end = cur.Len + closeOver + (closeWedge ? lr : 0);
+                        // The very first wall of the print leaves a gap of one bead at its seam, as every ring of
+                        // skirt and brim does: it begins one bead after the seam (the skirt or brim comes in there)
+                        // and ends on the seam, where the next layer climbs away. Its end never runs over its own
+                        // start, and no move crosses the gap.
+                        Point3d seamAt = cur.P[0];
+                        if (tp.Count == 0 && !ramp && !usedHint && !hasFill && !multi && closeOver == 0 && cur.Len > 6 * w)
+                        {
+                            cur = new Loop(StartAt(cur.P, cur.PointAt(w)), true);
+                            end = cur.Len - w;
+                        }
 
-                        foreach (var kv in Traverse(cur, 0, end, lr, cur.Len))
+                        // A ramp that grows from nothing starts where the layer below ended at full height. The
+                        // height of a move is the mean of its two ends, so the first move up the ramp would print
+                        // a full bead's worth into the wedge: a point 0.05 mm up the ramp keeps that move tiny.
+                        double grow = ramp && !stacked ? Math.Min(0.05, 0.1 * lr) : -1;
+                        foreach (var kv in Traverse(cur, 0, end, lr, cur.Len, grow))
                         {
                             double pos = kv.Value;
                             Point3d p = kv.Key;
@@ -1018,7 +1122,7 @@ namespace LARGERslicer.Toolpaths
                         }
                         if (firstOfLayer)
                         {
-                            rampStart = nextRamps && !hasFill && !multi ? cur.P[0] : Point3d.Unset;
+                            rampStart = nextRamps && !hasFill && !multi ? seamAt : Point3d.Unset;
                             belowRamped = ramp;
                         }
                     }
@@ -1154,17 +1258,27 @@ namespace LARGERslicer.Toolpaths
             for (int i = 1; i < n; i++) s[i] = s[i - 1] + tp.Points[i].DistanceTo(tp.Points[i - 1]);
             double total = s[n - 1];
 
-            // 1) corners, merged into clusters: { first s, last s, radius, thin (1 = fill geometry) }
+            // 1) corners, merged into clusters: { first s, last s, radius, thin (1 = fill geometry), kind }
+            // kind 0 = the path turns in its layer (a corner), kind 1 = it only changes its slope (where
+            // a seam ramp starts or ends). A corner is rounded in the layer plane and keeps the height
+            // the path had there; a slope change is smoothed in height only. The two are never merged:
+            // a ramp next to a corner must not pull the corner's arc wider than on the other layers.
             var clusters = new List<double[]>();
             for (int i = 1; i < n - 1; i++)
             {
                 Vector3d a = tp.Points[i] - tp.Points[i - 1], b = tp.Points[i + 1] - tp.Points[i];
                 double la = a.Length, lb = b.Length;
                 if (la < 1e-9 || lb < 1e-9) continue;
-                double angle = Vector3d.VectorAngle(a, b);
-                if (angle < 0.05) continue; // ~3 degrees
                 // travel moves stay straight: nothing is printed there
                 if (tp.Roles[i] == PathRole.Travel || tp.Roles[i + 1] == PathRole.Travel) continue;
+                Vector3d nz = tp.Normals[i];
+                Vector3d ap = a - nz * (a * nz), bp = b - nz * (b * nz);
+                double lap = ap.Length, lbp = bp.Length;
+                bool inPlane = lap > 1e-9 && lbp > 1e-9 && Vector3d.VectorAngle(ap, bp) >= 0.05;
+                double angle = inPlane ? Vector3d.VectorAngle(ap, bp) : Vector3d.VectorAngle(a, b);
+                if (angle < 0.05) continue; // ~3 degrees
+                double kind = inPlane ? 0 : 1;
+                if (inPlane) { la = lap; lb = lbp; }
                 bool thin = IsFill(tp.Roles[i - 1]) || IsFill(tp.Roles[i]) || IsFill(tp.Roles[i + 1]);
                 double radius = thin ? Math.Min(minRadius, ribRadius) : minRadius;
                 bool sharp = angle > 0.26; // ~15 degrees
@@ -1173,17 +1287,17 @@ namespace LARGERslicer.Toolpaths
                 // corners that belong together: the two corners of a zigzag turn or rib tip lie one
                 // bead spacing apart, wall corners count as one within two radii
                 double join = thin ? 1.5 * tp.Settings.BeadSpacing : 2 * radius;
-                if (clusters.Count > 0 && s[i] - clusters[clusters.Count - 1][1] <= join)
+                if (clusters.Count > 0 && clusters[clusters.Count - 1][4] == kind && s[i] - clusters[clusters.Count - 1][1] <= join)
                 {
                     var c = clusters[clusters.Count - 1];
                     c[1] = s[i];
                     c[2] = Math.Min(c[2], radius);
                     if (thin) c[3] = 1;
                 }
-                else clusters.Add(new[] { s[i], s[i], radius, thin ? 1.0 : 0.0 });
+                else clusters.Add(new[] { s[i], s[i], radius, thin ? 1.0 : 0.0, kind });
             }
             if (clusters.Count == 0) return tp.Duplicate();
-            corners = clusters.Count;
+            corners = clusters.Count(c => c[4] == 0);
 
             // 2) rebuild the path, replacing each cluster by an arc
             var result = new Toolpath { Settings = tp.Settings, Warp = tp.Warp };
@@ -1192,6 +1306,10 @@ namespace LARGERslicer.Toolpaths
             {
                 double first = clusters[c][0], last = clusters[c][1], radius = clusters[c][2];
                 bool thinCluster = clusters[c][3] > 0;
+                bool slope = clusters[c][4] > 0;
+                // a corner is rounded in the plane of its layer (tool axis in the middle of the corner)
+                Vector3d axis = Vector3d.Zero;
+                if (!slope) { axis = tp.Normals[SegmentAt(s, 0.5 * (first + last))]; if (!axis.Unitize()) axis = Vector3d.Zero; }
                 // never reach into the neighbouring corner's half of the straight in between
                 double lo = c == 0 ? 0 : 0.5 * (clusters[c - 1][1] + first);
                 double hi = c == clusters.Count - 1 ? total : 0.5 * (last + clusters[c + 1][0]);
@@ -1204,7 +1322,7 @@ namespace LARGERslicer.Toolpaths
                 // a balloon-shaped loop, on one layer and not on the next, and the turn then
                 // sits centimetres beside the one below.
                 double tProbe = Math.Min(tMax, 0.5 * tp.Settings.BeadSpacing);
-                Point3d[] probe = Blend(tp, s, first - tProbe, last + tProbe, radius, out double turn);
+                Point3d[] probe = Blend(tp, s, first - tProbe, last + tProbe, radius, out double turn, axis);
                 bool uTurn = turn > 2.5;
 
                 // smallest cut distance whose arc reaches the radius
@@ -1215,7 +1333,7 @@ namespace LARGERslicer.Toolpaths
                 for (int k = 1; k <= steps && !uTurn; k++)
                 {
                     double tk = tMax * k / steps;
-                    double rk = BlendRadius(tp, s, first - tk, last + tk, radius);
+                    double rk = BlendRadius(tp, s, first - tk, last + tk, radius, axis);
                     tried[k] = rk;
                     if (rk >= radius * 0.97)
                     {
@@ -1223,7 +1341,7 @@ namespace LARGERslicer.Toolpaths
                         for (int it = 0; it < 6; it++)
                         {
                             double mid = 0.5 * (a0 + b0);
-                            if (BlendRadius(tp, s, first - mid, last + mid, radius) >= radius * 0.97) b0 = mid; else a0 = mid;
+                            if (BlendRadius(tp, s, first - mid, last + mid, radius, axis) >= radius * 0.97) b0 = mid; else a0 = mid;
                         }
                         t = b0;
                         break;
@@ -1252,12 +1370,16 @@ namespace LARGERslicer.Toolpaths
                 double sA = first - t, sB = last + t;
                 while (idx < n && s[idx] < sA - 1e-9) { result.AddFrom(tp, idx); idx++; }
 
-                Point3d[] curve = Blend(tp, s, sA, sB, radius, out double phi);
+                Point3d[] curve = Blend(tp, s, sA, sB, radius, out double phi, axis);
                 int count = Math.Max(3, Math.Min(48, (int)Math.Ceiling(Math.Max(phi, 0.6) / 0.12)));
                 for (int j = 0; j <= count; j++)
                 {
                     double u = (double)j / count;
-                    AddSampled(result, tp, s, sA + (sB - sA) * u, Bezier(curve, u));
+                    double at = sA + (sB - sA) * u;
+                    Point3d q = Bezier(curve, u);
+                    // in the layer plane: the height along the tool axis is the one the path had there
+                    if (!slope && !axis.IsZero) q += axis * (((Vector3d)At(tp, s, at)) * axis);
+                    AddSampled(result, tp, s, at, q);
                 }
                 while (idx < n && s[idx] <= sB + 1e-9) idx++;
             }
@@ -1282,18 +1404,21 @@ namespace LARGERslicer.Toolpaths
             return tp.Points[i - 1] + (tp.Points[i] - tp.Points[i - 1]) * t;
         }
 
-        /// <summary>Travel direction just before (forward = false) or just after a position.</summary>
-        private static Vector3d Tangent(Toolpath tp, double[] s, double at, double radius, bool forward)
+        /// <summary>The point without its part along axis (axis zero: unchanged): the path seen in its layer plane.</summary>
+        private static Point3d Flat(Point3d p, Vector3d axis) => axis.IsZero ? p : p - axis * (((Vector3d)p) * axis);
+
+        /// <summary>Travel direction just before (forward = false) or just after a position (in the layer plane if axis is set).</summary>
+        private static Vector3d Tangent(Toolpath tp, double[] s, double at, double radius, bool forward, Vector3d axis)
         {
             double d = Math.Max(1e-3, radius * 0.05);
             double total = s[s.Length - 1];
-            Point3d p0 = At(tp, s, forward ? at : Math.Max(0, at - d));
-            Point3d p1 = At(tp, s, forward ? Math.Min(total, at + d) : at);
+            Point3d p0 = Flat(At(tp, s, forward ? at : Math.Max(0, at - d)), axis);
+            Point3d p1 = Flat(At(tp, s, forward ? Math.Min(total, at + d) : at), axis);
             Vector3d v = p1 - p0;
             if (!v.Unitize())
             {
                 int i = SegmentAt(s, at);
-                v = tp.Points[i] - tp.Points[i - 1];
+                v = Flat(tp.Points[i], axis) - Flat(tp.Points[i - 1], axis);
                 v.Unitize();
             }
             return v;
@@ -1302,12 +1427,13 @@ namespace LARGERslicer.Toolpaths
         /// <summary>
         /// The curve that replaces the path between sA and sB: it leaves at sA and arrives at sB
         /// in the direction of the path. For a plain corner this is very close to a circular arc,
-        /// for two parallel lines a half circle, and for a sideways step an S curve.
+        /// for two parallel lines a half circle, and for a sideways step an S curve. With an axis the
+        /// curve lies in the layer plane through the origin (the caller adds the height).
         /// </summary>
-        private static Point3d[] Blend(Toolpath tp, double[] s, double sA, double sB, double radius, out double phi)
+        private static Point3d[] Blend(Toolpath tp, double[] s, double sA, double sB, double radius, out double phi, Vector3d axis)
         {
-            Point3d pa = At(tp, s, sA), pb = At(tp, s, sB);
-            Vector3d da = Tangent(tp, s, sA, radius, false), db = Tangent(tp, s, sB, radius, true);
+            Point3d pa = Flat(At(tp, s, sA), axis), pb = Flat(At(tp, s, sB), axis);
+            Vector3d da = Tangent(tp, s, sA, radius, false, axis), db = Tangent(tp, s, sB, radius, true, axis);
             phi = Vector3d.VectorAngle(da, db);
             double chord = pa.DistanceTo(pb);
             double k = phi > 1e-3 ? (4.0 / 3.0) * Math.Tan(phi * 0.25) * chord / (2 * Math.Sin(phi * 0.5)) : chord / 3.0;
@@ -1326,9 +1452,9 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>Tightest radius of the curve that would replace the path between sA and sB.</summary>
-        private static double BlendRadius(Toolpath tp, double[] s, double sA, double sB, double radius)
+        private static double BlendRadius(Toolpath tp, double[] s, double sA, double sB, double radius, Vector3d axis)
         {
-            Point3d[] c = Blend(tp, s, sA, sB, radius, out _);
+            Point3d[] c = Blend(tp, s, sA, sB, radius, out _, axis);
             const int samples = 20;
             double min = double.MaxValue;
             Point3d p0 = c[0], p1 = Bezier(c, 1.0 / samples);
@@ -1395,6 +1521,7 @@ namespace LARGERslicer.Toolpaths
         {
             var st = tp.Settings;
             if (st.MinLayerTime <= 0 || tp.Count < 2) return Process(tp, compensateWithSpeed, null);
+            var target = LayerTargets(tp);
             // slow down the short layers; a few rounds, as travel moves and the volume cap do not scale
             var feed = new Dictionary<int, double>();
             ProcessResult r = Process(tp, compensateWithSpeed, null);
@@ -1403,14 +1530,15 @@ namespace LARGERslicer.Toolpaths
                 bool changed = false;
                 foreach (var kv in r.LayerSeconds)
                 {
-                    if (kv.Value >= st.MinLayerTime - 0.05) continue;
+                    double tMin = target.TryGetValue(kv.Key, out double tk) ? tk : st.MinLayerTime;
+                    if (kv.Value >= tMin - 0.05) continue;
                     // the first layer starts from its own speed (First Layer Speed), every other one from Speed
                     double f = feed.TryGetValue(kv.Key, out double had) ? had : kv.Key == FirstPrinted(tp) && st.FirstLayerSpeed > 0 ? st.FirstLayerSpeed : st.Speed;
                     if (f <= st.MinSpeed + 1e-9) continue;
                     r.LayerPrintSeconds.TryGetValue(kv.Key, out double printing);
                     double other = kv.Value - printing;
                     if (printing <= 1e-9) continue;
-                    double want = st.MinLayerTime > other + 1e-3 ? f * printing / (st.MinLayerTime - other) : st.MinSpeed;
+                    double want = tMin > other + 1e-3 ? f * printing / (tMin - other) : st.MinSpeed;
                     feed[kv.Key] = Math.Max(st.MinSpeed, Math.Min(st.Speed, want));
                     changed = true;
                 }
@@ -1418,6 +1546,44 @@ namespace LARGERslicer.Toolpaths
                 r = Process(tp, compensateWithSpeed, feed);
             }
             return r;
+        }
+
+        /// <summary>
+        /// The minimum time of every layer (s), by the rule of the printed head of 2024 (UNIKAT HEAD V2,
+        /// its "layer time" cluster): laps shorter than min + 0.7464 x (max - min) of all lap lengths get
+        /// Short Lap Time, the longer ones Min Layer Time, and where the one changes into the other the
+        /// time changes linearly over 5 laps. The first layer counts by its length but takes no part in
+        /// min and max (it is the brim and foot). Lap length = printed length of the layer without skirt
+        /// and brim. Short Lap Time 0 (or Min Layer Time 0): every layer gets Min Layer Time.
+        /// </summary>
+        public static Dictionary<int, double> LayerTargets(Toolpath tp)
+        {
+            var st = tp.Settings;
+            var res = new Dictionary<int, double>();
+            if (st.MinLayerTime <= 0) return res;
+            var len = new SortedDictionary<int, double>();
+            for (int i = 1; i < tp.Count; i++)
+            {
+                if (tp.Flows[i] <= 0 || tp.Roles[i] == PathRole.Skirt) continue;
+                len.TryGetValue(tp.Layers[i], out double l);
+                len[tp.Layers[i]] = l + tp.Points[i].DistanceTo(tp.Points[i - 1]);
+            }
+            if (st.ShortLapTime <= 0 || len.Count < 3)
+            {
+                foreach (var k in len.Keys) res[k] = st.MinLayerTime;
+                return res;
+            }
+            var keys = len.Keys.ToList();
+            var laps = keys.Skip(1).Select(k => len[k]).Where(l => l > 0).ToList();
+            double lmin = laps.Min(), lmax = laps.Max(), thr = lmin + 0.7464 * (lmax - lmin);
+            var raw = keys.Select(k => len[k] < thr ? st.ShortLapTime : st.MinLayerTime).ToList();
+            var t = new List<double>(raw);
+            for (int k = 2; k < keys.Count; k++)
+                if (Math.Abs(raw[k] - raw[k - 1]) > 1e-9)
+                    for (int j = 0; j < 5 && k + j < keys.Count; j++)
+                        t[k + j] = raw[k - 1] + (raw[k] - raw[k - 1]) * (j + 1) / 5.0;
+            for (int k = 0; k < keys.Count; k++) res[keys[k]] = t[k];
+            return res;
         }
 
         private static ProcessResult Process(Toolpath tp, bool compensateWithSpeed, Dictionary<int, double> feed)
