@@ -22,7 +22,7 @@ namespace LARGERslicer.Components.Export
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Slicer";
+        public override string SubCategory => "Slicer · Curves";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -76,6 +76,6 @@ namespace LARGERslicer.Components.Export
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SuppressSelfIntersectionsIcon.png", this);
         public override Guid ComponentGuid => new Guid("58c9301e-90c3-47b3-aa08-01ad3fe41ae8");
         /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
     }
 }

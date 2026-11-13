@@ -20,9 +20,9 @@ namespace LARGERslicer.Components.Export
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Slicer";
-        /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override string SubCategory => "Slicer · Curves";
+        /// <summary>Curve tools, in their own panel "Slicer · Curves": the fills for one curve (Curve Fill ...) as its second group.</summary>
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

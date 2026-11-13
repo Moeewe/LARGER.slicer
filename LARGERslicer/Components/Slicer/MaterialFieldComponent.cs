@@ -21,7 +21,7 @@ namespace LARGERslicer.Components.Slicer
                   "Puts the toolpath back onto the part as a material field for analysis (IGA or FE). For every sample point: the bead direction (e1), the direction across the bead (e2) and the stacking direction (e3), the layer and bead, how far the next layer or bead interface is and how long the layer below had to cool. With the moduli it gives the rotated stiffness per point. Samples are a grid in the UV of every Brep face, so (face, u, v) maps straight onto the NURBS of the analysis; or give your own points (e.g. Gauss points). The default moduli are placeholders: measure your material.") { }
 
         public override Guid ComponentGuid => new Guid("E7A3C1D9-5B2F-4E86-9A0C-3F1D8B6E2A47");
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerMaterialFieldIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
