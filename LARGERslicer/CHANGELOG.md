@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (toolpath back into the analysis)
+- **Material Field** (Slicer, Grasshopper 1 and 2): puts the toolpath back onto the part as a direction-dependent material field for IGA or FE. Per sample point: bead direction e1, across the bead e2, stacking direction e3, layer and bead, distance to the next layer and bead interface, bead spacing and overlap, layer time and the time across the interface, and a weakness value. With the moduli it gives the rotated orthotropic stiffness per point. Samples are a grid in each Brep face's UV, so (face, u, v) maps onto the NURBS of the analysis, or your own points such as Gauss points. Save writes CSV, JSON and VTK (ParaView). The default material values are placeholders until coupon tests give real ones.
+
 ### Added (support fins, materials, G-code import)
 - **Support Fins** (Slicer, next to Infill; also Grasshopper 2): thin fins outside the part hold up overhangs. Each stands square to the outer wall from the bed up to just under the overhang, exactly on the fin below, and is part of the one continuous line: a hairpin out of the wall and back, touching the part through a narrow neck so it cuts off easily. Contact "Neck + gap" prints the top fin layer 0.3 mm lower so the overhang breaks off. Spacing and reach in bead widths.
 - Continuous Path: the seam ramp stays off ribs and support fins, so the move to the next wall never cuts through a hairpin.
