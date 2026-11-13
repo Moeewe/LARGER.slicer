@@ -211,6 +211,33 @@ Faults to look for first: an optional list input left open (GH2 9.1 throws in `G
 lettered stand-ins (`PixelIcon` with several sizes throws; the instance's `Icon` is then a
 `VectorIcon`).
 
+### 2.6 Collision check of Robot Program (regression and speed)
+
+`tests/CollisionBench` (net8 class library, run from a Rhino 9 slot as in 2.1, script in
+`tests/CollisionBench/run.csx`). `Compare` runs six cases in the FH Muenster cell (KR120 R2700,
+AE20 extruder, environment) twice on the same prepared bodies: once as before 1.3.1
+(`CollisionModel.Reference`: Rhino's `ClosestMeshPoint` per sample and `MeshMeshFast`, one pose after
+the other) and once as now (own closest points and triangle crossings, poses in parallel). It compares
+a fingerprint of both results (hit moves, every pair with count, first and last move, depth and gap to
+0.01 mm) and checks what must be found:
+
+| Case | Must find |
+|---|---|
+| 1 free tower (r 150, 100 layers) | no collision |
+| 2 box hanging over the part | tool and links 4, 5, 6 hit the box |
+| 3 tool leaning 45 degrees over a tall printed tower | tool hits the printed part |
+| 4 first layer, tool 80 degrees from vertical | tool hits the bed |
+| 5 rail and turntable | no collision (no false alarm from what stands on what) |
+| 6 robot without 3D model | not checked |
+
+It also compares the gantry check (Printer Simulation, a leaning vase on the Ginger One), and with
+argument `qs` builds Quick Start in memory (2.3), solves it with the checks off and runs the check of
+both Robot Programs both ways. `QuickStart("full")` solves Quick Start with the checks on and reads the
+report of Robot Program. The fingerprints are written to `<temp>/LARGERslicer/collision-bench/`.
+
+Rhino's mesh reduction (`Mesh.Reduce`) does not give the same mesh twice; the reduced meshes are
+therefore kept in `<temp>/LARGERslicer/collision/`. Delete that folder to measure a first run.
+
 ---
 
 ## 3. Metrics and how results were judged

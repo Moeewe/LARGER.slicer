@@ -214,6 +214,7 @@ namespace LARGERslicer.Components.Robot
             }
             double away = cell.WorkBase.O.DistanceTo(arm.Base.O);
             if (away > arm.Reach) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The work base is {away:0} mm from the robot; its reach is {arm.Reach:0} mm.");
+            CollisionModel.Warm(cell); // prepares the bodies for the collision check in the background
             da.SetData(0, new GH_ObjectWrapper(cell));
             da.SetData(1, $"{cell}; work base '{cell.BaseName}' {away:0} mm from the robot");
         }
