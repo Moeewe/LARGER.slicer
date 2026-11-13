@@ -153,6 +153,12 @@ Instances.ActiveCanvas.Document = null;
 
 For the Rhino document: mark it unmodified or use `_-New _None` before exiting the slot.
 
+**The same in Grasshopper 1.** A real click on a row goes through the attributes:
+`attr.RespondToMouseDown(canvas, new GH_CanvasMouseEvent(...))` at the middle of the row rectangle
+(`OptionAttributes._rects`). Opening a file whose plug-ins are missing shows the modal
+"Unrecognized Objects" dialog and the `run_csharp` call times out; close such windows from a timer
+(`Eto.Forms.Application.Instance.AsyncInvoke`, windows of type `GH_UnrecognizedObjectsForm`).
+
 ### 2.5 Grasshopper 2 in the test slot
 
 Grasshopper 2 is not loaded in a fresh slot: `Rhino.PlugIns.PlugIn.LoadPlugIn(new Guid("8307876d-a461-4daa-bb77-eb3715925513"))`,
@@ -179,6 +185,26 @@ The harness (net8 class library, loaded by `Assembly.Load(bytes)` and called by 
 Closing: `Unmodify()` every document in `Document.AllDocuments`, pop documents from
 `Editor.Instance.Documents` only while `Current` is not empty (popping the last one makes a new
 empty document: a `while (Current != null)` loop never ends and hangs the slot).
+
+**Picking a preset as a user does.** The value control of an input with presets is made by
+`AbstractParameter.CreateValueControl()`: a link label "Choose preset…" whose MouseDown opens a
+`ContextMenu`; the click on an item sets the persistent data, expires the input and starts a
+solution. The harness makes that control, takes the menu out of the label's MouseDown handler
+(Eto `Widget.Properties["Control.MouseDown"]`, the closure holds the menu) and calls
+`PerformClick()` on the item. A boolean input gets a `CheckBox` instead: setting `Checked` is the
+click. Read the outputs in a later `run_csharp` call (the solution needs the UI thread).
+
+**Saving.** Point File at a test folder (and `MaterialDefinition.Folder` / `MachineDefinition.Folder`
+for Material and Machine), tick Save, then check in the next call: the file exists and reads back
+(G-code and DXR through `GCodeImport.Read`, KRL with DEF and END, .material/.machine through `Load`),
+the name `PREFIX_yyMMddHHmm_part_123g_45min.ext`, no decimal comma, and Save is false again.
+The DXR Generator takes the "File Name" of Robot Program: give it the folder plus that name.
+
+**Cancel.** Build a heavy chain (a 1200 mm twisted tower, layer 0.5 mm, 3 walls), start the
+solution, sample the process CPU every 250 ms on a thread of its own (a `Timer` starves while
+Parallel.For runs) together with which component computes, change the layer height while
+Continuous Path runs, and look whether it leaves the list at once. For the core alone: run
+`PathEngine.Build(..., token)` in a task, cancel after 1.5 s, measure when it returns.
 
 Faults to look for first: an optional list input left open (GH2 9.1 throws in `GetItemArray`, use
 `access.ItemArray`), typed inputs set through `as Parameter` (silently nothing), icons drawn as
