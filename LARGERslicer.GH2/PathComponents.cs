@@ -22,7 +22,7 @@ namespace LARGERslicer.GH2
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Toolpath", "T", "Print path.");
-            inputs.AddNumber("Min Radius", "R", "Corner radius for walls (mm). 0 = value from the Print Settings.").Set(0.0);
+            inputs.AddNumber("Min Radius", "R", "Corner radius for walls (mm). 0 = value from the Print Settings (not set = half the bead width).").Set(0.0);
             inputs.AddNumber("Rib Radius", "Rr", "Corner radius where ribs and fill leave the wall (mm). 0 = bead spacing. Larger = softer, wider rib foot.").Set(0.0);
         }
 
@@ -36,6 +36,7 @@ namespace LARGERslicer.GH2
         {
             var tp = Io.Path(access, 0); if (tp == null) return;
             double r, rr; access.GetItem(1, out r); access.GetItem(2, out rr);
+            double rIn = r;
             if (r <= 0) r = tp.Settings.EffectiveMinRadius;
             if (tp.Settings.Preview)
             {
@@ -47,6 +48,7 @@ namespace LARGERslicer.GH2
             var rounded = PathEngine.Round(tp, r, rr, out int corners, out int tooSharp);
             sw.Stop();
             if (tooSharp > 0) access.AddRemark("Smaller radius", $"{tooSharp} wall corner(s) have too little room for R{r:0.##} (another corner is too close); they got the largest arc that fits.");
+            access.AddRemark($"R {r:0.##} mm", $"Wall corners are rounded with R {r:0.##} mm" + (rIn > 0 ? "." : " (Min Radius 0: from the Print Settings, half the bead width unless set there; the Ginger handbook asks for at least half the nozzle)."));
             access.SetItem(0, rounded);
             access.SetItem(1, $"R{r:0.#}: {corners} corner(s) rounded, {tooSharp} with a smaller radius than R{r:0.##}, {rounded.Count} points, {sw.ElapsedMilliseconds} ms");
         }
@@ -89,7 +91,9 @@ namespace LARGERslicer.GH2
             brim = Math.Max(0, Math.Min(3, brim));
             var log = new List<string>();
             var result = LeadEngine.StartEnd(tp, Math.Max(0, loops), dist, Math.Max(0, brimLoops), brim, Math.Max(0, exit), Math.Max(0, lift), crv, flow, log);
-            foreach (var l in log) access.AddWarning(l.Length > 60 ? l.Substring(0, 60) + "…" : l, l);
+            foreach (var l in log)
+                if (l.StartsWith("Note: ")) access.AddRemark(l.Length > 60 ? l.Substring(0, 60) + "…" : l, l);
+                else access.AddWarning(l.Length > 60 ? l.Substring(0, 60) + "…" : l, l);
             int skirt = result.Roles.Count(x => x == PathRole.Skirt);
             string what = (loops > 0 ? "Skirt" : "No skirt") + (brim > 0 && brimLoops > 0 ? " + brim" : "") + (crv != null ? " + curve exit" : (exit > 0 || lift > 0 ? " + exit" : ""));
             access.SetItem(0, result);

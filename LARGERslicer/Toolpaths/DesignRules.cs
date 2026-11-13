@@ -64,7 +64,7 @@ namespace LARGERslicer.Toolpaths
                     ? Inv.F($"For a finished wall of {f(finishThickness)} mm after milling {f(milling)} mm away, at 45 degrees use a layer width of {f(r.LW45)} mm (LW45 = sqrt2 (t - t milling)).")
                     : Inv.F($"For a finished wall of {f(finishThickness)} mm at 45 degrees use a layer width of {f(r.LW45)} mm (LW45 = sqrt2 t)."));
             }
-            r.Report.Add(Inv.F($"Corners: radius at least {f(r.MinCornerRadius)} mm (half the nozzle); Round Corners uses the bead width."));
+            r.Report.Add(Inv.F($"Corners: radius at least {f(r.MinCornerRadius)} mm (half the nozzle); Round Corners uses half the bead width ({f(Math.Max(0.5 * lw, r.MinCornerRadius))} mm) unless Min Radius is set."));
             r.Report.Add(Inv.F($"Two beads in one go (double bead): 0.8 to 0.9 x the layer width apart, {f(0.8 * lw)} to {f(0.9 * lw)} mm."));
             r.Report.Add(Inv.F($"At an angle: add a start and an end feature of about {r.StartLayers:0} layers ({f(r.StartLayers * (layerHeight > 0 ? layerHeight : r.LayerRecommended))} mm) before and after the part, milled away afterwards, so the part itself starts and ends on full layers: set Start/End Layers on Slice."));
             r.Report.Add("Overhang: flat layers up to 45 degrees; printed at 45 degrees up to 90 degrees. Contours inside contours are joined by bridges in Continuous Path, so the line never stops.");
