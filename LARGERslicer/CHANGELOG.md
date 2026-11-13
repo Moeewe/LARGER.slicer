@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (self-supporting geometry)
+- **Self Support Check, Self Supporting Envelope, Best Angle** (Slicer, next to Slice; Grasshopper 1 and 2). Self Support Check colours the part by how far it hangs over for the chosen build direction (flat, angled, guide curve or guide surface); the limit comes from the bead (half a bead beside the bead below: 5 mm beads in 2 mm layers allow 51 degrees). Self Supporting Envelope adds the least material that makes every layer hold the one above: slice-ready layers, the new part as a closed NURBS Brep (or a mesh) for analysis (IGA), and the added material alone to mill away later. Best Angle tries slice angles 0 to 75 degrees in every tilt direction and suggests the one with the least overhang. Tested: the mushroom part goes from "NOT SUPPORTED, offset 50 mm" to "Support OK" with 417 cm3 added; Best Angle picks 55 degrees for the 55-degree lean block.
+
 ### Added (toolpath back into the analysis)
 - **Material Field** (Slicer, Grasshopper 1 and 2): puts the toolpath back onto the part as a direction-dependent material field for IGA or FE. Per sample point: bead direction e1, across the bead e2, stacking direction e3, layer and bead, distance to the next layer and bead interface, bead spacing and overlap, layer time and the time across the interface, and a weakness value. With the moduli it gives the rotated orthotropic stiffness per point. Samples are a grid in each Brep face's UV, so (face, u, v) maps onto the NURBS of the analysis, or your own points such as Gauss points. Save writes CSV, JSON and VTK (ParaView). The default material values are placeholders until coupon tests give real ones.
 
