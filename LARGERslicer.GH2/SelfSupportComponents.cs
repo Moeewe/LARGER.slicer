@@ -41,8 +41,9 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddNumber("Angle", "A", "Tilts the layers around the X axis, in degrees, as on Slice.").Set(0.0);
             inputs.AddGeneric("Guide", "Gd", "Optional, as on Slice. A curve: the build direction is its tangent. A surface: the normal of the bent layer.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddInteger("Guide Mode", "GM", "Only with a guide surface: 0 = flat bottom, top follows the guide. 1 = all layers follow the guide.").Set(0);
+            inputs.AddInteger("Guide Mode", "GM", "Only with a guide surface: 0 = flat bottom, top follows the guide. 1 = all layers follow the guide.").Set(0).Choices("Flat bottom, top follows guide", "All layers follow guide");
             inputs.AddNumber("Factor", "F", "How far a bead may lie beside the bead below, as a share of the bead width. 0.5 = half a bead.").Set(SelfSupport.DefaultFactor);
+            inputs.AddPlane("Plane", "P", "Layer plane, as on Slice. Its normal is the build direction. Empty = World XY.", Access.Item, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -52,6 +53,7 @@ namespace LARGERslicer.GH2
             outputs.AddText("Report", "R", "What was found.", Access.Twig);
             outputs.AddMesh("Regions", "Rg", "The unsupported areas, one mesh per region.", Access.Twig);
             outputs.AddPoint("Starts", "St", "Places where an island starts in mid air.", Access.Twig);
+            outputs.AddNumber("Percent", "%", "Unsupported area in % of the surface.");
         }
 
         protected override void Process(IDataAccess access)
@@ -61,7 +63,8 @@ namespace LARGERslicer.GH2
             var settings = Io.Settings(access, 1);
             double angle, factor; object guide; int guideMode;
             access.GetItem(2, out angle); access.GetItem(3, out guide); access.GetItem(4, out guideMode); access.GetItem(5, out factor);
-            Plane plane = Plane.WorldXY;
+            Plane plane;
+            if (!access.GetItem(6, out plane) || !plane.IsValid) plane = Plane.WorldXY;
             if (Math.Abs(angle) > 1e-9) plane.Rotate(Rhino.RhinoMath.ToRadians(angle), plane.XAxis, plane.Origin);
             double tol = Math.Max(0.01, settings.Resolution * 0.1);
             Warp warp = SelfSupportIo.Guide(guide, guideMode, tol);
@@ -77,6 +80,7 @@ namespace LARGERslicer.GH2
             access.SetTwig(2, r.Report.ToArray(), null, null);
             access.SetTwig(3, r.Regions.ToArray(), null, null);
             access.SetTwig(4, r.Starts.ToArray(), null, null);
+            access.SetItem(5, r.Percent);
         }
     }
 
@@ -103,6 +107,7 @@ namespace LARGERslicer.GH2
             outputs.AddGeneric("Added", "A", "Only the added material (Brep or mesh).");
             outputs.AddText("Report", "R", "What was added, and the loft tolerance.", Access.Twig);
             outputs.AddPolyline("Contours", "C", "Contours of the new layers.", Access.Twig);
+            outputs.AddPolyline("Added Contours", "AC", "Contours of the added material per layer.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
@@ -118,6 +123,7 @@ namespace LARGERslicer.GH2
             if (r.AddedGeometry != null) access.SetItem(2, r.AddedGeometry);
             access.SetTwig(3, r.Report.ToArray(), null, null);
             Io.Contours(access, 4, r.Layers);
+            Io.Contours(access, 5, r.Added);
         }
     }
 
