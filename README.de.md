@@ -61,7 +61,7 @@ Die Einstellungen sitzen auf den Komponenten selbst: Die Zeilen unter einer Komp
 | 1 | `Machine Profile` | Wie dein Drucker die Extrusionswerte erwartet: Volumen, Filamentlänge oder Faktor für die Steuerung. Aufgelistet als Hersteller und Maschine, z. B. „Generic · Pellet extruder“ |
 | 2 | `Print Settings` | Bahnbreite, Lagenhöhe, Überlappung, Geschwindigkeit (mm/s), kleinster Radius. `Nozzle` wählt Bahnbreite und Lagenhöhe passend zur eingeschraubten Düse |
 | | `Material` · `Material Factor` | Startwerte für ein Granulat (Temperaturen, Trocknung, Dichte); ein neuer Extrusionsfaktor aus gemessenen Bahnbreiten |
-| 3 | `Slice` | Breps, Flächen, SubDs, Meshes. Flach, gekippt, non-planar (Führungsfläche oder „Follow the part“) oder multiaxial (Führungskurve) |
+| 3 | `Slice` | Breps, Flächen, SubDs, Meshes. Flach, gekippt, non-planar (Führungsfläche, „Follow the part“ oder „Follow the surface“) oder multiaxial (Führungskurve) |
 | | `Self Support Check` · `Self Supporting Envelope` · `Best Angle` | Wo das Bauteil zu weit überhängt, das wenigste Material, das es selbsttragend macht, und der Schnittwinkel mit dem kleinsten Überhang |
 | 4 | `Walls` | Bahn innen, mittig oder außen an der Geometrie |
 | 5 | `Bottom Fill` | Geschlossener Boden als eine Linie: Zickzack oder Kontur |
@@ -165,9 +165,11 @@ Die Grenze für Überhänge ergibt sich aus der Bahn: Eine Bahn darf um `Factor`
 </details>
 
 <details>
-<summary><b>Slice „Follow the part“, Non-Planar Check, Optionen von Continuous Path und Path Check</b></summary>
+<summary><b>Slice „Follow the part“ und „Follow the surface“, Non-Planar Check, Optionen von Continuous Path und Path Check</b></summary>
 
 **`Slice`, Guide Mode „Follow the part (no guide)“.** `Guide` leer lassen. Die non-planaren Lagen folgen der Wand des Bauteils von unten nach oben, sodass Überhänge gleich dicke Lagen bekommen, ohne Führungsfläche. Die Düse bleibt senkrecht, und die Extrusion folgt dem senkrechten Abstand zur Lage darunter. Eine Warnung erscheint, wenn eine Lage entlang der Wand dicker als 0,8 × Bahnbreite wird. Passt das Bauteil nicht, meldet `Slice` das und schneidet flach.
+
+**`Slice`, Guide Mode „Follow the surface (no guide)“.** `Guide` leer lassen und `Continuous Path` im Modus Spiral verwenden. Für geschlossene Teile wie einen Kopf, so wie der Kopf „UNIKAT HEAD V2“ 2024 auf dem Ginger One gedruckt wurde: Ringe auf der Oberfläche des Teils vom Ring, auf dem es steht, bis zum Scheitel (der Weg entlang der Oberfläche, an der Wand zu einem Drittel zur Höhe hin gezogen), auch unter Kinn und Nase, und oben geschlossen. Die ersten beiden Lagen liegen flach (erste Lagenhöhe, dann eine Lagenhöhe höher). Die Düse bleibt senkrecht. Die Bahnhöhe jedes Punktes folgt dem Gesetz dieses Drucks, gemessen am Ring darunter: der senkrechte Abstand, wo er darunter liegt, weniger, wo er seitlich liegt (t = dz + (h - dz) x dxy / w), und E folgt ihr. Path Check und Non-Planar Check lassen die angelehnten Ringe unter dem Kinn und am Scheitel so weit zu, wie der Druck von 2024 gezeigt hat, dass es geht (bis eine Bahnbreite neben dem Ring darunter an 2,5 % der Punkte; Bahnhöhen bis 1,1 x Bahnbreite an 0,5 % und unter 0,4 x Lagenhöhe an 1 %; Streifen der Düse bis 0,6 mm), und schreiben das in ihren Bericht. Beispiel: [`LARGERslicer - Head (Ginger One, non-planar).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One, non-planar).gh>).
 
 **`Non-Planar Check`** (Slicer, neben `Path Check`). Für Drucker mit senkrechter Düse. Misst an jedem Punkt die echte Bahnhöhe gegen Bahnbreite, Lagenhöhe und Extrusion und prüft den Druckkopf gegen alles, was vorher gedruckt wurde.
 - Eingänge: `Toolpath`, `Tip Radius` (mm, Standard 4), `Cone Angle` (halber Kegelwinkel gegen die Senkrechte, Grad, Standard 30), `Cone Length` (mm, Standard 60), `Head Radius` (mm, Standard 40), `Pose` (0 = Anfang, 1 = Ende).
@@ -305,6 +307,7 @@ Mehr: [SETUP-Anleitung](SETUP/README.de.md)
 |---|---|---|---|
 | **Weber DXR25** | KUKA-Roboter, multiaxial | `LARGERslicer Weber Robot and Ginger.gh` | [Deutsch](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) · [English](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) |
 | **Ginger One** | Großformat-Granulatdrucker | `LARGERslicer Weber Robot and Ginger.gh` | [Schnellstart (Englisch)](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
+| **Ginger One (Marlin), non-planarer Kopf** | Granulatdrucker, senkrechte Düse | [`LARGERslicer - Head (Ginger One, non-planar).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One, non-planar).gh>): der Kopf von 2024 so platziert wie gedruckt, „Follow the surface“, eine Spirale, Brim, `Path Check`, `Non-Planar Check`, G-Code | Der Vergleich mit dem G-Code von 2024 steht auf dem Canvas |
 | **Ginger One (Klipper), non-planar** | Granulatdrucker, senkrechte Düse | [`LARGERslicer - Non Planar Head (Ginger).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Non Planar Head (Ginger).gh>): Lagen, die dem Bauteil folgen, eine Spirale, `Path Check`, `Non-Planar Check`, G-Code | Wie Quick-Start-Beispiel 07 |
 | **Universal Robots UR5** | Kollaborativer Roboter | `UR5slicer.gh` | [Schnellstart (Englisch)](<EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/README UR5 00 QUICK START GUIDE.md>) |
 | **Zünd G3 L-2500** | CNC-Fräsen / Schneiden | `ZündHGPL PLT MSA.gh` | [Schnellstart (Englisch)](<EXAMPLE FILES/00 - ZUENDT - 3D CNC MILLING/README Zünd G3 L-2500 CNC MILLING QUICK START GUIDE.md>) |

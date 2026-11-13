@@ -242,17 +242,40 @@ namespace LARGERslicer.Toolpaths
                     if (d0 < nearest) { nearest = d0; outline = path; }
                 }
                 int made = 0;
-                for (int k = brimLoops; k >= 1 && outline != null; k--)
+                // Every loop ends one bead before its own start, and a short diagonal leads into the
+                // next loop inside. If all loops ended at the same place, these diagonals would lie
+                // side by side, 0.7 bead apart, and overlap by more than a quarter of a bead (the
+                // printed head of 2024 shows it: a "V" of stacked links where the brim runs into the
+                // part). So each loop ends half a bead further on than the one inside it: the links
+                // form a staircase and stay clear of each other (at most a tenth of a bead touches).
+                // The innermost loop ends next to the start of the part, as before.
+                var loops = new List<Point2d>[brimLoops + 1];
+                var cums = new double[brimLoops + 1][];
+                for (int k = 1; k <= brimLoops && outline != null; k++)
                 {
                     PathsD ring = Clipper.InflatePaths(new PathsD { outline }, k * spacing - 0.5 * w, JoinType.Round, EndType.Polygon, 2.0, 3, 0.05);
                     if (ring == null || ring.Count == 0 || ring[0].Count < 3) continue;
                     var loop = ring[0].Select(q => new Point2d(q.x, q.y)).ToList();
                     var cum = FillEngine.Cumulative(loop);
-                    double len = cum[loop.Count];
-                    if (len < 4 * w) continue;
-                    double s0 = FillEngine.ClosestS(loop, cum, start2, out double away);
+                    if (cum[loop.Count] < 4 * w) continue;
+                    loops[k] = loop; cums[k] = cum;
+                }
+                var ends = new double[brimLoops + 1];
+                Point2d aim = start2;
+                double link = 0.5 * w; // how far along the loop the diagonal into the next loop runs
+                for (int k = 1; k <= brimLoops; k++)
+                {
+                    if (loops[k] == null) continue;
+                    ends[k] = FillEngine.ClosestS(loops[k], cums[k], aim, out double away);
                     if (k == 1) { linkLength = away; skirtUsed = spacing; }
-                    foreach (Point2d q in FillEngine.Sub(loop, cum, s0 + w, s0 + len))
+                    // the loop outside ends beside the point 'link' before this loop's start
+                    aim = FillEngine.PointAt(loops[k], cums[k], ends[k] + w - link);
+                }
+                for (int k = brimLoops; k >= 1; k--)
+                {
+                    if (loops[k] == null) continue;
+                    double len = cums[k][loops[k].Count];
+                    foreach (Point2d q in FillEngine.Sub(loops[k], cums[k], ends[k] + w, ends[k] + len))
                     {
                         Point3d p3 = solid(q);
                         if (result.Count > 0 && p3.DistanceTo(result.Points[result.Count - 1]) < 1e-6) continue;
@@ -492,6 +515,9 @@ namespace LARGERslicer.Toolpaths
         {
             var r = new CheckResult();
             Toolpath real = tp;
+            // Follow the surface: the laps lean on the lap below where the surface turns flat (under the
+            // chin, the crown), and the extrusion follows the law of the printed head there
+            bool leaning = tp.Warp != null && tp.Warp.UseBeadLaw;
             if (tp.Warp != null)
             {
                 // non-planar / multi-axis: test in flat space, where layers are planes again
@@ -635,6 +661,14 @@ namespace LARGERslicer.Toolpaths
             // ---- report
             if (unsupported == 0)
                 r.Report.Add(Inv.F($"Support OK: every bead lies on the layer below (largest sideways offset {r.MaxOffset:0.0} mm, allowed {limit:0.0} mm = half the bead width)."));
+            else if (leaning && maxOffset <= 0 && r.MaxOffset <= 2.0 * limit + 0.05 && unsupported <= 0.025 * Math.Max(1, checkedPoints))
+            {
+                // Calibrated on the UNIKAT HEAD V2 (Ginger One, 2024), which printed fine: 336 of its 18 177
+                // points (1.8 %) lie 2 to 4 mm (up to one bead width) beside the lap below, under the chin
+                // and on the crown, where the rings lean on the ring below and the law gives them less material.
+                r.Report.Add(Inv.F($"Support OK for leaning laps: {unsupported} of {checkedPoints} points ({100.0 * unsupported / Math.Max(1, checkedPoints):0.#} %) lie more than {limit:0.0} mm beside the lap below (up to {r.MaxOffset:0.0} mm), where the surface turns flat (under the chin, at the crown). ") +
+                             Inv.F($"Accepted up to one bead width ({2 * limit:0.0} mm) at up to 2.5 % of the points: the printed head of 2024 had 1.8 % of its points up to 4.0 mm beside the lap below and printed fine. Use the Offset output to see where."));
+            }
             else if ((r.MaxOffset <= 1.75 * limit && unsupported <= 0.01 * Math.Max(1, checkedPoints)) || (hangLayers.Count == 0 && r.Unsupported.Count <= Math.Max(8, checkedPoints / 2000)))
             {
                 // a handful of points just over the limit: the bead still rests on most of its width
