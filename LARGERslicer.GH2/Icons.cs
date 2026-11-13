@@ -15,6 +15,23 @@ namespace LARGERslicer.GH2
         private static readonly Dictionary<string, IIcon> IconCache = new Dictionary<string, IIcon>();
         private static readonly string[] IconSizes = { "24", "48", "256" };
 
+        /// <summary>
+        /// The option rows of Grasshopper 1 (a choice drawn on the component) as presets of the input:
+        /// item i has the value i, as in the drop-down list of Grasshopper 1.
+        /// </summary>
+        public static Grasshopper2.Parameters.Parameter<int> Choices(this Grasshopper2.Parameters.Parameter<int> p, params string[] names)
+        {
+            for (int i = 0; i < names.Length; i++) p.Presets?.Add(names[i], "", i);
+            return p;
+        }
+
+        /// <summary>The round values of a Grasshopper 1 slider row as presets of a number input.</summary>
+        public static Grasshopper2.Parameters.Parameter<double> Values(this Grasshopper2.Parameters.Parameter<double> p, params double[] values)
+        {
+            foreach (var v in values) p.Presets?.Add(v.ToString(System.Globalization.CultureInfo.InvariantCulture), "", v);
+            return p;
+        }
+
         /// <summary>The icon of that name (file name without .png), or null if there is none.</summary>
         public static IIcon Icon(string name)
         {

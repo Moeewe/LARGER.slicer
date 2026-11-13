@@ -370,7 +370,7 @@ namespace LARGERslicer.GH2
         {
             inputs.AddGeneric("Layers", "L", "Layers with walls (and bottom).");
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddInteger("Pattern", "P", string.Join("\n", Patterns.Select((n, i) => i + " = " + n))).Set(1);
+            inputs.AddInteger("Pattern", "P", string.Join("\n", Patterns.Select((n, i) => i + " = " + n))).Set(1).Choices(Patterns);
             inputs.AddNumber("Size", "Sz", "Rib spacing, cell size, wavelength or chamber length in mm.").Set(80.0);
             inputs.AddNumber("Depth", "D", "Waves and chambers: how far the pattern reaches into the part in mm. 0 = as far as the part allows.").Set(0.0);
         }
