@@ -400,6 +400,8 @@ Ohne *Slice Data* wird nur der Standard-Start-/Endcode geschrieben – ohne Koor
 
 ## Entwicklung
 
+**Entwicklerdokumentation** ([Überblick auf Deutsch](docs/README.de.md), Seiten auf Englisch): [Architektur](docs/ARCHITECTURE.md) · [Druckregeln](docs/PRINTING_PRINCIPLES.md) · [Icons](docs/ICONS.md) · [Tests](docs/TESTING.md) · [Beispiele](docs/EXAMPLES.md) · [Entscheidungen](docs/DECISIONS.md)
+
 <details>
 <summary><b>Aufbau des Repositories</b></summary>
 

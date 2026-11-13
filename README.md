@@ -406,6 +406,8 @@ If you skip *Slice Data*, only the standard start/end code is written – withou
 
 ## Development
 
+**Developer documentation** ([handbook](docs/README.md)): [Architecture](docs/ARCHITECTURE.md) · [Printing principles](docs/PRINTING_PRINCIPLES.md) · [Icons](docs/ICONS.md) · [Testing](docs/TESTING.md) · [Examples](docs/EXAMPLES.md) · [Decisions](docs/DECISIONS.md)
+
 <details>
 <summary><b>Repository structure</b></summary>
 
