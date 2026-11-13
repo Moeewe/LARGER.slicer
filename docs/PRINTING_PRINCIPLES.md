@@ -55,9 +55,12 @@ bead: 4 mm). The first layer lies on the bed and is not checked.
   1.5 x the limit are output.
 - Infill on top of a solid bottom layer counts as supported; tilted layers that touch the bed along
   their lowest edge too.
-- For laps that lean on the lap below with the bead law (Follow the surface, section 9) offsets up to
-  one bead width at up to 2.5 % of the points are accepted ("Support OK for leaning laps";
-  calibrated on the 2024 head: 1.8 %, max 4.0 mm).
+- For laps that follow the surface (section 9) offsets up to one bead width at up to 2.5 % of the
+  points are accepted with a note, but only in stretches of at most 12 bead widths: such a stretch
+  still touches the lap below and hangs between supported stretches like a short bridge (under a
+  chin). Up to 1.3.0 this allowance cited the 2024 head (1.8 %, up to 4.0 mm); measured in plan its
+  laps never lay more than 1.95 mm (half a bead) beside the lap below - the 4 mm came from the
+  importer splitting its G-code into layers by turns.
 - `SelfSupport` uses the same rule to check a part before slicing, to grow the smallest
   self-supporting envelope and to find the best slice angle.
 - Every generator (ribs, spiral blending, rounding, patterns) must respect it.
@@ -157,6 +160,10 @@ definition, and the plug-in, write E = 0.21 x w x h x L directly. Both describe 
 within 3 %; per material the extrusion is tuned with `Material Factor` (new factor = target width /
 measured width x current factor).
 
+**Non-planar layers with a vertical nozzle: the bead height is the shell law** (section 9.3):
+t = max(dz, dxy x t_skin / w) from the closest point of the lap below, E = section(w, t) x length x
+Factor. Flat layers and planar warps (guide surfaces) use the vertical gap to the layer below.
+
 Other machine conventions:
 
 - Ginger One start/end: the sequences of the Ginger quick start guide (pins M42 P49/P57, mixer
@@ -188,16 +195,24 @@ wrapped around the part). Rules:
   below.
 - Regions (closed curves unrolled with the wall, Breps, meshes) with Falloff, Attractors with Reach,
   Invert.
-- On "Follow the surface" paths the bead-law heights are measured again after the pattern.
+- On "Follow the surface" paths the bead heights (shell law, section 9.3) are measured again after
+  the pattern.
 
 ---
 
 ## 9. What the reference print taught: UNIKAT HEAD V2 (Ginger One, 2024)
 
 The head "UNIKAT HEAD V2" was printed on the Ginger One (Marlin) in July 2024 from the owner's
-Grasshopper definition "BE GINGER SLICER (Non Planar Head) V1.1" and printed well. Its G-code
-(18 882 lines, 18 771 G1 moves) was analysed in November 2026 and the plug-in was rebuilt and
-calibrated against it. The G-code itself is not in the repository.
+Grasshopper definition "BE GINGER SLICER (Non Planar Head) V1.1". Its G-code (18 882 lines,
+18 771 G1 moves) was analysed in November 2026 and the plug-in was rebuilt against it. The G-code
+itself is not in the repository.
+
+**What to take from it and what not.** The sequence, the brim, how the laps are made, the lap times,
+the seam and the crown closure (9.2, 9.4-9.6) are good practice and kept. **Its extrusion is not:**
+the owner found V2 over-extruded ("doubled extrusion") at the overhangs. V2's law adds material for
+the sideways offset of a lap, which a vertical nozzle does not need (9.3). Version 1.3.0 had adopted
+that law and calibrated checks on it; 1.3.1 replaces it with the shell law and tightens those checks
+(9.7).
 
 ### 9.1 Units and totals
 
@@ -222,9 +237,10 @@ ring is the foot of the head; lap 0 lies exactly on it. The spiral starts at lap
 its E is computed from the distance to lap 0, so it **ramps in from almost 0 over the whole first
 lap** (Z 2.0 → 3.7): the controlled transition that bonds the head to its foot.
 
-### 9.3 The extrusion law (bead height from the lap below)
+### 9.3 The extrusion: V2's law, why it over-extrudes, and the shell law
 
-From the definition's "layer heights" cluster, confirmed on all 18 041 head points (rms 0.0006 E/mm):
+**V2's law** (from the definition's "layer heights" cluster, confirmed on all 18 041 head points,
+rms 0.0006 E/mm):
 
 ```
 h  = 3D distance from the point to the closest point on the previous lap
@@ -234,17 +250,64 @@ t  = h (1 - (h/w)(1 - sin a)((w/h) - cos a))
 E/mm = 0.21 · w · t                      (w = 4)
 ```
 
-Stacked straight, t is the vertical gap; where the lap below lies to the side (overhang, crown) only
-the share dxy / w of the slant distance counts, so a leaning bead is not overfilled. At the crown
-(a ≈ 8°, dz 0.26, dxy 1.8) t ≈ 0.98 mm instead of 1.84 (3D distance) or 0.26 (vertical gap).
-Alternatives fit much worse: pure vertical gap has a 95th-percentile error of 37 %, plain 3D distance
-24 %. Per-lap mean E/mm: 1.53 (vertical neck) → 1.28 (chin overhang) → 1.40-1.51 (skull) → 0.80
-(crown).
+**Why that is too much.** With a vertical nozzle a single-bead shell of horizontal thickness w gains,
+per lap, the area w · dz in every vertical section across the wall: a parallelogram with horizontal
+sides w and height dz. How far the lap is offset sideways (dxy, an overhang or a wall leaning in) does
+not change that area - a sideways offset moves the material, it does not add any. V2's second term
+(h - dz) · dxy / w is therefore extra material, the more the flatter the surface and the larger the
+sideways step:
 
-In the code: `BeadLaw.Height(p, q, w)` in `FollowSurface.cs`; `BeadLaw.Apply` sets every point's
-height from the closest point of the lap about one lap back in the path (0.75-2 laps). Used by Guide
-Mode "Follow the surface" (`Warp.UseBeadLaw`) and re-applied after Surface Pattern; Non-Planar Check
-measures heights by the law when E follows it better than the vertical gap (also for imported G-code).
+| | dz | dxy | V2 t | shell t | V2 / shell |
+|---|---|---|---|---|---|
+| vertical wall | 1.75 | 0 | 1.75 | 1.75 | 1.00 |
+| 45°, laps 1.75 mm apart along the surface | 1.24 | 1.24 | 1.40 | 1.24 | 1.13 |
+| 45°, dz 1.75 | 1.75 | 1.75 | 2.07 | 1.75 | 1.18 |
+| half-bead step, dz 1.75 | 1.75 | 2.0 | 2.20 | 1.75 | 1.26 |
+| 20°, laps 1.75 mm apart along the surface | 0.60 | 1.64 | 1.07 | 0.72 | 1.49 |
+| V2's crown | 0.26 | 1.8 | 0.96 | 0.79 | 1.22 |
+| one-bead step, dz 1.75 | 1.75 | 4.0 | 4.37 | 1.75 | 2.50 |
+
+(w 4 mm, t_skin 1.75 mm; numbers from `BeadLaw.Height` and `BeadLaw.HeightV2`.)
+
+**The shell law** (1.3.1, `BeadLaw` in `FollowSurface.cs`). Where the surface turns nearly flat (crown,
+the shelf under a chin) the laps step mostly sideways and the shell becomes a skin; there the material
+per mm of path is the sideways step times the skin thickness. Together:
+
+```
+A = max(w · dz, dxy · t_skin)        t = A / w = max(dz, dxy · t_skin / w)        E = factor · w · t · length
+```
+
+t_skin = `Skin Thickness` on `Continuous Path` (`PrintSettings.SkinThickness`), 0 = the layer height,
+never below 0.4 x layer height. The skin term takes over where dz / dxy < t_skin / w: surfaces flatter
+than about 24° for a 4 mm bead and 1.75 mm layers. The least material per lap lies at that crossover:
+for laps one layer height apart along the surface t = h · t_skin / sqrt(w² + t_skin²) (0.4 h here).
+
+**Where V2 over-extruded, lap by lap** (its own points, closest point on the previous lap, t_skin 1.75):
+
+| Region | Laps | Surface angle | V2 E/mm | shell E/mm | V2 / shell |
+|---|---|---|---|---|---|
+| neck, vertical wall | 1-11 | 77-82° | 1.50-1.53 | 1.50-1.53 | 1.00 |
+| chin overhang | 13-24 | 65-75° | 1.28-1.36 | 1.23-1.31 | 1.03-1.05 |
+| skull | 40-90 | 61-81° | 1.30-1.51 | 1.29-1.50 | 1.00-1.04 |
+| shoulder towards the crown | 92-104 | 32-54° | 1.10-1.32 | 0.81-1.23 | 1.07-1.36 |
+| last laps before the crown | 106-112 | 14-27° | 0.89-1.05 | 0.64-0.70 | 1.36-1.57 |
+| crown | 113-119 | 8-9° | 0.78-0.83 | 0.65-0.67 | 1.20-1.25 |
+
+Over the whole head V2 put 3.4 % more material than the shell law (46 146 against 44 616 E); per point
+the median is +0.5 %, 10 % of the points get more than +17.5 %, 1 % more than +56 %. By surface angle:
++0 % above 70°, +2 % at 60-70°, +6 % at 50-60°, +13 % at 40-50°, +27 % at 30-40°, +52 % at 20-30°,
++44 % at 10-20°, +22 % below 10°. The overhang V2 is remembered for is the transition to the crown and
+the crown itself; under the chin V2's laps stepped little sideways (up to 0.8 mm), so the excess there
+was only 3-5 %. The worst case of the law, about 2.5 x at a full bead's step, did not occur in V2 because
+its laps never stepped more than 1.95 mm sideways.
+
+In the code: `BeadLaw.Height(p, q, w, skin)`, `BeadLaw.Apply` sets every point's height from the
+closest point of the lap about one lap back in the path (0.75-2 laps); Guide Mode "Follow the surface"
+(`Warp.UseBeadLaw`) and again after Surface Pattern. Guide Mode "Follow the part" keeps the vertical
+gap and adds the skin term from the wall's lean (`MeridianWarp.BeadHeight`). `BeadLaw.HeightV2` keeps
+V2's law only so Non-Planar Check can recognise files made with it (also imported G-code): it reports
+"OLD EXTRUSION LAW" with the excess and judges E by the shell law. There is no switch back to V2's law:
+an old file is reproduced by its own G-code, and re-slicing it should give the corrected E.
 
 ### 9.4 Laps and lap times
 
@@ -288,22 +351,34 @@ on it, the spiral ramping in from E ≈ 0. Changed in the plug-in:
 1. **Staggered brim**: each loop ends half a bead further on than the one inside it, so the links
    never lie side by side (slivers of 1.5-2.2 mm² instead of 6.2 mm² chevrons).
 2. Every closed flat ring ends one bead before its own start (round bead ends just touch), never
-   0.55 w with extra E; the last segment gets the E of the law.
+   0.55 w with extra E; the last segment gets the E of the bead law.
 3. Measured result (0.1 mm raster, overlap 0): layered + skirt 21.1 → 0.0 mm², brim outside 33.1 → 2.9,
    brim inside 35.1 → 0.0, both 44.4 → 2.2, spiral + brim 43.3 → 3.7, the rebuilt head with brim 7:
    18 mm² against V2's 121 mm² (what is left: slivers of a few hundredths of a millimetre along the
    round corners of the rings).
 
-### 9.7 Calibrated checks
+### 9.7 Checks: what V2 justified, and what is left (1.3.1)
 
-Because V2 printed well, the checks accept what it did:
+1.3.0 accepted on law-following paths what V2 did, "because V2 printed it". Re-examined:
 
-- Path Check: "Support OK for leaning laps" for bead-law paths, offsets up to 1.0 w at up to 2.5 % of
-  the points (V2: 1.8 %, max 3.99 mm).
-- Non-Planar Check: for law-following paths up to 0.5 % of the points above 0.8 w (at most 1.1 w) and
-  1 % below 0.4 h (V2: 0.3 % up to 1.0 w, 0.1 %); the nozzle grazing a bead flank by up to 0.6 mm
-  (`Head.Graze`) is reported, not counted as a collision (V2: about 70 moves up to 0.5 mm; 12 deeper
-  moves on the imported G-code are partly an artefact of the importer splitting layers by turns).
+- **Bead height above 0.8 w** (1.3.0: up to 0.5 % of the points, up to 1.1 w): removed. Those heights
+  came from V2's law itself (t → h where dxy → w); by the shell law a bead is never higher than the
+  vertical gap or the skin, so a point above 0.8 w is a real fault.
+- **E against the measured height**: the tolerance was not loosened (mean ≤ 10 %, ≤ 5 % of the points
+  more than 10 % off), but 1.3.0 measured against V2's law, which let its over-extrusion pass. Now the
+  shell law is the reference; E that matches V2's law is reported as "OLD EXTRUSION LAW" with its
+  excess (V2's own G-code, imported: about 11 % over the measured points, and "EXTRUSION DOES NOT FIT").
+- **Bead height below 0.4 h** (up to 1 % of the points): kept for the last crown rings; points where the
+  skin term sets the height are not judged by that rule (the skin is t_skin thick, at least 0.4 h by
+  construction; t = A / w is only an equivalent height there).
+- **Support** (Path Check, up to one bead width beside the lap below at up to 2.5 %): V2 never needed it
+  (≤ 1.95 mm in plan; the 4 mm were an import artefact). Kept only where it is physically plausible: in
+  stretches of at most 12 bead widths that hang between supported stretches like a short bridge. The
+  rebuilt head needs it under the chin (0.8 % of its points up to 4.0 mm, where its rings dip less than
+  V2's and step out further).
+- **Nozzle grazing a bead flank up to 0.6 mm** (`Head.Graze`): kept. It is geometry, not extrusion
+  (V2: about 70 moves up to 0.5 mm); with less material on leaning laps the flanks are, if anything,
+  smaller.
 
 ### 9.8 The rebuilt example
 
@@ -317,15 +392,20 @@ brim outside 7, Ginger One (Marlin).
 |---|---|---|
 | Laps (> 30 mm) | 119 | 123 |
 | Z range | 0.9-178.0 | 0.9-177.4 |
-| E total | 48 353 | 48 621 |
+| E total | 48 353 | 48 621 with the V2 law (1.3.0), about 47 000 with the shell law (1.3.1) |
 | First layer | Z 0.90, F1500, 2627 mm, 0.756 E/mm | Z 0.90, F1500, 2628 mm, 0.756 E/mm |
-| E/mm 5 % / median / 95 % | 0.94 / 1.42 / 1.57 | 0.92 / 1.35 / 1.69 |
+| E/mm 5 % / median / 95 % | 0.94 / 1.42 / 1.57 | 0.92 / 1.35 / 1.69 (V2 law), about 0.74 / 1.33 / 1.64 (shell law) |
 | Print time | 81 min | 87 min |
 | First-layer double coverage | 121 mm² | 18 mm² |
 
-Path Check and Non-Planar Check OK, 0 crossings. Remaining differences: the rebuilt rings dip less
-(Z span median 8.4 against 10.8 mm), all laps at 40 s, crown rings 1.5-2 mm apart with E/mm 0.5-0.7,
-point spacing 2.3 against 1.9 mm.
+With the V2 law (1.3.0): Path Check and Non-Planar Check OK, 0 crossings. With the shell law (1.3.1)
+only E changes; replayed on the example's G-code (laps by its layer comments, `BeadLaw.Apply`):
+E on the head about 3.5 % lower (total about 47 000 instead of 48 621), E/mm 5 % / median / 95 %
+0.74 / 1.33 / 1.64, the shoulder towards the crown 20-48 % lower per lap, the crown rings 0.50-0.56
+E/mm; Non-Planar Check on that replay: E fits the shell law (mean 0.4 %), 0.6 % thin points (accepted),
+head clearance OK. Not yet re-solved in Grasshopper: the definition itself was not changed, it picks up
+the law when it solves. Remaining differences: the rebuilt rings dip less (Z span median 8.4 against
+10.8 mm), all laps at 40 s, crown rings 1.5-2 mm apart, point spacing 2.3 against 1.9 mm.
 
 **How "Follow the surface" lays the rings** (`SurfaceField`, `MeridianWarp`): u per mesh vertex =
 d_bottom / (d_bottom + d_crown) by Dijkstra on the welded mesh (crown = highest vertex, or the whole
