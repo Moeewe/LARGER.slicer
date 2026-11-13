@@ -73,6 +73,66 @@ namespace LARGERslicer.Components
         private CancellationTokenSource _cts;
         private Timer _timer;
 
+        // ------------------------------------------------------------ who is still working
+        // Components whose background work is not handed out yet. Their outputs stay empty meanwhile,
+        // so a component further down would complain about a missing input: it asks WaitingFor and
+        // shows a grey "waiting for ..." instead.
+        private static readonly HashSet<GH_Component> Working = new HashSet<GH_Component>();
+
+        private void SetWorking(bool on)
+        {
+            lock (Working) { if (on) Working.Add(_owner); else Working.Remove(_owner); }
+        }
+
+        /// <summary>True while this component's background work runs or waits to be handed out.</summary>
+        public static bool IsWorking(GH_Component c) { lock (Working) return c != null && Working.Contains(c); }
+
+        /// <summary>
+        /// The name of a component upstream of c (through wires, parameters and relays) whose background
+        /// calculation is still running, or null. c itself does not count.
+        /// </summary>
+        public static string WaitingFor(GH_Component c)
+        {
+            if (c == null) return null;
+            lock (Working) if (Working.Count == 0) return null;
+            var seen = new HashSet<IGH_DocumentObject> { c };
+            var todo = new Stack<IGH_Param>();
+            foreach (var p in c.Params.Input) todo.Push(p);
+            int guard = 0;
+            while (todo.Count > 0 && guard++ < 5000)
+            {
+                var p = todo.Pop();
+                foreach (var src in p.Sources)
+                {
+                    var top = src.Attributes?.GetTopLevel?.DocObject ?? src;
+                    if (!seen.Add(top)) continue;
+                    if (top is GH_Component comp)
+                    {
+                        if (IsWorking(comp)) return comp.Name;
+                        foreach (var q in comp.Params.Input) todo.Push(q);
+                    }
+                    else if (top is IGH_Param param) todo.Push(param);
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// For the component's ComputeData, after its solution: while a component upstream still works in
+        /// the background, a missing input is no error. The component's messages are replaced by a grey remark.
+        /// </summary>
+        public static void ShowWaiting(GH_Component c)
+        {
+            if (c == null || IsWorking(c)) return;
+            string who = WaitingFor(c);
+            if (who == null) return;
+            // only when this component is short of data (an empty input or no result), not when it has a result
+            bool empty = c.Params.Input.Any(p => !p.Optional && p.VolatileDataCount == 0) || c.Params.Output.All(p => p.VolatileDataCount == 0);
+            if (!empty) return;
+            c.ClearRuntimeMessages();
+            c.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "waiting for " + who + " (still computing)...");
+        }
+
         /// <summary>Calculate in the background (default on; kept in the file).</summary>
         public bool Enabled { get; set; } = true;
 
@@ -109,6 +169,8 @@ namespace LARGERslicer.Components
         /// <summary>BeforeSolveInstance: a new solution either hands out finished results or starts over.</summary>
         public void Before()
         {
+            // this solution hands the results out: the components below get real data now
+            SetWorking(false);
             if (_deliver) return;
             lock (_lock)
             {
@@ -147,6 +209,7 @@ namespace LARGERslicer.Components
             int iteration = da.Iteration, generation;
             CancellationToken token;
             lock (_lock) { generation = _generation; token = _cts.Token; _started++; _pending++; }
+            SetWorking(true);
             var job = new AsyncJob(token);
             Task.Run(() =>
             {
@@ -171,6 +234,7 @@ namespace LARGERslicer.Components
             else
             {
                 // nothing started (e.g. an input is missing now): no clock left standing
+                SetWorking(false);
                 StopTimer();
                 if (_owner.Message != null && _owner.Message.StartsWith("computing", StringComparison.Ordinal)) _owner.Message = null;
             }
@@ -188,6 +252,7 @@ namespace LARGERslicer.Components
         public void Cancel()
         {
             lock (_lock) { CancelTasks(); _generation++; _pending = 0; }
+            SetWorking(false);
             StopTimer();
             _deliver = false;
         }
