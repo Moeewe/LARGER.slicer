@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (non-planar for a vertical nozzle, Ginger on Klipper)
+- Slice: new Guide Mode **"Follow the part (no guide)"**. Non-planar layers follow the part's own wall from bottom to top (meridians, N = mean wall length / layer height), so overhangs get layers of even thickness without drawing a guide surface. The nozzle stays vertical and the extrusion follows the vertical gap to the layer below - not the 3D distance, which over-extrudes by 15 % at 45 degrees and 43 % at 60 degrees. Warns when a layer is thicker than 0.8 x bead width along the wall.
+- **Non-Planar Check** (Slicer, next to Path Check): measures the real bead height at every point against bead width, layer height and extrusion, and checks the head (tip radius, cone angle and length, head radius) against everything printed before and the in-layer slope against the cone ("HEAD COLLISION at move i, layer k, with layer m"). Tested on a 200 mm vase with a 40 mm bulge: 101 layers, bead height 0.8 to 2.0 mm, E per layer within 0.07 % of the measured gap, head clear.
+- Built-in machine **Ginger One (Klipper)**: START_PRINT/END_PRINT macros, E as volume x 1.0 (confirm with the Klipper rotation_distance), fan on after layer 1, M107 at the end. Own machines move down one place in the Machine list.
+- .machine files: keys `material` and `bed temperature` for `{material}` and `{bed}` in the codes, and blocks `[after layer n]`. Machine component: optional inputs Material and Bed Temperature.
+
 ### Added (seam, layer time, volume rate)
 - **Seam Mode** on Continuous Path (and Easy Slicer): Fixed point (as before), Inner corner, or Sharpest corner. The seam and its ramp go into an inner corner of the outer wall, where they show least and milling does not run over them; without one, to the sharpest outer corner. Followed from layer to layer within half a bead, never at the cost of a move without extrusion. L and star parts: seam in the inner corner on every layer, stack step 0 mm.
 - The skirt also runs straight into a part that starts in a hollow of its outline.
