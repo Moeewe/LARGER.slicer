@@ -166,7 +166,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("First Layer Speed", "V1", "Speed of the first layer in mm/s, for adhesion (the Ginger prints it at about 25 mm/s). 0 = the same as Speed.").Set(0.0);
             // the inputs of Grasshopper 1 that this component did not have yet: added at the end, so older files keep their wires
             inputs.AddNumber("Overlap", "Ov", "Sideways overlap of neighbouring beads, 0-1 (used by walls and infill).").Set(0.15);
-            inputs.AddNumber("Min Radius", "R", "Smallest corner radius of the path (mm). 0 = bead width.").Set(0.0);
+            inputs.AddNumber("Min Radius", "R", "Smallest corner radius of the path (mm). 0 = half the bead width (the Ginger handbook asks for at least half the nozzle).").Set(0.0);
             inputs.AddNumber("Resolution", "Res", "Smallest point spacing of the path (mm).").Set(2.0);
             inputs.AddNumber("Filament Diameter", "Fil", "0 = extrusion as volume in mm3 (pellet extruder). >0 = extrusion as filament length.").Set(0.0);
             inputs.AddNumber("Min Speed", "Vmin", "Lowest speed when speed compensates the layer height, in mm/s.").Set(5.0);
@@ -547,7 +547,7 @@ namespace LARGERslicer.GH2
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Toolpath", "T", "Path from Continuous Path.");
-            inputs.AddNumber("Min Radius", "R", "Smallest corner radius in mm. 0 = bead width.").Set(0.0);
+            inputs.AddNumber("Min Radius", "R", "Smallest corner radius in mm. 0 = from the Print Settings (half the bead width).").Set(0.0);
             inputs.AddInteger("Skirt Loops", "Sk", "Loops around the first layer, printed first. 0 = none.").Set(1);
             inputs.AddNumber("Exit Length", "E", "Sideways move off the part at the end, in mm.").Set(50.0);
             inputs.AddNumber("Exit Lift", "Z", "Lift at the very end, in mm.").Set(20.0);

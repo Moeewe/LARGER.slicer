@@ -158,6 +158,7 @@ namespace LARGERslicer.Toolpaths
             // neighbouring rings stay exactly one bead spacing apart. The innermost ring ends right beside
             // the start of the part (the seam, or where the spiral starts) and runs on into it.
             double linkLength = -1, skirtUsed = skirtDistance;
+            bool aimedLink = false; // the skirt ends where a straight line reaches the start clear of the first layer
             bool tilted = tp.Warp == null && Math.Abs(tp.Normals[0].Z) < 0.999;
             Vector3d ringAxis = tp.Normals[0];
             Plane ringPlane = brimPlane;
@@ -277,6 +278,7 @@ namespace LARGERslicer.Toolpaths
                 for (int j = rings.Count - 1; j >= 0; j--)
                 {
                     bool aimed = j == rings.Count - 1 && skirtAim.HasValue && !brimOut;
+                    if (aimed) aimedLink = true;
                     ends[j] = FillEngine.ClosestS(rings[j], cums[j], aimed ? skirtAim.Value : target, out _);
                     if (j == rings.Count - 1)
                     {
@@ -338,9 +340,21 @@ namespace LARGERslicer.Toolpaths
                 // The move across to the part prints only if the part starts on its outside, right
                 // opposite the skirt. If it starts further in (a bottom fill, an inner wall), a
                 // printed line would lie where other beads are still to come: then it is a travel.
-                bool direct = linkLength >= 0 && linkLength <= skirtUsed + 0.75 * w;
+                // A part that starts in a hollow of its outline (an inner corner, between support fins) lies
+                // further from the skirt; the skirt then ends where a straight line reaches the start clear of
+                // the first layer (LinkClear), and that line prints as well.
+                bool direct = linkLength >= 0 && (linkLength <= skirtUsed + 0.75 * w || aimedLink);
                 result.Flows[offset] = direct ? 1 : 0;
-                if (!direct) { result.Roles[offset] = PathRole.Travel; log?.Add("The part does not start on its outer wall: the move from the skirt to the start is a travel move."); }
+                if (!direct)
+                {
+                    result.Roles[offset] = PathRole.Travel;
+                    // say why: a start on the outside of the first layer that the skirt cannot reach in a straight,
+                    // short line clear of the part (a hollow between support fins, an inner corner) is no mistake
+                    if (!tilted && StartsOnOutline(tp, lastOfFirst, flat, w))
+                        log?.Add(Inv.F($"Note: the part starts on its outer wall, in a hollow of the first layer's outline (between support fins or in an inner corner), {linkLength:0} mm from the skirt: the move across is a travel move, so it does not run over the first layer."));
+                    else
+                        log?.Add("The part does not start on its outer wall: the move from the skirt to the start is a travel move.");
+                }
                 result.Heights[offset] = tp.Heights[0] > 0 ? tp.Heights[0] : st.LayerHeight;
             }
 
@@ -387,11 +401,85 @@ namespace LARGERslicer.Toolpaths
                     dir -= axis * (dir * axis);
                     if (!dir.Unitize()) dir = Vector3d.XAxis;
                 }
+                // The move must leave the part without running over its last layer (a thin top layer, a seam
+                // that ends inside, tilted layers): away from the middle if that is free, else square to the last
+                // move to either side or straight on. If no direction is free, the nozzle lifts first.
+                bool lifted = false;
+                if (exitLength > 0)
+                {
+                    Vector3d last = tp.Points[lastIndex] - tp.Points[Math.Max(0, lastIndex - 1)];
+                    last -= axis * (last * axis);
+                    var cands = new List<Vector3d> { dir };
+                    if (last.Unitize())
+                    {
+                        Vector3d side = Vector3d.CrossProduct(axis, last);
+                        if (side * dir < 0) side = -side;
+                        cands.Add(side); cands.Add(-side); cands.Add(last);
+                        // between the outward side and the way on
+                        Vector3d mid = side + last; if (mid.Unitize()) cands.Add(mid);
+                    }
+                    Vector3d? free = null;
+                    foreach (var c in cands) if (ExitClear(tp, lastIndex, end, c, exitLength, w)) { free = c; break; }
+                    if (free.HasValue) dir = free.Value;
+                    else if (exitLift > 0)
+                    {
+                        lifted = true;
+                        log?.Add("Exit: every way sideways runs over the last layer, so the nozzle lifts first and then moves away.");
+                    }
+                }
                 Point3d p = end;
-                if (exitLength > 0) { p += dir * exitLength; result.Add(p, axis, h, w, flow, exitRole, lastLayer); }
-                if (exitLift > 0) { p += axis * exitLift; result.Add(p, axis, h, w, 0, PathRole.Travel, lastLayer); }
+                if (lifted) { p += axis * exitLift; result.Add(p, axis, h, w, 0, PathRole.Travel, lastLayer); }
+                if (exitLength > 0) { p += dir * exitLength; result.Add(p, axis, h, w, lifted ? 0 : flow, lifted ? PathRole.Travel : exitRole, lastLayer); }
+                if (exitLift > 0 && !lifted) { p += axis * exitLift; result.Add(p, axis, h, w, 0, PathRole.Travel, lastLayer); }
             }
             return result;
+        }
+
+        /// <summary>
+        /// True if a straight exit from the end of the path (index last) in direction dir over length keeps
+        /// half a bead clear of every printed move of the last layer, apart from the first bead width next
+        /// to the end itself (where it starts on the bead it leaves).
+        /// </summary>
+        private static bool ExitClear(Toolpath tp, int last, Point3d end, Vector3d dir, double length, double w)
+        {
+            int layer = tp.Layers[last];
+            Vector3d axis = tp.Normals[last];
+            // the moves of the last layer that do not touch the end
+            var segs = new List<Tuple<Point3d, Point3d>>();
+            double along = 0;
+            for (int i = last; i > 0 && tp.Layers[i] == layer; i--)
+            {
+                along += tp.Points[i].DistanceTo(tp.Points[i - 1]);
+                if (along < 1.5 * w || tp.Flows[i] <= 0) continue;
+                segs.Add(Tuple.Create(tp.Points[i - 1], tp.Points[i]));
+            }
+            // it must not cross any move of the last layer at all, also not near the end (a thin top layer:
+            // the other side of the layer lies a fraction of a millimetre away)
+            {
+                Plane pl = Geo.PlaneAt(end, axis);
+                Func<Point3d, Point2d> f2 = q => { Vector3d v = q - pl.Origin; return new Point2d(v * pl.XAxis, v * pl.YAxis); };
+                Point2d a = f2(end), b = f2(end + dir * length);
+                for (int i = last; i > 0 && tp.Layers[i] == layer; i--)
+                {
+                    if (tp.Flows[i] <= 0 || i == last) continue;
+                    Point2d c = f2(tp.Points[i - 1]), d = f2(tp.Points[i]);
+                    double d1 = Cross(a, b, c), d2 = Cross(a, b, d), d3 = Cross(c, d, a), d4 = Cross(c, d, b);
+                    if (d1 * d2 < 0 && d3 * d4 < 0) return false;
+                }
+            }
+            for (double t = w; t <= length + 1e-9; t += 0.5 * w)
+            {
+                Point3d q = end + dir * Math.Min(t, length);
+                foreach (var sg in segs)
+                {
+                    Vector3d ab = sg.Item2 - sg.Item1; double l2 = ab.SquareLength;
+                    double u = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((q - sg.Item1) * ab) / l2));
+                    Vector3d d = sg.Item1 + ab * u - q;
+                    d -= axis * (d * axis); // sideways, in the plane of the layer
+                    if (d.Length < 0.5 * w) return false;
+                }
+            }
+            return true;
         }
 
         /// <summary>
@@ -547,6 +635,38 @@ namespace LARGERslicer.Toolpaths
             return hull;
         }
 
+        /// <summary>True if the first point of the path lies on the outside of the first layer (on the outline of its beads).</summary>
+        private static bool StartsOnOutline(Toolpath tp, int lastOfFirst, Func<Point3d, Point2d> flat, double w)
+        {
+            var lines = new PathsD(); PathD run = null;
+            for (int i = 0; i <= lastOfFirst && i < tp.Count; i++)
+            {
+                Point2d q = flat(tp.Points[i]);
+                if (i > 0 && tp.Flows[i] <= 0) run = null;
+                if (run == null) { run = new PathD(); lines.Add(run); }
+                run.Add(new PointD(q.X, q.Y));
+            }
+            lines.RemoveAll(l => l.Count < 2);
+            if (lines.Count == 0) return false;
+            var beads = Clipper.InflatePaths(lines, 0.5 * w, JoinType.Round, EndType.Round, 2.0, 3, 0.05);
+            if (beads == null || beads.Count == 0) return false;
+            Point2d s = flat(tp.Points[0]);
+            double best = double.MaxValue;
+            foreach (var path in beads)
+            {
+                if (Clipper.Area(path) <= 0) continue; // holes are inside
+                for (int k = 0; k < path.Count; k++)
+                {
+                    PointD a = path[k], b = path[(k + 1) % path.Count];
+                    double dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+                    double u = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((s.X - a.x) * dx + (s.Y - a.y) * dy) / l2));
+                    double ex = a.x + dx * u - s.X, ey = a.y + dy * u - s.Y;
+                    best = Math.Min(best, Math.Sqrt(ex * ex + ey * ey));
+                }
+            }
+            return best <= 0.75 * w;
+        }
+
         /// <summary>True if the straight line from the skirt to the start of the part keeps half a bead clear of the first layer (up to one bead before the start) and is at most 30 bead widths long.</summary>
         private static bool LinkClear(Point3d from, Toolpath tp, int lastOfFirst, double w)
         {
@@ -640,11 +760,20 @@ namespace LARGERslicer.Toolpaths
             bool havePlane = false;
             int unsupported = 0, checkedPoints = 0;
             var hangLayers = new List<int>(); // layers on which a good part of the bead hangs in the air
+            // The plane of a layer comes from a printed point of the part, not from the way in: the first
+            // point of the path is the end of the approach from above the skirt, which lies flat on the bed
+            // (tool axis Z) also when the layers are tilted. Its plane would test tilted layers in plan view.
+            Func<List<int>, int> partPoint = list =>
+            {
+                foreach (int i in list) if (tp.Flows[i] > 0 && tp.Roles[i] != PathRole.Travel && tp.Roles[i] != PathRole.Skirt) return i;
+                return list[0];
+            };
             foreach (var kv in byLayer)
             {
                 var idx = kv.Value;
-                Vector3d axis = tp.Normals[idx[0]];
-                if (!havePlane) { plane = Geo.PlaneAt(tp.Points[idx[0]], axis); havePlane = true; }
+                int rep = partPoint(idx);
+                Vector3d axis = tp.Normals[rep];
+                if (!havePlane) { plane = Geo.PlaneAt(tp.Points[rep], axis); havePlane = true; }
 
                 // this layer as 2D segments (what the next layer will rest on)
                 var segs = new List<Point2d[]>(idx.Count);
@@ -685,7 +814,10 @@ namespace LARGERslicer.Toolpaths
             foreach (var kv in byLayer)
             {
                 var idx = kv.Value;
-                Vector3d axis = tp.Normals[idx[0]];
+                int rep = partPoint(idx);
+                Vector3d axis = tp.Normals[rep];
+                // tested in the plane of this layer
+                Plane lp = Geo.PlaneAt(tp.Points[rep], axis);
                 double h = Math.Max(0.1, st.LayerHeight);
                 var segA = new List<int>(); // index of the end point of every printing move in this layer
                 for (int k = 1; k < idx.Count; k++)
@@ -695,7 +827,7 @@ namespace LARGERslicer.Toolpaths
                 var grid = new Dictionary<long, List<int>>();
                 foreach (int e in segA)
                 {
-                    Point2d p = Flat(plane, tp.Points[e - 1]), q = Flat(plane, tp.Points[e]);
+                    Point2d p = Flat(lp, tp.Points[e - 1]), q = Flat(lp, tp.Points[e]);
                     int x0 = (int)Math.Floor(Math.Min(p.X, q.X) / cell), x1 = (int)Math.Floor(Math.Max(p.X, q.X) / cell);
                     int y0 = (int)Math.Floor(Math.Min(p.Y, q.Y) / cell), y1 = (int)Math.Floor(Math.Max(p.Y, q.Y) / cell);
                     if ((x1 - x0 + 1) * (y1 - y0 + 1) > 400) { x1 = x0; y1 = y0; } // very long move: register once
@@ -706,10 +838,20 @@ namespace LARGERslicer.Toolpaths
                             if (!grid.TryGetValue(key, out var list)) grid[key] = list = new List<int>();
                             foreach (int o in list)
                             {
-                                if (Math.Abs(o - e) <= 2) continue; // neighbours share a point
-                                Point2d a = Flat(plane, tp.Points[o - 1]), b = Flat(plane, tp.Points[o]);
+                                if (Math.Abs(o - e) <= 1) continue; // neighbours share a point (one move further apart they can cross: a short step between two long moves)
+                                Point2d a = Flat(lp, tp.Points[o - 1]), b = Flat(lp, tp.Points[o]);
                                 double d1 = Cross(a, b, p), d2 = Cross(a, b, q), d3 = Cross(p, q, a), d4 = Cross(p, q, b);
                                 if (d1 * d2 >= 0 || d3 * d4 >= 0) continue;
+                                // A move that starts or ends right on another one (within a thousandth of a millimetre)
+                                // touches it and does not cross it: the step from the wall into the fill leaves the
+                                // wall where the wall has just run over its own start. The sign of so small a
+                                // distance is rounding noise.
+                                {
+                                    double lo = (q - p).Length, la = (b - a).Length;
+                                    if (lo < 1e-9 || la < 1e-9) continue;
+                                    const double eps = 1e-3;
+                                    if (Math.Min(Math.Abs(d1), Math.Abs(d2)) / la < eps || Math.Min(Math.Abs(d3), Math.Abs(d4)) / lo < eps) continue;
+                                }
                                 // Two moves that run almost along each other do not cross; that is the path
                                 // turning back over itself at a layer change, one above the other.
                                 Vector2d u1 = q - p, u2 = b - a;
@@ -718,9 +860,10 @@ namespace LARGERslicer.Toolpaths
                                 bool seamPass = tp.Roles[e] == PathRole.Seam || tp.Roles[o] == PathRole.Seam;
                                 if (Math.Abs(u1.X * u2.Y - u1.Y * u2.X) < (seamPass ? 0.5 : 0.17) * u1.Length * u2.Length) continue; // under ~10 degrees (30 on the seam)
                                 // same height? (the last flat loop of a spiral lies above the loop below it)
-                                double zHere = (tp.Points[e] - plane.Origin) * axis, zThere = (tp.Points[o] - plane.Origin) * axis;
+                                double zHere = (tp.Points[e] - lp.Origin) * axis, zThere = (tp.Points[o] - lp.Origin) * axis;
                                 if (Math.Abs(zHere - zThere) > 0.25 * h) continue;
-                                Point3d hit = tp.Points[e - 1] + (tp.Points[e] - tp.Points[e - 1]) * (d3 / (d3 - d4));
+                                // d1, d2: the ends of this move on either side of the other one, so d1 / (d1 - d2) is the place along this move
+                                Point3d hit = tp.Points[e - 1] + (tp.Points[e] - tp.Points[e - 1]) * (d1 / (d1 - d2));
                                 // both moves end within a few tenths of a millimetre of the hit: they touch end to
                                 // end (the seam closing onto its own start after thinning), no bead is ploughed
                                 double touch = 0.1 * st.BeadWidth;

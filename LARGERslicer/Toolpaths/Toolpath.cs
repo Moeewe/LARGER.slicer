@@ -24,7 +24,7 @@ namespace LARGERslicer.Toolpaths
         public double ShortLapTime = 0.0;     // s, 0 = MinLayerTime: the minimum for short laps (shorter than min + 0.7464 x (max - min) of all lap lengths), as the printed head of 2024 (40 s short, 35 s long)
         public double MaxVolumeRate = 0.0;    // mm3/s, 0 = off: no move asks the extruder for more (Ginger about 330)
         public double MaxSpeed = 12000.0;     // mm/min, upper limit and travel speed
-        public double MinRadius = 0.0;        // mm, 0 = use bead width
+        public double MinRadius = 0.0;        // mm, 0 = half the bead width (at least half the nozzle: Ginger handbook)
         public double Flow = 1.0;             // global extrusion multiplier
         public double FilamentDiameter = 0.0; // mm, 0 = report extrusion as volume (mm3)
         public double Resolution = 2.0;       // mm, smallest point spacing of the path
@@ -37,7 +37,13 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Height of the first layer: the nozzle runs this high above the bottom of the part.</summary>
         public double FirstLayer => FirstLayerHeight > 0 ? FirstLayerHeight : LayerHeight;
         public double PointSpacing => Preview ? Resolution * 3.0 : Resolution;
-        public double EffectiveMinRadius => MinRadius > 0 ? MinRadius : BeadWidth;
+        /// <summary>
+        /// Corner radius of the walls. Not set: half the bead width. The Ginger handbook asks for at least half
+        /// the nozzle, and a bead is at least 1.5 nozzles wide (CEAD, Ginger), so half the bead is 0.75 nozzle
+        /// or more; with a nozzle given the radius never goes below half of it. A full bead width as radius
+        /// pulled 90 degree corners about 2 mm inwards (5 mm bead); half of it about 1 mm.
+        /// </summary>
+        public double EffectiveMinRadius => MinRadius > 0 ? MinRadius : Math.Max(0.5 * BeadWidth, 0.5 * Nozzle);
         /// <summary>Centre distance of two beads lying next to each other.</summary>
         public double BeadSpacing => BeadWidth * (1.0 - Math.Max(0.0, Math.Min(0.9, Overlap)));
 

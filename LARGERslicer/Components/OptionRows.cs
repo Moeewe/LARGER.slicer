@@ -36,6 +36,7 @@ namespace LARGERslicer.Components
         public double Min = double.NaN, Max = double.NaN; // Number: the range a drag covers (typing may go beyond)
         public double Step;               // Number: a drag moves in these steps (0 = from Decimals)
         public double Default = double.NaN;
+        public Func<string> ZeroText;     // Number: what the row says for 0 (e.g. "auto, 2.5 mm"); null = the number
         public string On, Off;            // Toggle: what the row says in either state (empty = Label: on / off)
         public Action<GH_Component> Click; // Button
         public bool Momentary;            // Button on a boolean input: true for one solution, then back to false
@@ -159,7 +160,11 @@ namespace LARGERslicer.Components
                     string item = r.Items != null && v >= 0 && v < r.Items.Length ? Short(r.Items[v]) : v.ToString(CultureInfo.InvariantCulture);
                     return r.Label + ": " + item + "  ▾";
                 case RowKind.Number:
-                    return r.Label + ": " + WithUnit(r, _drag == index ? _dragValue : GetNumber(p));
+                    {
+                        double nv = _drag == index ? _dragValue : GetNumber(p);
+                        if (r.ZeroText != null && Math.Abs(nv) < 1e-12) { string z = null; try { z = r.ZeroText(); } catch { } if (!string.IsNullOrEmpty(z)) return r.Label + ": " + z; }
+                        return r.Label + ": " + WithUnit(r, nv);
+                    }
                 case RowKind.Toggle:
                     active = r.GetSetting != null ? r.GetSetting() : GetBool(p);
                     if (!string.IsNullOrEmpty(r.On)) return active ? r.On : r.Off;

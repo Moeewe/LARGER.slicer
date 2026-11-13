@@ -67,6 +67,8 @@ namespace LARGERslicer.Toolpaths
     public class PathFit
     {
         public List<string> Errors = new List<string>(), Warnings = new List<string>();
+        /// <summary>Remarks: what the machine can do and is worth knowing (non-planar on a gantry), no problem.</summary>
+        public List<string> Notes = new List<string>();
         /// <summary>The strongest lean of a planar layer (degrees from horizontal).</summary>
         public double MaxLean;
         /// <summary>Layers that are neither flat nor one tilted plane (non-planar).</summary>
@@ -426,7 +428,8 @@ namespace LARGERslicer.Toolpaths
             if (fit.Curved > 0 && !MachineKinds.NonPlanar(Kind))
                 fit.Errors.Add(Inv.F($"NOT PRINTABLE on {who}: {fit.Curved} layer(s) are non-planar; a belt printer prints flat layers at its belt angle only."));
             else if (fit.Curved > 0 && Kind != MachineKind.Robot)
-                fit.Warnings.Add(Inv.F($"{fit.Curved} non-planar layer(s): {Name} keeps its nozzle vertical and moves X, Y and Z at once. G-code carries positions only. Check the head against the part (Non-Planar Check, Printer Simulation)."));
+                // allowed on this machine: a remark, not a warning (Non-Planar Check and Printer Simulation say whether the head clears the part)
+                fit.Notes.Add(Inv.F($"{fit.Curved} non-planar layer(s): {Name} keeps its nozzle vertical and moves X, Y and Z at once; G-code carries positions only. Non-Planar Check and Printer Simulation show whether the head clears the part."));
             if (Kind == MachineKind.Robot)
                 fit.Warnings.Add(Name + " is a robot: G-code carries positions only. For the tool orientation use Robot Program on the Robot tab.");
             if (BedZ > 0 && tp.Points.Count > 0)
@@ -496,6 +499,7 @@ namespace LARGERslicer.Toolpaths
             var fit = machine.CheckPath(tp);
             r.Warnings.AddRange(fit.Errors);
             r.Warnings.AddRange(fit.Warnings);
+            r.Notes.AddRange(fit.Notes);
             var box = new BoundingBox(tp.Points);
             if (box.Min.X < 0 || box.Min.Y < 0 || box.Min.Z < 0)
                 r.Warnings.Add(Inv.F($"Part of the path has negative coordinates (X {box.Min.X:0}, Y {box.Min.Y:0}, Z {box.Min.Z:0}). Move the part onto the bed: the machine origin is at 0, 0, 0."));

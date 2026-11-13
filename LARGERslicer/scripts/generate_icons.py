@@ -15,7 +15,7 @@ Writes Resources/*.png, icon.png (256 px logo for Yak/GitHub) and the 24 px tab 
 
 Grasshopper 2 draws icons larger and on high-resolution screens. For it the same drawings are
 finished at a larger size, with the edge and the shadow scaled along, and nothing else written:
-    ICON_SIZE=48 ICON_OUT=../../LARGERslicer.GH2/Icons/48 python3 scripts/generate_icons.py
+    ICON_SIZE=48 ICON_OUT=../LARGERslicer.GH2/Icons/48 python3 scripts/generate_icons.py   (from LARGERslicer/)
 """
 import math, os
 from PIL import Image, ImageDraw, ImageFilter

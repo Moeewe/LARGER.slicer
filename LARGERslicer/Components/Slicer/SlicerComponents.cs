@@ -48,6 +48,8 @@ namespace LARGERslicer.Components.Slicer
         protected LARGERslicer.Components.AsyncSolve Async => CanRunInBackground ? (_async ?? (_async = new LARGERslicer.Components.AsyncSolve(this))) : null;
         protected override void BeforeSolveInstance() { Async?.Before(); base.BeforeSolveInstance(); }
         protected override void AfterSolveInstance() { base.AfterSolveInstance(); Async?.After(); }
+        /// <summary>While a component upstream still computes in the background, a missing input is waiting, not an error.</summary>
+        public override void ComputeData() { base.ComputeData(); LARGERslicer.Components.AsyncSolve.ShowWaiting(this); }
         public override void ExpireSolution(bool recompute) { Async?.Expired(); base.ExpireSolution(recompute); }
         public override void RemovedFromDocument(GH_Document document) { Async?.Cancel(); base.RemovedFromDocument(document); }
         public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context) { if (context == GH_DocumentContext.Close) Async?.Cancel(); base.DocumentContextChanged(document, context); }
@@ -102,14 +104,16 @@ namespace LARGERslicer.Components.Slicer
 
         /// <summary>A number on the component: drag it left or right between min and max, click to type
         /// any value, or pick one of a few round values from the arrow. A wire into the input still wins.</summary>
-        protected void AddSlider(GH_Document doc, int input, string name, decimal min, decimal max, decimal value, int decimals, string unit = "", double[] presets = null)
+        protected LARGERslicer.Components.OptionRow AddSlider(GH_Document doc, int input, string name, decimal min, decimal max, decimal value, int decimals, string unit = "", double[] presets = null)
         {
-            _rows?.Add(new LARGERslicer.Components.OptionRow
+            var row = new LARGERslicer.Components.OptionRow
             {
                 Kind = LARGERslicer.Components.RowKind.Number, Label = name, Input = input, Decimals = decimals, Unit = unit ?? "",
                 Min = (double)min, Max = (double)max, Default = (double)value,
                 Presets = presets ?? QuickPicks((double)min, (double)max, (double)value, decimals),
-            });
+            };
+            _rows?.Add(row);
+            return _rows != null ? row : null;
         }
 
         /// <summary>An angle in degrees: drag in 1 degree steps, quick picks 0 / 15 / 30 / 45 / 60 / 75 / 90.</summary>
@@ -794,7 +798,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Speed", "V", "Print speed, in mm/s (50 mm/s = F3000 in G-code)", GH_ParamAccess.item, 50.0);
             p.AddNumberParameter("Flow", "Fl", "Extrusion multiplier (1 = calculated amount)", GH_ParamAccess.item, 1.0);
             p.AddNumberParameter("Overlap", "Ov", "Sideways overlap of neighbouring beads, 0-1 (used by walls and infill)", GH_ParamAccess.item, 0.15);
-            p.AddNumberParameter("Min Radius", "R", "Smallest corner radius of the path (mm). 0 = bead width", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Min Radius", "R", "Smallest corner radius of the path (mm). 0 = half the bead width (the Ginger handbook asks for at least half the nozzle)", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Resolution", "Res", "Smallest point spacing of the path (mm)", GH_ParamAccess.item, 2.0);
             p.AddNumberParameter("Filament Diameter", "Fil", "0 = extrusion as volume in mm3 (pellet extruder). >0 = extrusion as filament length", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Min Speed", "Vmin", "Lowest speed when speed compensates the layer height, in mm/s", GH_ParamAccess.item, 5.0);
@@ -1695,8 +1699,18 @@ namespace LARGERslicer.Components.Slicer
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
             p.AddGenericParameter("Toolpath", "T", "Print path", GH_ParamAccess.item);
-            p.AddNumberParameter("Min Radius", "R", "Corner radius for walls (mm). 0 = value from the Print Settings", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Min Radius", "R", "Corner radius for walls (mm). 0 = value from the Print Settings (Min Radius there; not set = half the bead width, the Ginger handbook asks for at least half the nozzle)", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Rib Radius", "Rr", "Corner radius where ribs and fill leave the wall (mm). 0 = bead spacing. Larger = softer, wider rib foot", GH_ParamAccess.item, 0.0);
+        }
+
+        // the radius actually used when Min Radius is 0 (from the Print Settings), for the row
+        private double _autoRadius = -1;
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            var row = AddSlider(doc, 1, "Min Radius", 0, 20, 0, 1, "mm", new[] { 0.0, 1, 1.5, 2, 2.5, 3, 4, 5, 8 });
+            // 0 = from the Print Settings: the row says which radius that is
+            if (row != null) row.ZeroText = () => _autoRadius > 0 ? Inv.F($"auto {_autoRadius:0.##} mm") : "auto (half the bead)";
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -1710,7 +1724,7 @@ namespace LARGERslicer.Components.Slicer
             var tp = SlicerIO.Get<Toolpath>(da, 0);
             if (tp == null) return;
             double r = 0, rr = 0; da.GetData(1, ref r); da.GetData(2, ref rr);
-            if (r <= 0) r = tp.Settings.EffectiveMinRadius;
+            if (r <= 0) { r = tp.Settings.EffectiveMinRadius; _autoRadius = r; }
 
             if (tp.Settings.Preview)
             {
@@ -1781,7 +1795,8 @@ namespace LARGERslicer.Components.Slicer
 
             var log = new List<string>();
             var result = LeadEngine.StartEnd(tp, Math.Max(0, loops), dist, Math.Max(0, brimLoops), brim, Math.Max(0, exit), Math.Max(0, lift), crv, flow, log);
-            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
+            // "Note: ..." is worth knowing, no problem: grey
+            foreach (var l in log) AddRuntimeMessage(l.StartsWith("Note: ") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
             int skirt = result.Roles.Count(r => r == PathRole.Skirt);
             Message = (loops > 0 ? "Skirt" : "No skirt") + (brim > 0 && brimLoops > 0 ? " + brim" : "") + (crv != null ? " + curve exit" : (exit > 0 || lift > 0 ? " + exit" : ""));
             da.SetData(0, new GH_Toolpath(result));
@@ -2439,6 +2454,7 @@ namespace LARGERslicer.Components.Slicer
             var r = MachineGCode.Build(tp, machine, out PrinterRun run);
             // what the kind of machine cannot print is an error (angled layers on a gantry); the G-code is written all the same
             foreach (var wmsg in r.Warnings) AddRuntimeMessage(wmsg.StartsWith("NOT PRINTABLE") ? GH_RuntimeMessageLevel.Error : GH_RuntimeMessageLevel.Warning, wmsg);
+            foreach (var note in r.Notes) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, note);
             if (Params.Output.Count > 4 && run != null) da.SetData(4, new GH_ObjectWrapper(run));
             // with a Printer Simulation connected, that one shows the machine
             bool simulated = Params.Output.Count > 4 && Params.Output[4].Recipients.Count > 0;

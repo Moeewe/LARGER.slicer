@@ -30,6 +30,8 @@ namespace LARGERslicer.Components.Robot
         protected LARGERslicer.Components.AsyncSolve Async => CanRunInBackground ? (_async ?? (_async = new LARGERslicer.Components.AsyncSolve(this))) : null;
         protected override void BeforeSolveInstance() { Async?.Before(); base.BeforeSolveInstance(); }
         protected override void AfterSolveInstance() { base.AfterSolveInstance(); Async?.After(); }
+        /// <summary>While a component upstream still computes in the background, a missing input is waiting, not an error.</summary>
+        public override void ComputeData() { base.ComputeData(); LARGERslicer.Components.AsyncSolve.ShowWaiting(this); }
         public override void ExpireSolution(bool recompute) { Async?.Expired(); base.ExpireSolution(recompute); }
         public override void RemovedFromDocument(GH_Document document) { Async?.Cancel(); base.RemovedFromDocument(document); }
         public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context) { if (context == GH_DocumentContext.Close) Async?.Cancel(); base.DocumentContextChanged(document, context); }
