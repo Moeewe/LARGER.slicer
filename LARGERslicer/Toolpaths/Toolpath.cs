@@ -21,6 +21,7 @@ namespace LARGERslicer.Toolpaths
         public double MinSpeed = 300.0;       // mm/min, lower limit when speed compensates height
         public double FirstLayerSpeed = 0.0;  // mm/min, 0 = Speed: the first layer (and the skirt) at this speed, for adhesion
         public double MinLayerTime = 0.0;     // s, 0 = off: shorter layers are printed slower (Process), never below MinSpeed
+        public double ShortLapTime = 0.0;     // s, 0 = MinLayerTime: the minimum for short laps (shorter than min + 0.7464 x (max - min) of all lap lengths), as the printed head of 2024 (40 s short, 35 s long)
         public double MaxVolumeRate = 0.0;    // mm3/s, 0 = off: no move asks the extruder for more (Ginger about 330)
         public double MaxSpeed = 12000.0;     // mm/min, upper limit and travel speed
         public double MinRadius = 0.0;        // mm, 0 = use bead width

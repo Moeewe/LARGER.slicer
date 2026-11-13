@@ -1504,6 +1504,7 @@ namespace LARGERslicer.Toolpaths
         {
             var st = tp.Settings;
             if (st.MinLayerTime <= 0 || tp.Count < 2) return Process(tp, compensateWithSpeed, null);
+            var target = LayerTargets(tp);
             // slow down the short layers; a few rounds, as travel moves and the volume cap do not scale
             var feed = new Dictionary<int, double>();
             ProcessResult r = Process(tp, compensateWithSpeed, null);
@@ -1512,14 +1513,15 @@ namespace LARGERslicer.Toolpaths
                 bool changed = false;
                 foreach (var kv in r.LayerSeconds)
                 {
-                    if (kv.Value >= st.MinLayerTime - 0.05) continue;
+                    double tMin = target.TryGetValue(kv.Key, out double tk) ? tk : st.MinLayerTime;
+                    if (kv.Value >= tMin - 0.05) continue;
                     // the first layer starts from its own speed (First Layer Speed), every other one from Speed
                     double f = feed.TryGetValue(kv.Key, out double had) ? had : kv.Key == FirstPrinted(tp) && st.FirstLayerSpeed > 0 ? st.FirstLayerSpeed : st.Speed;
                     if (f <= st.MinSpeed + 1e-9) continue;
                     r.LayerPrintSeconds.TryGetValue(kv.Key, out double printing);
                     double other = kv.Value - printing;
                     if (printing <= 1e-9) continue;
-                    double want = st.MinLayerTime > other + 1e-3 ? f * printing / (st.MinLayerTime - other) : st.MinSpeed;
+                    double want = tMin > other + 1e-3 ? f * printing / (tMin - other) : st.MinSpeed;
                     feed[kv.Key] = Math.Max(st.MinSpeed, Math.Min(st.Speed, want));
                     changed = true;
                 }
@@ -1527,6 +1529,44 @@ namespace LARGERslicer.Toolpaths
                 r = Process(tp, compensateWithSpeed, feed);
             }
             return r;
+        }
+
+        /// <summary>
+        /// The minimum time of every layer (s), by the rule of the printed head of 2024 (UNIKAT HEAD V2,
+        /// its "layer time" cluster): laps shorter than min + 0.7464 x (max - min) of all lap lengths get
+        /// Short Lap Time, the longer ones Min Layer Time, and where the one changes into the other the
+        /// time changes linearly over 5 laps. The first layer counts by its length but takes no part in
+        /// min and max (it is the brim and foot). Lap length = printed length of the layer without skirt
+        /// and brim. Short Lap Time 0 (or Min Layer Time 0): every layer gets Min Layer Time.
+        /// </summary>
+        public static Dictionary<int, double> LayerTargets(Toolpath tp)
+        {
+            var st = tp.Settings;
+            var res = new Dictionary<int, double>();
+            if (st.MinLayerTime <= 0) return res;
+            var len = new SortedDictionary<int, double>();
+            for (int i = 1; i < tp.Count; i++)
+            {
+                if (tp.Flows[i] <= 0 || tp.Roles[i] == PathRole.Skirt) continue;
+                len.TryGetValue(tp.Layers[i], out double l);
+                len[tp.Layers[i]] = l + tp.Points[i].DistanceTo(tp.Points[i - 1]);
+            }
+            if (st.ShortLapTime <= 0 || len.Count < 3)
+            {
+                foreach (var k in len.Keys) res[k] = st.MinLayerTime;
+                return res;
+            }
+            var keys = len.Keys.ToList();
+            var laps = keys.Skip(1).Select(k => len[k]).Where(l => l > 0).ToList();
+            double lmin = laps.Min(), lmax = laps.Max(), thr = lmin + 0.7464 * (lmax - lmin);
+            var raw = keys.Select(k => len[k] < thr ? st.ShortLapTime : st.MinLayerTime).ToList();
+            var t = new List<double>(raw);
+            for (int k = 2; k < keys.Count; k++)
+                if (Math.Abs(raw[k] - raw[k - 1]) > 1e-9)
+                    for (int j = 0; j < 5 && k + j < keys.Count; j++)
+                        t[k + j] = raw[k - 1] + (raw[k] - raw[k - 1]) * (j + 1) / 5.0;
+            for (int k = 0; k < keys.Count; k++) res[keys[k]] = t[k];
+            return res;
         }
 
         private static ProcessResult Process(Toolpath tp, bool compensateWithSpeed, Dictionary<int, double> feed)

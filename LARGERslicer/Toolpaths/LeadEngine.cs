@@ -897,7 +897,7 @@ namespace LARGERslicer.Toolpaths
             if (pr.LayerFeed.Count > 0)
             {
                 var low = pr.LayerFeed.OrderBy(kv => kv.Value).First();
-                slowed = Inv.F($"{pr.LayerFeed.Count} short layer(s) are printed slower to reach {st.MinLayerTime:0} s (down to {low.Value / 60:0.#} mm/s at layer {low.Key + 1}). ");
+                slowed = Inv.F($"{pr.LayerFeed.Count} short layer(s) are printed slower to reach {st.MinLayerTime:0} s") + (st.ShortLapTime > 0 ? Inv.F($" ({st.ShortLapTime:0} s on short laps)") : "") + Inv.F($" (down to {low.Value / 60:0.#} mm/s at layer {low.Key + 1}). ");
             }
             if (minSeconds <= 0)
             {
@@ -905,7 +905,9 @@ namespace LARGERslicer.Toolpaths
                              "Set Min Layer Time (for example 60 s for a large pellet print) to check that every layer has cooled enough before the next one lands on it.");
                 return;
             }
-            int tooShort = pr.LayerSeconds.Count(kv => kv.Value < minSeconds - 0.5);
+            // with Short Lap Time every layer has its own minimum (the one Process slowed it down to)
+            var targets = st.ShortLapTime > 0 && Math.Abs(minSeconds - st.MinLayerTime) < 1e-9 ? PathEngine.LayerTargets(tp) : null;
+            int tooShort = pr.LayerSeconds.Count(kv => kv.Value < (targets != null && targets.TryGetValue(kv.Key, out double tk) ? tk : minSeconds) - 0.5);
             if (tooShort == 0)
             {
                 r.Report.Add(Inv.F($"Layer time OK: {slowed}Every layer takes at least {minSeconds:0} s (shortest {shortest:0} s at layer {shortLayer + 1})."));
