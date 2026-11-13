@@ -151,7 +151,7 @@ namespace LARGERslicer.Components.Slicer
 
         public QuickStartComponent()
             : base("Quick Start", "Start",
-                  "Place this on the canvas to get five complete, working examples, each in its own labelled group and all standing side by side on one print bed: 1 flat layers from the part to the file for the machine (G-code for the Ginger One, DXR for the Weber DXR, a small test print for a desktop printer), 2 non-planar layers along a guide surface, 3 multi-axis layers along a guide curve, 4 a part with an opening and wave infill, 5 angled layers. Replace the demo parts with your own geometry.",
+                  "Place this on the canvas to get eight complete, working examples, each in its own labelled group and all standing side by side on one print bed: 1 flat layers from the part to the file for the machine (G-code for the Ginger One, DXR for the Weber DXR, a small test print for a desktop printer), 2 non-planar layers along a guide surface, 3 multi-axis layers along a guide curve, 4 a part with an opening and wave infill, 5 angled layers, 6 Easy Slicer, 7 a head with layers that follow its surface on the Ginger One, played in Printer Simulation, 8 a vase with a surface pattern. Replace the demo parts with your own geometry.",
                   SlicerIO.Category, SlicerIO.SubCategory) { }
 
         public override Guid ComponentGuid => new Guid("5CC24A30-0D0B-4EDC-906E-F78FD264DAB3");
@@ -229,7 +229,7 @@ namespace LARGERslicer.Components.Slicer
             Action<string, string, float> section = (title, about, y) => { write(title, -200, y - 300, 44); write(about, -200, y - 232, 16); };
             var yellow = System.Drawing.Color.FromArgb(255, 255, 250, 90);
             write("LARGER.slicer", -980, -640, 72);
-            write("QUICK START  -  SIX EXAMPLES ON ONE PRINT BED\nLarge-format 3D printing as one continuous line, FH Muenster", -980, -540, 18);
+            write("QUICK START  -  EIGHT EXAMPLES ON ONE PRINT BED\nLarge-format 3D printing as one continuous line, FH Muenster", -980, -540, 18);
             write("00. SETTINGS FOR ALL EXAMPLES", -200, -420, 44);
             write("Bead width and layer height drive everything else. Print Bed shows the bed in the Rhino viewport and checks that every path lies on it.", -200, -352, 16);
             var all = new List<GH_Component>();
@@ -241,7 +241,7 @@ namespace LARGERslicer.Components.Slicer
             note.Properties.Colour = yellow;
             note.UserText =
                 "INSTRUCTIONS\n\n" +
-                "The seven examples stand side by side on one print bed (1000 x 1000 mm, origin in the front left corner). Look at the Rhino viewport.\n\n" +
+                "The eight examples stand side by side on one print bed (1000 x 1000 mm, origin in the front left corner). Look at the Rhino viewport.\n\n" +
                 "1  Replace 'Your part' (example 1) with your own geometry. It has to stand on the XY plane, in millimetres, on the positive side of the origin.\n" +
                 "2  Set Bead Width and Layer Height in the Settings group. Everything else follows from them.\n" +
                 "3  Read Path Check. OK = the path can be printed. If not, it says what to change.\n" +
@@ -256,7 +256,8 @@ namespace LARGERslicer.Components.Slicer
                 "Other infill: delete 'Infill Ribs' and put Infill Wave, Cells, Chambers or Sketch in its place.\n" +
                 "Curved layers: examples 2 and 3. A part with openings: example 4. Overhangs and roofs: example 5.\n" +
                 "Just want a path quickly? Example 6: the single component 'Easy Slicer' does the whole chain; choose the nozzle there.\n" +
-                "Printer with a vertical nozzle and curved layers (Ginger One): example 7. Non-Planar Check shows the head on the path.\n" +
+                "Printer with a vertical nozzle and curved layers (Ginger One): example 7, a head sliced along its surface as the head of 2024. Printer Simulation plays it on the Ginger One: click Play.\n" +
+                "Textures in the wall (knit, ribs, waves, loops): example 8, Surface Pattern between Continuous Path and Start and End.\n" +
                 "Nozzle: 'Nozzle' on Print Settings sets bead width and layer height for the nozzle that is screwed in (Weber Additive profiles, and a tested 3 mm flat nozzle = 5 mm bead, 2 mm layer). Speeds are in mm/s.\n" +
                 "Wireless links: blocks named '\u21E2 Settings' or '\u21E2 Robot Cell' receive their value from far away. Select one to see its wire.";
             note.Properties.Multiline = true;
@@ -269,6 +270,7 @@ namespace LARGERslicer.Components.Slicer
             // ---- settings, shared by all three examples
             var machine = (GH_Component)place(new MachineProfileComponent(), -180, -60);
             var settings = (GH_Component)place(new PrintSettingsComponent(), 60, -60);
+            { var v1 = settings.Params.Input.Count > 15 ? settings.Params.Input[15] as Grasshopper.Kernel.Parameters.Param_Number : null; if (v1 != null) { v1.PersistentData.Clear(); v1.PersistentData.Append(new GH_Number(25)); } } // first layer at 25 mm/s, as the Ginger prints it
             settings.Params.Input[11].AddSource(machine.Params.Output[0]);
             IGH_Param s = settings.Params.Output[0];
             all.Add(machine); all.Add(settings);
@@ -340,7 +342,7 @@ namespace LARGERslicer.Components.Slicer
             cellC.Params.Input[1].AddSource(tool.Params.Output[0]);
             program.Params.Input[0].AddSource(lead.Params.Output[0]);
             program.Params.Input[1].AddSource(cellC.Params.Output[0]);
-            var dxrMachine = (GH_Component)place(new LARGERslicer.Components.Export.MachineSettingsComponent(), 2890, y1 + 480);
+            var dxrMachine = (GH_Component)place(new LARGERslicer.Components.Export.MachineSettingsComponent(), 2890, y1 + 540);
             var dxr = (GH_Component)place(new LARGERslicer.Components.Export.DXRGeneratorComponent(), 3190, y1 + 250);
             dxr.Params.Input[0].AddSource(program.Params.Output[0]);
             dxr.Params.Input[1].AddSource(program.Params.Output[1]);
@@ -515,29 +517,39 @@ namespace LARGERslicer.Components.Slicer
             hide.Add(part6);
             group("EASY SLICER  -  click the rows to change nozzle, infill, walls, angle", System.Drawing.Color.FromArgb(70, 90, 160, 90), new IGH_DocumentObject[] { part6, easy, check6 });
 
-            // ---- 7 non-planar head (Ginger One): layers that follow the part, nozzle vertical
+            // ---- 7 non-planar head (Ginger One): layers that follow the surface, as the head of 2024
             // Easy Slicer is a tall block (all its rows): the next section starts below it
             easy.Attributes.ExpireLayout(); easy.Attributes.PerformLayout();
             float y7 = Math.Max(y6 + 520, easy.Attributes.Bounds.Bottom - y0 + 360);
-            section("07. NON-PLANAR HEAD  -  GINGER ADDITIVE \u00B7 GINGER ONE (KLIPPER)", "Layers that follow the part itself, no guide surface; the nozzle stays vertical. Each layer lies at the same share of the way up the wall, so the bulging side gets even layers. Non-Planar Check measures every bead and shows the head: move Pose.", y7);
-            var part7 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y7);
-            part7.NickName = "Part";
-            Brep demo7 = DemoParts.Bulge(new Point3d(790, 140, 0), 50, 30, 150);
+            section("07. NON-PLANAR HEAD  -  GINGER ADDITIVE · GINGER ONE (KLIPPER)", "A head sliced along its own surface, as the head of 2024 (Slice: Follow the surface): rings from the neck to the crown, under the chin as well, the nozzle vertical, one spiral. Printer Simulation plays the print on the Ginger One: click Play.", y7);
+            var part7 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), -60, y7);
+            part7.NickName = "Head";
+            Brep demo7 = DemoParts.Head(new Point3d(480, 470, 0));
             if (demo7 != null) part7.PersistentData.Append(new GH_Brep(demo7));
-            var s7 = relay(s, "Settings", 60, y7 + 110); relays.Add(s7);
+            // its own settings, as the head of 2024: bead 4, layer 1.75, first layer 0.9 mm at 25 mm/s, the
+            // small crown rings may slow down far (Min Speed 0.2 mm/s) so every lap gets its cooling time
+            var settings7 = (GH_Component)place(new PrintSettingsComponent(), 90, y7 - 20);
+            settings7.Params.Input[11].AddSource(machine.Params.Output[0]);
+            settings7.Params.Input[11].WireDisplay = GH_ParamWireDisplay.hidden;
+            Action<int, double> set7 = (i, v) => { var pn = settings7.Params.Input[i] as Grasshopper.Kernel.Parameters.Param_Number; if (pn != null) { pn.PersistentData.Clear(); pn.PersistentData.Append(new GH_Number(v)); } };
+            set7(0, 4); set7(1, 1.75); set7(2, 20); set7(4, 0); set7(8, 0.2); set7(13, 0.9); set7(15, 25);
+            IGH_Param s7 = settings7.Params.Output[0];
+            all.Add(settings7);
             var slice7 = (GH_Component)place(new SliceComponent(), 360, y7);
             slice7.Params.Input[0].AddSource(part7); slice7.Params.Input[1].AddSource(s7);
-            setInt(slice7.Params.Input[5], 2); // Guide Mode: follow the part (no guide)
+            setInt(slice7.Params.Input[5], 3); // Guide Mode: follow the surface (no guide)
+            setInt(slice7.Params.Input[6], 1); // the nozzle stays vertical
             var walls7 = (GH_Component)place(new WallsComponent(), 620, y7);
             walls7.Params.Input[0].AddSource(slice7.Params.Output[0]); walls7.Params.Input[1].AddSource(s7);
             var path7 = (GH_Component)place(new ContinuousPathComponent(), 880, y7);
             path7.Params.Input[0].AddSource(walls7.Params.Output[0]); path7.Params.Input[1].AddSource(s7);
             setInt(path7.Params.Input[2], 0); // spiral: one line that climbs all the time
             { var vr = path7.Params.Input.Count > 8 ? path7.Params.Input[8] as Grasshopper.Kernel.Parameters.Param_Number : null; if (vr != null) { vr.PersistentData.Clear(); vr.PersistentData.Append(new GH_Number(330)); } } // the Ginger delivers about 330 mm3/s
+            { var lt = path7.Params.Input.Count > 7 ? path7.Params.Input[7] as Grasshopper.Kernel.Parameters.Param_Number : null; if (lt != null) { lt.PersistentData.Clear(); lt.PersistentData.Append(new GH_Number(30)); } } // the crown rings need time to cool
             var lead7 = (GH_Component)place(new StartEndComponent(), 1140, y7);
             lead7.Params.Input[0].AddSource(path7.Params.Output[0]);
-            // Machine G-code right after Start and End (short straight wire), the machine under
-            // Start and End, the checks in a column under Machine G-code: no wire runs behind a block
+            // Machine G-code right after Start and End, the machine under Start and End, the
+            // checks in a column under Machine G-code, Printer Simulation right of the G-code
             var check7 = (GH_Component)place(new PathCheckComponent(), 1440, y7 + 260);
             check7.Params.Input[0].AddSource(lead7.Params.Output[0]);
             var np7 = (GH_Component)place(new NonPlanarCheckComponent(), 1440, y7 + 460);
@@ -546,10 +558,46 @@ namespace LARGERslicer.Components.Slicer
             setInt(machine7.Params.Input[0], 2); // Ginger Additive · Ginger One (Klipper)
             var gcode7 = (GH_Component)place(new MachineGCodeComponent(), 1440, y7);
             gcode7.Params.Input[0].AddSource(lead7.Params.Output[0]); gcode7.Params.Input[1].AddSource(machine7.Params.Output[0]);
+            var sim7 = (GH_Component)place(new PrinterSimulationComponent(), 1720, y7);
+            if (gcode7.Params.Output.Count > 4) sim7.Params.Input[1].AddSource(gcode7.Params.Output[4]); // Simulation: the print with its machine and times
+            { var pz = sim7.Params.Input[2] as Grasshopper.Kernel.Parameters.Param_Number; if (pz != null) { pz.PersistentData.Clear(); pz.PersistentData.Append(new GH_Number(0.6)); } }
             beds.Add(lead7.Params.Output[0]);
-            all.Add(slice7); all.Add(walls7); all.Add(path7); all.Add(lead7); all.Add(check7); all.Add(np7); all.Add(machine7); all.Add(gcode7);
+            all.Add(slice7); all.Add(walls7); all.Add(path7); all.Add(lead7); all.Add(check7); all.Add(np7); all.Add(machine7); all.Add(gcode7); all.Add(sim7);
             hide.Add(part7);
-            group("NON-PLANAR LAYERS FROM THE PART, ONE SPIRAL, HEAD CHECK  -  then 'Save G-code' on Machine G-code", System.Drawing.Color.FromArgb(70, 90, 140, 200), new IGH_DocumentObject[] { part7, s7, slice7, walls7, path7, lead7, check7, np7, machine7, gcode7 });
+            // one Ginger in the viewport: the one of Printer Simulation (Machine, Machine G-code and the head of Non-Planar Check would stand on top of it)
+            hide.Add(machine7); hide.Add(gcode7); hide.Add(np7);
+            hide.Add(slice7); hide.Add(walls7); hide.Add(path7);
+            group("HEAD SLICED ALONG ITS SURFACE, ONE SPIRAL, CHECKS  -  own settings as the head of 2024; then 'Save G-code' on Machine G-code", System.Drawing.Color.FromArgb(70, 90, 140, 200), new IGH_DocumentObject[] { part7, settings7, slice7, walls7, path7, lead7, check7, np7, machine7, gcode7 });
+            group("PRINTER SIMULATION  -  click Play, or drag Pose", System.Drawing.Color.FromArgb(70, 240, 110, 20), new IGH_DocumentObject[] { sim7 });
+
+            // ---- 8 surface pattern: a vase with waves in its wall
+            float y8 = y7 + 1020;
+            section("08. SURFACE PATTERN  -  A VASE WITH WAVES", "Surface Pattern between Continuous Path and Start and End pulls the wall out in a rhythm: Knit, Ribs, Waves, Zigzag, Dots, Loops or a picture. Choose it in the rows; the path stays one line.", y8);
+            var part8 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y8);
+            part8.NickName = "Vase";
+            Brep demo8 = DemoParts.Vase(new Point3d(200, 470, 0));
+            if (demo8 != null) part8.PersistentData.Append(new GH_Brep(demo8));
+            var s8 = relay(s, "Settings", 60, y8 + 110); relays.Add(s8);
+            var slice8 = (GH_Component)place(new SliceComponent(), 360, y8);
+            slice8.Params.Input[0].AddSource(part8); slice8.Params.Input[1].AddSource(s8);
+            var walls8 = (GH_Component)place(new WallsComponent(), 620, y8);
+            walls8.Params.Input[0].AddSource(slice8.Params.Output[0]); walls8.Params.Input[1].AddSource(s8);
+            var path8 = (GH_Component)place(new ContinuousPathComponent(), 880, y8);
+            path8.Params.Input[0].AddSource(walls8.Params.Output[0]); path8.Params.Input[1].AddSource(s8);
+            var pattern8 = (GH_Component)place(new SurfacePatternComponent(), 1140, y8);
+            pattern8.Params.Input[0].AddSource(path8.Params.Output[0]);
+            setInt(pattern8.Params.Input[1], 2); // Waves
+            { var am = pattern8.Params.Input[2] as Grasshopper.Kernel.Parameters.Param_Number; if (am != null) { am.PersistentData.Clear(); am.PersistentData.Append(new GH_Number(2.5)); } } // half a bead: every bead rests on the one below
+            { var pi = pattern8.Params.Input[3] as Grasshopper.Kernel.Parameters.Param_Number; if (pi != null) { pi.PersistentData.Clear(); pi.PersistentData.Append(new GH_Number(30)); } }
+            { var ph = pattern8.Params.Input[5] as Grasshopper.Kernel.Parameters.Param_Number; if (ph != null) { ph.PersistentData.Clear(); ph.PersistentData.Append(new GH_Number(0.05)); } } // slow diagonal
+            var lead8 = (GH_Component)place(new StartEndComponent(), 1400, y8);
+            lead8.Params.Input[0].AddSource(pattern8.Params.Output[0]);
+            var check8 = (GH_Component)place(new PathCheckComponent(), 1660, y8);
+            check8.Params.Input[0].AddSource(lead8.Params.Output[0]);
+            beds.Add(lead8.Params.Output[0]);
+            all.Add(slice8); all.Add(walls8); all.Add(path8); all.Add(pattern8); all.Add(lead8); all.Add(check8);
+            hide.Add(part8); hide.Add(slice8); hide.Add(walls8); hide.Add(path8); hide.Add(pattern8);
+            group("VASE, SLICER AND SURFACE PATTERN  -  try Knit, Ribs or Loops in the Pattern row", System.Drawing.Color.FromArgb(70, 200, 120, 60), new IGH_DocumentObject[] { part8, s8, slice8, walls8, path8, pattern8, lead8, check8 });
 
             // one name for all files of this part
             var jobName = new Grasshopper.Kernel.Special.GH_Panel { NickName = "Part name" };
@@ -768,6 +816,7 @@ namespace LARGERslicer.Components.Slicer
             AddSlider(doc, 1, "Layer Height", 0.5m, 20m, 2m, 1, "mm", new double[] { 1, 1.5, 2, 2.5, 3, 4, 5 });
             AddSlider(doc, 2, "Speed", 5m, 200m, 50m, 0, "mm/s", new double[] { 10, 25, 30, 50, 80, 100, 150 });
             AddToggle(doc, 10, "Preview", false);
+            AddSlider(doc, 15, "First Layer Speed", 0m, 100m, 0m, 0, "mm/s", new double[] { 0, 15, 20, 25, 30, 40 });
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
