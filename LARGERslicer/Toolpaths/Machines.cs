@@ -8,6 +8,73 @@ using Rhino.Geometry;
 namespace LARGERslicer.Toolpaths
 {
     /// <summary>
+    /// How a machine moves. What it can print follows from it (as in LARGER.app):
+    ///
+    ///   kind         flat layers   non-planar, nozzle vertical   tilted tool (angled, multi-axis)
+    ///   gantry       yes           yes                           no
+    ///   bedslinger   yes           yes                           no
+    ///   delta        yes           yes                           no
+    ///   belt 45      yes (lean by construction)   no             only at its belt angle
+    ///   robot        yes           yes                           yes
+    /// </summary>
+    public enum MachineKind { Gantry, BedSlinger, Delta, Belt, Robot }
+
+    public static class MachineKinds
+    {
+        public static readonly MachineKind[] All = { MachineKind.Gantry, MachineKind.BedSlinger, MachineKind.Delta, MachineKind.Belt, MachineKind.Robot };
+
+        /// <summary>The word in a .machine file: gantry, bedslinger, delta, belt, robot.</summary>
+        public static string Id(MachineKind k) => k == MachineKind.BedSlinger ? "bedslinger" : k.ToString().ToLowerInvariant();
+
+        public static string Label(MachineKind k, double beltAngle = 45) =>
+            k == MachineKind.BedSlinger ? "Bed slinger (bed moves in Y)" : k == MachineKind.Gantry ? "Gantry (X, Y, Z)" : k == MachineKind.Delta ? "Delta"
+            : k == MachineKind.Belt ? Inv.F($"Belt printer ({beltAngle:0.#} degrees)") : "Six-axis robot";
+
+        /// <summary>Reads gantry, bedslinger, delta, belt 45, robot (and a few other words for them, as the app does).</summary>
+        public static bool Parse(string text, out MachineKind kind, out double beltAngle)
+        {
+            kind = MachineKind.Gantry; beltAngle = 45;
+            string t = (text ?? "").Trim().ToLowerInvariant();
+            int cut = t.IndexOfAny(new[] { ' ', '(' });
+            string word = cut < 0 ? t : t.Substring(0, cut), rest = cut < 0 ? "" : t.Substring(cut);
+            switch (word)
+            {
+                case "bedslinger": case "bed-slinger": case "slinger": case "i3": kind = MachineKind.BedSlinger; return true;
+                case "gantry": case "portal": case "cartesian": case "corexy": kind = MachineKind.Gantry; return true;
+                case "delta": kind = MachineKind.Delta; return true;
+                case "robot": case "arm": kind = MachineKind.Robot; return true;
+                case "belt": case "conveyor":
+                    kind = MachineKind.Belt;
+                    string digits = new string(rest.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray()).Replace(',', '.');
+                    if (double.TryParse(digits, NumberStyles.Float, CultureInfo.InvariantCulture, out double a) && a > 0 && a < 90) beltAngle = a;
+                    return true;
+                default: return false;
+            }
+        }
+
+        /// <summary>Non-planar layers with the nozzle kept vertical: all three axes move at once.</summary>
+        public static bool NonPlanar(MachineKind k) => k != MachineKind.Belt;
+
+        /// <summary>Can the layers lean by this angle (degrees), the tool square to them?</summary>
+        public static bool Leans(MachineKind k, double beltAngle, double angle) =>
+            k == MachineKind.Robot || Math.Abs(angle) < 1 || (k == MachineKind.Belt && Math.Abs(Math.Abs(angle) - beltAngle) < 1);
+
+        /// <summary>What it can print, in a few words.</summary>
+        public static string Can(MachineKind k) => k == MachineKind.Robot ? "flat, non-planar, angled" : k == MachineKind.Belt ? "flat on the belt, at its angle" : "flat, non-planar (nozzle vertical)";
+    }
+
+    /// <summary>What a path asks of the machine: errors (it cannot print it), warnings, and how its layers lie.</summary>
+    public class PathFit
+    {
+        public List<string> Errors = new List<string>(), Warnings = new List<string>();
+        /// <summary>The strongest lean of a planar layer (degrees from horizontal).</summary>
+        public double MaxLean;
+        /// <summary>Layers that are neither flat nor one tilted plane (non-planar).</summary>
+        public int Curved;
+        public bool Ok => Errors.Count == 0;
+    }
+
+    /// <summary>
     /// A machine that prints from G-code: its name, the code it needs before and after the print
     /// and at every layer change, and how it wants the extrusion value. The machines of the
     /// FH Muenster are built in; anyone can add their own as a small text file (ending .machine)
@@ -18,7 +85,8 @@ namespace LARGERslicer.Toolpaths
     ///   name = My printer
     ///   prefix = MYP                 (start of the file names, a few letters)
     ///   extension = .gcode
-    ///   bed = 1000 x 1000            (mm)
+    ///   kind = gantry                (gantry, bedslinger, delta, belt 45, robot: what it can print and how it moves)
+    ///   bed = 1000 x 1000            (mm; a third number is the height: 1000 x 1000 x 800)
     ///   extrusion factor = 0.21      (E = width x height x length x flow x this)
     ///   first layer factor = 1
     ///   filament diameter = 0        (0 = E is a volume; else E is a length of filament)
@@ -26,8 +94,9 @@ namespace LARGERslicer.Toolpaths
     ///   travel speed = 0             (mm/min; 0 = the highest speed of the print settings)
     ///   material = PLA               (optional: replaces {material} in the codes)
     ///   bed temperature = 90         (optional: replaces {bed} in the codes)
-    ///   model = My printer.3dm       (optional: a Rhino file with the machine in 3D, for the preview;
-    ///                                 a .3dm of the same name next to the .machine file is found by itself)
+    ///   model = My printer.3dm       (optional: a Rhino file (or .obj) with the machine in 3D, layers
+    ///                                 Frame, Bed, Z, Y, X, TCP: Printer Simulation moves it; a .3dm of
+    ///                                 the same name next to the .machine file is found by itself)
     ///   [start]
     ///   G21
     ///   G28
@@ -52,6 +121,12 @@ namespace LARGERslicer.Toolpaths
         public string Prefix = "GCO";
         public string Extension = ".gcode";
         public double BedX = 0, BedY = 0;
+        /// <summary>Height of the build volume in mm; 0 = not known.</summary>
+        public double BedZ = 0;
+        /// <summary>How it moves; decides what it can print (see MachineKind) and how Printer Simulation moves its model.</summary>
+        public MachineKind Kind = MachineKind.Gantry;
+        /// <summary>Belt printers: the angle its layers stand at (degrees).</summary>
+        public double BeltAngle = 45;
         public double TravelSpeed = 0;
         /// <summary>Optional: a Rhino file with the machine in 3D (frame, bed, gantry), drawn in the preview. In the coordinates of the machine: the origin is its 0, 0, 0.</summary>
         public string Model = "";
@@ -89,7 +164,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Ginger One (Marlin on the Ginger board): start and end as in the FH Muenster definition.</summary>
         public static MachineDefinition GingerOne() => new MachineDefinition
         {
-            Name = "Ginger One (Marlin)", Manufacturer = "Ginger Additive", Prefix = "GIN", BedX = 1000, BedY = 1000, BuiltInModel = "GingerOne",
+            Name = "Ginger One (Marlin)", Manufacturer = "Ginger Additive", Prefix = "GIN", BedX = 1000, BedY = 1000, BedZ = 1000, BuiltInModel = "GingerOne",
             Profile = MachineProfile.Preset(4),
             Start = GingerGCode.Start.ToList(), End = GingerGCode.End.ToList(),
             // Ginger handbook: no cooling on layers 1 to 4 (adhesion), then 60 % (100 % for heavy overhangs)
@@ -109,7 +184,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Ginger One on Klipper firmware: the START_PRINT and END_PRINT macros of its Klipper config.</summary>
         public static MachineDefinition GingerKlipper() => new MachineDefinition
         {
-            Name = "Ginger One (Klipper)", Manufacturer = "Ginger Additive", Prefix = "GIK", BedX = 1000, BedY = 1000, BuiltInModel = "GingerOne",
+            Name = "Ginger One (Klipper)", Manufacturer = "Ginger Additive", Prefix = "GIK", BedX = 1000, BedY = 1000, BedZ = 1000, BuiltInModel = "GingerOne",
             // E as a volume (mm3) with factor 1.0, as the Klipper script did ("klipper 1")
             Profile = new MachineProfile { Name = "Ginger One (Klipper)", Factor = 1.0, RectangleSection = true, Unit = "mm3" },
             Material = "PLA", BedTemperature = 90,
@@ -162,7 +237,8 @@ namespace LARGERslicer.Toolpaths
                 "manufacturer = " + Manufacturer,
                 "prefix = " + Prefix,
                 "extension = " + Extension,
-                "bed = " + Num(BedX) + " x " + Num(BedY),
+                "kind = " + MachineKinds.Id(Kind) + (Kind == MachineKind.Belt ? " " + Num(BeltAngle) : ""),
+                "bed = " + Num(BedX) + " x " + Num(BedY) + (BedZ > 0 ? " x " + Num(BedZ) : ""),
                 "extrusion factor = " + Num(Profile.Factor),
                 "first layer factor = " + Num(Profile.FirstLayerFactor),
                 "filament diameter = " + Num(Profile.FilamentDiameter),
@@ -235,10 +311,14 @@ namespace LARGERslicer.Toolpaths
                     case "extension": m.Extension = v.StartsWith(".") ? v : "." + v; break;
                     case "bed":
                         var parts = v.ToLowerInvariant().Split('x');
-                        double bx = 0, by = 0;
-                        if (parts.Length != 2 || !double.TryParse(parts[0].Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out bx)
-                            || !double.TryParse(parts[1].Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out by)) { error = Inv.F($"line {n}: bed needs two numbers, like 1000 x 1000."); return null; }
-                        m.BedX = bx; m.BedY = by; break;
+                        var size = new double[parts.Length];
+                        bool okBed = parts.Length == 2 || parts.Length == 3;
+                        for (int q = 0; okBed && q < parts.Length; q++) okBed = double.TryParse(parts[q].Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out size[q]) && size[q] >= 0;
+                        if (!okBed) { error = Inv.F($"line {n}: bed needs two or three numbers, like 1000 x 1000 or 1000 x 1000 x 800."); return null; }
+                        m.BedX = size[0]; m.BedY = size[1]; m.BedZ = size.Length == 3 ? size[2] : 0; break;
+                    case "kind":
+                        if (!MachineKinds.Parse(v, out m.Kind, out m.BeltAngle)) { error = Inv.F($"line {n}: kind is one of gantry, bedslinger, delta, belt 45, robot; got '{v}'."); return null; }
+                        break;
                     case "extrusion factor": if (!isNumber) goto bad; m.Profile.Factor = d; break;
                     case "first layer factor": if (!isNumber) goto bad; m.Profile.FirstLayerFactor = d; break;
                     case "filament diameter": if (!isNumber) goto bad; m.Profile.FilamentDiameter = d; break;
@@ -302,6 +382,61 @@ namespace LARGERslicer.Toolpaths
             return path;
         }
 
+        /// <summary>
+        /// Can this machine print the path? Looks at every layer: flat, one tilted plane (angled or
+        /// multi-axis: the tool has to lean), or curved (non-planar: the nozzle can stay vertical).
+        /// A gantry, bed slinger or delta cannot lean its nozzle; a belt printer only at its belt
+        /// angle and not non-planar; a robot can do all of it (its program comes from the Robot tab).
+        /// </summary>
+        public PathFit CheckPath(Toolpath tp)
+        {
+            var fit = new PathFit();
+            if (tp == null || tp.Count < 2) return fit;
+            var byLayer = new SortedDictionary<int, List<int>>();
+            for (int i = 0; i < tp.Count; i++)
+            {
+                if (i < tp.Roles.Count && tp.Roles[i] == PathRole.Travel) continue;
+                int l = i < tp.Layers.Count ? tp.Layers[i] : 0;
+                if (!byLayer.TryGetValue(l, out var list)) byLayer[l] = list = new List<int>();
+                list.Add(i);
+            }
+            int leaning = 0, first = int.MaxValue; double h0 = tp.Settings.LayerHeight > 0 ? tp.Settings.LayerHeight : 2;
+            foreach (var kv in byLayer)
+            {
+                var idx = kv.Value; if (idx.Count < 3) continue;
+                // the mean tool axis of the layer: for angled and multi-axis layers it is the normal of their plane
+                var n = Vector3d.Zero; foreach (int i in idx) if (i < tp.Normals.Count) n += tp.Normals[i];
+                if (!n.Unitize()) n = Vector3d.ZAxis;
+                Point3d o = tp.Points[idx[0]];
+                double lo = double.MaxValue, hi = double.MinValue, zlo = double.MaxValue, zhi = double.MinValue;
+                foreach (int i in idx)
+                {
+                    double d = (tp.Points[i] - o) * n; lo = Math.Min(lo, d); hi = Math.Max(hi, d);
+                    zlo = Math.Min(zlo, tp.Points[i].Z); zhi = Math.Max(zhi, tp.Points[i].Z);
+                }
+                double tol = 1.5 * h0 + 0.5; // the ramp to the next layer lifts a layer by one layer height
+                double lean = Math.Acos(Math.Max(-1, Math.Min(1, Math.Abs(n.Z)))) * 180 / Math.PI;
+                if (zhi - zlo <= tol) continue; // flat
+                if (hi - lo <= tol && lean > 1) { leaning++; fit.MaxLean = Math.Max(fit.MaxLean, lean); first = Math.Min(first, kv.Key); continue; }
+                fit.Curved++;
+            }
+            string who = Name + " [" + MachineKinds.Label(Kind, BeltAngle) + "]";
+            if (leaning > 0 && !MachineKinds.Leans(Kind, BeltAngle, fit.MaxLean))
+                fit.Errors.Add(Inv.F($"NOT PRINTABLE on {who}: {leaning} layer(s) lean up to {fit.MaxLean:0} degrees (angled or multi-axis slicing, first at layer {first + 1}). This machine cannot tilt its nozzle; {MachineKinds.Can(Kind)}. Slice flat or non-planar, or print it on a robot (Robot tab)."));
+            if (fit.Curved > 0 && !MachineKinds.NonPlanar(Kind))
+                fit.Errors.Add(Inv.F($"NOT PRINTABLE on {who}: {fit.Curved} layer(s) are non-planar; a belt printer prints flat layers at its belt angle only."));
+            else if (fit.Curved > 0 && Kind != MachineKind.Robot)
+                fit.Warnings.Add(Inv.F($"{fit.Curved} non-planar layer(s): {Name} keeps its nozzle vertical and moves X, Y and Z at once. G-code carries positions only. Check the head against the part (Non-Planar Check, Printer Simulation)."));
+            if (Kind == MachineKind.Robot)
+                fit.Warnings.Add(Name + " is a robot: G-code carries positions only. For the tool orientation use Robot Program on the Robot tab.");
+            if (BedZ > 0 && tp.Points.Count > 0)
+            {
+                double top = tp.Points.Max(p => p.Z);
+                if (top > BedZ) fit.Warnings.Add(Inv.F($"The path reaches Z {top:0}: higher than the build height of {Name} ({BedZ:0} mm)."));
+            }
+            return fit;
+        }
+
         /// <summary>What the preview shows: the 3D model of the machine if it has one, else its bed as a 10 mm plate below Z 0.</summary>
         public List<Mesh> Preview(out string note) => PreviewParts(out note).Select(p => p.Mesh).ToList();
 
@@ -341,8 +476,12 @@ namespace LARGERslicer.Toolpaths
     {
         private static string N(double v, int digits) => Math.Round(v, digits).ToString("0." + new string('#', digits), CultureInfo.InvariantCulture);
 
-        public static GingerGCode.Result Build(Toolpath source, MachineDefinition machine)
+        public static GingerGCode.Result Build(Toolpath source, MachineDefinition machine) => Build(source, machine, out _);
+
+        /// <summary>The G-code, and the print as a run to play in Printer Simulation (the same speeds as in the file).</summary>
+        public static GingerGCode.Result Build(Toolpath source, MachineDefinition machine, out PrinterRun run)
         {
+            run = null;
             var r = new GingerGCode.Result();
             if (source == null || source.Count < 2) { r.Warnings.Add("Empty toolpath."); return r; }
             if (machine == null) { r.Warnings.Add("No machine."); return r; }
@@ -352,8 +491,11 @@ namespace LARGERslicer.Toolpaths
             tp.Settings.Machine = machine.Profile.Duplicate();
             var st = tp.Settings;
             var pr = PathEngine.Process(tp, false);
-            if (tp.Normals.Any(n => Math.Abs(n.Z) < 0.9998))
-                r.Warnings.Add("The toolpath has tilted tool axes (angled, non-planar or multi-axis). G-code carries positions only: the nozzle stays as the machine holds it. Check the clearance between nozzle and part.");
+            run = PrinterRun.Make(tp, machine, pr);
+            // what the kind of machine can print: errors start with NOT PRINTABLE
+            var fit = machine.CheckPath(tp);
+            r.Warnings.AddRange(fit.Errors);
+            r.Warnings.AddRange(fit.Warnings);
             var box = new BoundingBox(tp.Points);
             if (box.Min.X < 0 || box.Min.Y < 0 || box.Min.Z < 0)
                 r.Warnings.Add(Inv.F($"Part of the path has negative coordinates (X {box.Min.X:0}, Y {box.Min.Y:0}, Z {box.Min.Z:0}). Move the part onto the bed: the machine origin is at 0, 0, 0."));

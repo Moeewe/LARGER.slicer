@@ -935,4 +935,264 @@ namespace LARGERslicer.Toolpaths
                 s.Add("Clear, but some bodies come close: check them in Robot Simulation at the moves given.");
         }
     }
+
+    /// <summary>What collides at one moment of a print on a G-code machine (drawn red by Printer Simulation).</summary>
+    public class GantryPose
+    {
+        public bool Head, Beam, Printed, Bed;
+        /// <summary>Pieces of the frame the head runs into (indices into GantryCollision.FramePieces).</summary>
+        public List<int> Frame = new List<int>();
+        public List<Point3d> Where = new List<Point3d>();
+        public List<CollisionEvent> Events = new List<CollisionEvent>();
+        public bool Any => Head || Beam || Frame.Count > 0;
+    }
+
+    /// <summary>
+    /// The collision check of a G-code machine (ported from LARGER.app, collision.rs): the head
+    /// (layer X of the machine model, the nozzle tip at the TCP point) and the beam (layer Y; on a
+    /// bed slinger layer Z) against the part printed so far and the bed, and the head against the
+    /// frame. The zone round the nozzle tip, where the nozzle sits on the beads by design, is left
+    /// out. Without a model the head is a round body over the nozzle. Path and model are in the
+    /// coordinates of the machine (bed surface at Z 0).
+    /// </summary>
+    public class GantryCollision
+    {
+        public MachineDefinition Machine;
+        public PrinterModel Model;
+        public Toolpath Path;
+        public MachineKind Kind;
+        public PrintedVolume Printed;
+        public double NozzleRadius, NozzleHeight, BedTop;
+        /// <summary>The still frame in pieces (one per connected part), in machine coordinates.</summary>
+        public List<Mesh> FramePieces = new List<Mesh>();
+        public List<string> Notes = new List<string>();
+        /// <summary>Which group of the model moves as the beam: Y; on a bed slinger Z (the X beam, seen from the bed).</summary>
+        public string BeamGroup = "Y";
+
+        private CollisionModel.Shape _head, _beam;
+        private readonly List<CollisionModel.Shape> _frame = new List<CollisionModel.Shape>();
+        private readonly HashSet<int> _standing = new HashSet<int>();
+        private Point3d _tcp;
+        private BoundingBox _bed = BoundingBox.Unset;
+
+        /// <summary>Head, beam and frame of a model, prepared once per model and kind (the nozzle zone depends on the path and is added per check).</summary>
+        private class Prepared { public CollisionModel.Shape Head, Beam; public List<CollisionModel.Shape> Frame = new List<CollisionModel.Shape>(); public List<Mesh> Pieces = new List<Mesh>(); public Mesh HeadMesh; }
+        private static readonly ConditionalWeakTable<PrinterModel, Dictionary<string, Prepared>> PreparedModels = new ConditionalWeakTable<PrinterModel, Dictionary<string, Prepared>>();
+
+        public static GantryCollision Make(Toolpath tp, MachineDefinition machine)
+        {
+            if (tp == null || tp.Count < 2) return null;
+            machine = machine ?? MachineDefinition.GingerOne();
+            if (machine.Kind == MachineKind.Robot) return null; // a robot has its own check (Robot Program)
+            var g = new GantryCollision { Machine = machine, Path = tp, Kind = machine.Kind };
+            g.Model = machine.Printer(out _);
+            if (g.Model != null && !g.Model.CanMove) { g.Notes.Add("The 3D model of " + machine.Name + " has no layers X, Y, Z: the head is checked as a round body over the nozzle."); g.Model = null; }
+            g.Build();
+            return g;
+        }
+
+        private Prepared Prepare(PrinterModel model, double w)
+        {
+            var all = PreparedModels.GetValue(model, _ => new Dictionary<string, Prepared>());
+            string key = BeamGroup + "|" + Kind + "|" + w.ToString("0.###", CultureInfo.InvariantCulture);
+            lock (all)
+            {
+                if (all.TryGetValue(key, out var done)) return done;
+                var pr = new Prepared();
+                pr.HeadMesh = model.Joined("X");
+                if (pr.HeadMesh != null) pr.Head = CollisionModel.GetShape(pr.HeadMesh, 3000, Math.Max(6, w), 4000, true);
+                var beam = Kind == MachineKind.Delta ? null : model.Joined(BeamGroup);
+                if (beam != null) pr.Beam = CollisionModel.GetShape(beam, 2000, 20, 6000, true);
+                var frame = model.Joined("Frame");
+                if (frame != null)
+                {
+                    int count = frame.DisjointMeshCount;
+                    Mesh[] pieces = count > 1 && count < 600 ? frame.SplitDisjointPieces() : new[] { frame };
+                    foreach (var pc in pieces.Where(x => x != null && x.Faces.Count > 0)) { pr.Pieces.Add(pc); pr.Frame.Add(CollisionModel.GetShape(pc, 1500, 30, 3000, true)); }
+                }
+                all[key] = pr;
+                return pr;
+            }
+        }
+
+        private void Build()
+        {
+            double w = Path.Settings.BeadWidth > 0 ? Path.Settings.BeadWidth : 5, h = Path.Settings.LayerHeight > 0 ? Path.Settings.LayerHeight : 2;
+            if (Kind == MachineKind.BedSlinger) BeamGroup = "Z";
+            Mesh headMesh;
+            if (Model != null)
+            {
+                _tcp = Model.Tcp;
+                if (!Model.HasTcp) Notes.Add("The 3D model has no point on layer TCP: the nozzle tip is taken at 0, 0, 0 of the drawing.");
+                var prep = Prepare(Model, w);
+                _head = prep.Head; _beam = prep.Beam; headMesh = prep.HeadMesh;
+                _frame.AddRange(prep.Frame); FramePieces.AddRange(prep.Pieces);
+                if (_head == null) Notes.Add("The 3D model has nothing on layer X: the head is not checked.");
+            }
+            else
+            {
+                // a plain head: a round body over the nozzle, as in LARGER.app
+                double r = Math.Max(2 * w, 25);
+                _tcp = Point3d.Origin;
+                headMesh = Mesh.CreateFromCylinder(new Cylinder(new Circle(Plane.WorldXY, r), 150), 2, 24, true, true);
+                _head = headMesh != null ? CollisionModel.GetShape(headMesh, 1000, Math.Max(6, w), 4000, true) : null;
+                Notes.Add(Inv.F($"{Machine.Name} has no 3D model: its head is checked as a round body of {2 * r:0} mm over the nozzle."));
+            }
+            // the zone round the nozzle tip: as high as two layers and as wide as the nozzle there, plus half a bead
+            NozzleHeight = 2 * h + 2;
+            double rad = 0;
+            if (headMesh != null)
+                foreach (var v in headMesh.Vertices) { Vector3d d = (Point3d)v - _tcp; if (d.Z < NozzleHeight) rad = Math.Max(rad, Math.Sqrt(d.X * d.X + d.Y * d.Y)); }
+            NozzleRadius = Math.Min(Math.Max(w, rad + w / 2), Math.Max(6 * w, 40));
+            if (_head != null)
+            {
+                var noz = new bool[_head.Samples.Length]; var height = new double[noz.Length];
+                for (int k = 0; k < noz.Length; k++)
+                {
+                    Vector3d d = _head.Samples[k] - _tcp;
+                    height[k] = d.Z;
+                    noz[k] = d.Z < NozzleHeight && Math.Sqrt(d.X * d.X + d.Y * d.Y) < NozzleRadius;
+                }
+                _head = new CollisionModel.Shape { Mesh = _head.Mesh, Box = _head.Box, Samples = _head.Samples, Spacing = _head.Spacing, Closed = _head.Closed, Nozzle = noz, Height = height };
+            }
+            // the beads laid so far, and the bed under them (machine coordinates: its top at Z 0)
+            Printed = new PrintedVolume(Path, Path.Flows, 10);
+            BedTop = Printed.Count > 0 && Printed.MinZ < -1 ? Printed.MinZ : 0;
+            _bed = Machine.BedX > 0 && Machine.BedY > 0 ? new BoundingBox(0, 0, BedTop - 100, Machine.BedX, Machine.BedY, BedTop) : BoundingBox.Unset;
+            if (!_bed.IsValid && Printed.Count > 0) { var b = Printed.Box; _bed = new BoundingBox(b.Min.X - 300, b.Min.Y - 300, BedTop - 100, b.Max.X + 300, b.Max.Y + 300, BedTop); }
+            // what the head touches already in the pose the model is drawn in, it is built onto (a cable chain, a bracket)
+            if (_head != null)
+                for (int i = 0; i < _frame.Count; i++)
+                {
+                    var t = CollisionModel.TestPair(Posed(_head, Vector3d.Zero, true), Posed(_frame[i], Vector3d.Zero, false), 0, true);
+                    if (t.Hit || t.Distance < 1) _standing.Add(i);
+                }
+        }
+
+        private static CollisionModel.Posed Posed(CollisionModel.Shape s, Vector3d move, bool head)
+        {
+            var f = Frame.World; f.O = Point3d.Origin + move;
+            return new CollisionModel.Posed(new CollisionModel.Body { Name = head ? "head" : "frame", Robot = head ? 7 : -1, Shape = s }, s, f);
+        }
+
+        /// <summary>
+        /// What collides with the nozzle tip at tip (machine coordinates) on its way to point move
+        /// (the beads up to move-1 are laid).
+        /// </summary>
+        public GantryPose Check(Point3d tip, int move)
+        {
+            var res = new GantryPose();
+            if (!tip.IsValid) return res;
+            int layer = move >= 0 && move < Path.Layers.Count ? Path.Layers[move] : 0;
+            Vector3d d = tip - _tcp;
+            // in the coordinates of the bed (where the part is): the head moves by d, the beam by (0, dy, dz)
+            var toWorld = Kind == MachineKind.BedSlinger ? new Vector3d(0, -d.Y, 0) : Vector3d.Zero; // where the bed has carried the part
+            Test(res, _head, d, "head", true, move, layer, toWorld);
+            if (_beam != null) Test(res, _beam, new Vector3d(0, d.Y, d.Z), "beam", false, move, layer, toWorld);
+            // the head against the still frame, in the room: on a bed slinger the head does not move in Y
+            if (_head != null && _frame.Count > 0)
+            {
+                var ph = Posed(_head, Kind == MachineKind.BedSlinger ? new Vector3d(d.X, 0, d.Z) : d, true);
+                for (int i = 0; i < _frame.Count; i++)
+                {
+                    if (_standing.Contains(i)) continue;
+                    var t = CollisionModel.TestPair(ph, Posed(_frame[i], Vector3d.Zero, false), 0, true);
+                    if (!t.Hit) continue;
+                    res.Head = true; res.Frame.Add(i);
+                    if (t.Where.IsValid) res.Where.Add(t.Where);
+                    res.Events.Add(new CollisionEvent { Move = move, Layer = layer + 1, A = "head", B = "the frame", Hit = true, Depth = t.Depth, Where = t.Where, FirstMove = move, LastMove = move, BodyB = i });
+                }
+            }
+            return res;
+        }
+
+        /// <summary>A moving body against the part printed before this move and against the bed.</summary>
+        private void Test(GantryPose res, CollisionModel.Shape shape, Vector3d move3, string name, bool isHead, int move, int layer, Vector3d toWorld)
+        {
+            if (shape == null) return;
+            double partDepth = 0, bedDepth = 0; Point3d partAt = Point3d.Unset, bedAt = Point3d.Unset;
+            var box = shape.Box; box.Transform(Transform.Translation(move3));
+            var vb = Printed.Box; vb.Inflate(1);
+            bool nearPart = Printed.Count > 0 && box.Max.X >= vb.Min.X && box.Min.X <= vb.Max.X && box.Max.Y >= vb.Min.Y && box.Min.Y <= vb.Max.Y && box.Max.Z >= vb.Min.Z && box.Min.Z <= vb.Max.Z;
+            bool nearBed = _bed.IsValid && box.Min.Z < BedTop - 1;
+            if (!nearPart && !nearBed) return;
+            for (int i = 0; i < shape.Samples.Length; i++)
+            {
+                if (shape.Nozzle != null && shape.Nozzle[i]) continue;
+                Point3d p = shape.Samples[i] + move3;
+                if (nearPart && vb.Contains(p))
+                {
+                    double gap = Printed.Distance(p, move - 1, out _);
+                    if (gap < 0 && -gap > partDepth) { partDepth = -gap; partAt = p; }
+                }
+                if (nearBed && p.Z < BedTop - 1 && p.X >= _bed.Min.X && p.X <= _bed.Max.X && p.Y >= _bed.Min.Y && p.Y <= _bed.Max.Y && BedTop - p.Z > bedDepth) { bedDepth = BedTop - p.Z; bedAt = p; }
+            }
+            if (partDepth > 0.5)
+            {
+                res.Printed = true; if (isHead) res.Head = true; else res.Beam = true;
+                partAt += toWorld; res.Where.Add(partAt);
+                res.Events.Add(new CollisionEvent { Move = move, Layer = layer + 1, A = name, B = "printed part", Hit = true, Depth = partDepth, Where = partAt, FirstMove = move, LastMove = move });
+            }
+            if (bedDepth > 0)
+            {
+                res.Bed = true; if (isHead) res.Head = true; else res.Beam = true;
+                bedAt += toWorld; res.Where.Add(bedAt);
+                res.Events.Add(new CollisionEvent { Move = move, Layer = layer + 1, A = name, B = "bed", Hit = true, Depth = bedDepth, Where = bedAt, FirstMove = move, LastMove = move });
+            }
+        }
+
+        /// <summary>The check along the whole path: about n poses spread evenly, both ends of every travel move, the last point of every layer.</summary>
+        public CollisionResult Run(int n)
+        {
+            var sw = Stopwatch.StartNew();
+            var r = new CollisionResult { Checked = true };
+            var ci = CultureInfo.InvariantCulture;
+            int m = Path.Count;
+            var picks = new SortedSet<int>();
+            double stride = Math.Max(1.0, m / (double)Math.Max(2, n));
+            for (double x = 1; x < m; x += stride) picks.Add((int)x);
+            picks.Add(m - 1);
+            int evenly = picks.Count;
+            for (int i = 1; i < m; i++)
+            {
+                bool travel = Path.Flows[i] <= 0 || Path.Roles[i] == PathRole.Travel;
+                if (travel) { picks.Add(Math.Max(1, i - 1)); picks.Add(i); }
+                if (Path.Layers[i] != Path.Layers[i - 1]) picks.Add(Math.Max(1, i - 1));
+            }
+            r.Critical = picks.Count - evenly;
+            r.Stride = Math.Max(1, (int)Math.Round(stride));
+            var worst = new Dictionary<string, CollisionEvent>();
+            var hitMoves = new SortedDictionary<int, Point3d>();
+            foreach (int i in picks)
+            {
+                var pc = Check(Path.Points[i], i);
+                r.Poses++;
+                if (pc.Any) hitMoves[i] = pc.Where.Count > 0 ? pc.Where[0] : Path.Points[i];
+                foreach (var ev in pc.Events)
+                {
+                    string key = ev.A + "|" + ev.B;
+                    if (!worst.TryGetValue(key, out var w)) { worst[key] = ev; continue; }
+                    w.Count++; w.FirstMove = Math.Min(w.FirstMove, ev.Move); w.LastMove = Math.Max(w.LastMove, ev.Move);
+                    if (ev.Depth > w.Depth) { ev.Count = w.Count; ev.FirstMove = w.FirstMove; ev.LastMove = w.LastMove; worst[key] = ev; }
+                }
+            }
+            r.Moves.AddRange(hitMoves.Keys);
+            r.Points.AddRange(hitMoves.Values);
+            var hits = worst.Values.OrderByDescending(e => e.Depth).ToList();
+            r.Events.AddRange(hits);
+            r.Seconds = sw.Elapsed.TotalSeconds;
+            string scope = "the head" + (_beam != null ? " and the beam" : "") + " against the printed part and the bed" + (_frame.Count > 0 ? ", the head against the frame" : "");
+            r.Lines.Add(hits.Count == 0
+                ? string.Format(ci, "No collision: {0} poses checked in {1:0.0} s, {2}.", r.Poses, r.Seconds, scope)
+                : string.Format(ci, "COLLISIONS at {0} of {1} checked poses ({2:0.0} s): {3} pair(s) of bodies collide, first at move {4}.", r.Moves.Count, r.Poses, r.Seconds, hits.Count, r.FirstMove));
+            foreach (var e in hits.Take(12)) r.Lines.Add(e.Text());
+            r.Lines.AddRange(Notes);
+            r.Lines.Add(string.Format(ci, "Collision check: {0}; printed part as {1} bead pieces, nozzle zone {2:0} mm wide and {3:0} mm high left out.", scope, Printed.Count, 2 * NozzleRadius, NozzleHeight));
+            if (hits.Any(e => e.B == "printed part")) r.Suggestions.Add("The head reaches into what is printed already: with non-planar layers keep the layers flatter (a lower part, or flat layers near the top).");
+            if (hits.Any(e => e.B == "the frame")) r.Suggestions.Add("The head runs into the frame: place the part in the middle of the bed.");
+            if (hits.Any(e => e.B == "bed")) r.Suggestions.Add("Something of the head reaches below the bed: the path runs too low, or the TCP point of the model is not at the nozzle tip.");
+            r.Lines.AddRange(r.Suggestions.Select(x => "Suggestion: " + x));
+            return r;
+        }
+    }
 }
