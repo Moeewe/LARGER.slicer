@@ -33,5 +33,10 @@
     <Compile Include="../LARGERslicer/Types/MachineSettings.cs" LinkBase="Core" />
     <!-- 3D models of the extruder and the cell of the FH Muenster, shared with the Grasshopper 1 plug-in -->
     <EmbeddedResource Include="../LARGERslicer/Resources/*.3dm" LogicalName="LARGERslicer.Resources.%(Filename)%(Extension)" />
+    <!-- Component icons: the 24 px files of Grasshopper 1 and the same drawings at 48 px (see Icons.cs) -->
+    <EmbeddedResource Include="../LARGERslicer/Resources/*Icon.png" Exclude="../LARGERslicer/Resources/plugin-icon.png" LogicalName="LARGERslicer.GH2.Icons.24.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Icons/48/*.png" LogicalName="LARGERslicer.GH2.Icons.48.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../LARGERslicer/Resources/LARGERslicer_24x24.png" LogicalName="LARGERslicer.GH2.Icons.24.LARGERslicer.png" />
+    <EmbeddedResource Include="../LARGERslicer/Resources/plugin-icon.png" LogicalName="LARGERslicer.GH2.Icons.256.LARGERslicer.png" />
   </ItemGroup>
 </Project>

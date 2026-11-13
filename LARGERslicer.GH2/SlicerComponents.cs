@@ -6,6 +6,7 @@ using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -21,14 +22,34 @@ namespace LARGERslicer.GH2
         public override string ToString() => Layers.Count + " layers";
     }
 
-    internal static class Io
+    /// <summary>
+    /// The groups of the Slicer section, in the order of the Grasshopper 1 tab (its exposure groups):
+    /// a slot is a group of its own in the section, as an exposure is in Grasshopper 1.
+    /// </summary>
+    internal static class Group
+    {
+        public const int Start = 0;      // settings, machine, material, Easy Slicer, Quick Start
+        public const int Layers = 1;     // Slice and the self-support tools
+        public const int Walls = 2;      // Walls & fill: walls, bottom, infill, support fins
+        public const int Path = 3;       // the one continuous line, corners, start and end, patterns
+        public const int Check = 4;      // checks and the values for the machine
+        public const int Output = 5;     // files and simulation
+        public const int Curves = 6;     // curve tools: own curves, imported G-code, analysis
+    }
+
+    internal static partial class Io
     {
         public const string Chapter = "LARGER";
         public const string Slicer = "Slicer";
         public const string Dxr = "DXR";
         public const string Robot = "Robot";
+        public const string Utilities = "Utilities";
+        public const string Cnc = "CNC";
 
         public static Nomen Name(string name, string info, string section, int slot) => new Nomen(name, info, Chapter, section, slot, Rank.Normal);
+
+        /// <summary>Loads old files, but is not offered on the tab: replaced by the components of Grasshopper 1.</summary>
+        public static Nomen HiddenName(string name, string info, string section, int slot) => new Nomen(name, info, Chapter, section, slot, Rank.Hidden);
 
         public static T Get<T>(IDataAccess access, int index) where T : class
         {
@@ -78,8 +99,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1010")]
     public sealed class DesignRulesComponent : Component
     {
-        public DesignRulesComponent() : base(Io.Name("Design Rules", "Before you model: layer height range, overlap, how thick to model a wall of two beads (CO90, and CO45 at 45 degrees), the layer width for a finished wall at 45 degrees (LW45), corner radius, start and end feature. From the CEAD 45-degree sheets and the Ginger handbook.", Io.Slicer, 0)) { }
+        public DesignRulesComponent() : base(Io.Name("Design Rules", "Before you model: layer height range, overlap, how thick to model a wall of two beads (CO90, and CO45 at 45 degrees), the layer width for a finished wall at 45 degrees (LW45), corner radius, start and end feature. From the CEAD 45-degree sheets and the Ginger handbook.", Io.Slicer, Group.Start)) { }
         public DesignRulesComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerDesignRulesIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -116,8 +138,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1001")]
     public sealed class PrintSettingsComponent : Component
     {
-        public PrintSettingsComponent() : base(Io.Name("Print Settings", "Bead width, layer height and speed for all slicer components. The bead width drives every generated dimension: wall spacing, infill spacing, smallest radius.", Io.Slicer, 0)) { }
+        public PrintSettingsComponent() : base(Io.Name("Print Settings", "Bead width, layer height and speed for all slicer components. The bead width drives every generated dimension: wall spacing, infill spacing, smallest radius.", Io.Slicer, Group.Start)) { }
         public PrintSettingsComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerSettingsIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -169,8 +192,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1002")]
     public sealed class SliceComponent : Component
     {
-        public SliceComponent() : base(Io.Name("Slice", "Cuts geometry (Breps, surfaces, SubDs, meshes; open or closed) into layers. Flat by default, tilted with an angle. With a guide surface the layers follow it (non-planar); with a guide curve they stand square to it (multi-axis).", Io.Slicer, 1)) { }
+        public SliceComponent() : base(Io.Name("Slice", "Cuts geometry (Breps, surfaces, SubDs, meshes; open or closed) into layers. Flat by default, tilted with an angle. With a guide surface the layers follow it (non-planar); with a guide curve they stand square to it (multi-axis).", Io.Slicer, Group.Layers)) { }
         public SliceComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerSliceIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -266,8 +290,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1003")]
     public sealed class WallsComponent : Component
     {
-        public WallsComponent() : base(Io.Name("Walls", "Turns the layer contours into walls: the centre lines of the beads, one bead spacing apart.", Io.Slicer, 2)) { }
+        public WallsComponent() : base(Io.Name("Walls", "Turns the layer contours into walls: the centre lines of the beads, one bead spacing apart.", Io.Slicer, Group.Walls)) { }
         public WallsComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerWallsIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -300,8 +325,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1004")]
     public sealed class BottomFillComponent : Component
     {
-        public BottomFillComponent() : base(Io.Name("Bottom Fill", "Closes the first layers with a solid bottom printed as one line.", Io.Slicer, 3)) { }
+        public BottomFillComponent() : base(Io.Name("Bottom Fill", "Closes the first layers with a solid bottom printed as one line.", Io.Slicer, Group.Walls)) { }
         public BottomFillComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerBottomIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -336,8 +362,9 @@ namespace LARGERslicer.GH2
     {
         private static readonly string[] Patterns = { "Ribs (even spacing)", "Honeycomb", "Grid", "Wave", "Truss", "Meander", "Chamber wall", "Truss wall" };
 
-        public InfillComponent() : base(Io.Name("Infill", "Adds an infill that is part of the wall line: one closed line per layer, no travel moves. Ribs, cells, waves that meet in the middle, or a chamber wall.", Io.Slicer, 4)) { }
+        public InfillComponent() : base(Io.HiddenName("Infill", "Adds an infill that is part of the wall line: one closed line per layer, no travel moves. Ribs, cells, waves that meet in the middle, or a chamber wall.", Io.Slicer, Group.Walls)) { }
         public InfillComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerRibsIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -384,8 +411,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1006")]
     public sealed class ContinuousPathComponent : Component
     {
-        public ContinuousPathComponent() : base(Io.Name("Continuous Path", "Joins all layers into one continuous print path. Layered: every layer is flat and the path climbs over a short ramp at one fixed place. Spiral: the path climbs all the time (single walls only).", Io.Slicer, 5)) { }
+        public ContinuousPathComponent() : base(Io.Name("Continuous Path", "Joins all layers into one continuous print path. Layered: every layer is flat and the path climbs over a short ramp at one fixed place. Spiral: the path climbs all the time (single walls only).", Io.Slicer, Group.Path)) { }
         public ContinuousPathComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerPathIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -442,8 +470,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1007")]
     public sealed class FinishPathComponent : Component
     {
-        public FinishPathComponent() : base(Io.Name("Round and Lead", "Rounds the corners of the path, puts a skirt in front of the part and an exit move behind it. The skirt ends opposite the start, so the way across is short and square to the wall.", Io.Slicer, 6)) { }
+        public FinishPathComponent() : base(Io.HiddenName("Round and Lead", "Rounds the corners of the path, puts a skirt in front of the part and an exit move behind it. The skirt ends opposite the start, so the way across is short and square to the wall.", Io.Slicer, Group.Path)) { }
         public FinishPathComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerRoundIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -484,8 +513,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1008")]
     public sealed class PathCheckComponent : Component
     {
-        public PathCheckComponent() : base(Io.Name("Path Check", "Checks whether the path can be printed: it never crosses itself, and every bead lies on the bead below. Read the report before every print.", Io.Slicer, 7)) { }
+        public PathCheckComponent() : base(Io.Name("Path Check", "Checks whether the path can be printed: it never crosses itself, and every bead lies on the bead below. Read the report before every print.", Io.Slicer, Group.Check)) { }
         public PathCheckComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerCheckIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -522,8 +552,9 @@ namespace LARGERslicer.GH2
     [IoId("c3e7a2d4-6f1b-4a8e-9d25-8e2da5d2c15d")]
     public sealed class NonPlanarCheckComponent : Component
     {
-        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, 7)) { }
+        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, Group.Check)) { }
         public NonPlanarCheckComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerNonPlanarCheckIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -575,8 +606,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1009")]
     public sealed class ExtrusionSpeedComponent : Component
     {
-        public ExtrusionSpeedComponent() : base(Io.Name("Extrusion and Speed", "The values for the machine: one plane, one extrusion amount and one speed per path point. The speed is constant and never 0.", Io.Slicer, 8)) { }
+        public ExtrusionSpeedComponent() : base(Io.Name("Extrusion and Speed", "The values for the machine: one plane, one extrusion amount and one speed per path point. The speed is constant and never 0.", Io.Slicer, Group.Check)) { }
         public ExtrusionSpeedComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerExtrusionIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {

@@ -4,6 +4,7 @@ using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -30,8 +31,9 @@ namespace LARGERslicer.GH2
     [IoId("7a38200c-c413-44cc-afe1-c727eb4d16df")]
     public sealed class SelfSupportCheckComponent : Component
     {
-        public SelfSupportCheckComponent() : base(Io.Name("Self Support Check", "Shows where the part is not self-supporting for the build direction and bead. A bead may lie Factor x bead width beside the bead below, so walls may lean out atan(that / layer height) from the build direction (5 mm bead, 2 mm layer: 51 deg). Red = hangs over, orange = near the limit, green = fine, grey = on the bed.", Io.Slicer, 1)) { }
+        public SelfSupportCheckComponent() : base(Io.Name("Self Support Check", "Shows where the part is not self-supporting for the build direction and bead. A bead may lie Factor x bead width beside the bead below, so walls may lean out atan(that / layer height) from the build direction (5 mm bead, 2 mm layer: 51 deg). Red = hangs over, orange = near the limit, green = fine, grey = on the bed.", Io.Slicer, Group.Layers)) { }
         public SelfSupportCheckComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerSelfSupportCheckIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -82,8 +84,9 @@ namespace LARGERslicer.GH2
     [IoId("75aa2165-bbff-4f7c-b84a-ac05af2c9185")]
     public sealed class SelfSupportEnvelopeComponent : Component
     {
-        public SelfSupportEnvelopeComponent() : base(Io.Name("Self Supporting Envelope", "Makes the layers self-supporting with as little added material as possible: from the top down, every layer must hold the layer above, shrunk by Factor x bead width. Gives the new layers, the new part as NURBS (loft) or mesh, and the added material alone.", Io.Slicer, 1)) { }
+        public SelfSupportEnvelopeComponent() : base(Io.Name("Self Supporting Envelope", "Makes the layers self-supporting with as little added material as possible: from the top down, every layer must hold the layer above, shrunk by Factor x bead width. Gives the new layers, the new part as NURBS (loft) or mesh, and the added material alone.", Io.Slicer, Group.Layers)) { }
         public SelfSupportEnvelopeComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerEnvelopeIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -122,8 +125,9 @@ namespace LARGERslicer.GH2
     [IoId("6bf35e8d-bb34-4c2b-ab8a-f4b43aa521a9")]
     public sealed class BestAngleComponent : Component
     {
-        public BestAngleComponent() : base(Io.Name("Best Angle", "Finds the slice angle and tilt direction with the least area that is not self-supporting: every angle in the range in 5 degree steps and, with Turn, every tilt direction in 30 degree steps. Connect Plane and Angle to Slice (turn the part or the bed by the plane).", Io.Slicer, 1)) { }
+        public BestAngleComponent() : base(Io.Name("Best Angle", "Finds the slice angle and tilt direction with the least area that is not self-supporting: every angle in the range in 5 degree steps and, with Turn, every tilt direction in 30 degree steps. Connect Plane and Angle to Slice (turn the part or the bed by the plane).", Io.Slicer, Group.Layers)) { }
         public BestAngleComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerBestAngleIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
