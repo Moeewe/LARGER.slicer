@@ -7,6 +7,31 @@ Newest context first within each section. Part of the [developer handbook](READM
 
 ## Printing
 
+**Non-planar bead height: the shell law, not the law of the 2024 head (1.3.1).** 1.3.0 took over the
+extrusion law of UNIKAT HEAD V2 (t = dz + (h - dz) dxy / w) because the print "worked". The owner then
+found that V2 over-extruded at the overhangs. With a vertical nozzle a shell one bead wide gains
+w x dz per lap however far the lap leans - a sideways offset moves material, it does not add any - and
+where the laps step mostly sideways the shell becomes a skin of the sideways step x a skin thickness.
+So t = max(dz, dxy x t_skin / w), t_skin = `Skin Thickness` (default the layer height, at least
+0.4 x layer height). On V2's own points this is 3.4 % less material over the head and up to 57 % less
+per lap towards the crown ([PRINTING_PRINCIPLES.md](PRINTING_PRINCIPLES.md) 9.3). V2's law is not
+offered as an option: an old print is reproduced by its own G-code, and keeping a known
+over-extrusion selectable invites using it. It stays in the code (`BeadLaw.HeightV2`) only so that
+Non-Planar Check can recognise and name it in old files and imported G-code.
+Lesson: a reference print tells what is printable, not that every number in it is right; a law needs
+a physical derivation before it becomes the default.
+
+**Checks: allowances only where the physics supports them (1.3.1).** 1.3.0 had loosened the checks for
+law-following paths "because V2 printed it". Re-examined against the shell law: no bead above 0.8 w
+is accepted any more (those heights came from V2's law itself); E is judged against the shell law
+(same tolerance as before), and E that matches V2's law is reported with its excess; below 0.4 h up
+to 1 % stays for the last crown rings, and points where the skin term sets the height are not judged
+by that rule; the support allowance (up to one bead width beside the lap below at up to 2.5 % of the
+points) stays only for stretches of at most 12 bead widths that hang between supported ones like a
+short bridge - V2 itself never needed it (its laps lay at most 1.95 mm beside the lap below in plan;
+the 4 mm read before came from splitting its G-code into layers by turns); nozzle grazing up to
+0.6 mm stays (geometry, not extrusion).
+
 **One continuous line, and never crossing beats the requested pattern.** Pellet extruders cannot
 stop cleanly; travel moves string and stops leave blobs; a crossing ploughs through fresh material.
 So walls, fill and infill are one line, and where a pattern cannot be printed without a crossing the
@@ -34,20 +59,14 @@ overlapping "chevrons" (6.2 mm² each, 121 mm² in the first layer). Now each br
 further on than the one inside it and every ring ends one bead before its own start; first-layer
 double coverage dropped to a few mm² ([PRINTING_PRINCIPLES.md](PRINTING_PRINCIPLES.md) 9.6).
 
-**Checks calibrated on a print that worked.** UNIKAT HEAD V2 printed fine, but a strict ½-bead
-support test and strict bead-height limits flagged it. Instead of loosening the rules for everything,
-the tolerances apply only to paths that follow the bead law (leaning laps): up to one bead width at up
-to 2.5 % of the points (Path Check), up to 0.5 % above 0.8 w and 1 % below 0.4 h, nozzle grazing up to
-0.6 mm (Non-Planar Check). Every tolerance names the 2024 numbers in its report.
-
 **Short Lap Time from the printed head.** Its definition gave short laps (neck, crown) 40 s and long
 laps 35 s, switching at min + 0.7464 x (max - min) of the lap lengths over 5 laps. The rule was taken
 over literally (`PathEngine.LayerTargets`), including the constant, because it is proven on a print.
 
 **"Follow the surface" uses its own field, not a copy of V2's rings.** V2's laps came from a loft of
 the definition's own curves and are not iso-lines of any simple field (several were tested). The
-surface field (geodesic ratio, blended towards Z on the wall) was chosen for low head grazing; the
-extrusion follows V2's bead law exactly.
+surface field (geodesic ratio, blended towards Z on the wall) was chosen for low head grazing. (Up to
+1.3.0 the extrusion followed V2's bead law exactly; since 1.3.1 it follows the shell law, see above.)
 
 **Extrusion factors as numbers, not code.** Ginger 0.21 and Weber 1.128 are the GCODE MAKER factors
 of the FH Muenster definition at 100 % flow (w x h x length). A new machine is a `MachineProfile` or a
@@ -86,12 +105,14 @@ from a few round values instead of opening long lists.
 want mm/min. Inputs are mm/s, the path keeps mm/min (50 mm/s = F3000). Files written since carry the
 mark `SpeedMmS`; files without it are read as mm/min with a note, so old definitions print the same.
 
-**Long calculations in the background (GH1).** Slicing a large part blocked the canvas. Seven
+**Long calculations in the background (GH1).** Slicing a large part blocked the canvas. Eight
 components calculate on a worker task (`AsyncSolve`): inputs are read and geometry copied on the UI
 thread, the work never touches Grasshopper, a changed input throws the old result away, the finished
 result is handed out in a short self-expired solution. On by default, switchable per component and
 saved in the file. Grasshopper 2 already solves beside the canvas, so there the components only report
-progress and stop early (`Io.Step`).
+progress (`Io.Step`) and pass the solution's cancel token into the core (`Io.Cancellable`,
+`Toolpaths/Cancel.cs`), as GH1's background tasks do: a changed input stops the core loops within
+about a layer.
 
 **No separate curves panel.** For a while the curve tools of the former Toolpaths tab had their own
 panel ("Slicer · Curves"). They went back into the Slicer tab as its seventh group, holding only

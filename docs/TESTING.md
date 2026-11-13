@@ -255,6 +255,15 @@ therefore kept in `<temp>/LARGERslicer/collision/`. Delete that folder to measur
   and star, 1 and 2 walls, centred or inside, every seam mode, spiral (after the corner fix: 0.012 mm).
 - **Against a reference G-code**: import it (`Import G-code`), run the same checks, compare laps, Z
   range, E per mm (5 % / median / 95 %), E total, first layer, time (the 2024 head).
+  A reference print shows what is printable, not that its numbers are right: the 2024 head's extrusion
+  law over-extruded its leaning laps (PRINTING_PRINCIPLES 9.3), so check a law by its physics first.
+- **Non-planar bead law** (console bench, no Rhino needed): `BeadLaw.Height` / `HeightV2` on fixed cases
+  (vertical wall, 45°, 20°, crown, one-bead step); a synthetic dome (vertical wall, then a quarter
+  circle) built as a spiral `Toolpath`, `BeadLaw.Apply`, then `NonPlanarCheck.Run`: with shell-law
+  heights E fits (mean < 1 %), with V2-law heights the report says "OLD EXTRUSION LAW"; a G-code with
+  layer comments imported and replayed (`BeadLaw.Apply` on the imported path) gives E per lap before
+  and after. Still to do in Grasshopper: solve the head example and Quick Start 07 and read Path Check
+  (support stretches under the chin) and Non-Planar Check.
 - **Pictures**: layers in top view and the canvas captured, looked at before reporting. "Chaos" (ribs not
   square to the wall, joints not alternating evenly) is a failure even when the checks pass.
 

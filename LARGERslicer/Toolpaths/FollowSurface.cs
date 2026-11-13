@@ -13,7 +13,8 @@ namespace LARGERslicer.Toolpaths
     /// Its iso-lines run round the part like the iso-curves of a surface: they dip under the chin
     /// and the nose, rise at the back of a head, and shrink to the crown, where they close it.
     /// This is how the printed UNIKAT HEAD V2 (Ginger One, 2024) was laid out: rings on the head's
-    /// surface from the neck to the crown, one spiral, the nozzle vertical.
+    /// surface from the neck to the crown, one spiral, the nozzle vertical. (Its extrusion law is not
+    /// used any more: see BeadLaw.)
     /// </summary>
     public class SurfaceField
     {
@@ -162,19 +163,42 @@ namespace LARGERslicer.Toolpaths
     }
 
     /// <summary>
-    /// The bead height law of the printed UNIKAT HEAD V2 (owner's definition "head test unikat.gh",
-    /// confirmed on all 18 041 points of its G-code to 0.0006 E/mm):
+    /// The bead height law for non-planar laps printed with a vertical nozzle (the shell law, 1.3.1).
     ///
-    ///   h = distance to the closest point of the lap below, a = angle of that line to the horizontal
-    ///   t = h (1 - (h/w)(1 - sin a)((w/h) - cos a))  =  dz + (h - dz) dxy / w
+    /// A single-bead shell of horizontal thickness w (the bead width) gains, per lap, the cross-section
+    /// w x dz in any vertical section across the wall, dz = how much higher the lap lies than the lap
+    /// below: a parallelogram with horizontal sides w and height dz. How far the lap is offset sideways
+    /// (dxy, an overhang or a wall leaning in) does not change that area: a sideways offset moves the
+    /// material, it does not add any. Where the surface turns nearly flat (crown, the shelf under a
+    /// chin) the laps step mostly sideways and the shell becomes a skin: per mm of path it then needs
+    /// the sideways step times the skin thickness. Together:
     ///
-    /// Stacked straight (the lap below right underneath): t = the vertical gap. Where the lap below
-    /// lies to the side (overhang, crown) only the share dxy / w of the slant distance counts, so a
-    /// bead that leans on the one below is not overfilled. E = factor x w x t x length.
+    ///   A = max(w dz, dxy t_skin)        t = A / w = max(dz, dxy t_skin / w)        E = factor x w x t x length
+    ///
+    /// with (dz, dxy) = vertical and horizontal part of the line to the closest point of the lap below,
+    /// and t_skin = Skin Thickness (default the layer height, never below 0.4 x layer height). The
+    /// skin term takes over where dz / dxy &lt; t_skin / w (surface flatter than about 24 degrees for a
+    /// 4 mm bead and 1.75 mm layers).
+    ///
+    /// The law of the printed UNIKAT HEAD V2 (2024), used up to 1.3.0, added the share dxy / w of the
+    /// slant distance on top of dz: t = dz + (h - dz) dxy / w (h = 3D distance). That term is extra
+    /// material: on V2 3.4 % over the whole head, 4-5 % per lap under the chin, about 12 % on a 45 degree
+    /// slope and 36-57 % per lap on the shoulder towards the crown (surface 20-35 degrees). It is kept
+    /// as HeightV2 so Non-Planar Check can recognise old files.
     /// </summary>
     public static class BeadLaw
     {
-        public static double Height(Point3d p, Point3d q, double w)
+        /// <summary>Bead height by the shell law: max(dz, dxy x skin / w) to the closest point q of the lap below.</summary>
+        public static double Height(Point3d p, Point3d q, double w, double skin)
+        {
+            double dz = Math.Max(0, p.Z - q.Z);
+            double dxy = Math.Sqrt((p.X - q.X) * (p.X - q.X) + (p.Y - q.Y) * (p.Y - q.Y));
+            return Math.Max(dz, dxy * skin / Math.Max(1e-9, w));
+        }
+
+        /// <summary>The law of the printed UNIKAT HEAD V2 (up to 1.3.0): t = dz + (h - dz) dxy / w. It over-extrudes
+        /// leaning laps (see the class notes); only for recognising old files.</summary>
+        public static double HeightV2(Point3d p, Point3d q, double w)
         {
             double dz = p.Z - q.Z;
             double dxy = Math.Sqrt((p.X - q.X) * (p.X - q.X) + (p.Y - q.Y) * (p.Y - q.Y));
@@ -194,7 +218,7 @@ namespace LARGERslicer.Toolpaths
         {
             low = double.MaxValue; high = 0; count = 0;
             if (tp == null || tp.Count < 3) return;
-            double w = tp.Settings.BeadWidth, hNom = tp.Settings.LayerHeight;
+            double w = tp.Settings.BeadWidth, hNom = tp.Settings.LayerHeight, skin = tp.Settings.EffectiveSkin;
             int n = tp.Count;
             var s = new double[n];
             for (int i = 1; i < n; i++) s[i] = s[i - 1] + tp.Points[i].DistanceTo(tp.Points[i - 1]);
@@ -239,7 +263,7 @@ namespace LARGERslicer.Toolpaths
                     if (d < best) { best = d; q = c; }
                 }
                 if (!q.IsValid) continue;
-                double t1 = Height(p, q, w);
+                double t1 = Height(p, q, w, skin);
                 t1 = Math.Max(0.01, Math.Min(3.0 * hNom, t1)); // never exactly 0: a move with E 0 reads as a stop
                 heights[i] = t1; count++;
                 if (t1 < low) low = t1; if (t1 > high) high = t1;

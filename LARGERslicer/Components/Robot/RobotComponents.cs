@@ -65,7 +65,7 @@ namespace LARGERslicer.Components.Robot
             p.AddTextParameter("Library", "Lib", "Optional. Path of a robot library file of the Robots plug-in (.xml), or its text. Empty = KUKA KR120 R2700-2", GH_ParamAccess.item);
             p.AddTextParameter("Cell Name", "CN", "Optional. Name of the RobotCell in the file. Empty = the first one", GH_ParamAccess.item);
             p.AddPlaneParameter("Base", "B", "Where the robot stands in the Rhino model: the plane of its foot", GH_ParamAccess.item, Plane.WorldXY);
-            p.AddTextParameter("Geometry File", "Geo", "Optional. The Rhino file (.3dm) with the 3D model of the robot, as the Robots plug-in keeps it beside its library file: a layer RobotArm.MANUFACTURER.MODEL with seven meshes, the base and the six links. Empty = looked for beside the Library file and in Documents/RobotSystems", GH_ParamAccess.item);
+            p.AddTextParameter("Geometry File", "Geo", "Optional. The Rhino file (.3dm) with the 3D model of the robot, as the Robots plug-in keeps it beside its library file: a layer RobotArm.MANUFACTURER.MODEL with seven meshes, the base and the six links. Empty = looked for beside the Library file and in the library folders (Documents/RobotSystems, Documents/Robots, ~/Robots)", GH_ParamAccess.item);
             p[0].Optional = true; p[1].Optional = true; p[3].Optional = true;
         }
 
