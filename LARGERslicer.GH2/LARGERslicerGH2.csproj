@@ -39,4 +39,8 @@
     <EmbeddedResource Include="../LARGERslicer/Resources/LARGERslicer_24x24.png" LogicalName="LARGERslicer.GH2.Icons.24.LARGERslicer.png" />
     <EmbeddedResource Include="../LARGERslicer/Resources/plugin-icon.png" LogicalName="LARGERslicer.GH2.Icons.256.LARGERslicer.png" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- curve tools (fork B): the GH1-free helpers of the old Toolpaths tab -->
+    <Compile Include="../LARGERslicer/Utils/PathHelper.cs" LinkBase="Core" />
+  </ItemGroup>
 </Project>
