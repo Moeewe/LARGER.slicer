@@ -58,7 +58,7 @@ Settings sit on the components themselves: the rows under a component are choice
 
 **Speeds are in mm/s.** `Print Settings` and `Easy Slicer` take Speed 50, Min Speed 5 and Max Speed 200 mm/s by default. The path and the machine files keep mm/min, the F of G-code and DXR: 50 mm/s = F3000. Definitions saved with an older version are read as mm/min, with a note on the component.
 
-The tab has six groups, in the order you connect them (the dropdown of the Slicer panel shows them separated by lines):
+The tab has seven groups, in the order you connect them (the dropdown of the Slicer panel shows them separated by lines):
 
 | Group | Component | What it does |
 |---|---|---|
@@ -87,14 +87,7 @@ The tab has six groups, in the order you connect them (the dropdown of the Slice
 | | `Printer Simulation` | The print head running the path on the machine, with a slider or Play |
 | | `Toolpath to Robot Lines` | PTP lines for the DXR Generator (Weber DXR) |
 | | `Import G-code` | Reads G-code from other slicers or a .dxr file as a toolpath, to check it with `Path Check` |
-
-**Slicer · Curves** is its own panel, right after Slicer: tools for your own curves instead of a model.
-
-| Group | Component | What it does |
-|---|---|---|
-| **1 Layers and curves** | `Layers to Curves` · `Curves to Layers` | Opens layers up as plain curves, and turns your own curves back into layers for `Continuous Path` |
-| **2 Fill a curve** | `Curve Fill Zigzag` · `Curve Fill Contour` · `Curve Fill Cells` · `Curve Fill Euler` · `Curve Fill Cross Lines` · `Curve Continuous Infill` · `Curve Wall and Zigzag` | One closed outline filled as one line |
-| **3 Join into a path** | `Curve Continuous Path` · `Curve Join and Order` · `Curve Bridge` · `Curve Uncross` · `Align Curves` · `Alternate Curves` · `Join Open Contours` | Curves joined, ordered and bridged into one path without crossings |
+| **7 Curve tools** | `Layers to Curves` · `Curves to Layers` · `Curve Fill Zigzag` · `Curve Fill Contour` · `Curve Fill Cells` · `Curve Fill Euler` · `Curve Fill Cross Lines` · `Curve Continuous Infill` · `Curve Wall and Zigzag` · `Curve Continuous Path` · `Curve Join and Order` · `Curve Bridge` · `Curve Uncross` | For your own curves instead of a model: layers as curves and back, one outline filled as one line, curves joined into one path without crossings. `Align Curves`, `Alternate Curves` and `Join Open Contours` are in this group too but hidden from the panel: find them by searching (double-click the canvas) |
 
 `Quick Start` places seven examples: 01 flat layers, 02 non-planar, 03 multi-axis, 04 a part with an opening, 05 angled layers, 06 `Easy Slicer` (a vase as a spiral) and 07 a non-planar head on the Ginger One (Klipper), with layers that follow the part.
 
@@ -241,7 +234,7 @@ For printing with a robot: the cell is described once, then every toolpath becom
 
 </details>
 
-The curve-based tools of the former Toolpaths tab are now in the panel **Slicer · Curves** (see above), named like their Slicer counterparts (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
+The curve-based tools of the former Toolpaths tab are now the last group of the Slicer tab (see above), named like their Slicer counterparts (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
 
 ## Machines
 

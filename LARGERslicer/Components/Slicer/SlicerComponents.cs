@@ -14,8 +14,6 @@ namespace LARGERslicer.Components.Slicer
     {
         public const string Category = "LARGER";
         public const string SubCategory = "Slicer";
-        /// <summary>The tools for your own curves, in their own panel right after Slicer.</summary>
-        public const string CurvesSubCategory = "Slicer \u00B7 Curves";
 
         public static T Get<T>(IGH_DataAccess da, int index) where T : class
         {
@@ -614,8 +612,7 @@ namespace LARGERslicer.Components.Slicer
                   "Opens layers up as plain curves, one branch per layer. Use it to try your own pattern in a script or with standard Grasshopper components, then turn the result back into layers with Curves to Layers.") { }
 
         public override Guid ComponentGuid => new Guid("85370F11-452C-4324-BEBE-FBB9A6C3EC29");
-        public override string SubCategory => SlicerIO.CurvesSubCategory;
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerOpenIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
@@ -662,8 +659,7 @@ namespace LARGERslicer.Components.Slicer
                   "Turns your own curves into layers, one branch per layer. Everything after it (Continuous Path, Round Corners, Extrusion ...) then works on your pattern. Closed curves are printed as loops, open curves back and forth.") { }
 
         public override Guid ComponentGuid => new Guid("94691320-4B3D-4C27-9CE4-83CBAAE545AD");
-        public override string SubCategory => SlicerIO.CurvesSubCategory;
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerCurvesToLayersIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)

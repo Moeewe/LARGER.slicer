@@ -58,7 +58,7 @@ Die Einstellungen sitzen auf den Komponenten selbst: Die Zeilen unter einer Komp
 
 **Geschwindigkeiten in mm/s.** `Print Settings` und `Easy Slicer` nehmen standardmäßig Speed 50, Min Speed 5 und Max Speed 200 mm/s. Die Bahn und die Maschinendateien bleiben in mm/min, dem F von G-Code und DXR: 50 mm/s = F3000. Definitionen, die mit einer älteren Version gespeichert wurden, werden als mm/min gelesen, mit einem Hinweis an der Komponente.
 
-Der Tab hat sechs Gruppen, in der Reihenfolge, in der du verbindest (das Ausklappmenü des Slicer-Panels trennt sie durch Linien):
+Der Tab hat sieben Gruppen, in der Reihenfolge, in der du verbindest (das Ausklappmenü des Slicer-Panels trennt sie durch Linien):
 
 | Gruppe | Komponente | Aufgabe |
 |---|---|---|
@@ -87,14 +87,7 @@ Der Tab hat sechs Gruppen, in der Reihenfolge, in der du verbindest (das Ausklap
 | | `Printer Simulation` | Der Druckkopf fährt die Bahn auf der Maschine ab, mit Schieberegler oder Play |
 | | `Toolpath to Robot Lines` | PTP-Zeilen für den DXR Generator (Weber DXR) |
 | | `Import G-code` | Liest G-Code anderer Slicer oder eine .dxr-Datei als Bahn ein, zur Prüfung mit `Path Check` |
-
-**Slicer · Curves** ist ein eigenes Panel direkt nach Slicer: Werkzeuge für eigene Kurven statt eines Modells.
-
-| Gruppe | Komponente | Aufgabe |
-|---|---|---|
-| **1 Lagen und Kurven** | `Layers to Curves` · `Curves to Layers` | Öffnet Lagen als einfache Kurven und macht aus eigenen Kurven wieder Lagen für `Continuous Path` |
-| **2 Eine Kurve füllen** | `Curve Fill Zigzag` · `Curve Fill Contour` · `Curve Fill Cells` · `Curve Fill Euler` · `Curve Fill Cross Lines` · `Curve Continuous Infill` · `Curve Wall and Zigzag` | Eine geschlossene Umrandung als eine Linie gefüllt |
-| **3 Zur Bahn verbinden** | `Curve Continuous Path` · `Curve Join and Order` · `Curve Bridge` · `Curve Uncross` · `Align Curves` · `Alternate Curves` · `Join Open Contours` | Kurven verbunden, sortiert und überbrückt zu einer Bahn ohne Kreuzungen |
+| **7 Kurvenwerkzeuge** | `Layers to Curves` · `Curves to Layers` · `Curve Fill Zigzag` · `Curve Fill Contour` · `Curve Fill Cells` · `Curve Fill Euler` · `Curve Fill Cross Lines` · `Curve Continuous Infill` · `Curve Wall and Zigzag` · `Curve Continuous Path` · `Curve Join and Order` · `Curve Bridge` · `Curve Uncross` | Für eigene Kurven statt eines Modells: Lagen als Kurven und zurück, eine Umrandung als eine Linie gefüllt, Kurven zu einer Bahn ohne Kreuzungen verbunden. `Align Curves`, `Alternate Curves` und `Join Open Contours` gehören auch dazu, sind im Panel aber ausgeblendet: über die Suche finden (Doppelklick auf die Leinwand) |
 
 `Quick Start` legt sieben Beispiele an: 01 flache Lagen, 02 non-planar, 03 multiaxial, 04 ein Teil mit Öffnung, 05 schräge Lagen, 06 `Easy Slicer` (eine Vase als Spirale) und 07 ein non-planarer Druckkopf am Ginger One (Klipper), mit Lagen, die dem Bauteil folgen.
 
@@ -241,7 +234,7 @@ Für das Drucken mit dem Roboter: Die Zelle wird einmal beschrieben, danach wird
 
 </details>
 
-Die kurvenbasierten Werkzeuge des früheren Tabs „Toolpaths“ liegen jetzt im Panel **Slicer · Curves** (siehe oben) und heißen wie ihre Gegenstücke im Slicer (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
+Die kurvenbasierten Werkzeuge des früheren Tabs „Toolpaths“ sind jetzt die letzte Gruppe des Tabs „Slicer“ (siehe oben) und heißen wie ihre Gegenstücke im Slicer (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
 
 ## Maschinen
 

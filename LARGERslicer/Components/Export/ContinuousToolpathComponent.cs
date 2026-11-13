@@ -21,8 +21,8 @@ namespace LARGERslicer.Components.Export
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Slicer · Curves";
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override string SubCategory => "Slicer";
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
