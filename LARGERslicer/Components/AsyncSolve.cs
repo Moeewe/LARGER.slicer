@@ -168,6 +168,12 @@ namespace LARGERslicer.Components
             bool running;
             lock (_lock) running = _pending > 0;
             if (running) { ShowClock(); StartTimer(); }
+            else
+            {
+                // nothing started (e.g. an input is missing now): no clock left standing
+                StopTimer();
+                if (_owner.Message != null && _owner.Message.StartsWith("computing", StringComparison.Ordinal)) _owner.Message = null;
+            }
         }
 
         /// <summary>ExpireSolution: an input changed (unless the component expired itself to hand out its results).</summary>

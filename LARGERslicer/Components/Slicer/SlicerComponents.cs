@@ -52,7 +52,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void AfterSolveInstance() { base.AfterSolveInstance(); Async?.After(); }
         public override void ExpireSolution(bool recompute) { Async?.Expired(); base.ExpireSolution(recompute); }
         public override void RemovedFromDocument(GH_Document document) { Async?.Cancel(); base.RemovedFromDocument(document); }
-        public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context) { if (context == GH_DocumentContext.Close || context == GH_DocumentContext.Unloaded) Async?.Cancel(); base.DocumentContextChanged(document, context); }
+        public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context) { if (context == GH_DocumentContext.Close) Async?.Cancel(); base.DocumentContextChanged(document, context); }
         public override bool Write(GH_IO.Serialization.GH_IWriter writer) { Async?.Write(writer); return base.Write(writer); }
         public override bool Read(GH_IO.Serialization.GH_IReader reader) { Async?.Read(reader); return base.Read(reader); }
         protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu) { base.AppendAdditionalComponentMenuItems(menu); Async?.AppendMenu(menu); }
