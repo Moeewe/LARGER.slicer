@@ -43,7 +43,7 @@ Start, Layers, Walls & fill, Path, Check, Output, Curve tools.
 | Output | Machine | Built-in machines and your own from `Documents/LARGER/Machines` (.machine text files), or typed in here |
 | Output | Machine G-code | G-code for the machine you connect |
 | Output | Desktop Test Print | The path scaled down for a desktop printer, with that printer's start, layer change and end |
-| Output | Toolpath to Robot Lines | One PTP line per path point with one fixed tool orientation |
+| Output | Toolpath to Robot Lines | One PTP line per path point with one fixed tool orientation; extrusion and feed per line |
 | Output | Printer Simulation | Plays the path on the machine (Ginger One or your own with a 3D model): head on the path, part printed up to that moment |
 | Curve tools | Layers to Curves · Curves to Layers | Layers as plain curves for your own pattern, and back |
 | Curve tools | Import G-code | G-code from other slicers or a .dxr file as a toolpath, to check it |

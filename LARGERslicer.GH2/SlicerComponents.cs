@@ -89,6 +89,14 @@ namespace LARGERslicer.GH2
             return o;
         }
 
+        /// <summary>Long calculations: shows how far it is (0 to 100 %) and returns true when Grasshopper
+        /// has cancelled this solution (the inputs changed meanwhile), so the component stops early.</summary>
+        public static bool Step(IDataAccess access, int percent)
+        {
+            access.SetProgress(Math.Max(0, Math.Min(100, percent)));
+            return access.Solution != null && access.Solution.Token.IsCancellationRequested;
+        }
+
         public static void Remarks(IDataAccess access, IEnumerable<string> log)
         {
             foreach (var l in log) access.AddRemark(l.Length > 60 ? l.Substring(0, 60) + "…" : l, l);
@@ -276,6 +284,7 @@ namespace LARGERslicer.GH2
 
             // a bent layer needs a fine mesh, or long flat faces would stay straight
             bool followPart = guide == null && (guideMode == 2 || guideMode == 3);
+            if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), tol, log, warp != null || followPart ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
             if (followPart)
@@ -294,6 +303,7 @@ namespace LARGERslicer.GH2
                 else access.AddWarning(what, mw.Problem + ". Slicing flat.");
             }
             int extra; access.GetItem(6, out extra);
+            if (Io.Step(access, 40)) return; // progress; stop if the inputs changed meanwhile
             var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
             if (extra > 0 && warp == null)
             {
@@ -506,6 +516,7 @@ namespace LARGERslicer.GH2
                 settings = settings.Duplicate();
                 settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
             }
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, Math.Max(0, ramp), false, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
             // as in Grasshopper 1: slivers, bridges and the seam are notes, everything else is a warning
             foreach (var l in log)
@@ -649,6 +660,7 @@ namespace LARGERslicer.GH2
             }
             if (tp.Normals.Any(n => Math.Abs(n.Z) < 0.9998))
                 access.AddRemark("Tilted tool axes", "The path has tilted tool axes. This check is for a vertical nozzle.");
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var r = NonPlanarCheck.Run(tp, head);
             if (!r.Ok) access.AddWarning("Check the path", r.Report.FirstOrDefault(l => l.StartsWith("HEAD") || l.StartsWith("TOO") || l.StartsWith("BEAD") || l.StartsWith("EXTRUSION") || l.StartsWith("Empty")) ?? "Read Report.");
             access.SetItem(0, r.Ok);

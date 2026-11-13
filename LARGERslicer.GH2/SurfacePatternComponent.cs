@@ -70,6 +70,7 @@ namespace LARGERslicer.GH2
                 if (o.Image == null) access.AddWarning("Image", problem);
             }
             var log = new List<string>();
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var r = SurfacePattern.Apply(tp, o, log);
             foreach (var l in log) access.AddWarning("Surface Pattern", l);
             access.SetItem(0, r.Path);

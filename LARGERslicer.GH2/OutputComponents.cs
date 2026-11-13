@@ -116,7 +116,7 @@ namespace LARGERslicer.GH2
 
         protected override void AddInputs(InputAdder inputs)
         {
-            inputs.AddGeneric("Geometry", "G", "Your part: Breps, surfaces, SubDs or meshes, standing on the XY plane.", Access.Twig);
+            inputs.AddGeneric("Geometry", "G", "Your part: Breps, surfaces, SubDs or meshes, standing on the XY plane.", Access.Twig, Requirement.MayBeMissing); // empty: a remark instead of an error, as in GH1
             inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm. Every dimension follows from it.").Set(5.0);
             inputs.AddNumber("Layer Height", "H", "Layer height in mm: a third to a half of the bead width.").Set(2.0);
             inputs.AddNumber("Speed", "V", "Print speed in mm/s, the same for every move (50 mm/s = F3000 in G-code).").Set(50.0);
@@ -150,7 +150,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             object[] geo;
-            if (!access.GetItemArray(0, out geo) || geo == null || geo.Length == 0) return;
+            if (!access.GetItemArray(0, out geo) || geo == null || geo.Length == 0) { access.AddRemark("Connect a part", "Connect your part to Geometry: a Brep, surface, SubD or mesh that stands on the XY plane."); return; }
             double w, h, f, size; int machine, walls, bottom, infill;
             access.GetItem(1, out w); access.GetItem(2, out h); access.GetItem(3, out f); access.GetItem(4, out machine);
             access.GetItem(5, out walls); access.GetItem(6, out bottom); access.GetItem(7, out infill); access.GetItem(8, out size);
@@ -167,8 +167,10 @@ namespace LARGERslicer.GH2
             string nozzleNote = Nozzles.Apply(st, nozzle);
             if (nozzleNote != null) foreach (var note in Nozzles.Check(st.Nozzle, st.NozzleShape, st.BeadWidth, st.LayerHeight)) access.AddWarning("Nozzle", note);
             var log = new List<string>();
+            if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), Math.Max(0.01, st.Resolution * 0.025), log);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
+            if (Io.Step(access, 30)) return; // progress; stop if the inputs changed meanwhile
             var plane = Plane.WorldXY;
             if (Math.Abs(angle) > 1e-9) plane.Rotate(Rhino.RhinoMath.ToRadians(angle), plane.XAxis, plane.Origin);
             var layers = SliceEngine.Slice(mesh, plane, st.LayerHeight, st.PointSpacing, log, null, st.FirstLayerHeight);

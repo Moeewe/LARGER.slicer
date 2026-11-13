@@ -66,7 +66,7 @@ namespace LARGERslicer.GH2
         {
             outputs.AddText("Robot Path", "Path", "One PTP line per path point.", Access.Twig);
             outputs.AddNumber("Extrusion", "E", "Extrusion per line.", Access.Twig);
-            outputs.AddNumber("Speed", "F", "Speed in mm/min per line.", Access.Twig);
+            outputs.AddNumber("Feed", "F", "Feed F for the machine, in mm/min (mm/s x 60), per line.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)

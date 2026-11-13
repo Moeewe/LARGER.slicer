@@ -69,6 +69,7 @@ namespace LARGERslicer.GH2
             access.GetItem(11, out tc); access.GetItem(12, out file); access.GetItem(13, out format); access.GetItem(14, out save);
             var m = new OrthotropicMaterial { E1 = e1, E2 = e2, E3 = e3, G12 = g12, G13 = g13, G23 = g13, Nu12 = nu12, Nu13 = nu13, Nu23 = nu13 };
 
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var r = MaterialField.Compute(tp, breps, pts != null ? pts.ToList() : null, new MaterialFieldOptions { Spacing = spacing, Material = m, CoolingTime = tc });
             Io.Remarks(access, r.Log);
             if (r.Samples.Count == 0) { access.AddWarning("No samples", "Nothing to sample."); return; }
