@@ -355,6 +355,8 @@ namespace LARGERslicer.Toolpaths
     {
         public RobotProgramResult Program;
         public RobotCell Cell;
+        /// <summary>The bodies of the collision check, to test any moment of the run (null = not checked).</summary>
+        public CollisionModel Collider => Program?.Collision?.Model;
         public List<Point3d> Points = new List<Point3d>();
         /// <summary>Seconds from the start at which each move ends.</summary>
         public List<double> Seconds = new List<double>();
@@ -479,6 +481,18 @@ namespace LARGERslicer.Toolpaths
         public double[] AxisMin = new double[6], AxisMax = new double[6];
         /// <summary>The external axes along the program; null if the cell has none.</summary>
         public ExternalAxisPlan External;
+        /// <summary>The collision check (see Collision.cs); null = not run.</summary>
+        public CollisionResult Collision;
+        public int Collisions => Collision != null ? Collision.Hits : 0;
+
+        /// <summary>Runs the collision check and adds its result to the report. A collision makes the program not OK.</summary>
+        public CollisionResult CheckCollisions(Toolpath tp, RobotCell cell, CollisionOptions options)
+        {
+            Collision = CollisionCheck.Run(this, tp, cell, options);
+            Report.AddRange(Collision.Lines);
+            if (Collision.Hits > 0) Ok = false;
+            return Collision;
+        }
     }
 
     /// <summary>

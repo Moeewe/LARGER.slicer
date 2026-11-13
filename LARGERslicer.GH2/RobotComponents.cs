@@ -152,6 +152,9 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Pose", "P", "Shows the arm at this place of the path: 0 = start, 1 = end.").Set(0.0);
             inputs.AddText("File", "File", "Optional: full path of the .src file to write.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Save", "Save", "True writes the KRL file.").Set(false);
+            inputs.AddBoolean("Check Collisions", "CC", "True = check the robot, the tool, rail and turntable against each other, the part printed so far, the bed and the Environment of the cell.").Set(true);
+            inputs.AddNumber("Clearance", "Cl", "Bodies closer than this (mm) are reported as a near miss.").Set(10.0);
+            inputs.AddInteger("Collision Poses", "Col", "Fast mode: how many poses along the path are checked (evenly spread), plus the critical ones (travel moves, where the tool turns, the strongest tilt of every layer). -1 = every move.").Set(500);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -168,6 +171,8 @@ namespace LARGERslicer.GH2
             outputs.AddMesh("Robot", "Rob", "The robot with its tool at the chosen Pose, as a 3D model.", Access.Twig);
             outputs.AddGeneric("Program", "Prg", "The finished program with its cell: connect to Robot Simulation to play it.");
             outputs.AddPoint("Collisions", "Hit", "Path points at which the robot collides with itself, the Environment of the cell or the part already printed.", Access.Twig);
+            outputs.AddInteger("Collision Moves", "CM", "Numbers of the moves at which something collides (as Move of Robot Simulation).", Access.Twig);
+            outputs.AddMesh("Collision Bodies", "CB", "The bodies that collide, where they are at their worst collision, and a ball where they touch.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
@@ -176,11 +181,25 @@ namespace LARGERslicer.GH2
             var cell = Io.Get<RobotCell>(access, 1) ?? new RobotCell();
             double turn, pose; string name, file; bool save;
             access.GetItem(2, out turn); access.GetItem(3, out name); access.GetItem(4, out pose); access.GetItem(5, out file); access.GetItem(6, out save);
+            bool collide; double clearance; int poses;
+            if (!access.GetItem(7, out collide)) collide = true;
+            if (!access.GetItem(8, out clearance)) clearance = 10;
+            if (!access.GetItem(9, out poses)) poses = 500;
             var r = RobotProgram.Build(tp, cell, turn, name, true);
-            var col = RobotGeometry.Collisions(r, cell, cell.Environment, 500, tp.Points, tp.Settings.BeadWidth);
-            if (col.Checked) r.Report.Add(col.Report);
             if (!r.Ok) access.AddWarning("Not runnable", string.Join("\n", r.Report.Where(l => l.StartsWith("NOT"))));
-            if (col.Hits > 0) { access.AddWarning("Collision", col.Report); access.SetTwig(11, col.Moves.Select(i => r.Moves[i].Part.Pt(tp.Points[i])).ToArray(), null, null); }
+            if (collide && poses != 0)
+            {
+                var col = r.CheckCollisions(tp, cell, new CollisionOptions { Clearance = Math.Max(0, clearance), Poses = poses });
+                if (col.Hits > 0)
+                {
+                    access.AddWarning("Collision", string.Join("\n", col.Lines.Take(4)));
+                    access.SetTwig(11, col.Moves.Select(i => r.Moves[i].Part.Pt(tp.Points[i])).ToArray(), null, null);
+                }
+                else if (col.Checked) access.AddRemark("No collision", col.Summary);
+                access.SetTwig(12, col.Moves.ToArray(), null, null);
+                access.SetTwig(13, col.Bodies.ToArray(), null, null);
+            }
+            else r.Report.Add("Collisions were not checked (Check Collisions is off).");
             access.SetItem(10, RobotRun.Make(r, cell, tp));
             Files.Save(access, save, file, r.Krl, RobotProgram.ProgramName(name) + ".src");
             access.SetItem(8, OutputFile.Name("DXR", name, tp, ""));
@@ -228,6 +247,7 @@ namespace LARGERslicer.GH2
             outputs.AddPolyline("Printed", "Pr", "The path printed up to that moment, where it is in the room: it turns with a turntable.");
             outputs.AddMesh("Axes Model", "AM", "The rail with its carriage and the turntable at that moment.", Access.Twig);
             outputs.AddMesh("Environment", "Env", "What stands around the robot (the Environment of the cell), to see it in the simulation.", Access.Twig);
+            outputs.AddMesh("Colliding", "Col", "What collides at this moment: robot links, tool, rail, table, environment, and a ball where it touches. Empty = clear.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
@@ -249,12 +269,31 @@ namespace LARGERslicer.GH2
             var printed = run.PrintedAt(seconds); if (printed.Count > 1) access.SetItem(7, printed);
             access.SetTwig(8, ExternalAxisGeometry.Pose(run.Cell, ext).ToArray(), null, null);
             if (run.Cell.Environment != null) access.SetTwig(9, run.Cell.Environment.ToArray(), null, null);
+            string collision = "";
+            if (run.Collider != null)
+            {
+                PoseCollision pc = null;
+                try { pc = run.Collider.Check(axes, ext, move); } catch { }
+                if (pc != null && pc.Any)
+                {
+                    var colliding = new List<Mesh>();
+                    foreach (int i in pc.Robot) if (model != null && i < model.Count) colliding.Add(model[i]);
+                    var axesModel = ExternalAxisGeometry.Pose(run.Cell, ext);
+                    foreach (int i in pc.Axes) if (i < axesModel.Count) colliding.Add(axesModel[i]);
+                    var env = run.Collider.Cell.Environment;
+                    if (env != null) foreach (int i in pc.Environment) if (i < env.Count) colliding.Add(env[i]);
+                    foreach (var w in pc.Where) { var ball = Mesh.CreateFromSphere(new Sphere(w, 12), 12, 8); if (ball != null) colliding.Add(ball); }
+                    access.SetTwig(10, colliding.ToArray(), null, null);
+                    collision = " - COLLISION: " + string.Join(", ", pc.Robot.OrderBy(i => i).Select(CollisionModel.RobotName));
+                    access.AddWarning("Collision", "Collision at this moment: see Colliding.");
+                }
+            }
             Frame tip = run.Cell.RobotBaseAt(ext).Times(arm.Forward(axes)).Times(Frame.World.TurnedAboutZ(Math.PI)).Times(run.Cell.Tool.Tcp);
             access.SetTwig(1, axes, null, null);
             access.SetItem(2, tip.ToPlane());
             var ci = CultureInfo.InvariantCulture;
             access.SetItem(5, TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", ci) + " of " + TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci) + $", move {move}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci)))
-                + (ext == null ? "" : string.Concat(ext.Select((v, k) => ", " + run.Cell.ExternalAxes[k].Name + " " + v.ToString("0.0", ci)))));
+                + (ext == null ? "" : string.Concat(ext.Select((v, k) => ", " + run.Cell.ExternalAxes[k].Name + " " + v.ToString("0.0", ci)))) + collision);
         }
     }
 
