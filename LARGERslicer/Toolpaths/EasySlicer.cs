@@ -154,6 +154,7 @@ namespace LARGERslicer.Toolpaths
         public static string SpeedNote(PrintSettings st, PathEngine.ProcessResult pr)
         {
             string s = Inv.F($"print speed {st.Speed / 60.0:0.#} mm/s");
+            if (st.FirstLayerSpeed > 0) s += Inv.F($", first layer {st.FirstLayerSpeed / 60.0:0.#} mm/s");
             var slower = new List<string>();
             if (pr != null && pr.LayerFeed.Count > 0)
             {
@@ -164,7 +165,7 @@ namespace LARGERslicer.Toolpaths
             if (pr != null && pr.VolumeCapped > 0)
                 slower.Add(Inv.F($"{pr.VolumeCapped} move(s) slower for Max Volume Rate {st.MaxVolumeRate:0} mm3/s"));
             else if (st.MaxVolumeRate > 0) slower.Add(Inv.F($"Max Volume Rate {st.MaxVolumeRate:0} mm3/s (no move above it)"));
-            if (slower.Count == 0) return s + ", the same on every print move (Min Layer Time and Max Volume Rate are off)";
+            if (slower.Count == 0) return s + (st.FirstLayerSpeed > 0 ? ", otherwise the same on every print move" : ", the same on every print move") + " (Min Layer Time and Max Volume Rate are off)";
             return s + "; " + string.Join("; ", slower) + "; the F of each move is the speed it runs at";
         }
 

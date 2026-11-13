@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (first layer speed)
+- `First Layer Speed` on Print Settings (Grasshopper 1 and 2), in mm/s, 0 = Speed: the first layer runs at its own speed for adhesion (the Ginger head of 2024 used 25 mm/s = F1500). Min Layer Time can only make it slower. File headers name it.
+
 ### Changed (speeds in mm/s, machine names)
 - Speeds are entered in mm/s (Print Settings: Speed 50, Min Speed 5, Max Speed 200 mm/s; Easy Slicer: Speed 50 mm/s); the path and the machine files keep mm/min, the F of G-code and DXR (50 mm/s = F3000). Definitions saved with an older version are read as mm/min, with a note. Reports name speeds in mm/s. The per-point outputs for the machine are called `Feed` (F, mm/min). Also in Grasshopper 2.
 - Machines and machine profiles are listed as manufacturer and machine: "Ginger Additive · Ginger One (Klipper)", "Weber Additive · DXR25 on a robot", "Generic · Filament printer 1.75 mm". Own .machine files can carry `manufacturer = ...`.

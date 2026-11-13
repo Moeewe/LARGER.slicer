@@ -19,6 +19,7 @@ namespace LARGERslicer.Toolpaths
         public double Overlap = 0.15;         // sideways overlap of neighbouring beads, 0..1
         public double Speed = 3000.0;         // mm/min, nominal print speed
         public double MinSpeed = 300.0;       // mm/min, lower limit when speed compensates height
+        public double FirstLayerSpeed = 0.0;  // mm/min, 0 = Speed: the first layer (and the skirt) at this speed, for adhesion
         public double MinLayerTime = 0.0;     // s, 0 = off: shorter layers are printed slower (Process), never below MinSpeed
         public double MaxVolumeRate = 0.0;    // mm3/s, 0 = off: no move asks the extruder for more (Ginger about 330)
         public double MaxSpeed = 12000.0;     // mm/min, upper limit and travel speed

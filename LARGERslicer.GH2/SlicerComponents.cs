@@ -130,6 +130,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Density", "D", "Density of the printed material in g/cm3, for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9.").Set(1.25);
             inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed, so the first bead is not pressed into it. 0 = the layer height.").Set(0.0);
             inputs.AddInteger("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0);
+            inputs.AddNumber("First Layer Speed", "V1", "Speed of the first layer in mm/s, for adhesion (the Ginger prints it at about 25 mm/s). 0 = the same as Speed.").Set(0.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -150,6 +151,7 @@ namespace LARGERslicer.GH2
             double density; access.GetItem(6, out density); if (density > 0) s.Density = density;
             double first; access.GetItem(7, out first); s.FirstLayerHeight = Math.Max(0, first);
             if (first > 0 && (first < 0.5 * h || first > 1.5 * h)) access.AddWarning("First layer", $"The first layer is {first:0.##} mm, the others {h:0.##} mm. Stay between half and one and a half layer heights, or the first bead is crushed or does not stick.");
+            double v1; access.GetItem(9, out v1); s.FirstLayerSpeed = v1 > 0 ? (v1 > 1000 ? v1 : v1 * 60) : 0;
             int nozzle; access.GetItem(8, out nozzle);
             if (nozzle > 0)
             {

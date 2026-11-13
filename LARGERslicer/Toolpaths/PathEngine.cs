@@ -1454,8 +1454,9 @@ namespace LARGERslicer.Toolpaths
                 double e = m.Section(width, height) * flow * len * m.Factor;
                 if (tp.Layers[i] == firstLayer) e *= m.FirstLayerFactor;
 
-                double speed = st.Speed;
-                if (feed != null && tp.Roles[i] != PathRole.Skirt && feed.TryGetValue(tp.Layers[i], out double fl)) speed = fl;
+                // the first layer may run at its own speed (adhesion); Min Layer Time can only make it slower
+                double speed = tp.Layers[i] == firstLayer && st.FirstLayerSpeed > 0 ? st.FirstLayerSpeed : st.Speed;
+                if (feed != null && tp.Roles[i] != PathRole.Skirt && feed.TryGetValue(tp.Layers[i], out double fl)) speed = Math.Min(speed, fl);
                 if (compensateWithSpeed)
                     speed = area > 1e-9 ? Math.Max(st.MinSpeed, Math.Min(st.MaxSpeed, nominalRate * speed / st.Speed / area)) : st.MaxSpeed;
                 if (st.MaxVolumeRate > 0 && area > 1e-9)
