@@ -243,10 +243,14 @@ At the end Quick Start removes itself from the document.
 - **Progress and early stop**: GH2 already solves beside the canvas. Long components call
   `if (Io.Step(access, 30)) return;` between their steps: it sets the progress (0-100 %) and returns
   true when Grasshopper cancelled the solution because inputs changed.
-- **Icons**: `Io.Icon("SlicerSliceIcon")` builds one `PixelIcon` from the embedded 24 px image (the
-  GH1 file), the 48 px image (`Icons/48`) and, for the plug-in, the 256 px logo; cached; never throws.
+- **Icons**: `Io.Icon("SlicerSliceIcon")` builds a `PixelIcon` from the largest embedded image: the
+  48 px image (`Icons/48`), else the 24 px GH1 file; for the plug-in the 256 px logo; cached; never
+  throws. One image only: `PixelIcon` (9.1) refuses several sizes of one picture.
+- **Inputs** (`IoData.cs`): `access.ItemArray` / `access.TreeOf` instead of `GetItemArray` / `GetTree`
+  (those throw on an optional input with no data); `Io.SetValue` sets typed inputs (`Parameter<T>`
+  is not a `Parameter`).
   Resource names: `LARGERslicer.GH2.Icons.<24|48|256>.<name>.png`.
-- **Quick Start** (`QuickStart.cs`): GH2 version with examples 00-05 (settings and five examples).
+- **Quick Start** (`QuickStart.cs`): GH2 version with the settings and the eight examples of GH1.
 - What is not ported and why: [LARGERslicer.GH2/README.md](../LARGERslicer.GH2/README.md).
 
 ---
@@ -310,7 +314,8 @@ References RhinoCommon, Grasshopper2, GrasshopperIO and Eto from the Rhino 9 ins
 `C:\Program Files\Rhino 9\System`), not from NuGet. Output: `bin/Release/net8.0/LARGERslicerGH2.rhp`
 + `Clipper2Lib.dll`. Load it by adding its full path as a line to `CustomPluginInclude.txt` in the
 Grasshopper 2 settings folder (macOS `~/Library/Application Support/Grasshopper2/Settings`, Windows
-`%APPDATA%\Grasshopper2\Settings`) and restarting Rhino. There is no Yak package for GH2 yet.
+`%APPDATA%\Grasshopper2\Settings`) and restarting Rhino. There is no Yak package for GH2 yet; an
+.rhp in a package's framework folder stops Rhino 9.1 at startup (see the GH2 README, "Load it").
 
 ### 5.3 Where the plug-in is installed
 
@@ -320,6 +325,7 @@ Grasshopper 2 settings folder (macOS `~/Library/Application Support/Grasshopper2
 | Old manual copies (detected and moved to a backup by the installer) | `.../McNeel/Rhinoceros/<n>.0/Plug-ins/Grasshopper (b45a29b1-...)/Libraries` | `%APPDATA%\Grasshopper\Libraries` |
 | Robots library (installer) | `~/Documents/Robots` (Rhino 8, Robots 2.x), `~/Robots` (Rhino 7) | `Documents\Robots` |
 | Own machines, materials, cells | `Documents/LARGER/Machines`, `.../Materials`, `.../Cells` | same under Documents |
+| Grasshopper 2 plug-in (test install) | `.../packages/9.0/LARGERslicer/<version>/gh2/LARGERslicerGH2.rhp` + `Clipper2Lib.dll`, loaded through a line in `~/Library/Application Support/Grasshopper2/Settings/CustomPluginInclude.txt` (not in `net8.0/`: see 5.2) | `%APPDATA%\Grasshopper2\Settings\CustomPluginInclude.txt` |
 
 `SETUP/Install Mac.command` and `SETUP/Install Windows.bat` (+ `setup-windows.ps1`) install Robots,
 LARGERslicer and Pufferfish from the package server, copy the KR120 library, keep newer (beta)

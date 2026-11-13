@@ -29,8 +29,9 @@ to all: a yellow INSTRUCTIONS panel, a yellow `Part name` panel that goes into e
 | **07. Non-planar head - Ginger Additive · Ginger One (Klipper)** | A head sliced along its own surface as the head of 2024: own `Print Settings` (bead 4, layer 1.75, 20 mm/s, Overlap 0, Min Speed 0.2 mm/s, first layer 0.9 mm at 25 mm/s), `Slice` Guide Mode 3 "Follow the surface" with the nozzle vertical, `Walls`, `Continuous Path` Spiral (Min Layer Time 30 s, Max Volume Rate 330), `Start and End`, `Path Check`, `Non-Planar Check`, `Machine` (Ginger One Klipper) → `Machine G-code` → `Printer Simulation` (Play) | Ginger One (Klipper) |
 | **08. Surface pattern - a vase with waves** | `Surface Pattern` between `Continuous Path` and `Start and End`: Waves, amplitude 2.5 mm (half a bead), pitch 30 mm, phase shift 0.05 (slow diagonal) | any |
 
-Grasshopper 2 has its own Quick Start (`LARGERslicer.GH2/QuickStart.cs`) with sections 00-05 (the
-settings and the first five examples); 06-08 exist only in Grasshopper 1.
+Grasshopper 2 has its own Quick Start (`LARGERslicer.GH2/QuickStart.cs`) with the same sections
+00-08; values are set on the inputs (Grasshopper 2 has no rows on the components) and the
+settings are wired directly (no wireless relays).
 
 ---
 

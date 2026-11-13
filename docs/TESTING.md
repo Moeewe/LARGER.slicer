@@ -22,6 +22,13 @@ at them (layers drawn as images, the canvas captured).
   (built from `bin/Release/net8.0`). Copying the whole build folder created duplicates with " 2" in
   their names, and Grasshopper then loaded the old `LARGERslicer 2.gha`. A new build only loads after
   Rhino restarts.
+- **Grasshopper 2 plug-in (test install):** `LARGERslicerGH2.rhp` + `.pdb` + `Clipper2Lib.dll` go into
+  the sub-folder `.../packages/9.0/LARGERslicer/<version>/gh2/`, again only while Rhino 9 is closed,
+  and `~/Library/Application Support/Grasshopper2/Settings/CustomPluginInclude.txt` holds that
+  path. **Never into `net8.0/`:** Rhino 9.1 then tries to load the new .rhp as a Rhino plug-in at
+  startup, fails (Grasshopper2.dll is not loaded yet) and its plug-in installer waits in a dialog;
+  the MCP slot never comes up (`spawn_slot` times out). `sample <pid>` showed the main thread in
+  `CRhPlugInManager::InstallPlugInsWithRegisteredUI`. Section 2.5.
 - **Close documents without the save/autosave dialog**, or an automated run hangs on it (section 2.4).
 - A slot that the test tooling did not spawn itself (an "adopted" one) cannot be closed by it; ask the
   owner to close that Rhino 9 window.
@@ -146,6 +153,38 @@ Instances.ActiveCanvas.Document = null;
 
 For the Rhino document: mark it unmodified or use `_-New _None` before exiting the slot.
 
+### 2.5 Grasshopper 2 in the test slot
+
+Grasshopper 2 is not loaded in a fresh slot: `Rhino.PlugIns.PlugIn.LoadPlugIn(new Guid("8307876d-a461-4daa-bb77-eb3715925513"))`,
+then `RhinoApp.RunScript("_GH2", false)` opens the editor (the command is `GH2`, not `Grasshopper2`).
+Check with `AppDomain.CurrentDomain.GetAssemblies()` which `LARGERslicerGH2` was loaded and from
+where: `CustomPluginInclude.txt` decides it.
+
+The harness (net8 class library, loaded by `Assembly.Load(bytes)` and called by reflection, as in
+2.4) references Rhino 9's RhinoCommon, Eto, `Grasshopper2.dll`, `GrasshopperIO.dll` (in
+`ManagedPlugIns/Grasshopper2Plugin.rhp/`) and the built .rhp. The Grasshopper 2 API it needs:
+
+| Task | Call |
+|---|---|
+| New document on the canvas | `Document.NewActiveDocument()`, `Editor.Instance.Documents.Push(doc, null)` |
+| Place, wire | `doc.Objects.Add(obj, new PointF(x, y))`, `Connections.Connect(output, input, null)` |
+| Set an input | `Parameter<T>.Set(T[])` (by reflection for typed inputs; `GenericParameter.Set(object[])`), then `Expire()` the parameter and its component |
+| Solve | `doc.Solution.StartWait()` (blocks), or `doc.Solution.Start(SolutionMode.Regular)` and poll |
+| Results | `component.State.Phase`, `State.Data.Messages` (Level, Text, Info), `State.FaultException` (stack trace of a fault), `param.State.Data.Tree().NonNullItems` |
+| Progress | `((DocumentObject)component).ProgressPercentage` while `Phase` is Computing |
+| Tab | `ObjectProxies.Chapters` (chapter "LARGER", `Sections`, `Proxies` with `Nomen.Slot`, `Icon`) |
+| Presets | `parameter.PresetsWeak` (enumerable) |
+| Pictures | `Editor.Instance.Canvas.DrawToBitmap(region, width, height, true, true, true)`; `ObjectProxy.Draw(scale, padding, skin)` per component; the viewport with `Rhino.Display.ViewCapture` |
+
+Closing: `Unmodify()` every document in `Document.AllDocuments`, pop documents from
+`Editor.Instance.Documents` only while `Current` is not empty (popping the last one makes a new
+empty document: a `while (Current != null)` loop never ends and hangs the slot).
+
+Faults to look for first: an optional list input left open (GH2 9.1 throws in `GetItemArray`, use
+`access.ItemArray`), typed inputs set through `as Parameter` (silently nothing), icons drawn as
+lettered stand-ins (`PixelIcon` with several sizes throws; the instance's `Icon` is then a
+`VectorIcon`).
+
 ---
 
 ## 3. Metrics and how results were judged
@@ -172,5 +211,6 @@ For the Rhino document: mark it unmodified or use `_-New _None` before exiting t
 
 Windows, real machines (every robot or machine program must run in T1 / test mode first), the
 package installation through the package manager on every Rhino version, and Grasshopper 2 beyond the
-components exercised in its README "Status" section. Report honestly what was only tested outside
+components exercised in its README "Status" section (Quick Start and the main chain were run on the
+Grasshopper 2 canvas in November 2026). Report honestly what was only tested outside
 Grasshopper.
