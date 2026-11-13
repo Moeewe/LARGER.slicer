@@ -33,7 +33,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 5, "Pose (0 = start, 1 = end)", 0m, 1m, 1m, 3);
+            AddSlider(doc, 5, "Pose (0 = start, 1 = end)", 0m, 1m, 1m, 3, "", new double[] { 0, 0.25, 0.5, 0.75, 1 });
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -46,8 +46,11 @@ namespace LARGERslicer.Components.Slicer
             p.AddMeshParameter("Head", "Hd", "The head as it is checked (tip, cone, body), standing on the path at Pose. Shows in the viewport", GH_ParamAccess.item);
         }
 
+        protected override bool CanRunInBackground => true;
+
         protected override void SolveInstance(IGH_DataAccess da)
         {
+            if (Async.Deliver(da)) return;
             var tp = SlicerIO.Get<Toolpath>(da, 0);
             if (tp == null || tp.Count < 2) return;
             var head = new NonPlanarCheck.Head();
@@ -57,22 +60,27 @@ namespace LARGERslicer.Components.Slicer
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tip Radius must be 0 or more, Cone Angle between 0 and 90 degrees, Cone Length and Head Radius more than 0.");
                 return;
             }
-            if (tp.Normals.Any(n => Math.Abs(n.Z) < 0.9998))
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The path has tilted tool axes. This check is for a vertical nozzle.");
-            var r = NonPlanarCheck.Run(tp, head);
-            Message = r.Ok ? "OK" : "Check!";
-            if (!r.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.First(l => l.StartsWith("HEAD") || l.StartsWith("TOO") || l.StartsWith("BEAD") || l.StartsWith("EXTRUSION") || l.StartsWith("Empty")));
-            da.SetData(0, r.Ok);
-            da.SetDataList(1, r.Report);
-            da.SetDataList(2, r.BeadHeights);
-            da.SetDataList(3, r.BadHeights);
-            da.SetDataList(4, r.Collisions);
-            if (Params.Output.Count > 5)
+            double pose = 1; if (Params.Input.Count > 5) da.GetData(5, ref pose);
+            bool headOut = Params.Output.Count > 5;
+
+            Async.Run(da, job =>
             {
-                double pose = 1; if (Params.Input.Count > 5) da.GetData(5, ref pose);
-                int at = (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (tp.Count - 1));
-                da.SetData(5, head.ToMesh(tp.Points[at]));
-            }
+                if (tp.Normals.Any(n => Math.Abs(n.Z) < 0.9998))
+                    job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The path has tilted tool axes. This check is for a vertical nozzle.");
+                var r = NonPlanarCheck.Run(tp, head);
+                job.Message = r.Ok ? "OK" : "Check!";
+                if (!r.Ok) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.First(l => l.StartsWith("HEAD") || l.StartsWith("TOO") || l.StartsWith("BEAD") || l.StartsWith("EXTRUSION") || l.StartsWith("Empty")));
+                job.SetData(0, r.Ok);
+                job.SetDataList(1, r.Report);
+                job.SetDataList(2, r.BeadHeights);
+                job.SetDataList(3, r.BadHeights);
+                job.SetDataList(4, r.Collisions);
+                if (headOut)
+                {
+                    int at = (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (tp.Count - 1));
+                    job.SetData(5, head.ToMesh(tp.Points[at]));
+                }
+            });
         }
     }
 }

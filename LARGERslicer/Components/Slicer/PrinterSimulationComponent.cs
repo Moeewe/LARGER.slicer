@@ -34,7 +34,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 2, "Pose", 0m, 1m, 0m, 3);
+            AddSlider(doc, 2, "Pose", 0m, 1m, 0m, 3, "", new double[] { 0, 0.25, 0.5, 0.75, 1 });
             AddToggle(doc, 3, "Play", false, "■  Stop", "▶  Play");
         }
 

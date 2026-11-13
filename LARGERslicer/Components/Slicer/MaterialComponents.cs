@@ -192,7 +192,7 @@ namespace LARGERslicer.Components.Slicer
                   "Reads G-code from Cura, Simplify3D, PrusaSlicer, AiSync / Ai Build or a Grasshopper script, or a Weber .dxr file, and checks it with the same Path Check as our own paths: starts and stops of the extrusion, travel moves, retractions, feedrate changes and F0, extrusion into the bed, beads that hang in the air, crossings, time and weight. The Toolpath output goes on to Path Check, Robot Program or the DXR components.") { }
 
         public override Guid ComponentGuid => new Guid("A7460FF2-051E-4F89-9639-B704E6616F10");
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.senary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerImportGCodeIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)

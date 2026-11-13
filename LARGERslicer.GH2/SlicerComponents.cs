@@ -68,6 +68,14 @@ namespace LARGERslicer.GH2
             return o;
         }
 
+        /// <summary>Long calculations: shows how far it is (0 to 100 %) and returns true when Grasshopper
+        /// has cancelled this solution (the inputs changed meanwhile), so the component stops early.</summary>
+        public static bool Step(IDataAccess access, int percent)
+        {
+            access.SetProgress(Math.Max(0, Math.Min(100, percent)));
+            return access.Solution != null && access.Solution.Token.IsCancellationRequested;
+        }
+
         public static void Remarks(IDataAccess access, IEnumerable<string> log)
         {
             foreach (var l in log) access.AddRemark(l.Length > 60 ? l.Substring(0, 60) + "…" : l, l);
@@ -222,6 +230,7 @@ namespace LARGERslicer.GH2
 
             // a bent layer needs a fine mesh, or long flat faces would stay straight
             bool followPart = guide == null && (guideMode == 2 || guideMode == 3);
+            if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), tol, log, warp != null || followPart ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
             if (followPart)
@@ -240,6 +249,7 @@ namespace LARGERslicer.GH2
                 else access.AddWarning(what, mw.Problem + ". Slicing flat.");
             }
             int extra; access.GetItem(6, out extra);
+            if (Io.Step(access, 40)) return; // progress; stop if the inputs changed meanwhile
             var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
             if (extra > 0 && warp == null)
             {
@@ -300,7 +310,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1004")]
     public sealed class BottomFillComponent : Component
     {
-        public BottomFillComponent() : base(Io.Name("Bottom Fill", "Closes the first layers with a solid bottom printed as one line.", Io.Slicer, 3)) { }
+        public BottomFillComponent() : base(Io.Name("Bottom Fill", "Closes the first layers with a solid bottom printed as one line.", Io.Slicer, 2)) { }
         public BottomFillComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -336,7 +346,7 @@ namespace LARGERslicer.GH2
     {
         private static readonly string[] Patterns = { "Ribs (even spacing)", "Honeycomb", "Grid", "Wave", "Truss", "Meander", "Chamber wall", "Truss wall" };
 
-        public InfillComponent() : base(Io.Name("Infill", "Adds an infill that is part of the wall line: one closed line per layer, no travel moves. Ribs, cells, waves that meet in the middle, or a chamber wall.", Io.Slicer, 4)) { }
+        public InfillComponent() : base(Io.Name("Infill", "Adds an infill that is part of the wall line: one closed line per layer, no travel moves. Ribs, cells, waves that meet in the middle, or a chamber wall.", Io.Slicer, 2)) { }
         public InfillComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -384,7 +394,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1006")]
     public sealed class ContinuousPathComponent : Component
     {
-        public ContinuousPathComponent() : base(Io.Name("Continuous Path", "Joins all layers into one continuous print path. Layered: every layer is flat and the path climbs over a short ramp at one fixed place. Spiral: the path climbs all the time (single walls only).", Io.Slicer, 5)) { }
+        public ContinuousPathComponent() : base(Io.Name("Continuous Path", "Joins all layers into one continuous print path. Layered: every layer is flat and the path climbs over a short ramp at one fixed place. Spiral: the path climbs all the time (single walls only).", Io.Slicer, 3)) { }
         public ContinuousPathComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -428,6 +438,7 @@ namespace LARGERslicer.GH2
                 settings = settings.Duplicate();
                 settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
             }
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, Math.Max(0, ramp), false, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
             Io.Remarks(access, log);
             if (tp.Count < 2) { access.AddError("No path", "The layers contain no printable contour."); return; }
@@ -442,7 +453,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1007")]
     public sealed class FinishPathComponent : Component
     {
-        public FinishPathComponent() : base(Io.Name("Round and Lead", "Rounds the corners of the path, puts a skirt in front of the part and an exit move behind it. The skirt ends opposite the start, so the way across is short and square to the wall.", Io.Slicer, 6)) { }
+        public FinishPathComponent() : base(Io.Name("Round and Lead", "Rounds the corners of the path, puts a skirt in front of the part and an exit move behind it. The skirt ends opposite the start, so the way across is short and square to the wall.", Io.Slicer, 3)) { }
         public FinishPathComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -484,7 +495,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1008")]
     public sealed class PathCheckComponent : Component
     {
-        public PathCheckComponent() : base(Io.Name("Path Check", "Checks whether the path can be printed: it never crosses itself, and every bead lies on the bead below. Read the report before every print.", Io.Slicer, 7)) { }
+        public PathCheckComponent() : base(Io.Name("Path Check", "Checks whether the path can be printed: it never crosses itself, and every bead lies on the bead below. Read the report before every print.", Io.Slicer, 4)) { }
         public PathCheckComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -522,7 +533,7 @@ namespace LARGERslicer.GH2
     [IoId("c3e7a2d4-6f1b-4a8e-9d25-8e2da5d2c15d")]
     public sealed class NonPlanarCheckComponent : Component
     {
-        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, 7)) { }
+        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, 4)) { }
         public NonPlanarCheckComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -559,6 +570,7 @@ namespace LARGERslicer.GH2
             }
             if (tp.Normals.Any(n => Math.Abs(n.Z) < 0.9998))
                 access.AddRemark("Tilted tool axes", "The path has tilted tool axes. This check is for a vertical nozzle.");
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var r = NonPlanarCheck.Run(tp, head);
             if (!r.Ok) access.AddWarning("Check the path", r.Report.FirstOrDefault(l => l.StartsWith("HEAD") || l.StartsWith("TOO") || l.StartsWith("BEAD") || l.StartsWith("EXTRUSION") || l.StartsWith("Empty")) ?? "Read Report.");
             access.SetItem(0, r.Ok);
@@ -575,7 +587,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1009")]
     public sealed class ExtrusionSpeedComponent : Component
     {
-        public ExtrusionSpeedComponent() : base(Io.Name("Extrusion and Speed", "The values for the machine: one plane, one extrusion amount and one speed per path point. The speed is constant and never 0.", Io.Slicer, 8)) { }
+        public ExtrusionSpeedComponent() : base(Io.Name("Extrusion and Speed", "The values for the machine: one plane, one extrusion amount and one speed per path point. The speed is constant and never 0.", Io.Slicer, 4)) { }
         public ExtrusionSpeedComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)

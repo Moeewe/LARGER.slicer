@@ -21,7 +21,7 @@ namespace LARGERslicer.Components.Slicer
                   "Puts the toolpath back onto the part as a material field for analysis (IGA or FE). For every sample point: the bead direction (e1), the direction across the bead (e2) and the stacking direction (e3), the layer and bead, how far the next layer or bead interface is and how long the layer below had to cool. With the moduli it gives the rotated stiffness per point. Samples are a grid in the UV of every Brep face, so (face, u, v) maps straight onto the NURBS of the analysis; or give your own points (e.g. Gauss points). The default moduli are placeholders: measure your material.") { }
 
         public override Guid ComponentGuid => new Guid("E7A3C1D9-5B2F-4E86-9A0C-3F1D8B6E2A47");
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.quinary;
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerMaterialFieldIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
@@ -48,7 +48,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 3, "Sample Spacing", 0, 50, 0, 1);
+            AddSlider(doc, 3, "Sample Spacing", 0, 50, 0, 1, "mm");
             AddValueList(doc, 13, "Format", MaterialField.Formats);
             AddButton(doc, 14, "Save");
         }
@@ -65,8 +65,11 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("Info", "I", "Summary and remarks", GH_ParamAccess.item);
         }
 
+        protected override bool CanRunInBackground => true;
+
         protected override void SolveInstance(IGH_DataAccess da)
         {
+            if (Async.Deliver(da)) return;
             var tp = SlicerIO.Get<Toolpath>(da, 0);
             if (tp == null || tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect a Toolpath."); return; }
             var breps = new List<Brep>(); da.GetDataList(1, breps);
@@ -81,29 +84,33 @@ namespace LARGERslicer.Components.Slicer
             da.GetData(11, ref tc);
             string file = null; int format = 0; bool save = false;
             da.GetData(12, ref file); da.GetData(13, ref format); da.GetData(14, ref save);
+            var brepCopies = breps.Where(b => b != null).Select(b => b.DuplicateBrep()).ToList(); // copies for the background
 
-            var r = MaterialField.Compute(tp, breps.Where(b => b != null).ToList(), pts, new MaterialFieldOptions { Spacing = spacing, Material = m, CoolingTime = tc });
-            foreach (var l in r.Log) AddRuntimeMessage(l.StartsWith("These Poisson") || l.StartsWith("All moduli") ? GH_RuntimeMessageLevel.Warning : GH_RuntimeMessageLevel.Remark, l);
-            if (r.Samples.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No samples."); return; }
-
-            if (save)
+            Async.Run(da, job =>
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + string.Join(", ", MaterialField.Write(r, file, Math.Max(0, Math.Min(3, format))))); }
-                catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the files: " + ex.Message); }
-            }
+                var r = MaterialField.Compute(tp, brepCopies, pts, new MaterialFieldOptions { Spacing = spacing, Material = m, CoolingTime = tc });
+                foreach (var l in r.Log) job.AddRuntimeMessage(l.StartsWith("These Poisson") || l.StartsWith("All moduli") ? GH_RuntimeMessageLevel.Warning : GH_RuntimeMessageLevel.Remark, l);
+                if (r.Samples.Count == 0) { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No samples."); return; }
 
-            double len = Math.Max(1.0, 0.8 * (r.Spacing > 0 ? Math.Max(r.Spacing, tp.Settings.LayerHeight) : tp.Settings.BeadWidth));
-            var ok = r.Samples.Where(s => s.Layer >= 0).ToList();
-            Message = r.Samples.Count + " points";
-            da.SetDataList(0, r.Samples.Select(s => s.P));
-            da.SetDataList(1, ok.Select(s => Geo.PlaneFromAxes(s.P, s.E1, s.E2)));
-            da.SetDataList(2, ok.Select(s => new Line(s.P, s.E1 * len)));
-            da.SetDataList(3, ok.Select(s => new Line(s.P, s.E3 * len)));
-            da.SetDataList(4, r.Samples.Select(s => s.Weakness));
-            if (r.Mesh != null) da.SetData(5, r.Mesh);
-            else AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Weakness Mesh needs Geometry and no Sample Points.");
-            da.SetDataList(6, MaterialField.Csv(r));
-            da.SetData(7, r.Info);
+                if (save)
+                {
+                    try { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + string.Join(", ", MaterialField.Write(r, file, Math.Max(0, Math.Min(3, format))))); }
+                    catch (Exception ex) { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the files: " + ex.Message); }
+                }
+
+                double len = Math.Max(1.0, 0.8 * (r.Spacing > 0 ? Math.Max(r.Spacing, tp.Settings.LayerHeight) : tp.Settings.BeadWidth));
+                var ok = r.Samples.Where(s => s.Layer >= 0).ToList();
+                job.Message = r.Samples.Count + " points";
+                job.SetDataList(0, r.Samples.Select(s => s.P));
+                job.SetDataList(1, ok.Select(s => Geo.PlaneFromAxes(s.P, s.E1, s.E2)));
+                job.SetDataList(2, ok.Select(s => new Line(s.P, s.E1 * len)));
+                job.SetDataList(3, ok.Select(s => new Line(s.P, s.E3 * len)));
+                job.SetDataList(4, r.Samples.Select(s => s.Weakness));
+                if (r.Mesh != null) job.SetData(5, r.Mesh);
+                else job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Weakness Mesh needs Geometry and no Sample Points.");
+                job.SetDataList(6, MaterialField.Csv(r));
+                job.SetData(7, r.Info);
+            });
         }
     }
 }

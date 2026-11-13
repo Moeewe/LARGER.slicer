@@ -25,7 +25,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3001")]
     public sealed class GingerGCodeComponent : Component
     {
-        public GingerGCodeComponent() : base(Io.Name("Ginger G-code", "G-code for the Ginger One in full size: the machine's start and end sequence, absolute positions, relative extrusion, one constant feedrate. Choose the Ginger machine in Print Settings so the E values fit the pellet extruder.", Io.Slicer, 9)) { }
+        public GingerGCodeComponent() : base(Io.Name("Ginger G-code", "G-code for the Ginger One in full size: the machine's start and end sequence, absolute positions, relative extrusion, one constant feedrate. Choose the Ginger machine in Print Settings so the E values fit the pellet extruder.", Io.Slicer, 5)) { }
         public GingerGCodeComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -58,7 +58,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3002")]
     public sealed class DesktopTestPrintComponent : Component
     {
-        public DesktopTestPrintComponent() : base(Io.Name("Desktop Test Print", "The same path scaled down as G-code for a desktop filament printer, with that printer's own start, layer change and end. A check of the path before the large print; material behaviour does not scale.", Io.Slicer, 10)) { }
+        public DesktopTestPrintComponent() : base(Io.Name("Desktop Test Print", "The same path scaled down as G-code for a desktop filament printer, with that printer's own start, layer change and end. A check of the path before the large print; material behaviour does not scale.", Io.Slicer, 5)) { }
         public DesktopTestPrintComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -145,8 +145,10 @@ namespace LARGERslicer.GH2
             f = f > 1000 ? f : f * 60; // mm/s; a value above 1000 is an older definition in mm/min
             var st = new PrintSettings { BeadWidth = w, LayerHeight = h, FirstLayerHeight = Math.Max(0, h1), Speed = f, Machine = MachineProfile.Preset(machine) };
             var log = new List<string>();
+            if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), Math.Max(0.01, st.Resolution * 0.025), log);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
+            if (Io.Step(access, 30)) return; // progress; stop if the inputs changed meanwhile
             var layers = SliceEngine.Slice(mesh, Plane.WorldXY, st.LayerHeight, st.PointSpacing, log, null, st.FirstLayerHeight);
             var r = EasySlicer.Run(layers, st, new EasySlicer.Options { Walls = walls, BottomLayers = Math.Max(0, bottom), Infill = infill, InfillSize = size, BrimSide = Math.Max(0, Math.Min(3, brim)) });
             var report = new List<string> { "DONE: " + string.Join(" > ", r.Steps) };
@@ -171,7 +173,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3004")]
     public sealed class MachineComponent : Component
     {
-        public MachineComponent() : base(Io.Name("Machine", "A machine that prints from G-code: its start code, end code, layer code and how it wants the extrusion. The Ginger One is built in. Add your own machine as a .machine text file in Documents/LARGER/Machines, or type its codes into the inputs here and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot has its own components.", Io.Slicer, 11)) { }
+        public MachineComponent() : base(Io.Name("Machine", "A machine that prints from G-code: its start code, end code, layer code and how it wants the extrusion. The Ginger One is built in. Add your own machine as a .machine text file in Documents/LARGER/Machines, or type its codes into the inputs here and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot has its own components.", Io.Slicer, 5)) { }
         public MachineComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -258,7 +260,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3005")]
     public sealed class MachineGCodeComponent : Component
     {
-        public MachineGCodeComponent() : base(Io.Name("Machine G-code", "Writes the toolpath as G-code for the machine you connect: its start code, the moves with one constant feedrate that is never 0, its layer code at every layer change, its end code.", Io.Slicer, 12)) { }
+        public MachineGCodeComponent() : base(Io.Name("Machine G-code", "Writes the toolpath as G-code for the machine you connect: its start code, the moves with one constant feedrate that is never 0, its layer code at every layer change, its end code.", Io.Slicer, 5)) { }
         public MachineGCodeComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
