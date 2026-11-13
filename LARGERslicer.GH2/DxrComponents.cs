@@ -48,7 +48,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d2002")]
     public sealed class ToolpathToRobotLinesComponent : Component
     {
-        public ToolpathToRobotLinesComponent() : base(Io.Name("Toolpath to Robot Lines", "Writes the toolpath as robot moves, one PTP line per point, with the matching extrusion and speed. The tool orientation A, B, C is the same for every point: use it for flat layers with a vertical tool, and check it against your own cell before the first run.", Io.Dxr, 1)) { }
+        public ToolpathToRobotLinesComponent() : base(Io.Name("Toolpath to Robot Lines", "Writes the toolpath as robot moves, one PTP line per point, with the matching extrusion and speed. The tool orientation A, B, C is the same for every point: use it for flat layers with a vertical tool, and check it against your own cell before the first run.", Io.Slicer, 5)) { }
         public ToolpathToRobotLinesComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
