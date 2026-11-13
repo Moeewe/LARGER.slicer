@@ -32,16 +32,20 @@ namespace LARGERslicer.Components.Export
     public class OptimizedToolpathComponent : GH_Component
     {
         public OptimizedToolpathComponent()
-            : base("Optimized Toolpath", "OptPath",
+            : base("Curve Join and Order", "C Join",
                   "Combines multiple curves into an optimized continuous path. Removes self-intersections, optimizes curve order using nearest-neighbor algorithm, and adds connections between gaps. Ideal for combining output from multiple pattern components.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer";
 
         public override Guid ComponentGuid => new Guid("8F3D2A1C-9B4E-4F2A-A1C3-5D6E7F8A9B0C");
+
+        /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
+
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -176,6 +180,6 @@ namespace LARGERslicer.Components.Export
                           (uncross ? $"Crossings removed: {fixedCrossings}" + (remaining > 0 ? $", left: {remaining}" : "") : "Crossings not checked"));
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("OptimizedToolpathIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("OptimizedToolpathIcon.png", this);
     }
 }

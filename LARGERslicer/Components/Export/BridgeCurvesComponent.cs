@@ -16,14 +16,14 @@ namespace LARGERslicer.Components.Export
     public class BridgeCurvesComponent : GH_Component
     {
         public BridgeCurvesComponent()
-            : base("Bridge Curves", "Bridge",
+            : base("Curve Bridge", "C Bridge",
                   "Connects separate curves with bridges to create continuous paths. Prevents overfill between disconnected segments. Based on Nautilus plugin approach.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -182,8 +182,10 @@ namespace LARGERslicer.Components.Export
             DA.SetData(3, info);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("BridgeCurvesIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("BridgeCurvesIcon.png", this);
         public override Guid ComponentGuid => new Guid("6705f4e1-8147-4779-ad92-9a4492100c7a");
+        /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
     }
 }
 

@@ -203,7 +203,7 @@ namespace LARGERslicer.Components.Utils
             DA.SetData(4, info);
         }
 
-        protected override Drawing.Bitmap Icon => IconHelper.Load("CurvePatternSplitIcon.png");
+        protected override Drawing.Bitmap Icon => IconHelper.Load("CurvePatternSplitIcon.png", this);
         public override Guid ComponentGuid => new Guid("DE75D31F-29EB-48C7-9386-08DB7A5E6E07");
     }
 }

@@ -62,7 +62,7 @@ namespace LARGERslicer.Components.Utils
             return home;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DesktopPathIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DesktopPathIcon.png", this);
         public override Guid ComponentGuid => new Guid("A2B3C4D5-E6F7-8901-BCDE-F12345678901");
     }
 }

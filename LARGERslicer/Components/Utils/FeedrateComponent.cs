@@ -71,7 +71,7 @@ namespace LARGERslicer.Components.Utils
             DA.SetDataList(1, debugging);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("FeedrateIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("FeedrateIcon.png", this);
         public override Guid ComponentGuid => new Guid("D5E6F7A8-B9C0-1234-EF01-345678901234");
     }
 }

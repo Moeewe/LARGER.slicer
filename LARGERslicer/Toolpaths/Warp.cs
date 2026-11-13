@@ -17,6 +17,14 @@ namespace LARGERslicer.Toolpaths
         /// <summary>False: the tool stays vertical (3-axis machines). True: the tool is square to the layer.</summary>
         public bool TiltTool = true;
         public abstract string Name { get; }
+        /// <summary>True: Slice keeps the layer height as the step in flat space, even where the real
+        /// layers lie further apart (the warp has chosen its layer count itself).</summary>
+        public virtual bool KeepLayerStep => false;
+        /// <summary>True: after mapping back, the bead height of every point is set from the lap below
+        /// it in the path by the law of the printed head (BeadLaw) instead of from Scale.</summary>
+        public virtual bool UseBeadLaw => false;
+        /// <summary>Closed loops shorter than this many bead widths are left out as slivers.</summary>
+        public virtual double MinLoopFactor => 3.0;
 
         /// <summary>Called once with the bounding box of the model, before anything is mapped.</summary>
         public virtual void Prepare(BoundingBox model) { }
@@ -76,7 +84,7 @@ namespace LARGERslicer.Toolpaths
     /// <summary>
     /// Layers follow a guide surface.
     /// Follow: every layer is the guide surface moved up - for printing on a curved base or mould.
-    /// Morph:  the first layer is flat on the bed and the layers bend gradually until the last one
+    /// Morph:  the first layer is flat on the bed (at the first layer height) and the layers above it bend gradually until the last one
     ///         follows the guide - for a curved, smooth top on a flat-printed part.
     /// The guide is sampled once into a height grid, so mapping a point costs a few multiplications.
     /// </summary>
@@ -90,6 +98,12 @@ namespace LARGERslicer.Toolpaths
         public bool Valid;
         /// <summary>Morph only: smallest and largest local layer height as a factor of the nominal one.</summary>
         public double MinFactor = 1;
+        /// <summary>Morph only: this much above the bottom stays flat - the first layer lies flat on
+        /// the bed at its own height and only the layers above it bend. The slicer sets it to the
+        /// first layer height.</summary>
+        public double FlatBand = 0;
+        public bool Morph => _morph;
+        private double Band => Math.Min(Math.Max(0, FlatBand), 0.2 * _href);
 
         public override string Name => _morph ? "non-planar (flat bottom to guide surface)" : "non-planar (follows guide surface)";
 
@@ -175,7 +189,12 @@ namespace LARGERslicer.Toolpaths
         public override Point3d ToFlat(Point3d p)
         {
             if (!Valid) return p;
-            if (_morph) return new Point3d(p.X, p.Y, _z0 + (p.Z - _z0) * _href / Column(p.X, p.Y));
+            if (_morph)
+            {
+                double b = Band;
+                if (p.Z <= _z0 + b) return p;
+                return new Point3d(p.X, p.Y, _z0 + b + (p.Z - _z0 - b) * (_href - b) / (Column(p.X, p.Y) - b));
+            }
             return new Point3d(p.X, p.Y, p.Z - G(p.X, p.Y) + _gRef);
         }
 
@@ -187,8 +206,13 @@ namespace LARGERslicer.Toolpaths
             Point3d real;
             if (_morph)
             {
-                amount = Math.Max(0.0, (f.Z - _z0) / _href);
-                real = new Point3d(f.X, f.Y, _z0 + (f.Z - _z0) * Column(f.X, f.Y) / _href);
+                double b = Band;
+                if (f.Z <= _z0 + b) { amount = 0; real = f; }
+                else
+                {
+                    amount = (f.Z - _z0 - b) / (_href - b);
+                    real = new Point3d(f.X, f.Y, _z0 + b + (f.Z - _z0 - b) * (Column(f.X, f.Y) - b) / (_href - b));
+                }
             }
             else real = new Point3d(f.X, f.Y, f.Z + G(f.X, f.Y) - _gRef);
 
@@ -205,8 +229,15 @@ namespace LARGERslicer.Toolpaths
 
         public override double Scale(Point3d flat)
         {
-            if (!Valid || !_morph) return 1.0;
-            return Column(flat.X, flat.Y) / _href;
+            if (!Valid) return 1.0;
+            // the layers lie this far apart vertically ...
+            double vertical = 1.0;
+            if (_morph && flat.Z > _z0 + Band) vertical = (Column(flat.X, flat.Y) - Band) / (_href - Band);
+            if (!TiltTool) return vertical; // vertical nozzle: the bead is as high as the vertical gap
+            // ... but a tool square to the layer lays a bead as thick as the gap square to the layer,
+            // which on a slope is smaller by the cosine of the slope (45 degrees: 0.71)
+            ToReal(flat, out Vector3d n);
+            return Math.Max(1e-6, vertical * Math.Abs(n.Z));
         }
     }
 

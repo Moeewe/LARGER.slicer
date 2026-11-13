@@ -16,12 +16,12 @@ namespace LARGERslicer.Components.Export
         public AlignCurvesComponent()
             : base("Align Curves", "AlignCrv",
                   "Flips all curves to point in the same direction. Ensures consistent orientation for continuous toolpath generation.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Curve Tools";
+        public override string SubCategory => "Slicer";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -179,8 +179,10 @@ namespace LARGERslicer.Components.Export
             return direction;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("AlignCurvesIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("AlignCurvesIcon.png", this);
         public override Guid ComponentGuid => new Guid("fa478232-2bbb-4fd4-98ff-0f3b9bb0d2eb");
+        /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
+        public override GH_Exposure Exposure => GH_Exposure.septenary | GH_Exposure.obscure;
     }
 }
 

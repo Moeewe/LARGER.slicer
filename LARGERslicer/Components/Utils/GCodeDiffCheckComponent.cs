@@ -163,7 +163,7 @@ namespace LARGERslicer.Components.Utils
             return outTokens;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("GCodeDiffCheckIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("GCodeDiffCheckIcon.png", this);
         public override Guid ComponentGuid => new Guid("8266D9BD-1D39-410D-8846-04CF006104CD");
     }
 }

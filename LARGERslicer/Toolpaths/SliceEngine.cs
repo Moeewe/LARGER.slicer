@@ -14,6 +14,9 @@ namespace LARGERslicer.Toolpaths
     /// </summary>
     public static class SliceEngine
     {
+        /// <summary>Rhino's mesher, one call at a time (see ToMesh).</summary>
+        public static readonly object MeshLock = new object();
+
         /// <summary>Unwraps Grasshopper data and meshes it into one welded mesh.</summary>
         public static Mesh ToMesh(IEnumerable<object> geometry, double tolerance, List<string> log, double maxEdge = 0)
         {
@@ -33,6 +36,7 @@ namespace LARGERslicer.Toolpaths
             int used = 0, skipped = 0;
             foreach (var item in geometry)
             {
+                Cancel.Check(); // between parts: a single Brep is meshed by Rhino in one go
                 object o = item;
                 if (o is IGH_Goo goo) o = goo.ScriptVariable();
 
@@ -43,21 +47,26 @@ namespace LARGERslicer.Toolpaths
                 else if (o is Surface srf) brep = srf.ToBrep();
                 else if (o is SubD sd)
                 {
-                    var sm = Mesh.CreateFromSubD(sd, 3);
+                    Mesh sm;
+                    lock (MeshLock) sm = Mesh.CreateFromSubD(sd, 3);
                     if (sm != null) { joined.Append(sm); used++; } else skipped++;
                     continue;
                 }
 
                 if (brep == null) { skipped++; continue; }
-                var parts = Mesh.CreateFromBrep(brep, mp);
+                // Grasshopper 2 solves components side by side; Rhino's mesher crashed when the same
+                // Brep was meshed on two threads at once. A copy per call, one call at a time.
+                Mesh[] parts;
+                lock (MeshLock) parts = Mesh.CreateFromBrep(brep.DuplicateBrep(), mp);
                 if (parts == null || parts.Length == 0) { skipped++; continue; }
                 foreach (var p in parts) joined.Append(p);
                 used++;
             }
 
-            if (skipped > 0) log?.Add($"{skipped} input(s) could not be meshed and were skipped.");
+            if (skipped > 0) log?.Add(Inv.F($"{skipped} input(s) could not be meshed and were skipped."));
             if (used == 0 || joined.Vertices.Count == 0) return null;
 
+            Cancel.Check();
             joined.Faces.ConvertQuadsToTriangles();
             joined.Vertices.CombineIdentical(true, true);
             joined.Weld(Math.PI);
@@ -71,11 +80,22 @@ namespace LARGERslicer.Toolpaths
         /// nozzle travels. Tilt the plane for angled (e.g. 45 degree) printing.
         /// Uses its own triangle/plane cutter: every triangle is assigned once to the layers it
         /// crosses, which is orders of magnitude faster than intersecting the mesh per plane.
+        /// The first layer is firstLayerHeight thick (0 = the layer height): the nozzle runs that
+        /// high above the bottom of the part, never on it, so the first bead is not pressed into
+        /// the bed. Every further layer is one layer height higher.
         /// </summary>
-        public static List<SliceLayer> Slice(Mesh mesh, Plane basePlane, double layerHeight, double minSpacing, List<string> log, Warp warp = null)
+        public static List<SliceLayer> Slice(Mesh mesh, Plane basePlane, double layerHeight, double minSpacing, List<string> log, Warp warp = null, double firstLayerHeight = 0,
+            System.Threading.CancellationToken token = default)
+        {
+            // token: stops early (OperationCanceledException) when the result is not needed any more
+            using (Cancel.Use(token)) return SliceCore(mesh, basePlane, layerHeight, minSpacing, log, warp, firstLayerHeight);
+        }
+
+        private static List<SliceLayer> SliceCore(Mesh mesh, Plane basePlane, double layerHeight, double minSpacing, List<string> log, Warp warp, double firstLayerHeight)
         {
             var layers = new List<SliceLayer>();
             if (mesh == null || layerHeight <= 0) return layers;
+            double first = firstLayerHeight > 0 ? firstLayerHeight : layerHeight;
 
             Vector3d n = basePlane.Normal;
             n.Unitize();
@@ -85,14 +105,26 @@ namespace LARGERslicer.Toolpaths
             {
                 // Slice in flat space. The step is reduced so that the thickest real layer is the
                 // nominal layer height; thinner places get less material through the path heights.
+                // a flat-bottomed non-planar part keeps its first layer flat at the first layer height
+                bool flatFirst = warp is SurfaceWarp sw && sw.Morph;
+                if (flatFirst) ((SurfaceWarp)warp).FlatBand = first;
+                // following the part or its surface: the first layer lies flat on the bed too (Follow the
+                // surface: also the second one, as on the printed head of 2024: 0.9 mm, then 2.0 mm)
+                if (warp is MeridianWarp mw && mw.Valid)
+                {
+                    if (mw.FlatBand <= 0) mw.FlatBand = mw.FollowSurface ? first + layerHeight : first;
+                    flatFirst = true;
+                }
                 warp.Prepare(mesh.GetBoundingBox(true));
                 var scale = new double[verts.Length];
-                Parallel.For(0, verts.Length, i => { verts[i] = warp.ToFlat(verts[i]); scale[i] = warp.Scale(verts[i]); });
+                Parallel.For(0, verts.Length, new ParallelOptions { CancellationToken = Cancel.Token }, i => { verts[i] = warp.ToFlat(verts[i]); scale[i] = warp.Scale(verts[i]); });
                 double maxScale = 1.0;
                 foreach (double s in scale) if (s > maxScale) maxScale = s;
                 maxScale = Math.Min(maxScale, 2.0);
+                if (warp.KeepLayerStep) maxScale = 1.0; // the warp has fixed the layer count itself
                 layerHeight /= maxScale;
-                if (maxScale > 1.02) log?.Add($"Layers are up to {maxScale:0.00}x further apart on the outside of the bend; the step along the guide is {layerHeight:0.00} mm so no layer is higher than set.");
+                if (!flatFirst) first /= maxScale; // (the flat first layer is not stretched)
+                if (maxScale > 1.02) log?.Add(Inv.F($"Layers are up to {maxScale:0.00}x further apart on the outside of the bend; the step along the guide is {layerHeight:0.00} mm so no layer is higher than set."));
             }
             var dist = new double[verts.Length];
             double min = double.MaxValue, max = double.MinValue;
@@ -103,14 +135,25 @@ namespace LARGERslicer.Toolpaths
                 if (d < min) min = d;
                 if (d > max) max = d;
             }
-            int count = (int)Math.Ceiling((max - min) / layerHeight - 1e-6);
-            if (count < 1) return layers;
+            // as many layers as fit best: a part of 58.2 mm in 2 mm layers gets 29 (58 mm high),
+            // not 30 (60 mm, more than a layer above its top); 200 mm gets all 100. Only a part lower
+            // than half the first layer gets none.
+            double span = max - min;
+            if (span <= 0.5 * first) return layers;
+            int count = 1 + Math.Max(0, (int)Math.Round((span - first) / layerHeight, MidpointRounding.AwayFromZero));
 
-            // cut levels: middle of each layer, but never above the model
+            // top of each layer (where the nozzle runs) and cut level: the middle of each layer,
+            // but never above the model
+            var top = new double[count];
             var level = new double[count];
             // (a bent model is slightly uneven at its ends after mapping, so stay a little further inside)
             double margin = warp != null ? Math.Min(0.15, layerHeight * 0.2) : 1e-4;
-            for (int i = 0; i < count; i++) level[i] = Math.Min(min + (i + 0.5) * layerHeight, max - margin);
+            for (int i = 0; i < count; i++)
+            {
+                top[i] = min + first + i * layerHeight;
+                double mid = i == 0 ? min + 0.5 * first : top[i] - 0.5 * layerHeight;
+                level[i] = Math.Min(mid, max - margin);
+            }
 
             // triangles (quads are split) and the layers each one crosses
             var tris = new List<int>(mesh.Faces.Count * 3);
@@ -121,29 +164,33 @@ namespace LARGERslicer.Toolpaths
             }
             var buckets = new List<int>[count];
             for (int i = 0; i < count; i++) buckets[i] = new List<int>();
+            Cancel.Check();
             for (int t = 0; t < tris.Count; t += 3)
             {
+                if ((t & 0x3FFFF) == 0) Cancel.Check();
                 double a = dist[tris[t]], b = dist[tris[t + 1]], c = dist[tris[t + 2]];
                 double lo = Math.Min(a, Math.Min(b, c)), hi = Math.Max(a, Math.Max(b, c));
-                int i0 = Math.Max(0, (int)Math.Floor((lo - min) / layerHeight - 0.5) - 1);
-                int i1 = Math.Min(count - 1, (int)Math.Ceiling((hi - min) / layerHeight - 0.5) + 1);
+                // the first layer has its own height; from the second on the levels are evenly spaced
+                if (lo < level[0] && hi >= level[0]) buckets[0].Add(t);
+                int i0 = Math.Max(1, (int)Math.Floor((lo - min - first) / layerHeight + 0.5) - 1);
+                int i1 = Math.Min(count - 1, (int)Math.Ceiling((hi - min - first) / layerHeight + 0.5) + 1);
                 for (int i = i0; i <= i1; i++)
                     if (lo < level[i] && hi >= level[i]) buckets[i].Add(t);
             }
 
             var result = new SliceLayer[count];
-            Parallel.For(0, count, i =>
+            Parallel.For(0, count, new ParallelOptions { CancellationToken = Cancel.Token }, i =>
             {
+                if (Cancel.Requested) return; // Parallel.For then ends with OperationCanceledException
                 double z = level[i];
-                double top = min + (i + 1) * layerHeight;
                 var layer = new SliceLayer
                 {
                     Index = i,
-                    Height = layerHeight,
+                    Height = i == 0 ? first : layerHeight,
                     Warp = warp,
-                    Plane = Geo.PlaneFromAxes(basePlane.Origin + n * top, basePlane.XAxis, basePlane.YAxis)
+                    Plane = Geo.PlaneFromAxes(basePlane.Origin + n * top[i], basePlane.XAxis, basePlane.YAxis)
                 };
-                Vector3d lift = n * (top - z);
+                Vector3d lift = n * (top[i] - z);
                 foreach (var pl in CutLayer(verts, dist, tris, buckets[i], z))
                 {
                     if (pl.Count < 2 || pl.Length < minSpacing) continue;
@@ -159,7 +206,16 @@ namespace LARGERslicer.Toolpaths
                 if (l.Contours.Count == 0) { empty++; continue; }
                 layers.Add(l);
             }
-            if (empty > 0) log?.Add($"{empty} layer(s) had no contour and were dropped.");
+            if (empty > 0) log?.Add(Inv.F($"{empty} layer(s) had no contour and were dropped."));
+            if (warp == null && Math.Abs(n.Z) > 0.999)
+            {
+                // the bed is Z 0: say so when the part does not stand on it
+                double bottom = basePlane.Origin.Z * Math.Sign(n.Z) + min;
+                if (bottom < -0.05)
+                    log?.Add(Inv.F($"The part reaches {-bottom:0.##} mm below Z 0. If Z 0 is the bed, the first layers are printed into it: move the part up onto the bed."));
+                else if (bottom > 0.05)
+                    log?.Add(Inv.F($"The part stands {bottom:0.##} mm above Z 0. The first layer is printed {first:0.##} mm above the bottom of the part, at Z {bottom + first:0.##}."));
+            }
             return layers;
         }
 

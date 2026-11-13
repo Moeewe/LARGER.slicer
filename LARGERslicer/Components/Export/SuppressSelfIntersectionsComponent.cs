@@ -15,14 +15,14 @@ namespace LARGERslicer.Components.Export
     public class SuppressSelfIntersectionsComponent : GH_Component
     {
         public SuppressSelfIntersectionsComponent()
-            : base("Suppress Self Intersections", "SuppressIX",
+            : base("Curve Uncross", "C Uncross",
                   "Removes the crossings of a line with itself. By default the line stays one continuous line: the stretch between two crossing parts is run the other way round. With Split the line is cut at the crossings instead.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -73,7 +73,9 @@ namespace LARGERslicer.Components.Export
             DA.SetData(2, moves == 0 ? "No self-crossings." : moves + " crossing(s) removed; the line is still one line" + (left > 0 ? ", " + left + " left" : "") + ".");
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SuppressSelfIntersectionsIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SuppressSelfIntersectionsIcon.png", this);
         public override Guid ComponentGuid => new Guid("58c9301e-90c3-47b3-aa08-01ad3fe41ae8");
+        /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
+        public override GH_Exposure Exposure => GH_Exposure.septenary;
     }
 }

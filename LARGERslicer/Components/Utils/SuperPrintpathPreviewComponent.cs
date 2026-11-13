@@ -121,7 +121,7 @@ namespace LARGERslicer.Components.Utils
         private static bool _conduitEnabled = false;
         private static readonly ExtrusionPreviewConduit _conduit = new ExtrusionPreviewConduit();
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SuperPrintpathPreviewIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("SuperPrintpathPreviewIcon.png", this);
         public override Guid ComponentGuid => new Guid("B2C3D4E5-F6A7-8901-BCDE-F123456789AB");
 
         public override void RemovedFromDocument(GH_Document document)

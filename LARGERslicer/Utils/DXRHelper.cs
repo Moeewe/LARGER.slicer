@@ -31,6 +31,24 @@ namespace LARGERslicer.Utils
             List<string> layerTypes = null,
             List<bool> isRetraction = null)
         {
+            // Numbers in a DXR file use a decimal point. On a computer set to German (decimal comma)
+            // "331.682" would otherwise be read as 331682 and written as "331682,000".
+            var thread = System.Threading.Thread.CurrentThread;
+            var culture = thread.CurrentCulture;
+            thread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+            try { return ProcessRobotLinesCore(robotLines, P1_list, F1_list, processInfo, machineSettings, layerTypes, isRetraction); }
+            finally { thread.CurrentCulture = culture; }
+        }
+
+        private static List<string> ProcessRobotLinesCore(
+            List<string> robotLines,
+            List<double> P1_list,
+            List<double> F1_list,
+            List<string> processInfo,
+            MachineSettings machineSettings,
+            List<string> layerTypes,
+            List<bool> isRetraction)
+        {
             var result = new List<string>();
             
             // Null checks
@@ -115,7 +133,7 @@ namespace LARGERslicer.Utils
                     
                     if (mx.Success)
                     {
-                        if (double.TryParse(mx.Groups[1].Value, out double xVal))
+                        if (double.TryParse(mx.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double xVal))
                         {
                             X_vals.Add(xVal);
                             hasX = true;
@@ -123,7 +141,7 @@ namespace LARGERslicer.Utils
                     }
                     if (my.Success)
                     {
-                        if (double.TryParse(my.Groups[1].Value, out double yVal))
+                        if (double.TryParse(my.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double yVal))
                         {
                             Y_vals.Add(yVal);
                             hasY = true;
@@ -131,7 +149,7 @@ namespace LARGERslicer.Utils
                     }
                     if (mz.Success)
                     {
-                        if (double.TryParse(mz.Groups[1].Value, out double zVal))
+                        if (double.TryParse(mz.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double zVal))
                         {
                             Z_vals.Add(zVal);
                             hasZ = true;
@@ -489,7 +507,7 @@ namespace LARGERslicer.Utils
             try
             {
                 Match m = r.Match(line);
-                if (m.Success && double.TryParse(m.Groups[1].Value, out double value))
+                if (m.Success && double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double value))
                 {
                     return value;
                 }
@@ -543,9 +561,9 @@ namespace LARGERslicer.Utils
                     var my = ry.Match(line);
                     var mz = rz.Match(line);
 
-                    if (mx.Success && double.TryParse(mx.Groups[1].Value, out double xVal)) x = xVal;
-                    if (my.Success && double.TryParse(my.Groups[1].Value, out double yVal)) y = yVal;
-                    if (mz.Success && double.TryParse(mz.Groups[1].Value, out double zVal)) z = zVal;
+                    if (mx.Success && double.TryParse(mx.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double xVal)) x = xVal;
+                    if (my.Success && double.TryParse(my.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double yVal)) y = yVal;
+                    if (mz.Success && double.TryParse(mz.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double zVal)) z = zVal;
                 }
                 catch
                 {
@@ -644,139 +662,132 @@ namespace LARGERslicer.Utils
             if (points.Count < 2)
                 return layerChangeIndices;
 
+            // Lines from Robot Program carry the layer of the slicer (" ; layer 12"): use it. That is
+            // the only way that is right for every kind of layer, flat, non-planar or multi-axis.
+            var rl = new Regex(@";\s*layer\s+(-?\d+)", RegexOptions.IgnoreCase);
+            var tags = new List<int>(movementLines.Count);
+            foreach (var line in movementLines) { var mt = rl.Match(line); if (!mt.Success) break; tags.Add(int.Parse(mt.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)); }
+            if (tags.Count == movementLines.Count)
+            {
+                for (int i = 1; i < tags.Count; i++) if (tags[i] != tags[i - 1]) layerChangeIndices.Add(i);
+                processInfo.Add($"Layers taken from the slicer: {layerChangeIndices.Count + 1} layers (the robot lines carry their layer)");
+                return layerChangeIndices;
+            }
+
             // Determine if printing is planar or non-planar
             bool isPlanar = IsPlanarPrinting(points);
             processInfo.Add(isPlanar ? "Detected planar printing (layer detection by Z changes)" : "Detected non-planar printing (layer detection by return to start area)");
 
             if (isPlanar)
             {
-                // Planar: Detect layer changes by checking if after a Z jump, many points have similar Z height
-                // This works for any layer height (1mm, 1.5mm, 2mm, 6mm, etc.)
-                const double zTolerance = 0.1; // Tolerance for "same Z height" (0.1mm)
-                const int minPointsInLayer = 5; // Minimum points with same Z to consider it a new layer
-                const double minZJump = 0.2; // Minimum Z jump to consider (0.2mm)
-                
-                double previousZ = points[0].z;
-                double lastLayerZ = points[0].z;
-                int lookAheadWindow = Math.Min(20, points.Count / 10); // Look ahead 20 points or 10% of total
-                
-                for (int i = 1; i < points.Count - lookAheadWindow; i++)
+                // Planar: a layer is a stretch of points at one height. The ramp between two
+                // layers is a few single points at heights of their own; it belongs to the
+                // new layer, so the change sits on the first point that leaves the old height.
+                // The size of the single steps does not matter (a ramp may end 0.1 mm below
+                // the next layer), only that the path settles at another height.
+                const double zTolerance = 0.1; // "same height"
+                const int minPointsInLayer = 5; // fewer points at one height are ramp, lift or travel
+
+                // the first level is where the path first stays at one height: the way in from above is no layer
+                int start = 0;
+                while (start + minPointsInLayer < points.Count && !Enumerable.Range(start, minPointsInLayer).All(j => Math.Abs(points[j].z - points[start].z) < zTolerance)) start++;
+                double levelZ = points[start].z;
+                int lastOnLevel = start;
+                int i = start + 1;
+                while (i < points.Count)
                 {
-                    double currentZ = points[i].z;
-                    double zDiff = currentZ - previousZ;
-                    
-                    // Check if there's a significant Z jump (potential layer change)
-                    if (zDiff > minZJump && currentZ > lastLayerZ + minZJump)
+                    double z = points[i].z;
+                    if (Math.Abs(z - levelZ) < zTolerance)
                     {
-                        // Look ahead to see if many points have similar Z height after this jump
-                        int sameZCount = 0;
-                        double targetZ = currentZ;
-                        
-                        for (int j = i; j < Math.Min(i + lookAheadWindow, points.Count); j++)
-                        {
-                            if (Math.Abs(points[j].z - targetZ) < zTolerance)
-                            {
-                                sameZCount++;
-                            }
-                        }
-                        
-                        // If many points have the same Z after the jump, it's a new layer
-                        if (sameZCount >= minPointsInLayer)
-                        {
-                            // Find the start of the jump (where Z started to increase)
-                            int jumpStartIndex = i;
-                            for (int j = i - 1; j >= 0 && j >= i - 5; j--) // Check up to 5 points back
-                            {
-                                if (Math.Abs(points[j].z - previousZ) < zTolerance)
-                                {
-                                    jumpStartIndex = j + 1; // Jump starts at next point
-                                    break;
-                                }
-                            }
-                            
-                            layerChangeIndices.Add(jumpStartIndex);
-                            double layerHeight = targetZ - lastLayerZ;
-                            processInfo.Add($"Layer change detected at movement {jumpStartIndex}: Z {lastLayerZ:F3} -> {targetZ:F3} (height: {layerHeight:F3}mm, {sameZCount} points at new Z)");
-                            lastLayerZ = targetZ;
-                            previousZ = targetZ;
-                            i += sameZCount - 1; // Skip ahead to avoid detecting same layer multiple times
-                            continue;
-                        }
+                        lastOnLevel = i;
+                        i++;
+                        continue;
                     }
-                    previousZ = currentZ;
+                    int run = 1;
+                    while (i + run < points.Count && Math.Abs(points[i + run].z - z) < zTolerance) run++;
+                    if (run >= minPointsInLayer)
+                    {
+                        int change = lastOnLevel + 1;
+                        layerChangeIndices.Add(change);
+                        processInfo.Add($"Layer change detected at movement {change}: Z {levelZ:F3} -> {z:F3} ({run} points at new Z)");
+                        levelZ = z;
+                        lastOnLevel = i + run - 1;
+                    }
+                    i += run;
                 }
             }
             else
             {
-                // Non-planar: Find points closest above start point (after initial Brim/Skirt)
-                // Start point is the first point
-                var startPoint = points[0];
-                double startX = startPoint.x;
-                double startY = startPoint.y;
-                double startZ = startPoint.z;
-                
-                // Tolerance for "close to start point" in XY plane
-                const double xyTolerance = 5.0; // 5mm tolerance
-                
-                // Find the first significant movement away from start (end of Brim/Skirt)
-                int firstRealLayerStart = 0;
-                for (int i = 1; i < points.Count; i++)
+                // Non-planar or multi-axis without layer numbers (e.g. lines from the Robots plug-in):
+                // a layer is one round. It ends where the path comes back, in 3D, close to where the
+                // round began, after it has been far away from there. The change is put on the point
+                // of the closest approach. Works for tilted layers too, where neither Z nor XY repeat.
+                const double near = 6.0;   // mm: the next round starts within this distance (a layer height plus the seam)
+                const double away = 30.0;  // mm: the path must have left the start this far
+                // A round starts where the path first passes over a place it has been before (way in,
+                // skirt and brim do not come back to it): a grid finds that quickly. If a round does
+                // not come back to its start within one and a half times the length of the first
+                // round (the skirt, a brim), the search starts again from there.
+                var cum = new double[points.Count];
+                for (int i = 1; i < points.Count; i++) cum[i] = cum[i - 1] + Dist3(points[i], points[i - 1]);
+                Func<(double x, double y, double z, int index), (int, int, int)> cellOf = q => ((int)Math.Floor(q.x / near), (int)Math.Floor(q.y / near), (int)Math.Floor(q.z / near));
+                Func<int, (int i, int j)> revisit = from =>
                 {
-                    double dist = Math.Sqrt(Math.Pow(points[i].x - startX, 2) + Math.Pow(points[i].y - startY, 2));
-                    if (dist > xyTolerance * 2) // Moved significantly away from start
+                    var grid = new Dictionary<(int, int, int), List<int>>();
+                    for (int i = from; i < points.Count; i++)
                     {
-                        firstRealLayerStart = i;
-                        break;
+                        var c = cellOf(points[i]);
+                        for (int dx = -1; dx <= 1; dx++)
+                            for (int dy = -1; dy <= 1; dy++)
+                                for (int dz = -1; dz <= 1; dz++)
+                                    if (grid.TryGetValue((c.Item1 + dx, c.Item2 + dy, c.Item3 + dz), out var cellList))
+                                        foreach (int j in cellList)
+                                            if (cum[i] - cum[j] > 4 * away && Dist3(points[i], points[j]) < near) return (i, j);
+                        if (!grid.TryGetValue(c, out var own)) grid[c] = own = new List<int>();
+                        own.Add(i);
                     }
-                }
-                
-                // Track the minimum Z above start point for each "cycle"
-                double minZAboveStart = double.MaxValue;
-                int lastLayerChangeIndex = firstRealLayerStart;
-                
-                for (int i = firstRealLayerStart; i < points.Count; i++)
+                    return (-1, -1);
+                };
+                var hit = revisit(0);
+                if (hit.i > 0)
                 {
-                    double dist = Math.Sqrt(Math.Pow(points[i].x - startX, 2) + Math.Pow(points[i].y - startY, 2));
-                    double zDiff = points[i].z - startZ;
-                    
-                    // If we're close to start point in XY and above it in Z
-                    if (dist < xyTolerance && zDiff > 0)
+                    int startIdx = hit.j, seenFrom = hit.i;
+                    double roundLen = cum[hit.i] - cum[hit.j];
+                    bool left = false; double best = double.MaxValue; int bestIdx = -1;
+                    for (int i = startIdx + 1; i < points.Count; i++)
                     {
-                        // This is a candidate for layer start
-                        if (zDiff < minZAboveStart)
+                        double d = Dist3(points[i], points[startIdx]);
+                        if (bestIdx < 0 && cum[i] - cum[startIdx] > 1.5 * roundLen + 2 * away)
                         {
-                            minZAboveStart = zDiff;
-                            lastLayerChangeIndex = i;
+                            // this start was not the start of a layer (a skirt): look again from here
+                            var again = revisit(seenFrom + 1);
+                            if (again.i < 0) break;
+                            startIdx = again.j; seenFrom = again.i; roundLen = cum[again.i] - cum[again.j];
+                            left = false; best = double.MaxValue; bestIdx = -1; i = startIdx; continue;
+                        }
+                        if (!left) { if (d > away) left = true; continue; }
+                        if (d < near)
+                        {
+                            if (d < best) { best = d; bestIdx = i; }
+                            continue;
+                        }
+                        if (bestIdx > 0)
+                        {
+                            layerChangeIndices.Add(bestIdx);
+                            roundLen = Math.Max(roundLen, cum[bestIdx] - cum[startIdx]);
+                            startIdx = bestIdx; seenFrom = bestIdx; left = false; best = double.MaxValue; bestIdx = -1;
+                            i = startIdx;
                         }
                     }
-                    else if (dist > xyTolerance)
-                    {
-                        // We've moved away from start - if we found a minimum, that was a layer change
-                        if (minZAboveStart < double.MaxValue && lastLayerChangeIndex > 0)
-                        {
-                            // Only add if it's different from the last one we added
-                            if (layerChangeIndices.Count == 0 || lastLayerChangeIndex != layerChangeIndices[layerChangeIndices.Count - 1])
-                            {
-                                layerChangeIndices.Add(lastLayerChangeIndex);
-                                processInfo.Add($"Layer change detected at movement {lastLayerChangeIndex}: Return to start area (Z +{minZAboveStart:F3})");
-                            }
-                            minZAboveStart = double.MaxValue;
-                        }
-                    }
                 }
-                
-                // Add final layer change if we ended near start
-                if (minZAboveStart < double.MaxValue && lastLayerChangeIndex > 0)
-                {
-                    if (layerChangeIndices.Count == 0 || lastLayerChangeIndex != layerChangeIndices[layerChangeIndices.Count - 1])
-                    {
-                        layerChangeIndices.Add(lastLayerChangeIndex);
-                    }
-                }
+                processInfo.Add($"Non-planar layers found by the path coming back to where its round began: {layerChangeIndices.Count + 1}");
             }
 
             return layerChangeIndices;
         }
+
+        private static double Dist3((double x, double y, double z, int index) a, (double x, double y, double z, int index) b)
+            => Math.Sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
 
         /// <summary>
         /// Determines if printing is planar (flat layers) or non-planar (continuous Z changes).
@@ -797,30 +808,17 @@ namespace LARGERslicer.Utils
             if (zRange < 0.1)
                 return true; // All at same height = planar
 
-            // Count how many times Z changes direction (up/down)
-            int directionChanges = 0;
-            bool? lastDirection = null; // true = up, false = down
-            
-            for (int i = 1; i < points.Count; i++)
+            // Planar: nearly every point lies in a run of at least five points at one height (the
+            // layers); only ramps, lifts and travel moves do not. Non-planar and multi-axis paths
+            // change height all the time, also when they go up only (a tilted spiral).
+            int inRuns = 0, i0 = 0;
+            for (int i = 1; i <= points.Count; i++)
             {
-                double zDiff = points[i].z - points[i - 1].z;
-                if (Math.Abs(zDiff) > 0.01) // Ignore tiny changes
-                {
-                    bool currentDirection = zDiff > 0;
-                    if (lastDirection.HasValue && currentDirection != lastDirection.Value)
-                    {
-                        directionChanges++;
-                    }
-                    lastDirection = currentDirection;
-                }
+                if (i < points.Count && Math.Abs(points[i].z - points[i0].z) < 0.1) continue;
+                if (i - i0 >= 5) inRuns += i - i0;
+                i0 = i;
             }
-            
-            // Planar: Few direction changes (Z mostly increases in steps)
-            // Non-planar: Many direction changes (Z goes up and down continuously)
-            double changeRatio = (double)directionChanges / points.Count;
-            
-            // If more than 5% direction changes, it's likely non-planar
-            return changeRatio < 0.05;
+            return inRuns >= 0.8 * points.Count;
         }
 
         /// <summary>

@@ -15,19 +15,35 @@ namespace LARGERslicer.Toolpaths
     {
         public double BeadWidth = 5.0;        // mm (house standard: 3 mm nozzle, 5 mm bead, 2 mm layer)
         public double LayerHeight = 2.0;      // mm
+        public double FirstLayerHeight = 0.0; // mm, height of the first layer above the bed (part bottom); 0 = LayerHeight
         public double Overlap = 0.15;         // sideways overlap of neighbouring beads, 0..1
         public double Speed = 3000.0;         // mm/min, nominal print speed
         public double MinSpeed = 300.0;       // mm/min, lower limit when speed compensates height
+        public double FirstLayerSpeed = 0.0;  // mm/min, 0 = Speed: the first layer (and the skirt) at this speed, for adhesion
+        public double MinLayerTime = 0.0;     // s, 0 = off: shorter layers are printed slower (Process), never below MinSpeed
+        public double ShortLapTime = 0.0;     // s, 0 = MinLayerTime: the minimum for short laps (shorter than min + 0.7464 x (max - min) of all lap lengths), as the printed head of 2024 (40 s short, 35 s long)
+        public double MaxVolumeRate = 0.0;    // mm3/s, 0 = off: no move asks the extruder for more (Ginger about 330)
         public double MaxSpeed = 12000.0;     // mm/min, upper limit and travel speed
-        public double MinRadius = 0.0;        // mm, 0 = use bead width
+        public double MinRadius = 0.0;        // mm, 0 = half the bead width (at least half the nozzle: Ginger handbook)
         public double Flow = 1.0;             // global extrusion multiplier
         public double FilamentDiameter = 0.0; // mm, 0 = report extrusion as volume (mm3)
         public double Resolution = 2.0;       // mm, smallest point spacing of the path
         public bool Preview = false;          // fast mode: coarse meshing, no rounding
+        public double Density = 1.25;         // g/cm3 of the printed material, for the weight in file names and reports
+        public double Nozzle = 0.0;           // mm, 0 = not given (see Nozzles)
+        public Nozzles.Shape NozzleShape = Nozzles.Shape.Unknown;
         public MachineProfile Machine = new MachineProfile();
 
+        /// <summary>Height of the first layer: the nozzle runs this high above the bottom of the part.</summary>
+        public double FirstLayer => FirstLayerHeight > 0 ? FirstLayerHeight : LayerHeight;
         public double PointSpacing => Preview ? Resolution * 3.0 : Resolution;
-        public double EffectiveMinRadius => MinRadius > 0 ? MinRadius : BeadWidth;
+        /// <summary>
+        /// Corner radius of the walls. Not set: half the bead width. The Ginger handbook asks for at least half
+        /// the nozzle, and a bead is at least 1.5 nozzles wide (CEAD, Ginger), so half the bead is 0.75 nozzle
+        /// or more; with a nozzle given the radius never goes below half of it. A full bead width as radius
+        /// pulled 90 degree corners about 2 mm inwards (5 mm bead); half of it about 1 mm.
+        /// </summary>
+        public double EffectiveMinRadius => MinRadius > 0 ? MinRadius : Math.Max(0.5 * BeadWidth, 0.5 * Nozzle);
         /// <summary>Centre distance of two beads lying next to each other.</summary>
         public double BeadSpacing => BeadWidth * (1.0 - Math.Max(0.0, Math.Min(0.9, Overlap)));
 
@@ -47,7 +63,7 @@ namespace LARGERslicer.Toolpaths
         }
 
         public override string ToString() =>
-            $"Print Settings (bead {BeadWidth:0.##} x {LayerHeight:0.##} mm, F{Speed:0}{(Preview ? ", preview" : "")})";
+            Inv.F($"Print Settings (bead {BeadWidth:0.##} x {LayerHeight:0.##} mm, {Speed / 60:0.#} mm/s{(Preview ? ", preview" : "")})");
     }
 
     /// <summary>
@@ -80,17 +96,25 @@ namespace LARGERslicer.Toolpaths
             return RectangleSection ? width * height : PrintSettings.BeadArea(width, height);
         }
 
-        public override string ToString() => $"{Name} (E x {Factor:0.###}{(FirstLayerFactor != 1 ? $", first layer x {FirstLayerFactor:0.##}" : "")}, {Unit})";
+        public override string ToString() => Inv.F($"{Name} (E x {Factor:0.###}{(FirstLayerFactor != 1 ? Inv.F($", first layer x {FirstLayerFactor:0.##}") : "")}, {Unit})");
 
         /// <summary>Starting points. Weber 1.128 (a Cura value) and Ginger 0.21 are the factors of the GCODE MAKER in the FH Muenster definition at 100 % flow, applied to width x height x length.</summary>
         public static readonly string[] PresetNames =
         {
-            "Generic pellet extruder (volume)",
-            "Filament printer 1.75 mm",
-            "Filament printer 2.85 mm",
-            "Weber DXR robot (XE x P1)",
-            "Ginger (G-code)",
+            "Generic \u00B7 Pellet extruder (E = volume in mm\u00B3)",
+            "Generic \u00B7 Filament printer 1.75 mm (E = filament length)",
+            "Generic \u00B7 Filament printer 2.85 mm (E = filament length)",
+            "Weber Additive \u00B7 DXR25 on a robot (XE = volume x P1)",
+            "Ginger Additive \u00B7 Ginger One (E = width x height x length x 0.21)",
         };
+
+        /// <summary>The machine part of a preset name: "DXR25 on a robot" of "Weber Additive · DXR25 on a robot (...)".</summary>
+        public static string ShortName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            int dot = name.IndexOf('\u00B7'); string n = dot >= 0 ? name.Substring(dot + 1).Trim() : name;
+            int par = n.IndexOf(" ("); return par > 0 ? n.Substring(0, par) : n;
+        }
 
         public static MachineProfile Preset(int i)
         {
@@ -138,7 +162,7 @@ namespace LARGERslicer.Toolpaths
         private List<Polyline> _real;
         private int _realCount;
 
-        public override string ToString() => $"Layer {Index} ({Contours.Count} contour{(Contours.Count == 1 ? "" : "s")})";
+        public override string ToString() => Inv.F($"Layer {Index} ({Contours.Count} contour{(Contours.Count == 1 ? "" : "s")})");
     }
 
     /// <summary>
@@ -191,7 +215,7 @@ namespace LARGERslicer.Toolpaths
         public override string ToString()
         {
             int layers = Layers.Count > 0 ? Layers[Layers.Count - 1] + 1 : 0;
-            return $"Toolpath ({Count} points, {layers} layers, {Length() / 1000.0:0.00} m)";
+            return Inv.F($"Toolpath ({Count} points, {layers} layers, {Length() / 1000.0:0.00} m)");
         }
     }
 }

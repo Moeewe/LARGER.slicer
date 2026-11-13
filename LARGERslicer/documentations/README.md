@@ -9,7 +9,8 @@ Use this page to find the guide that matches your task. The repository [README](
 | Install the plugin and create a first toolpath | [Quick Start](../../README.md#quick-start) · [Usage Guide](../../README.md#usage-guide) |
 | Prepare and operate a machine | Choose a machine guide below |
 | DXR25-/KUKA-Roboterfehler beheben | [Deutsche Anleitung](KUKA_ROBOT_TROUBLESHOOTING_DE.md) · [English guide](KUKA_ROBOT_TROUBLESHOOTING.md) |
-| Find a plugin component or its inputs and outputs | [Component Overview](COMPONENTS_OVERVIEW.md) and [Component Inputs/Outputs](COMPONENT_INPUTS_OUTPUTS.md) |
+| Find a Slicer or Robot component (incl. Material, Self Support, Support Fins, Non-Planar Check, External Axis, collision check) | [Slicer tab](../../README.md#the-slicer-tab) · [Robot tab](../../README.md#the-robot-tab) · [Deutsch](../../README.de.md#der-tab-slicer) |
+| Find a CNC, DXR or utility component or its inputs and outputs | [Component Overview](COMPONENTS_OVERVIEW.md) and [Component Inputs/Outputs](COMPONENT_INPUTS_OUTPUTS.md) |
 
 ## Machine guides
 

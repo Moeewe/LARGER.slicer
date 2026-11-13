@@ -16,12 +16,12 @@ namespace LARGERslicer.Components.Export
         public AlternateCurvesComponent()
             : base("Alternate Curves", "AltCrv",
                   "Alternates curve directions (left-right-left-right pattern). Useful for creating zigzag patterns and preventing overfill in continuous toolpaths.",
-                  "LARGER", "Toolpaths")
+                  "LARGER", "Slicer")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Curve Tools";
+        public override string SubCategory => "Slicer";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -189,8 +189,10 @@ namespace LARGERslicer.Components.Export
             return (xyDirection * xyAxis) < 0;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("AlternateCurvesIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("AlternateCurvesIcon.png", this);
         public override Guid ComponentGuid => new Guid("00f7adb2-9f77-4a8a-a5d9-4e00871797d7");
+        /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
+        public override GH_Exposure Exposure => GH_Exposure.septenary | GH_Exposure.obscure;
     }
 }
 

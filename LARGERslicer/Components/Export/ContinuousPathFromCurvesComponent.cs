@@ -15,13 +15,13 @@ namespace LARGERslicer.Components.Export
     public class ContinuousPathFromCurvesComponent : BottomLayerPatternBase
     {
         public ContinuousPathFromCurvesComponent()
-            : base("Continuous Path from Boundary", "ContPath",
+            : base("Curve Wall and Zigzag", "C Wall",
                   "One continuous print line from a boundary: one wall loop along the outline, then a zigzag infill at the chosen angle inside it. The curve is the outside of the print.")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -51,7 +51,7 @@ namespace LARGERslicer.Components.Export
             DA.SetData(0, new PolylineCurve(fill.Path));
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("ContinuousPathFromCurvesIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("ContinuousPathFromCurvesIcon.png", this);
         public override Guid ComponentGuid => new Guid("3f6dfdae-b1a3-4a7e-b8b3-981ee021245f");
     }
 }

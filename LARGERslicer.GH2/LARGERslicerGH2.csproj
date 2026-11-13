@@ -23,6 +23,7 @@
   <ItemGroup>
     <Reference Include="RhinoCommon"><HintPath>$(Rhino9)/RhinoCommon.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Grasshopper2"><HintPath>$(Gh2Dir)/Grasshopper2.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Eto"><HintPath>$(Rhino9)/Eto.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="GrasshopperIO"><HintPath>$(Gh2Dir)/GrasshopperIO.dll</HintPath><Private>false</Private></Reference>
     <PackageReference Include="Clipper2" Version="1.5.4" />
   </ItemGroup>
@@ -30,5 +31,17 @@
     <Compile Include="../LARGERslicer/Toolpaths/*.cs" Exclude="../LARGERslicer/Toolpaths/ToolpathGoo.cs" LinkBase="Core" />
     <Compile Include="../LARGERslicer/Utils/DXRHelper.cs" LinkBase="Core" />
     <Compile Include="../LARGERslicer/Types/MachineSettings.cs" LinkBase="Core" />
+    <!-- 3D models of the extruder and the cell of the FH Muenster, shared with the Grasshopper 1 plug-in -->
+    <EmbeddedResource Include="../LARGERslicer/Resources/*.3dm" LogicalName="LARGERslicer.Resources.%(Filename)%(Extension)" />
+    <!-- Component icons: the 24 px files of Grasshopper 1 and the same drawings at 48 px (see Icons.cs) -->
+    <EmbeddedResource Include="../LARGERslicer/Resources/*Icon.png" Exclude="../LARGERslicer/Resources/plugin-icon.png" LogicalName="LARGERslicer.GH2.Icons.24.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Icons/48/*.png" LogicalName="LARGERslicer.GH2.Icons.48.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../LARGERslicer/Resources/LARGERslicer_24x24.png" LogicalName="LARGERslicer.GH2.Icons.24.LARGERslicer.png" />
+    <EmbeddedResource Include="../LARGERslicer/Resources/plugin-icon.png" LogicalName="LARGERslicer.GH2.Icons.256.LARGERslicer.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- GH1-free helpers of the curve tools (old Toolpaths tab) and of the CNC components -->
+    <Compile Include="../LARGERslicer/Utils/PathHelper.cs" LinkBase="Core" />
+    <Compile Include="../LARGERslicer/Types/Cutter.cs" LinkBase="Core" />
   </ItemGroup>
 </Project>

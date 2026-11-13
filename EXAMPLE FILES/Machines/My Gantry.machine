@@ -1,0 +1,49 @@
+# LARGER.slicer machine: a template for your own G-code printer.
+# Copy this file and "My Gantry.3dm" into Documents/LARGER/Machines, rename both
+# (same name, e.g. "Big Printer.machine" + "Big Printer.3dm") and change the values.
+# Lines that begin with # are comments. The guide: docs/OWN_MACHINES.md
+name = My Gantry
+manufacturer = Me
+# gantry | bedslinger | delta | belt 45 | robot - decides what it can print and how its model moves
+kind = gantry
+prefix = MYG
+extension = .gcode
+# print area X x Y (x height), mm, from 0, 0 in the front left corner of the bed
+bed = 300 x 300 x 300
+# E = bead width x layer height x length x flow x this factor (/ filament area if a diameter is set)
+extrusion factor = 1
+first layer factor = 1
+filament diameter = 1.75
+section = bead
+# mm/min for travel moves; 0 = the highest speed of the print settings
+travel speed = 6000
+material = PLA
+bed temperature = 60
+# the 3D model: layers Frame, Bed, Z, Y, X and a point on TCP at the nozzle tip
+model = My Gantry.3dm
+
+[start]
+; START CODE
+G21 ; millimetres
+G90 ; absolute positions
+M140 S{bed} ; bed temperature for {material}
+G28 ; home
+G92 E0
+M83 ; extrusion as relative distances
+; end of start code
+
+[layer]
+; layer {layer} at Z {z}
+
+[after layer 2]
+M106 S255 ; fan on after layer 2
+
+[end]
+; END CODE
+G91
+G1 F600 Z20 ; lift
+G90
+M107 ; fan off
+M140 S0
+M84 ; motors off
+; end of end code

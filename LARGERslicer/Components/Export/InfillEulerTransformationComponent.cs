@@ -15,13 +15,13 @@ namespace LARGERslicer.Components.Export
     public class InfillEulerTransformationComponent : BottomLayerPatternBase
     {
         public InfillEulerTransformationComponent()
-            : base("Single Line Fill with Euler", "SLF Euler",
+            : base("Curve Fill Euler", "C Euler",
                   "Fills a region with one line that can be drawn without lifting the pen. Concentric = true follows the outline inwards, false prints a wall loop and a zigzag inside. Offset Distance moves the first bead further inside.")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Toolpaths";
+        public override string SubCategory => "Slicer";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -49,7 +49,7 @@ namespace LARGERslicer.Components.Export
             DA.SetData(0, new PolylineCurve(fill.Path));
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("InfillEulerTransformationIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("InfillEulerTransformationIcon.png", this);
         public override Guid ComponentGuid => new Guid("5dbd79e8-a7eb-47bd-8f62-11b41f6bfaa8");
     }
 }

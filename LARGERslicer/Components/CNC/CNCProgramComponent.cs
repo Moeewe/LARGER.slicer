@@ -52,7 +52,7 @@ namespace LARGERslicer.Components.CNC
             pManager.AddIntegerParameter("Tool List", "Tools", "Optional: List of tools (11, 21, 31) for each path segment. If empty, uses single Tool parameter for all segments.", GH_ParamAccess.list);
             pManager[22].Optional = true;
             pManager.AddNumberParameter("Tool Spindle Speeds", "ToolRPM", "Optional: List of spindle speeds (RPM) for each tool. If empty, uses single Spindle Speed for all tools.", GH_ParamAccess.list);
-            pManager[20].Optional = true;
+            pManager[23].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -473,26 +473,10 @@ namespace LARGERslicer.Components.CNC
             if (selectedCutter != null)
             {
                 // Use Cutter object specifications
-                // Check 1: Material thickness vs. max cutting depth (for through-cutting)
-                if (materialThickness > selectedCutter.MaxCuttingDepth)
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
-                        $"Cutter '{selectedCutter.Name}' cannot cut through material thickness of {materialThickness:F2} mm. " +
-                        $"Maximum cutting depth: {selectedCutter.MaxCuttingDepth:F2} mm. " +
-                        $"Material thickness exceeds limit by {materialThickness - selectedCutter.MaxCuttingDepth:F2} mm. " +
-                        $"Please use a different cutter or reduce material thickness.");
-                }
-                
-                // Check 2: Actual cutting depth vs. max cutting depth (for through-cutting)
-                if (cuttingDepth > selectedCutter.MaxCuttingDepth)
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                        $"Cutter '{selectedCutter.Name}' cannot cut to depth of {cuttingDepth:F2} mm. " +
-                        $"Maximum cutting depth: {selectedCutter.MaxCuttingDepth:F2} mm. " +
-                        $"Cutting depth exceeds limit by {cuttingDepth - selectedCutter.MaxCuttingDepth:F2} mm. " +
-                        $"Please use a different cutter or adjust geometry Z coordinates.");
-                }
-                
+                // Through-cut limit (MaxCuttingDepth) and depth limit (MaxSurfaceDepth) of the cutter: a cut that
+                // leaves material (deeper than the through-cut limit, within the surface limit) is a warning (check 3),
+                // cutting through thicker material (check 5) or deeper than the surface limit (check 4) an error.
+                // (Before, checks here made every cut deeper than the through-cut limit an error, against check 3.)
                 // Check 3: Actual cutting depth vs. max surface depth (for surface cutting)
                 // If cutting depth is within MaxCuttingDepth but exceeds MaxSurfaceDepth, it's still a warning
                 // (surface cutting is possible but may not be ideal)
@@ -2185,7 +2169,7 @@ namespace LARGERslicer.Components.CNC
             return string.Join("\n", lines);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CNCProgramIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("CNCProgramIcon.png", this);
         public override Guid ComponentGuid => new Guid("C1D2E3F4-A5B6-7890-CDEF-123456789ABC");
     }
 }

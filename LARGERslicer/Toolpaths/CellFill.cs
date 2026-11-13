@@ -72,6 +72,24 @@ namespace LARGERslicer.Toolpaths
             return r;
         }
 
+        /// <summary>True if two closed loops are the same line within the tolerance, wherever each one starts.</summary>
+        private static bool SameLoop(List<Point2d> a, List<Point2d> b, double tol)
+        {
+            if (a == null || b == null || a.Count < 3 || b.Count < 3) return false;
+            double[] ca = LoopCum(a), cb = LoopCum(b);
+            double la = ca[a.Count], lb = cb[b.Count];
+            if (Math.Abs(la - lb) > 8 * tol + 1e-4 * la) return false;
+            const int samples = 64;
+            for (int k = 0; k < samples; k++)
+            {
+                LoopClosest(b, cb, LoopAt(a, ca, la * k / samples), out double d1);
+                if (d1 > tol) return false;
+                LoopClosest(a, ca, LoopAt(b, cb, lb * k / samples), out double d2);
+                if (d2 > tol) return false;
+            }
+            return true;
+        }
+
         /// <summary>The loop as an open line from sFrom forward, once around, to sTo.</summary>
         private static List<Point2d> LoopOpen(List<Point2d> p, double[] c, double sFrom, double sTo)
         {
@@ -330,10 +348,11 @@ namespace LARGERslicer.Toolpaths
             var done = new bool[nodes.Count]; done[0] = true;
             double gap = spacing;
             Point2d lastJoint = new Point2d(0, 0);
+            int atLimit = int.MaxValue;
             Func<int, int, CellJoin, bool> tryJoin = (a, b, j) =>
             {
                 double[] lc = LoopCum(line);
-                foreach (var at in j.At)
+                foreach (var at in j.At.Take(atLimit))
                 {
                     double sa = j.A == a ? at[0] : at[1], sb = j.A == a ? at[1] : at[0];
                     Point2d pa = LoopAt(nodes[a], cum[a], sa);
@@ -355,6 +374,9 @@ namespace LARGERslicer.Toolpaths
                     merged.AddRange(LoopOpen(nodes[b], cum[b], sb + 0.5 * gap, sb - 0.5 * gap));
                     line = merged;
                     lastJoint = pa;
+                    // remembered as a pair: the place on the loop that was opened and the place
+                    // on the loop that was hung in
+                    joints?.Add(pa); joints?.Add(LoopAt(nodes[b], cum[b], sb));
                     return true;
                 }
                 return false;
@@ -363,6 +385,35 @@ namespace LARGERslicer.Toolpaths
             // an opening's wall to reach the cells behind it would open that wall again and
             // again, at places that move from layer to layer.
             bool holesLater = true;
+            // The layer below remembers every joint it made. Where the same joint is possible
+            // again it is made again, at the same place: the tree of cells then stays the same
+            // from layer to layer, even where a curved wall is divided differently on each one.
+            Point2d root0 = nodes[0][0];
+            bool useMem = prevJoints != null && prevJoints.Count > 0, memOnly = false;
+            if (useMem && (prevJoints.Count & 1) != 0) useMem = false;
+            // a joint is the same as one below only if both of its sides are where they were
+            Func<CellJoin, double[], double> memAt = (j, x) =>
+            {
+                Point2d pA = LoopAt(nodes[j.A], cum[j.A], x[0]), pB = LoopAt(nodes[j.B], cum[j.B], x[1]);
+                double best = double.MaxValue;
+                for (int m = 0; m + 1 < prevJoints.Count; m += 2)
+                {
+                    double d = Math.Min(Math.Max(pA.DistanceTo(prevJoints[m]), pB.DistanceTo(prevJoints[m + 1])),
+                                        Math.Max(pA.DistanceTo(prevJoints[m + 1]), pB.DistanceTo(prevJoints[m])));
+                    if (d < best) best = d;
+                }
+                return best;
+            };
+            Func<CellJoin, bool> known = j =>
+            {
+                var rated = j.At.Select(x => new { x, d = memAt(j, x) }).OrderBy(x => x.d).ToList();
+                atLimit = rated.Count(x => x.d <= 0.75 * spacing);
+                if (atLimit == 0) { atLimit = int.MaxValue; return false; }
+                j.At = rated.Select(x => x.x).ToList();
+                return true;
+            };
+            // the remembered places that lie on one loop (the wall, or the wall of an opening)
+            Func<int, List<Point2d>> memOn = n => !useMem ? new List<Point2d>() : prevJoints.Where(q => { LoopClosest(nodes[n], cum[n], q, out double dq); return dq < 0.75 * spacing; }).ToList();
             Action<int> grow = start =>
             {
                 var queue = new Queue<int>(); queue.Enqueue(start);
@@ -373,8 +424,10 @@ namespace LARGERslicer.Toolpaths
                     {
                         int b = j.A == a ? j.B : j.A;
                         if (done[b] || b == 0) continue;
-                        if (holesLater && b <= holeCount) continue;
-                        if (!tryJoin(a, b, j)) continue;
+                        if (memOnly) { if (!known(j)) continue; }
+                        else if (holesLater && b <= holeCount) continue;
+                        bool okJoin = tryJoin(a, b, j); atLimit = int.MaxValue;
+                        if (!okJoin) continue;
                         done[b] = true; queue.Enqueue(b);
                         if (b <= holeCount) absorbedHoles?.Add(b - 1); else joinedCells++;
                     }
@@ -384,10 +437,26 @@ namespace LARGERslicer.Toolpaths
             // A full cell before a sliver, and among those the one nearest to the start of the
             // wall: the same cell on every layer.
             // From the second layer on: where the layer below has its joints (prevJoints).
-            Point2d root0 = nodes[0][0];
-            bool useMem = prevJoints != null && prevJoints.Count > 0;
-            Func<Point2d, double> mem = q => prevJoints.Min(m => m.DistanceTo(q));
+            if (useMem)
+            {
+                memOnly = true;
+                foreach (var j in byNode[0].ToList())
+                {
+                    int b = j.A == 0 ? j.B : j.A;
+                    if (done[b] || b <= holeCount || !known(j)) continue;
+                    bool okJoin = tryJoin(0, b, j); atLimit = int.MaxValue;
+                    if (!okJoin) continue;
+                    done[b] = true; joinedCells++;
+                    grow(b);
+                }
+                memOnly = false;
+                // whatever the remembered joints did not reach grows on from what is there
+                for (int n = holeCount + 1; n < nodes.Count; n++) if (done[n]) grow(n);
+            }
             Func<CellJoin, Point2d> onWall = x => LoopAt(nodes[0], cum[0], x.At[0][0]);
+            var memWall = memOn(0);
+            Func<Point2d, double> mem = q => memWall.Min(m => m.DistanceTo(q));
+            useMem = memWall.Count > 0;
             foreach (var j in useMem ? byNode[0].OrderBy(x => mem(onWall(x))).ToList()
                                      : byNode[0].OrderBy(x => x.At.Count >= 6 ? 0 : 1).ThenBy(x => onWall(x).DistanceTo(root0)).ToList())
             {
@@ -396,7 +465,6 @@ namespace LARGERslicer.Toolpaths
                 // the same place as on the layer below, not just the same cell
                 if (useMem) j.At = j.At.OrderBy(x => mem(LoopAt(nodes[0], cum[0], x[0]))).ToList();
                 if (!tryJoin(0, b, j)) continue;
-                joints?.Add(lastJoint);
                 done[b] = true;
                 joinedCells++;
                 grow(b);
@@ -404,12 +472,15 @@ namespace LARGERslicer.Toolpaths
             for (int h = 1; h <= holeCount; h++)
             {
                 int hh = h;
+                if (done[h]) continue;
                 Func<CellJoin, Point2d> onHole = x => x.A == hh ? LoopAt(nodes[hh], cum[hh], x.At[0][0]) : LoopAt(nodes[hh], cum[hh], x.At[0][1]);
-                foreach (var j in byNode[h].Where(x => done[x.A == hh ? x.B : x.A]).OrderBy(x => useMem ? mem(onHole(x)) : onHole(x).DistanceTo(nodes[hh][0])).ToList())
+                var memHole = memOn(hh); bool useHole = memHole.Count > 0;
+                Func<Point2d, double> memH = q => memHole.Min(m => m.DistanceTo(q));
+                Func<CellJoin, double> nearestH = x => x.At.Min(y => memH(LoopAt(nodes[hh], cum[hh], x.A == hh ? y[0] : y[1])));
+                foreach (var j in byNode[h].Where(x => done[x.A == hh ? x.B : x.A]).OrderBy(x => useHole ? nearestH(x) : onHole(x).DistanceTo(nodes[hh][0])).ToList())
                 {
-                    if (useMem) { var jj = j; j.At = j.At.OrderBy(x => mem(LoopAt(nodes[hh], cum[hh], jj.A == hh ? x[0] : x[1]))).ToList(); }
+                    if (useHole) { var jj = j; j.At = j.At.OrderBy(x => memH(LoopAt(nodes[hh], cum[hh], jj.A == hh ? x[0] : x[1]))).ToList(); }
                     if (!tryJoin(j.A == h ? j.B : j.A, h, j)) continue;
-                    joints?.Add(LoopAt(nodes[hh], cum[hh], LoopClosest(nodes[hh], cum[hh], lastJoint, out _)));
                     done[h] = true; absorbedHoles?.Add(h - 1);
                     break;
                 }
@@ -443,6 +514,12 @@ namespace LARGERslicer.Toolpaths
             if (warp != null && origin.HasValue) o3 = warp.ToFlat(o3);
 
             var memory = new List<Point3d>();
+            // A layer whose walls are the same as those of the last layer worked out gets the same
+            // line. A slicer cuts a round wall into different pieces on every layer, and whatever
+            // is clipped and compared against a limit can then fall on the other side of it: a
+            // small cell would be there on one layer and gone on the next.
+            List<List<Point2d>> baseRings = null; List<Point2d> baseLine = null; int baseHost = -1, baseJoined = 0, baseDropped = 0;
+            var baseAbsorbed = new HashSet<int>();
             Action<int> one = li =>
             {
                 var src = layers[li];
@@ -471,20 +548,52 @@ namespace LARGERslicer.Toolpaths
                 if (Area(rings[host]) < 0) rings[host].Reverse();
                 var material = new PathsD();
                 material.Add(new PathD(rings[host].Select(p => new PointD(p.X, p.Y))));
-                var holeWalls = new List<List<Point2d>>(); var holeIndex = new List<int>(); var absorbed = new List<int>();
+                var holeWalls = new List<List<Point2d>>(); var holeIndex = new List<int>(); var absorbed = new List<int>(); var holeRing = new List<int>();
                 for (int b = 0; b < rings.Count; b++)
                 {
                     if (b == host || !Inside(rings[host], rings[b][0])) continue;
                     var hole = new List<Point2d>(rings[b]);
                     if (Area(hole) > 0) hole.Reverse();
                     material.Add(new PathD(hole.Select(p => new PointD(p.X, p.Y))));
-                    holeWalls.Add(hole); holeIndex.Add(index[b]);
+                    holeWalls.Add(hole); holeIndex.Add(index[b]); holeRing.Add(b);
                 }
 
-                var jointsNow = new List<Point2d>();
-                var line = CellLine(rings[host], material, spacing, pattern, size, angleDeg, To2d(src.Plane, o3), out int joined, out int dropped, holeWalls, absorbed, stretch, null, null,
-                    memory.Select(q => To2d(src.Plane, q)).ToList(), jointsNow);
-                if (line != null && jointsNow.Count > 0) memory = jointsNow.Select(q => To3d(src.Plane, q)).ToList();
+                // the same walls as below? (The cell pattern stays where it is within the layer
+                // plane, also on tilted layers: every cell wall then lies square on the one below.
+                // Tried the other way - the pattern moving with an upright part - and it was worse.)
+                Point2d off = new Point2d(0, 0);
+                var rel = rings.Select(r => new List<Point2d>(r)).ToList();
+                int[] map = null;
+                if (baseRings != null && baseLine != null && baseRings.Count == rings.Count)
+                {
+                    map = new int[rings.Count]; var used = new bool[rings.Count];
+                    for (int a = 0; a < rings.Count && map != null; a++)
+                    {
+                        int hit = -1;
+                        for (int b = 0; b < baseRings.Count; b++) if (!used[b] && SameLoop(rel[a], baseRings[b], 0.05)) { hit = b; break; }
+                        if (hit < 0) map = null; else { map[a] = hit; used[hit] = true; }
+                    }
+                    if (map != null && map[host] != baseHost) map = null;
+                }
+
+                List<Point2d> line; int joined, dropped;
+                if (map != null)
+                {
+                    line = baseLine.Select(q => new Point2d(q.X + off.X, q.Y + off.Y)).ToList(); joined = baseJoined; dropped = baseDropped;
+                    for (int h = 0; h < holeRing.Count; h++) if (baseAbsorbed.Contains(map[holeRing[h]])) absorbed.Add(h);
+                }
+                else
+                {
+                    var jointsNow = new List<Point2d>();
+                    line = CellLine(rings[host], material, spacing, pattern, size, angleDeg, To2d(src.Plane, o3), out joined, out dropped, holeWalls, absorbed, stretch, null, null,
+                        memory.Select(q => To2d(src.Plane, q)).ToList(), jointsNow);
+                    if (line != null && jointsNow.Count > 0) memory = jointsNow.Select(q => To3d(src.Plane, q)).ToList();
+                    if (line != null)
+                    {
+                        baseRings = rel; baseLine = line.Select(q => new Point2d(q.X - off.X, q.Y - off.Y)).ToList(); baseHost = host;
+                        baseJoined = joined; baseDropped = dropped; baseAbsorbed = new HashSet<int>(absorbed.Select(i => holeRing[i]));
+                    }
+                }
                 drops[li] = dropped;
                 if (line == null) { noHost[li] = 1; return; }
                 counts[li] = joined;
@@ -509,9 +618,9 @@ namespace LARGERslicer.Toolpaths
 
             cellCount = counts.Length > 0 ? counts.Max() : 0;
             int without = noHost.Sum();
-            if (without > 0) log?.Add($"{without} layer(s) got no cells (no closed wall, or too narrow for a cell).");
+            if (without > 0) log?.Add(Inv.F($"{without} layer(s) got no cells (no closed wall, or too narrow for a cell)."));
             int maxDrop = drops.Length > 0 ? drops.Max() : 0;
-            if (maxDrop > 0) log?.Add($"Up to {maxDrop} cell piece(s) per layer are too small to print or could not be joined, and were left out.");
+            if (maxDrop > 0) log?.Add(Inv.F($"Up to {maxDrop} cell piece(s) per layer are too small to print or could not be joined, and were left out."));
             return result.ToList();
         }
 
@@ -539,6 +648,24 @@ namespace LARGERslicer.Toolpaths
         internal static List<Point2d> WaveLoop(List<Point2d> wall, double spacing, double beadWidth, int shape, double wavelength, double depth, Point2d origin, out int waves,
             double prevDepth, int prevCount, out double usedDepth, out Point2d anchor, bool meet, List<List<Point2d>> otherWalls)
         {
+            return WaveLoop(wall, spacing, beadWidth, shape, wavelength, depth, origin, out waves, prevDepth, prevCount, out usedDepth, out anchor, meet, otherWalls, new Vector2d(0, 0));
+        }
+
+        /// <summary>
+        /// down: for tilted layers (angled printing) the direction in the layer that points to the
+        /// bed; zero for flat layers. A side that runs up from the bed grows from layer to layer.
+        /// Its waves keep their length and are counted from the bed, so each one stands on the wave
+        /// of the layer before; new waves are added at the top. Spreading them evenly over the side
+        /// would shift every wave whenever one more fits.
+        /// below: the line of the layer below, square to this layer (tilted layers only; null = no
+        /// limit). A dip goes only as deep as keeps it within 0.45 bead width of that line, so it
+        /// stands on the dip below. On tilted layers the walls move sideways from layer to layer
+        /// (Above2d): a dip on the side the layers lean away from may then not grow at all, while
+        /// the one opposite may grow faster.
+        /// </summary>
+        internal static List<Point2d> WaveLoop(List<Point2d> wall, double spacing, double beadWidth, int shape, double wavelength, double depth, Point2d origin, out int waves,
+            double prevDepth, int prevCount, out double usedDepth, out Point2d anchor, bool meet, List<List<Point2d>> otherWalls, Vector2d down, List<Point2d> below = null)
+        {
             waves = 0; usedDepth = 0; anchor = origin;
             if (Area(wall) < 0) { wall = new List<Point2d>(wall); wall.Reverse(); }
             double land = 2.0 * beadWidth;
@@ -556,10 +683,44 @@ namespace LARGERslicer.Toolpaths
             double[] cum = LoopCum(C);
             double len = cum[C.Count];
             double limit = depth > 0 ? depth : double.MaxValue;   // 0 = as deep as the part allows
+            // Tilted layers have nothing below them where a layer first reaches further than the one
+            // before: there a wave may only grow a little per layer, so every bead still lies on the last one.
+            if (down.X != 0 || down.Y != 0) limit = Math.Min(limit, (prevDepth > 0 ? prevDepth : 2.0 * beadWidth) + 0.4 * beadWidth);
             if (!meet && depth <= 0) return null;
 
             var cornerKind = new List<int>();
             var cornerAt = LoopCorners(C, cum, 1.5 * beadWidth, cornerKind);
+
+            // the deepest a dip may go at a point and still lie on the line below (see 'below')
+            var onBelow = below != null && below.Count > 2 ? new SegmentGrid(below, beadWidth) : null;
+            double reachBelow = 0.45 * beadWidth;
+            // The move from the last point to the new one has to lie on the line below as well: a
+            // dip must not jump across to a dip of the opposite side and leave its legs in the air.
+            Func<Point2d, Vector2d, double, List<Point2d>, double> supported = (p, nv, h, sofar) =>
+            {
+                if (onBelow == null || h <= 0) return h;
+                double stepH = 0.1 * beadWidth;
+                bool hasLast = sofar.Count > 0;
+                Point2d last = hasLast ? sofar[sofar.Count - 1] : p;
+                for (double hh = h; hh > 0; hh -= stepH)
+                {
+                    var q = new Point2d(p.X + nv.X * hh, p.Y + nv.Y * hh);
+                    if (!onBelow.Near(q, reachBelow)) continue;
+                    if (hasLast)
+                    {
+                        int parts = Math.Max(1, (int)Math.Ceiling(last.DistanceTo(q) / (0.5 * beadWidth)));
+                        bool ok = true;
+                        for (int j = 1; j < parts && ok; j++)
+                        {
+                            double t = (double)j / parts;
+                            ok = onBelow.Near(new Point2d(last.X + (q.X - last.X) * t, last.Y + (q.Y - last.Y) * t), reachBelow);
+                        }
+                        if (!ok) continue;
+                    }
+                    return hh;
+                }
+                return 0;
+            };
 
             // inward normal (left of travel on a counter-clockwise loop), smoothed over 'win'
             Func<double, double, double, double, Vector2d> normal = (sAt, win, lo, hi) =>
@@ -697,7 +858,7 @@ namespace LARGERslicer.Toolpaths
                         double sAt = s0 + len * i / n;
                         Point2d p = LoopAt(C, cum, sAt);
                         Vector2d nv = normal(sAt, win, double.MinValue, double.MaxValue);
-                        double h = d * profile((sAt - s0) / lam, lam);
+                        double h = supported(p, nv, d * profile((sAt - s0) / lam, lam), loop);
                         loop.Add(new Point2d(p.X + nv.X * h, p.Y + nv.Y * h));
                     }
                     usedDepth = d;
@@ -705,7 +866,7 @@ namespace LARGERslicer.Toolpaths
                 else
                 {
                     // number of waves per side; sides that face each other get the same number
-                    var nOf = new int[runs]; var ma = new double[runs]; var mb = new double[runs]; var dEff = new double[runs];
+                    var nOf = new int[runs]; var ma = new double[runs]; var mb = new double[runs]; var dEff = new double[runs]; var slope = new int[runs];
                     for (int k = 0; k < runs; k++) { nOf[k] = -1; dEff[k] = runDepth[k] * scale; }
                     // Dips of two sides that share a convex corner would run into each other. With
                     // Meet the shallow sides go first (they are the ones that reach the middle) and
@@ -730,11 +891,21 @@ namespace LARGERslicer.Toolpaths
                         }
                         double usable = runLen[k] - ma[k] - mb[k];
                         nOf[k] = dEff[k] >= 2 * beadWidth && usable >= 0.75 * wavelength ? Math.Max(1, (int)Math.Round(usable / wavelength)) : 0;
+                        // a side that climbs from the bed: whole waves of fixed length, counted from the bed
+                        slope[k] = 0;
+                        if (down.X != 0 || down.Y != 0)
+                        {
+                            Point2d pa = LoopAt(C, cum, runFrom[k]), pb = LoopAt(C, cum, runFrom[k] + runLen[k]);
+                            double fall = (pb.X - pa.X) * down.X + (pb.Y - pa.Y) * down.Y; // > 0: the end is lower than the start
+                            if (Math.Abs(fall) > 0.3 * runLen[k]) slope[k] = fall > 0 ? 1 : -1;
+                        }
+                        if (slope[k] != 0) nOf[k] = dEff[k] >= 2 * beadWidth ? (int)Math.Floor(usable / wavelength + 1e-9) : 0;
                     }
                     for (int k = 0; k < runs; k++)
                     {
                         int o = runOpp[k];
                         if (o < 0 || o == k || runOpp[o] != k) continue;
+                        if (slope[k] != 0 || slope[o] != 0) continue; // climbing sides keep their own count
                         int m = Math.Min(nOf[k], nOf[o]); nOf[k] = m; nOf[o] = m;
                     }
                     for (int k = 0; k < runs; k++)
@@ -742,6 +913,13 @@ namespace LARGERslicer.Toolpaths
                         double sa = runFrom[k], run = runLen[k], d = dEff[k];
                         int n = nOf[k];
                         double usable = run - ma[k] - mb[k], lam = n > 0 ? usable / n : 0;
+                        double w0 = ma[k]; // where the first wave begins
+                        if (slope[k] != 0 && n > 0)
+                        {
+                            lam = wavelength;
+                            w0 = slope[k] < 0 ? ma[k] : run - mb[k] - n * lam; // start is on the bed, or the end is
+                        }
+                        double w1 = w0 + n * lam;
                         count += n;
                         usedDepth = Math.Max(usedDepth, n > 0 ? d : 0);
                         int steps = Math.Max(1, (int)Math.Ceiling(run / step));
@@ -762,7 +940,7 @@ namespace LARGERslicer.Toolpaths
                                 double a0 = 0.5 * Math.Min(0.35, land / lam);
                                 for (int q = 0; q <= 12; q++)
                                 {
-                                    double sAt = sa + ma[k] + (j + a0 + (1.0 - 2.0 * a0) * q / 12.0) * lam;
+                                    double sAt = sa + w0 + (j + a0 + (1.0 - 2.0 * a0) * q / 12.0) * lam;
                                     best = Math.Min(best, reach(sAt, normal(sAt, winN, sa, sa + run), hit2));
                                 }
                                 own[j] = Math.Max(d, Math.Min(limit, best) * scale);
@@ -773,11 +951,12 @@ namespace LARGERslicer.Toolpaths
                         {
                             double dd = run * i / steps;
                             Point2d p = LoopAt(C, cum, sa + dd);
-                            bool inWave = n > 0 && dd > ma[k] && dd < run - mb[k];
-                            double dj = inWave && own != null ? own[Math.Max(0, Math.Min(n - 1, (int)((dd - ma[k]) / lam)))] : d;
-                            double h = inWave ? dj * profile((dd - ma[k]) / lam, lam) : 0;
+                            bool inWave = n > 0 && dd > w0 && dd < w1;
+                            double dj = inWave && own != null ? own[Math.Max(0, Math.Min(n - 1, (int)((dd - w0) / lam)))] : d;
+                            double h = inWave ? dj * profile((dd - w0) / lam, lam) : 0;
                             if (h <= 0) { loop.Add(p); continue; }
                             Vector2d nv = normal(sa + dd, win, sa, sa + run);
+                            h = supported(p, nv, h, loop);
                             loop.Add(new Point2d(p.X + nv.X * h, p.Y + nv.Y * h));
                         }
                     }
@@ -806,6 +985,54 @@ namespace LARGERslicer.Toolpaths
             return null;
         }
 
+        /// <summary>The segments of a closed 2D line in a grid, to ask fast whether a point is near the line.</summary>
+        private sealed class SegmentGrid
+        {
+            private readonly List<Point2d> _ring;
+            private readonly double _cell;
+            private readonly Dictionary<long, List<int>> _grid = new Dictionary<long, List<int>>();
+
+            public SegmentGrid(List<Point2d> ring, double cell)
+            {
+                _ring = ring; _cell = Math.Max(1e-3, cell);
+                for (int i = 0; i < ring.Count; i++)
+                {
+                    Point2d a = ring[i], b = ring[(i + 1) % ring.Count];
+                    int x0 = (int)Math.Floor(Math.Min(a.X, b.X) / _cell), x1 = (int)Math.Floor(Math.Max(a.X, b.X) / _cell);
+                    int y0 = (int)Math.Floor(Math.Min(a.Y, b.Y) / _cell), y1 = (int)Math.Floor(Math.Max(a.Y, b.Y) / _cell);
+                    if ((long)(x1 - x0 + 1) * (y1 - y0 + 1) > 4000) continue; // a stray very long segment: not indexed
+                    for (int gx = x0; gx <= x1; gx++)
+                        for (int gy = y0; gy <= y1; gy++)
+                        {
+                            long key = ((long)gx << 32) ^ (uint)gy;
+                            if (!_grid.TryGetValue(key, out var l)) _grid[key] = l = new List<int>();
+                            l.Add(i);
+                        }
+                }
+            }
+
+            /// <summary>True if the point lies within r of the line (r up to one cell).</summary>
+            public bool Near(Point2d p, double r)
+            {
+                int cx = (int)Math.Floor(p.X / _cell), cy = (int)Math.Floor(p.Y / _cell);
+                double r2 = r * r;
+                for (int gx = cx - 1; gx <= cx + 1; gx++)
+                    for (int gy = cy - 1; gy <= cy + 1; gy++)
+                    {
+                        if (!_grid.TryGetValue(((long)gx << 32) ^ (uint)gy, out var l)) continue;
+                        foreach (int i in l)
+                        {
+                            Point2d a = _ring[i], b = _ring[(i + 1) % _ring.Count];
+                            double dx = b.X - a.X, dy = b.Y - a.Y, l2 = dx * dx + dy * dy;
+                            double t = l2 < 1e-12 ? 0 : Math.Max(0, Math.Min(1, ((p.X - a.X) * dx + (p.Y - a.Y) * dy) / l2));
+                            double ex = a.X + t * dx - p.X, ey = a.Y + t * dy - p.Y;
+                            if (ex * ex + ey * ey <= r2) return true;
+                        }
+                    }
+                return false;
+            }
+        }
+
         /// <summary>Adds wave infill to every layer without bottom fill; the wave becomes part of the wall contour.</summary>
         public static List<SliceLayer> Waves(List<SliceLayer> layers, PrintSettings settings, int shape, double wavelength,
             double depth, Point3d? origin, List<string> log, out int waveCount, bool meet = true)
@@ -819,6 +1046,7 @@ namespace LARGERslicer.Toolpaths
 
             // layer by layer: every wave is placed where the wave of the layer below is
             double prevDepth = 0; int prevCount = 0; Point3d prevAnchor = Point3d.Unset;
+            Polyline prevLine = null; // the wave line of the layer below (3D), for tilted layers
             var waveMemory = new List<Point3d>();
             foreach (int li in Enumerable.Range(0, layers.Count).OrderBy(i => layers[i].Index))
             {
@@ -838,7 +1066,9 @@ namespace LARGERslicer.Toolpaths
                 if (host < 0) { failed[li] = 1; continue; }
                 if (Area(hostRing) < 0) hostRing.Reverse();
                 // without an origin the pattern starts at the right-most wall point of the first layer's frame
-                Point2d o2 = prevAnchor.IsValid ? To2d(src.Plane, prevAnchor) : (o3.IsValid ? To2d(src.Plane, o3) : new Point2d(1e6, 0));
+                // (straight above, not square to the tilted layer: on angled slicing the walls move
+                // sideways from layer to layer and the wave has to move with them, see Above2d)
+                Point2d o2 = prevAnchor.IsValid ? Above2d(src.Plane, prevAnchor) : (o3.IsValid ? Above2d(src.Plane, o3) : new Point2d(1e6, 0));
                 // walls of holes: a dip may run up to them
                 var holes = new List<List<Point2d>>(); var holeIndex = new List<int>(); var absorbed = new List<int>();
                 for (int c = 0; c < src.Contours.Count; c++)
@@ -847,16 +1077,24 @@ namespace LARGERslicer.Toolpaths
                     var hr = Ring2d(src.Plane, src.Contours[c]);
                     if (hr.Count > 2 && Inside(hostRing, hr[0])) { holes.Add(hr); holeIndex.Add(c); }
                 }
-                var wave = WaveLoop(hostRing, spacing, w, shape, wavelength, depth, o2, out int n, prevDepth, prevCount, out double usedDepth, out Point2d anchor, meet, holes);
-                if (wave == null) { failed[li] = 1; continue; }
+                // tilted layer: which way is down, seen in the layer?
+                Vector3d fallLine = -Vector3d.ZAxis - src.Plane.Normal * (-Vector3d.ZAxis * src.Plane.Normal);
+                Vector2d down = new Vector2d(0, 0);
+                if (src.Warp == null && fallLine.Length > 0.05) { fallLine.Unitize(); down = new Vector2d(fallLine * src.Plane.XAxis, fallLine * src.Plane.YAxis); }
+                List<Point2d> lineBelow = null;
+                if ((down.X != 0 || down.Y != 0) && prevLine != null) lineBelow = Ring2d(src.Plane, prevLine);
+                var wave = WaveLoop(hostRing, spacing, w, shape, wavelength, depth, o2, out int n, prevDepth, prevCount, out double usedDepth, out Point2d anchor, meet, holes, down, lineBelow);
+                // no wave on this layer: the next one stands on the plain wall and starts its dips small
+                if (wave == null) { failed[li] = 1; prevLine = src.Contours[host]; continue; }
 
                 var material = new PathsD { new PathD(hostRing.Select(q => new PointD(q.X, q.Y))) };
                 var jointsNow = new List<Point2d>();
                 var line = CellLine(hostRing, material, spacing, 0, 0, 0, o2, out int joined, out _, holes, absorbed, 1.0, new List<List<Point2d>> { wave }, null,
-                    waveMemory.Select(q => To2d(src.Plane, q)).ToList(), jointsNow);
+                    waveMemory.Select(q => Above2d(src.Plane, q)).ToList(), jointsNow);
                 if (line != null && jointsNow.Count > 0) waveMemory = jointsNow.Select(q => To3d(src.Plane, q)).ToList();
-                if (line == null || joined == 0) { failed[li] = 2; continue; }
+                if (line == null || joined == 0) { failed[li] = 2; prevLine = src.Contours[host]; continue; }
                 counts[li] = n;
+                prevLine = Ring3d(src.Plane, line);
                 prevDepth = usedDepth; prevCount = n; prevAnchor = To3d(src.Plane, anchor);
 
                 var dst = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp };
@@ -878,8 +1116,8 @@ namespace LARGERslicer.Toolpaths
 
             waveCount = counts.Length > 0 ? counts.Max() : 0;
             int noFit = failed.Count(f => f == 1), noJoin = failed.Count(f => f == 2);
-            if (noFit > 0) log?.Add($"{noFit} layer(s) got no wave: no closed wall, or the part is too narrow for this depth.");
-            if (noJoin > 0) log?.Add($"{noJoin} layer(s) got no wave: it could not be joined to the wall.");
+            if (noFit > 0) log?.Add(Inv.F($"{noFit} layer(s) got no wave: no closed wall, or the part is too narrow for this depth."));
+            if (noJoin > 0) log?.Add(Inv.F($"{noJoin} layer(s) got no wave: it could not be joined to the wall."));
             return result.ToList();
         }
 
@@ -936,7 +1174,7 @@ namespace LARGERslicer.Toolpaths
                 bool smooth = corners.Count == 0;
                 var isCorner = new List<bool>();
                 // a round part has no corner to start from: start where the layer below started
-                if (smooth) corners.Add(prevStation.IsValid ? LoopClosest(ring, cum, To2d(src.Plane, prevStation), out _) : 0);
+                if (smooth) corners.Add(prevStation.IsValid ? LoopClosest(ring, cum, Above2d(src.Plane, prevStation), out _) : 0);
                 for (int k = 0; k < corners.Count; k++)
                 {
                     double sa = corners[k], sb = corners[(k + 1) % corners.Count];
@@ -954,7 +1192,7 @@ namespace LARGERslicer.Toolpaths
                     var mapped = new List<double>(); bool ok = true;
                     foreach (var ps in prevStations)
                     {
-                        double sm = LoopClosest(ring, cum, To2d(src.Plane, ps), out double dist);
+                        double sm = LoopClosest(ring, cum, Above2d(src.Plane, ps), out double dist);
                         if (dist > 1.5 * w) { ok = false; break; }
                         mapped.Add(sm);
                     }
@@ -1032,7 +1270,7 @@ namespace LARGERslicer.Toolpaths
                 }
                 var jointsNow = new List<Point2d>();
                 var line = CellLine(ring, material, spacing, 0, 0, 0, new Point2d(0, 0), out int joined, out _, null, null, 1.0, null, clean,
-                    chamberMemory.Select(q => To2d(src.Plane, q)).ToList(), jointsNow);
+                    chamberMemory.Select(q => Above2d(src.Plane, q)).ToList(), jointsNow);
                 if (line != null && jointsNow.Count > 0) chamberMemory = jointsNow.Select(q => To3d(src.Plane, q)).ToList();
                 if (line == null || joined == 0) { failed[li] = 1; continue; }
                 counts[li] = joined; prevD = d;
@@ -1055,7 +1293,7 @@ namespace LARGERslicer.Toolpaths
 
             chamberCount = counts.Length > 0 ? counts.Max() : 0;
             int without = failed.Sum();
-            if (without > 0) log?.Add($"{without} layer(s) got no chambers (no closed wall, or the part is too narrow for this depth).");
+            if (without > 0) log?.Add(Inv.F($"{without} layer(s) got no chambers (no closed wall, or the part is too narrow for this depth)."));
             return result.ToList();
         }
 
@@ -1093,9 +1331,9 @@ namespace LARGERslicer.Toolpaths
             var line = CellLine(wall, material, width, pattern, size, angleDeg, To2d(plane, origin ?? plane.Origin), out int joined, out int dropped, holeWalls, absorbed);
             if (line == null) { result.Info = "No cell fits into the region. Reduce the cell size."; return result; }
             result.Path = Ring3d(plane, line);
-            result.Info = $"{joined} cell loop(s) joined to the wall in one closed line, {result.Path.Length / 1000.0:0.00} m" +
-                          (dropped > 0 ? $", {dropped} piece(s) too small and left out" : "") +
-                          (holeWalls.Count > 0 ? $", {absorbed.Count} of {holeWalls.Count} hole wall(s) are part of the line" : "");
+            result.Info = Inv.F($"{joined} cell loop(s) joined to the wall in one closed line, {result.Path.Length / 1000.0:0.00} m") +
+                          (dropped > 0 ? Inv.F($", {dropped} piece(s) too small and left out") : "") +
+                          (holeWalls.Count > 0 ? Inv.F($", {absorbed.Count} of {holeWalls.Count} hole wall(s) are part of the line") : "");
             return result;
         }
     }

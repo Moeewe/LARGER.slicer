@@ -1,0 +1,81 @@
+using System.Collections.Generic;
+using System.IO;
+using Grasshopper2.UI.Icon;
+
+namespace LARGERslicer.GH2
+{
+    /// <summary>
+    /// The icons of the Grasshopper 1 plug-in, for the same components here. The 24 px images are the
+    /// files of Grasshopper 1 (LARGERslicer/Resources), the 48 px ones are drawn by the same script
+    /// at twice the size (scripts/generate_icons.py with ICON_SIZE=48), so they stay sharp on the
+    /// larger and high-resolution icons Grasshopper 2 draws. Both are embedded in this assembly.
+    /// </summary>
+    internal static partial class Io
+    {
+        private static readonly Dictionary<string, IIcon> IconCache = new Dictionary<string, IIcon>();
+        private static readonly string[] IconSizes = { "24", "48", "256" };
+
+        /// <summary>
+        /// The option rows of Grasshopper 1 (a choice drawn on the component) as presets of the input:
+        /// item i has the value i, as in the drop-down list of Grasshopper 1.
+        /// </summary>
+        public static Grasshopper2.Parameters.Parameter<int> Choices(this Grasshopper2.Parameters.Parameter<int> p, params string[] names)
+        {
+            for (int i = 0; i < names.Length; i++) p.Presets?.Add(names[i], "", i);
+            return p;
+        }
+
+        /// <summary>The round values of a Grasshopper 1 slider row as presets of a number input.</summary>
+        public static Grasshopper2.Parameters.Parameter<double> Values(this Grasshopper2.Parameters.Parameter<double> p, params double[] values)
+        {
+            foreach (var v in values) p.Presets?.Add(v.ToString(System.Globalization.CultureInfo.InvariantCulture), "", v);
+            return p;
+        }
+
+        /// <summary>An angle in degrees: the quick picks of Grasshopper 1, 0 / 15 / 30 / 45 / 60 / 75 / 90.</summary>
+        public static Grasshopper2.Parameters.Parameter<double> Angles(this Grasshopper2.Parameters.Parameter<double> p)
+        {
+            foreach (var v in new[] { 0, 15, 30, 45, 60, 75, 90 }) p.Presets?.Add(v + "°", "", v);
+            return p;
+        }
+
+        /// <summary>A count (walls, layers, loops): the whole numbers of the Grasshopper 1 row as presets.</summary>
+        public static Grasshopper2.Parameters.Parameter<int> Counts(this Grasshopper2.Parameters.Parameter<int> p, params int[] values)
+        {
+            foreach (var v in values) p.Presets?.Add(v.ToString(System.Globalization.CultureInfo.InvariantCulture), "", v);
+            return p;
+        }
+
+        /// <summary>The icon of that name (file name without .png), or null if there is none.</summary>
+        public static IIcon Icon(string name)
+        {
+            lock (IconCache)
+            {
+                if (IconCache.TryGetValue(name, out var cached)) return cached;
+                IIcon icon = null;
+                try
+                {
+                    var asm = typeof(Io).Assembly;
+                    var images = new List<Eto.Drawing.Bitmap>();
+                    foreach (var size in IconSizes)
+                    {
+                        using (var s = asm.GetManifestResourceStream($"LARGERslicer.GH2.Icons.{size}.{name}.png"))
+                        {
+                            if (s == null) continue;
+                            var bytes = new MemoryStream(); s.CopyTo(bytes); bytes.Position = 0;
+                            images.Add(new Eto.Drawing.Bitmap(bytes));
+                        }
+                    }
+                    // One image only: PixelIcon of Grasshopper 2 (9.1) refuses several sizes of the same
+                    // square picture ("All bitmaps must have the same width/height ratio"), which made every
+                    // icon null and Grasshopper drew its lettered stand-in. The largest image is used; it
+                    // scales down cleanly to the 24 px Grasshopper draws on the canvas and in the tab.
+                    if (images.Count > 0) icon = new PixelIcon(new[] { images[images.Count - 1] });
+                }
+                catch { icon = null; }   // never let an icon take the component down: Grasshopper draws its default
+                IconCache[name] = icon;
+                return icon;
+            }
+        }
+    }
+}

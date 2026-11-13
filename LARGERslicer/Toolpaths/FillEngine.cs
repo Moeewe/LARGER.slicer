@@ -25,6 +25,25 @@ namespace LARGERslicer.Toolpaths
 
         private static Point3d To3d(Plane pl, Point2d p) => pl.Origin + pl.XAxis * p.X + pl.YAxis * p.Y;
 
+        /// <summary>
+        /// Where a place from another layer lies on this layer: straight above (or below) it.
+        /// On flat layers that is the same as dropping it onto the plane. On tilted layers
+        /// (Slice with an angle) it is not: the part stands upright, so its walls move sideways
+        /// within the tilted plane from layer to layer. Whatever is carried from one layer to the
+        /// next - the start of a pattern, a joint, a wave - has to move with the walls, or it
+        /// drifts through the part and the beads lose the bead below.
+        /// </summary>
+        private static Point2d Above2d(Plane pl, Point3d p)
+        {
+            double nz = pl.ZAxis.Z;
+            if (Math.Abs(nz) > 0.2 && Math.Abs(nz) < 1 - 1e-9)
+            {
+                double t = ((pl.Origin - p) * pl.ZAxis) / nz;
+                p = new Point3d(p.X, p.Y, p.Z + t);
+            }
+            return To2d(pl, p);
+        }
+
         /// <summary>Closed contour as 2D points without the repeated end point.</summary>
         private static List<Point2d> Ring2d(Plane pl, Polyline c)
         {
@@ -92,14 +111,28 @@ namespace LARGERslicer.Toolpaths
         ///  2 = outside: the inner face of the print is the geometry (path half a bead width out)
         /// </summary>
         public static List<SliceLayer> Walls(List<SliceLayer> layers, PrintSettings settings, int count, int position, List<string> log)
+            => Walls(layers, settings, count, position, log, default, null);
+
+        /// <summary>
+        /// As above; token stops the work early (Grasshopper 2 cancels a solution whose inputs changed:
+        /// then null is returned), progress gets the share of layers done (0..1) now and then.
+        /// </summary>
+        public static List<SliceLayer> Walls(List<SliceLayer> layers, PrintSettings settings, int count, int position, List<string> log,
+            System.Threading.CancellationToken token, Action<double> progress)
         {
             count = Math.Max(1, count);
             double w = settings.BeadWidth, spacing = settings.BeadSpacing;
             var result = new SliceLayer[layers.Count];
-            int openSkipped = 0, vanished = 0;
+            int openSkipped = 0, vanished = 0, done = 0;
+            int every = Math.Max(1, layers.Count / 50);
+            // the token given here, or the one of the calculation this runs in (Cancel.Use)
+            var options = new ParallelOptions { CancellationToken = token.CanBeCanceled ? token : Cancel.Token };
 
-            Parallel.For(0, layers.Count, i =>
+            try
             {
+            Parallel.For(0, layers.Count, options, i =>
+            {
+                if (progress != null && System.Threading.Interlocked.Increment(ref done) % every == 0) progress((double)done / layers.Count);
                 var src = layers[i];
                 var dst = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp, Rings = new List<int>() };
 
@@ -151,9 +184,11 @@ namespace LARGERslicer.Toolpaths
                 }
                 result[i] = dst;
             });
+            }
+            catch (OperationCanceledException) when (token.CanBeCanceled) { return null; } // (an outer calculation's token: the exception goes on)
 
             if (openSkipped > 0) log?.Add("Open contours keep a single wall centred on the surface; extra walls are only added to closed contours.");
-            if (vanished > 0) log?.Add($"{vanished} layer(s) are narrower than one bead width and have no wall.");
+            if (vanished > 0) log?.Add(Inv.F($"{vanished} layer(s) are narrower than one bead width and have no wall."));
             return result.Where(l => l.Contours.Count > 0).ToList();
         }
 
@@ -198,6 +233,7 @@ namespace LARGERslicer.Toolpaths
 
             foreach (var src in layers.OrderBy(l => l.Index))
             {
+                Cancel.Check();
                 var dst = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp };
                 dst.Rings = src.Rings != null ? new List<int>(src.Rings) : null;
                 dst.Reference = src.Contours.Select(c => new Polyline(c)).ToList();
@@ -516,12 +552,12 @@ namespace LARGERslicer.Toolpaths
             if (skipped > 0)
             {
                 var parts = new List<string>();
-                if (why[0] > 0) parts.Add($"{why[0]} on a contour too small for ribs");
-                if (why[1] > 0) parts.Add($"{why[1]} too close to a rib on the same wall");
-                if (why[2] > 0) parts.Add($"{why[2]} without an opposite wall to meet squarely");
-                if (why[3] > 0) parts.Add($"{why[3]} would run into or alongside another rib or wall");
-                if (why[4] > 0) parts.Add($"{why[4]} too short");
-                log?.Add($"{skipped} rib position(s) skipped: {string.Join(", ", parts)}.");
+                if (why[0] > 0) parts.Add(Inv.F($"{why[0]} on a contour too small for ribs"));
+                if (why[1] > 0) parts.Add(Inv.F($"{why[1]} too close to a rib on the same wall"));
+                if (why[2] > 0) parts.Add(Inv.F($"{why[2]} without an opposite wall to meet squarely"));
+                if (why[3] > 0) parts.Add(Inv.F($"{why[3]} would run into or alongside another rib or wall"));
+                if (why[4] > 0) parts.Add(Inv.F($"{why[4]} too short"));
+                log?.Add(Inv.F($"{skipped} rib position(s) skipped: {string.Join(", ", parts)}."));
             }
             return result;
         }
@@ -529,6 +565,36 @@ namespace LARGERslicer.Toolpaths
         // ------------------------------------------------------------------ drawn ribs
 
         /// <summary>A curve that runs along the layer (drawn in top view) rather than through it.</summary>
+        /// <summary>
+        /// Sketched rib lines that cross each other in top view cannot both be printed: the path
+        /// would have to run across itself. The line drawn later is left out and named in the log.
+        /// </summary>
+        public static List<object> WithoutCrossingSketches(List<object> sketch, List<string> log)
+        {
+            var flat = new List<Curve>();
+            foreach (var o in sketch)
+            {
+                var c = (o as Curve)?.DuplicateCurve();
+                if (c != null) c.Transform(Transform.PlanarProjection(Plane.WorldXY));
+                flat.Add(c);
+            }
+            var keep = new List<object>(); var kept = new List<int>();
+            for (int i = 0; i < sketch.Count; i++)
+            {
+                int hit = -1;
+                if (flat[i] != null)
+                    foreach (int k in kept)
+                    {
+                        if (flat[k] == null) continue;
+                        var x = Rhino.Geometry.Intersect.Intersection.CurveCurve(flat[i], flat[k], 0.01, 0.01);
+                        if (x != null && x.Count > 0) { hit = k; break; }
+                    }
+                if (hit >= 0) log?.Add(Inv.F($"Sketch line {i + 1} crosses line {hit + 1}. A printed line cannot run across itself, so line {i + 1} was left out."));
+                else { keep.Add(sketch[i]); kept.Add(i); }
+            }
+            return keep;
+        }
+
         private static bool IsGuide(Curve crv, SliceLayer layer)
         {
             BoundingBox bb = crv.GetBoundingBox(layer.Plane);
@@ -734,7 +800,7 @@ namespace LARGERslicer.Toolpaths
             var ordered = layers.OrderBy(l => l.Index).ToList();
             var result = new List<SliceLayer>(ordered.Count);
             filled = 0;
-            int failed = 0, uncrossed = 0;
+            int failed = 0, uncrossed = 0, zigzagReplaced = 0;
             Point3d lastEnd = Point3d.Unset; // where the fill of the layer below stops
             // Layers with the same outline get exactly the same fill line. Recomputing it would give
             // almost the same line, but small differences in the outline (a round hole is cut into
@@ -746,6 +812,7 @@ namespace LARGERslicer.Toolpaths
 
             for (int li = 0; li < ordered.Count; li++)
             {
+                Cancel.Check();
                 var src = ordered[li];
                 // solid layers: the first 'count' (bottom) and the last 'topCount' (closed top)
                 if (li >= count && li < ordered.Count - topCount) { lastEnd = Point3d.Unset; previousRings = null; result.Add(src); continue; }
@@ -828,14 +895,32 @@ namespace LARGERslicer.Toolpaths
                 else if (pattern == 2) fills = contourFill();
                 else
                 {
-                    // two ways to run the same zigzag; take the one that has an end next to where
-                    // the fill of the layer below stopped, so the nozzle can carry straight on
+                    // Zigzag as asked, in the given direction (turned 90 degrees every layer) if it
+                    // can be one line that starts where the layer below stopped. Otherwise the
+                    // nearest direction that can, and if no direction gives one line (openings
+                    // split the area), the contour fill: a zigzag in pieces would need moves
+                    // without extrusion between them, and never crossing and never stopping come
+                    // before the pattern.
                     double a = angleDeg + ((li & 1) == 1 ? 90.0 : 0.0);
-                    fills = Zigzag(region, spacing, a, false);
-                    if (lastEnd.IsValid)
+                    fills = null;
+                    List<List<Point2d>> single = null; double singleGap = double.MaxValue;
+                    foreach (double turn in new[] { 0.0, 15.0, -15.0, 30.0, -30.0, 45.0, -45.0, 60.0, -60.0, 75.0, -75.0, 90.0 })
                     {
-                        var other = Zigzag(region, spacing, a, true);
-                        if (NearestEnd(other, src.Plane, lastEnd, out _, out _) < NearestEnd(fills, src.Plane, lastEnd, out _, out _)) fills = other;
+                        foreach (bool flip in new[] { false, true })
+                        {
+                            var z = Zigzag(region, spacing, a + turn, flip);
+                            if (z.Count != 1) continue;
+                            double gap = lastEnd.IsValid ? NearestEnd(z, src.Plane, lastEnd, out _, out _) : 0;
+                            if (gap <= 3 * settings.BeadWidth) { fills = z; break; }
+                            if (gap < singleGap) { singleGap = gap; single = z; }
+                        }
+                        if (fills != null) break;
+                    }
+                    if (fills == null) fills = single;
+                    if (fills == null)
+                    {
+                        fills = contourFill();
+                        zigzagReplaced++;
                     }
                 }
                 if (fills.Count == 0) { failed++; result.Add(src); continue; }
@@ -894,8 +979,9 @@ namespace LARGERslicer.Toolpaths
                 filled++;
                 result.Add(dst);
             }
-            if (uncrossed > 0) log?.Add($"{uncrossed} bottom layer(s): the fill line was re-joined at a place where it would have crossed itself.");
-            if (failed > 0) log?.Add($"{failed} bottom layer(s) could not be filled (no closed wall, or too narrow for a fill line).");
+            if (uncrossed > 0) log?.Add(Inv.F($"{uncrossed} bottom layer(s): the fill line was re-joined at a place where it would have crossed itself."));
+            if (zigzagReplaced > 0) log?.Add(Inv.F($"{zigzagReplaced} bottom layer(s) are filled following the wall instead of in a zigzag: openings split them, and a zigzag in pieces would need moves without extrusion between them."));
+            if (failed > 0) log?.Add(Inv.F($"{failed} bottom layer(s) could not be filled (no closed wall, or too narrow for a fill line)."));
             return result;
         }
 

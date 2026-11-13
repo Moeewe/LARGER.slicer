@@ -56,7 +56,7 @@ namespace LARGERslicer.Components.Utils
             DA.SetDataList(2, zs);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("FastDeconstructPointIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("FastDeconstructPointIcon.png", this);
         public override Guid ComponentGuid => new Guid("7D2E3A7B-5E54-4A3A-B9F3-80A26D77F83C");
     }
 }

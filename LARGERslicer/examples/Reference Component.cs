@@ -107,7 +107,7 @@ namespace IGAToolkit.Components.Creators
             DA.SetDataList(3, previewLabels);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("LoadCreatorIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("LoadCreatorIcon.png", this);
         public override Guid ComponentGuid => new Guid("C1E5075C-53F6-4B88-B5C4-3BD9A08DAD69");
     }
 }

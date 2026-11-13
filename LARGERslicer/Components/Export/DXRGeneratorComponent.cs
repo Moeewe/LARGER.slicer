@@ -12,7 +12,7 @@ namespace LARGERslicer.Components.Export
     /// DXR Generator - Converts robot path, extrusion, and speed data to DXR format.
     /// Use this component when you have individual path/extrusion/speed inputs.
     /// </summary>
-    public class DXRGeneratorComponent : GH_Component
+    public class DXRGeneratorComponent : GH_Component, LARGERslicer.Components.IOptionRows
     {
         public DXRGeneratorComponent()
           : base("DXR Generator", "DXR Gen",
@@ -21,26 +21,36 @@ namespace LARGERslicer.Components.Export
         {
         }
 
+        private List<LARGERslicer.Components.OptionRow> _rows;
+        public List<LARGERslicer.Components.OptionRow> Rows => _rows ?? (_rows = new List<LARGERslicer.Components.OptionRow> { new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Button, Input = 5, Label = "Save DXR", Momentary = true } });
+        public override void CreateAttributes() { m_attributes = new LARGERslicer.Components.OptionAttributes(this); }
+
         public override string Category => "LARGER";
         public override string SubCategory => "DXR";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Robot Path", "Path", "Robot movement data (tree branches, list, or single value)", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Extrusion Amount", "Extrusion", "Material extrusion values (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Print Speed", "Speed", "Movement speed values in mm/min (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
-            pManager.AddGenericParameter("Machine Settings", "Machine", "Printer configuration (connect Machine Settings component)", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Extrusion", "E", "Material extrusion values (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Speed", "F", "Movement speed values in mm/min (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Machine Settings", "MS", "Printer configuration (connect Machine Settings component)", GH_ParamAccess.item);
             
+            pManager.AddTextParameter("File", "File", "Optional. File, folder or just a name (File Name of Robot Program). Empty = the Desktop, named DXR, date and time", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Save", "Save", "True = write the DXR file (to the Desktop if File is empty or only a name)", GH_ParamAccess.item, false);
             pManager[1].Optional = true;
             pManager[2].Optional = true;
             pManager[3].Optional = true;
+            pManager[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("DXR File", "DXR", "Complete DXR file content ready for export", GH_ParamAccess.list);
-            pManager.AddTextParameter("Process Info", "Info", "Generation summary and statistics", GH_ParamAccess.list);
+            pManager.AddTextParameter("DXR", "DXR", "Complete DXR file content ready for export", GH_ParamAccess.list);
+            pManager.AddTextParameter("Info", "I", "Generation summary and statistics", GH_ParamAccess.list);
         }
+
+        /// <summary>While Robot Program still computes in the background, its empty Robot Path is waiting, not an error.</summary>
+        public override void ComputeData() { base.ComputeData(); LARGERslicer.Components.AsyncSolve.ShowWaiting(this); }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
@@ -137,6 +147,22 @@ namespace LARGERslicer.Components.Export
                 processInfo.Add($"Error during processing: {ex.Message}");
                 processInfo.Add($"Stack trace: {ex.StackTrace}");
                 result.Clear();
+            }
+
+            if (Params.Input.Count > 5 && result.Count > 0)
+            {
+                string file = null; bool save = false;
+                DA.GetData(4, ref file); DA.GetData(5, ref save);
+                if (save)
+                {
+                    try
+                    {
+                        string written = LARGERslicer.Toolpaths.OutputFile.Write(file, LARGERslicer.Toolpaths.OutputFile.Name("DXR", "Print", null, ".dxr"), result);
+                        processInfo.Add("Saved " + written);
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + written);
+                    }
+                    catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
+                }
             }
 
             DA.SetDataList(0, result);
@@ -348,7 +374,7 @@ namespace LARGERslicer.Components.Export
             return result;
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DXRGeneratorIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DXRGeneratorIcon.png", this);
         public override Guid ComponentGuid => new Guid("A1B2C3D4-E5F6-7890-ABCD-123456789012");
     }
 }

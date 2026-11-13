@@ -446,7 +446,7 @@ Output:
 
 ## Additional Resources
 
-- **HPGL Manual**: See `Hpgl_Man_generation3.pdf` for complete HPGL command reference
+- **HPGL Manual**: use the HP-GL reference of your cutter manufacturer (not shipped here: copyrighted)
 - **Tool Change Strategy**: See `documentations/TOOL_CHANGE_STRATEGY.md`
 - **HPGL XX Commands**: See `documentations/HPGL_XX_COMMANDS.md`
 - **Component Overview**: See `documentations/COMPONENTS_OVERVIEW.md`

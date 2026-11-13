@@ -70,7 +70,7 @@ namespace LARGERslicer.Components.Utils
             }
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("StreamFreezeIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("StreamFreezeIcon.png", this);
         public override Guid ComponentGuid => new Guid("B3C4D5E6-F7A8-9012-CDEF-123456789012");
     }
 

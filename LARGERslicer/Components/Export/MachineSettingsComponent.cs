@@ -26,8 +26,8 @@ namespace LARGERslicer.Components.Export
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Machine Settings", "Settings", "Machine configuration for DXR output", GH_ParamAccess.item);
-            pManager.AddTextParameter("Settings Info", "Info", "Current machine settings summary", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Machine Settings", "MS", "Machine configuration for DXR output", GH_ParamAccess.item);
+            pManager.AddTextParameter("Info", "I", "Current machine settings summary", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -90,7 +90,7 @@ namespace LARGERslicer.Components.Export
             DA.SetDataList(1, info);
         }
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("MachineSettingsIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("MachineSettingsIcon.png", this);
         public override Guid ComponentGuid => new Guid("A1B2C3D4-E5F6-7890-ABCD-EF1234567890");
     }
 } 

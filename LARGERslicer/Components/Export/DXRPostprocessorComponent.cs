@@ -530,7 +530,7 @@ namespace LARGERslicer.Components.Export
         }
 
 
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DXRPostprocessorIcon.png");
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("DXRPostprocessorIcon.png", this);
         public override Guid ComponentGuid => new Guid("B8E9A1F2-4C7D-4E5F-9A2B-3C8D9E0F1A2B");
     }
 } 

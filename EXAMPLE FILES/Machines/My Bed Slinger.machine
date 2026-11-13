@@ -1,0 +1,32 @@
+# LARGER.slicer machine: a bed slinger (the bed moves in Y, the head in X and Z), no 3D model.
+# Without a model Printer Simulation shows the bed as a plate and checks the head as a round body.
+# Give it a model the same way as "My Gantry.3dm": layers Frame, Bed, Z (the X beam), X (the head), TCP.
+# The guide: docs/OWN_MACHINES.md
+name = My Bed Slinger
+manufacturer = Me
+kind = bedslinger
+prefix = MBS
+extension = .gcode
+bed = 220 x 220 x 250
+extrusion factor = 1
+filament diameter = 1.75
+section = bead
+travel speed = 9000
+material = PLA
+bed temperature = 60
+
+[start]
+G21
+G90
+M140 S{bed}
+G28
+G92 E0
+M83
+
+[end]
+G91
+G1 F600 Z10
+G90
+G1 Y200 F3000 ; present the bed
+M140 S0
+M84
