@@ -55,7 +55,7 @@ namespace LARGERslicer.Toolpaths
         }
 
         public override string ToString() =>
-            $"Print Settings (bead {BeadWidth:0.##} x {LayerHeight:0.##} mm, F{Speed:0}{(Preview ? ", preview" : "")})";
+            $"Print Settings (bead {BeadWidth:0.##} x {LayerHeight:0.##} mm, {Speed / 60:0.#} mm/s{(Preview ? ", preview" : "")})";
     }
 
     /// <summary>
@@ -93,12 +93,20 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Starting points. Weber 1.128 (a Cura value) and Ginger 0.21 are the factors of the GCODE MAKER in the FH Muenster definition at 100 % flow, applied to width x height x length.</summary>
         public static readonly string[] PresetNames =
         {
-            "Generic pellet extruder (volume)",
-            "Filament printer 1.75 mm",
-            "Filament printer 2.85 mm",
-            "Weber DXR robot (XE x P1)",
-            "Ginger (G-code)",
+            "Generic \u00B7 Pellet extruder (E = volume in mm\u00B3)",
+            "Generic \u00B7 Filament printer 1.75 mm (E = filament length)",
+            "Generic \u00B7 Filament printer 2.85 mm (E = filament length)",
+            "Weber Additive \u00B7 DXR25 on a robot (XE = volume x P1)",
+            "Ginger Additive \u00B7 Ginger One (E = width x height x length x 0.21)",
         };
+
+        /// <summary>The machine part of a preset name: "DXR25 on a robot" of "Weber Additive · DXR25 on a robot (...)".</summary>
+        public static string ShortName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            int dot = name.IndexOf('\u00B7'); string n = dot >= 0 ? name.Substring(dot + 1).Trim() : name;
+            int par = n.IndexOf(" ("); return par > 0 ? n.Substring(0, par) : n;
+        }
 
         public static MachineProfile Preset(int i)
         {

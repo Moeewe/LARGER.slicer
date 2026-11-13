@@ -45,6 +45,10 @@ namespace LARGERslicer.Toolpaths
     public class MachineDefinition
     {
         public string Name = "G-code machine";
+        /// <summary>Who makes it (Ginger Additive, Weber Additive ...); empty for your own. Name is the machine itself, as Bambu Lab and H2C.</summary>
+        public string Manufacturer = "";
+        /// <summary>"Manufacturer · Machine", as the list shows it.</summary>
+        public string Title => string.IsNullOrWhiteSpace(Manufacturer) ? Name : Manufacturer + " \u00B7 " + Name;
         public string Prefix = "GCO";
         public string Extension = ".gcode";
         public double BedX = 0, BedY = 0;
@@ -63,7 +67,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Where the definition comes from: "built in", or the path of its file.</summary>
         public string Source = "built in";
 
-        public override string ToString() => $"Machine {Name} ({Source})";
+        public override string ToString() => $"Machine {Title} ({Source})";
 
         public MachineDefinition Duplicate()
         {
@@ -83,7 +87,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Ginger One (Marlin on the Ginger board): start and end as in the FH Muenster definition.</summary>
         public static MachineDefinition GingerOne() => new MachineDefinition
         {
-            Name = "Ginger One", Prefix = "GIN", BedX = 1000, BedY = 1000,
+            Name = "Ginger One (Marlin)", Manufacturer = "Ginger Additive", Prefix = "GIN", BedX = 1000, BedY = 1000,
             Profile = MachineProfile.Preset(4),
             Start = GingerGCode.Start.ToList(), End = GingerGCode.End.ToList(),
         };
@@ -91,7 +95,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>A plain start and end for a Marlin or Klipper machine, as a base for your own.</summary>
         public static MachineDefinition GenericMarlin() => new MachineDefinition
         {
-            Name = "Generic G-code machine (Marlin)", Prefix = "GCO",
+            Name = "G-code machine (Marlin, Klipper)", Manufacturer = "Generic", Prefix = "GCO",
             Profile = new MachineProfile { Name = "Generic G-code machine", RectangleSection = true, Unit = "mm3" },
             Start = new List<string> { "; START CODE", "G21 ; millimetres", "G90 ; absolute positions", "G28 ; home", "G92 E0", "M83 ; extrusion as relative distances", "; end of start code" },
             Layer = new List<string>(),
@@ -101,7 +105,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Ginger One on Klipper firmware: the START_PRINT and END_PRINT macros of its Klipper config.</summary>
         public static MachineDefinition GingerKlipper() => new MachineDefinition
         {
-            Name = "Ginger One (Klipper)", Prefix = "GIK", BedX = 1000, BedY = 1000,
+            Name = "Ginger One (Klipper)", Manufacturer = "Ginger Additive", Prefix = "GIK", BedX = 1000, BedY = 1000,
             // E as a volume (mm3) with factor 1.0, as the Klipper script did ("klipper 1")
             Profile = new MachineProfile { Name = "Ginger One (Klipper)", Factor = 1.0, RectangleSection = true, Unit = "mm3" },
             Material = "PLA", BedTemperature = 90,
@@ -150,6 +154,7 @@ namespace LARGERslicer.Toolpaths
             {
                 "# LARGER.slicer machine. Put this file into " + Folder,
                 "name = " + Name,
+                "manufacturer = " + Manufacturer,
                 "prefix = " + Prefix,
                 "extension = " + Extension,
                 "bed = " + Num(BedX) + " x " + Num(BedY),
@@ -220,6 +225,7 @@ namespace LARGERslicer.Toolpaths
                 switch (k)
                 {
                     case "name": m.Name = v; break;
+                    case "manufacturer": m.Manufacturer = v; break;
                     case "prefix": m.Prefix = v; break;
                     case "extension": m.Extension = v.StartsWith(".") ? v : "." + v; break;
                     case "bed":

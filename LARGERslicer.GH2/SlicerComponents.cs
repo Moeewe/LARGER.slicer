@@ -123,7 +123,7 @@ namespace LARGERslicer.GH2
         {
             inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm.").Set(5.0);
             inputs.AddNumber("Layer Height", "H", "Layer height in mm. A third to a half of the bead width.").Set(2.0);
-            inputs.AddNumber("Speed", "F", "Print speed in mm/min. The same for every move.").Set(3000.0);
+            inputs.AddNumber("Speed", "V", "Print speed in mm/s, the same for every move (50 mm/s = F3000 in G-code).").Set(50.0);
             inputs.AddInteger("Machine Profile", "MP", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0);
             inputs.AddNumber("Flow", "Fl", "Extrusion multiplier (1 = 100 %).").Set(1.0);
             inputs.AddBoolean("Preview", "P", "Fast and coarse, for trying things out.").Set(false);
@@ -145,6 +145,7 @@ namespace LARGERslicer.GH2
             access.GetItem(3, out machine); access.GetItem(4, out flow); access.GetItem(5, out preview);
             if (w <= 0 || h <= 0 || f <= 0) { access.AddError("Invalid values", "Bead width, layer height and speed must be larger than 0."); return; }
             if (machine < 0 || machine >= MachineProfile.PresetNames.Length) { access.AddWarning("Unknown machine", "Using the generic profile."); machine = 0; }
+            f = f > 1000 ? f : f * 60; // mm/s; a value above 1000 is an older definition in mm/min
             var s = new PrintSettings { BeadWidth = w, LayerHeight = h, Speed = f, Flow = flow > 0 ? flow : 1.0, Preview = preview, Machine = MachineProfile.Preset(machine) };
             double density; access.GetItem(6, out density); if (density > 0) s.Density = density;
             double first; access.GetItem(7, out first); s.FirstLayerHeight = Math.Max(0, first);
@@ -498,7 +499,7 @@ namespace LARGERslicer.GH2
             outputs.AddPoint("Points", "P", "Path points.", Access.Twig);
             outputs.AddPlane("Planes", "Pl", "Tool planes; the normal is the tool axis.", Access.Twig);
             outputs.AddNumber("Extrusion", "E", "Extrusion for the move that ends at each point.", Access.Twig);
-            outputs.AddNumber("Speed", "F", "Speed in mm/min for the move that ends at each point.", Access.Twig);
+            outputs.AddNumber("Feed", "F", "Feed F for the machine in mm/min (mm/s x 60), for the move that ends at each point.", Access.Twig);
             outputs.AddText("Role", "R", "Wall, Bottom, Infill, Seam, Travel or Skirt.", Access.Twig);
             outputs.AddInteger("Layer", "L", "Layer index.", Access.Twig);
             outputs.AddText("Info", "I", "Length, volume and time.");

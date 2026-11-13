@@ -61,6 +61,31 @@ namespace LARGERslicer.Toolpaths
         // Back row: examples 2, 3 and 4, with the same distance to the edges and to each other.
         public const double BedSize = 1000;
 
+        /// <summary>Example 7: a vase whose +X side bulges out by "bulge" towards the top, for layers that
+        /// follow the part with a vertical nozzle (Ginger One). Closed and capped.</summary>
+        public static Brep Bulge(Point3d c, double radius, double bulge, double height)
+        {
+            var curves = new List<Curve>();
+            for (int k = 0; k <= 16; k++)
+            {
+                double z = height * k / 16.0;
+                double t = Math.Max(0, Math.Min(1, (z - 0.2 * height) / (0.8 * height)));
+                double s = t * t * (3 - 2 * t);
+                var pts = new List<Point3d>();
+                for (int j = 0; j < 72; j++)
+                {
+                    double a = j * Math.PI * 2 / 72, cs = Math.Max(0, Math.Cos(a));
+                    double r = radius + bulge * s * cs * cs;
+                    pts.Add(new Point3d(c.X + r * Math.Cos(a), c.Y + r * Math.Sin(a), z));
+                }
+                pts.Add(pts[0]); // close the ring, or the periodic curve leaves a gap of one step
+                curves.Add(Curve.CreateInterpolatedCurve(pts, 3, CurveKnotStyle.ChordPeriodic));
+            }
+            var loft = Brep.CreateFromLoft(curves, Point3d.Unset, Point3d.Unset, LoftType.Normal, false);
+            if (loft == null || loft.Length == 0) return null;
+            return loft[0].CapPlanarHoles(0.01) ?? loft[0];
+        }
+
         /// <summary>Example 4: a plate with a round opening, 220 x 220 x 50 mm.</summary>
         public static Brep Plate(Point3d c)
         {

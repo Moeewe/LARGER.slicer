@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (speeds in mm/s, machine names)
+- Speeds are entered in mm/s (Print Settings: Speed 50, Min Speed 5, Max Speed 200 mm/s; Easy Slicer: Speed 50 mm/s); the path and the machine files keep mm/min, the F of G-code and DXR (50 mm/s = F3000). Definitions saved with an older version are read as mm/min, with a note. Reports name speeds in mm/s. The per-point outputs for the machine are called `Feed` (F, mm/min). Also in Grasshopper 2.
+- Machines and machine profiles are listed as manufacturer and machine: "Ginger Additive · Ginger One (Klipper)", "Weber Additive · DXR25 on a robot", "Generic · Filament printer 1.75 mm". Own .machine files can carry `manufacturer = ...`.
+- Nozzle presets are named by the nozzle: "3 mm flat nozzle, wide bead - bead 5 mm, layer 2 mm (tested)", "4 mm nozzle (Weber profile) - bead 4.8 mm, layer 1.8 mm". The numbers are unchanged.
+
+### Added (non-planar head example)
+- Quick Start example 07: layers that follow the part on the Ginger One (Klipper), one spiral, Max Volume Rate 330 mm3/s, Path Check, Non-Planar Check and G-code.
+- Non-Planar Check: `Pose` input and `Head` output, the head as it is checked (tip, cone, body) standing on the path.
+
 ### Added (collision check for multi-axis and angled prints)
 - `Robot Program` checks the robot, the tool, rail and turntable against each other, the part printed so far, the bed and the Environment: new inputs `Check Collisions` and `Clearance`, outputs `Collision Moves` and `Collision Bodies`; `Robot Simulation` shows what collides in red. The report names the pair, the move and the layer, and suggests what to change (tilt, nozzle length, tool turn, rail or turntable offset). Bodies that stand on something (robot foot, carriage, table) may touch it by a few mm while they slide. Tested with the cell of the FH Muenster (KR120, AE20 extruder): free tower 0 hits, box over the part, tool leaning 45 deg over the printed part, 80 deg at the bed, rail and turntable without false alarm; Quick Start without false alarm and faster than before (64 s instead of 107 s for the whole demo).
 - Example `LARGERslicer - Non Planar Head (Ginger).gh` (EXAMPLE FILES, Weber - Ginger): layers that follow the part on the Ginger One with Klipper.

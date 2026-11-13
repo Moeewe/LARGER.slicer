@@ -26,6 +26,43 @@ namespace LARGERslicer.Toolpaths
         {
             public double TipRadius = 4, HalfAngle = 30, ConeLength = 60, Radius = 40;
             public override string ToString() => $"head: tip r {TipRadius:0.#} mm, cone {HalfAngle:0.#} deg x {ConeLength:0} mm, body r {Radius:0} mm";
+
+            /// <summary>The head as it is checked, standing with its tip on this point: the cone from the tip
+            /// up to where it reaches the body radius (or the cone length), then the body, 150 mm high.</summary>
+            public Mesh ToMesh(Point3d tip, int segments = 36)
+            {
+                double tan = Math.Tan(HalfAngle * Math.PI / 180.0);
+                double coneTop = Math.Min(Radius, TipRadius + ConeLength * tan);
+                var rings = new List<KeyValuePair<double, double>> // height above the tip, radius
+                {
+                    new KeyValuePair<double, double>(0, Math.Max(0.5, TipRadius)),
+                    new KeyValuePair<double, double>(ConeLength, coneTop),
+                    new KeyValuePair<double, double>(ConeLength, Radius),
+                    new KeyValuePair<double, double>(ConeLength + 150, Radius),
+                };
+                var m = new Mesh();
+                foreach (var ring in rings)
+                    for (int k = 0; k < segments; k++)
+                    {
+                        double a = 2 * Math.PI * k / segments;
+                        m.Vertices.Add(tip.X + ring.Value * Math.Cos(a), tip.Y + ring.Value * Math.Sin(a), tip.Z + ring.Key);
+                    }
+                for (int r = 0; r + 1 < rings.Count; r++)
+                    for (int k = 0; k < segments; k++)
+                    {
+                        int a = r * segments + k, b = r * segments + (k + 1) % segments;
+                        m.Faces.AddFace(a, b, b + segments, a + segments);
+                    }
+                int bottom = m.Vertices.Add(tip), top = m.Vertices.Add(tip.X, tip.Y, tip.Z + ConeLength + 150);
+                int last = (rings.Count - 1) * segments;
+                for (int k = 0; k < segments; k++)
+                {
+                    m.Faces.AddFace(bottom, (k + 1) % segments, k);
+                    m.Faces.AddFace(top, last + k, last + (k + 1) % segments);
+                }
+                m.Normals.ComputeNormals(); m.Compact();
+                return m;
+            }
         }
 
         public class Result

@@ -33,22 +33,22 @@ namespace LARGERslicer.Toolpaths
 
         private static Preset Weber(double n, double bead, double layer) => new Preset
         {
-            Name = $"Weber {F(n)} mm - bead {F(bead)}, layer {F(layer)}", Nozzle = n, Bead = bead, Layer = layer,
-            Shape = Shape.Unknown, Source = "Weber DXR profiles (start package)",
+            Name = $"{F(n)} mm nozzle (Weber profile) - bead {F(bead)} mm, layer {F(layer)} mm", Nozzle = n, Bead = bead, Layer = layer,
+            Shape = Shape.Unknown, Source = "Weber Additive DXR profile",
         };
 
         private static Preset Wide(double n) => new Preset
         {
-            Name = $"Wide {F(n)} mm flat - bead {F(Math.Round(n * 5 / 3, 1))}, layer {F(Math.Round(n * 2 / 3, 1))}", Nozzle = n,
+            Name = $"{F(n)} mm flat nozzle, wide bead - bead {F(Math.Round(n * 5 / 3, 1))} mm, layer {F(Math.Round(n * 2 / 3, 1))} mm", Nozzle = n,
             Bead = Math.Round(n * 5 / 3, 1), Layer = Math.Round(n * 2 / 3, 1), Shape = Shape.Flat,
-            Source = "scaled from the FH Muenster setting (3 mm flat nozzle, 5 mm bead, 2 mm layer); print a test wall first",
+            Source = "scaled from the tested 3 mm flat nozzle (5 mm bead, 2 mm layer); print a test wall first",
         };
 
         /// <summary>Index 0 = own values: the Bead Width and Layer Height inputs count.</summary>
         public static readonly Preset[] All =
         {
-            new Preset { Name = "Own values (Bead Width, Layer Height)", Source = "" },
-            new Preset { Name = "FH Muenster 3 mm flat - bead 5, layer 2", Nozzle = 3, Bead = 5, Layer = 2, Shape = Shape.Flat, Source = "FH Muenster, Weber DXR with the 3 mm flat nozzle (tested)" },
+            new Preset { Name = "Own values (Bead Width and Layer Height inputs)", Source = "" },
+            new Preset { Name = "3 mm flat nozzle, wide bead - bead 5 mm, layer 2 mm (tested)", Nozzle = 3, Bead = 5, Layer = 2, Shape = Shape.Flat, Source = "tested on a Weber Additive DXR with a 3 mm flat nozzle" },
             Weber(1, 1.25, 0.5), Weber(2, 2.5, 1.0), Weber(3, 3.6, 1.25), Weber(4, 4.8, 1.8), Weber(5, 6.0, 2.0), Weber(6, 7.2, 2.4), Weber(8, 10.0, 3.2),
             Wide(2), Wide(4), Wide(5), Wide(6), Wide(8),
         };

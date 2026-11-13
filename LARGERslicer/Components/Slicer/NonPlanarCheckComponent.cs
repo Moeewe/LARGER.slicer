@@ -28,6 +28,12 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Cone Angle", "A", "Half angle of the nozzle cone, from vertical (degrees)", GH_ParamAccess.item, 30.0);
             p.AddNumberParameter("Cone Length", "Lc", "Height of the cone from the tip up to the head (mm)", GH_ParamAccess.item, 60.0);
             p.AddNumberParameter("Head Radius", "R", "Radius of the head above the cone (mm)", GH_ParamAccess.item, 40.0);
+            p.AddNumberParameter("Pose", "P", "Where the head is shown along the path: 0 = start, 1 = end", GH_ParamAccess.item, 1.0);
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddSlider(doc, 5, "Pose (0 = start, 1 = end)", 0m, 1m, 1m, 3);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -37,6 +43,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Bead Height", "H", "Measured bead height (vertical gap to the layer below) for every path point (mm); 0 = not measured. Use it to colour the path", GH_ParamAccess.list);
             p.AddPointParameter("Bad Heights", "Bh", "Points where the bead is higher than 0.8 x bead width or thinner than 0.4 x layer height", GH_ParamAccess.list);
             p.AddPointParameter("Collisions", "X", "Points where the head hits beads printed before, or the path climbs more steeply than the cone. Must be empty", GH_ParamAccess.list);
+            p.AddMeshParameter("Head", "Hd", "The head as it is checked (tip, cone, body), standing on the path at Pose. Shows in the viewport", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -60,6 +67,12 @@ namespace LARGERslicer.Components.Slicer
             da.SetDataList(2, r.BeadHeights);
             da.SetDataList(3, r.BadHeights);
             da.SetDataList(4, r.Collisions);
+            if (Params.Output.Count > 5)
+            {
+                double pose = 1; if (Params.Input.Count > 5) da.GetData(5, ref pose);
+                int at = (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (tp.Count - 1));
+                da.SetData(5, head.ToMesh(tp.Points[at]));
+            }
         }
     }
 }

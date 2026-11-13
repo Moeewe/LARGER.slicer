@@ -253,7 +253,7 @@ namespace LARGERslicer.Components.Robot
         {
             p.AddTextParameter("Robot Path", "Path", "One PTP line per path point with X, Y, Z, A, B, C: connect to Robot Path of the DXR Generator", GH_ParamAccess.list);
             p.AddNumberParameter("Extrusion", "E", "Extrusion per line, plus one closing value (the DXR Generator drops the last value)", GH_ParamAccess.list);
-            p.AddNumberParameter("Speed", "F", "Speed in mm/min per line, plus one closing value", GH_ParamAccess.list);
+            p.AddNumberParameter("Feed", "F", "Feed F for the machine, in mm/min (mm/s x 60), per line, plus one closing value", GH_ParamAccess.list);
             p.AddTextParameter("KRL", "KRL", "The path as a KUKA program (.src): tool, base and linear moves", GH_ParamAccess.list);
             p.AddBooleanParameter("OK", "OK", "True if the robot reaches every point within its axis ranges", GH_ParamAccess.item);
             p.AddTextParameter("Report", "R", "Reach, axis ranges, wrist and axis speed", GH_ParamAccess.list);

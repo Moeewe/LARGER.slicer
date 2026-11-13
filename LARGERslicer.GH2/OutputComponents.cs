@@ -113,7 +113,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Geometry", "G", "Your part: Breps, surfaces, SubDs or meshes, standing on the XY plane.", Access.Twig);
             inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm. Every dimension follows from it.").Set(5.0);
             inputs.AddNumber("Layer Height", "H", "Layer height in mm: a third to a half of the bead width.").Set(2.0);
-            inputs.AddNumber("Speed", "F", "Print speed in mm/min, the same for every move.").Set(3000.0);
+            inputs.AddNumber("Speed", "V", "Print speed in mm/s, the same for every move (50 mm/s = F3000 in G-code).").Set(50.0);
             inputs.AddInteger("Machine Profile", "MP", string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0);
             inputs.AddInteger("Walls", "N", "Number of walls.").Set(1);
             inputs.AddInteger("Bottom Layers", "B", "Solid layers at the bottom. 0 = open.").Set(0);
@@ -142,6 +142,7 @@ namespace LARGERslicer.GH2
             if (w <= 0 || h <= 0 || f <= 0) { access.AddError("Invalid values", "Bead width, layer height and speed must be larger than 0."); return; }
             machine = Math.Max(0, Math.Min(MachineProfile.PresetNames.Length - 1, machine));
             double h1; access.GetItem(10, out h1);
+            f = f > 1000 ? f : f * 60; // mm/s; a value above 1000 is an older definition in mm/min
             var st = new PrintSettings { BeadWidth = w, LayerHeight = h, FirstLayerHeight = Math.Max(0, h1), Speed = f, Machine = MachineProfile.Preset(machine) };
             var log = new List<string>();
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), Math.Max(0.01, st.Resolution * 0.025), log);
@@ -175,7 +176,7 @@ namespace LARGERslicer.GH2
 
         protected override void AddInputs(InputAdder inputs)
         {
-            inputs.AddInteger("Machine", "M", "0 = Ginger One\n1 = Generic G-code machine (Marlin)\nthen your own machines from Documents/LARGER/Machines, in the order of their file names.").Set(0);
+            inputs.AddInteger("Machine", "M", "Which machine (manufacturer \u00B7 machine):\n" + string.Join("\n", MachineDefinition.BuiltIn().Select((m, i) => i + " = " + m.Title)) + "\nthen your own machines from Documents/LARGER/Machines, in the order of their file names.").Set(0);
             inputs.AddText("File", "File", "Optional. A .machine file anywhere on the computer: used instead of the list.", Access.Item, Requirement.MayBeMissing);
             inputs.AddText("Name", "N", "Optional. Name of your own machine: everything you do not set below is taken from the machine chosen above.", Access.Item, Requirement.MayBeMissing);
             inputs.AddText("Start Code", "Start", "Optional. Your start code, one line per item.", Access.Twig, Requirement.MayBeMissing);

@@ -195,7 +195,7 @@ namespace LARGERslicer.Components.Slicer
             note.Properties.Colour = yellow;
             note.UserText =
                 "INSTRUCTIONS\n\n" +
-                "The six examples stand side by side on one print bed (1000 x 1000 mm, origin in the front left corner). Look at the Rhino viewport.\n\n" +
+                "The seven examples stand side by side on one print bed (1000 x 1000 mm, origin in the front left corner). Look at the Rhino viewport.\n\n" +
                 "1  Replace 'Your part' (example 1) with your own geometry. It has to stand on the XY plane, in millimetres, on the positive side of the origin.\n" +
                 "2  Set Bead Width and Layer Height in the Settings group. Everything else follows from them.\n" +
                 "3  Read Path Check. OK = the path can be printed. If not, it says what to change.\n" +
@@ -210,7 +210,8 @@ namespace LARGERslicer.Components.Slicer
                 "Other infill: delete 'Infill Ribs' and put Infill Wave, Cells, Chambers or Sketch in its place.\n" +
                 "Curved layers: examples 2 and 3. A part with openings: example 4. Overhangs and roofs: example 5.\n" +
                 "Just want a path quickly? Example 6: the single component 'Easy Slicer' does the whole chain; choose the nozzle there.\n" +
-                "Nozzle: 'Nozzle' on Print Settings sets bead width and layer height for the nozzle that is screwed in (Weber profiles; FH Muenster 3 mm flat nozzle = 5 mm bead, 2 mm layer).\n" +
+                "Printer with a vertical nozzle and curved layers (Ginger One): example 7. Non-Planar Check shows the head on the path.\n" +
+                "Nozzle: 'Nozzle' on Print Settings sets bead width and layer height for the nozzle that is screwed in (Weber Additive profiles, and a tested 3 mm flat nozzle = 5 mm bead, 2 mm layer). Speeds are in mm/s.\n" +
                 "Wireless links: blocks named '\u21E2 Settings' or '\u21E2 Robot Cell' receive their value from far away. Select one to see its wire.";
             note.Properties.Multiline = true;
             note.Properties.Wrap = true;
@@ -461,12 +462,44 @@ namespace LARGERslicer.Components.Slicer
             easy.Params.Input[0].AddSource(part6);
             setInt(easy.Params.Input[4], 4);   // Ginger machine profile, as the other examples
             { var sp = easy.Params.Input[9] as Grasshopper.Kernel.Parameters.Param_Boolean; if (sp != null) { sp.PersistentData.Clear(); sp.PersistentData.Append(new GH_Boolean(true)); } } // spiral (vase mode)
-            if (easy.Params.Input.Count > 12) setInt(easy.Params.Input[12], 1); // nozzle: FH Muenster 3 mm flat
+            if (easy.Params.Input.Count > 12) setInt(easy.Params.Input[12], 1); // nozzle: 3 mm flat, wide bead (tested)
             check6.Params.Input[0].AddSource(easy.Params.Output[0]);
             beds.Add(easy.Params.Output[0]);
             all.Add(easy); all.Add(check6);
             hide.Add(part6);
             group("EASY SLICER  -  click the rows to change nozzle, infill, walls, angle", System.Drawing.Color.FromArgb(70, 90, 160, 90), new IGH_DocumentObject[] { part6, easy, check6 });
+
+            // ---- 7 non-planar head (Ginger One): layers that follow the part, nozzle vertical
+            float y7 = y6 + 520;
+            section("07. NON-PLANAR HEAD  -  GINGER ADDITIVE \u00B7 GINGER ONE (KLIPPER)", "Layers that follow the part itself, no guide surface; the nozzle stays vertical. Each layer lies at the same share of the way up the wall, so the bulging side gets even layers. Non-Planar Check measures every bead and shows the head: move Pose.", y7);
+            var part7 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y7);
+            part7.NickName = "Part";
+            Brep demo7 = DemoParts.Bulge(new Point3d(790, 140, 0), 50, 30, 150);
+            if (demo7 != null) part7.PersistentData.Append(new GH_Brep(demo7));
+            var s7 = relay(s, "Settings", 60, y7 + 110); relays.Add(s7);
+            var slice7 = (GH_Component)place(new SliceComponent(), 360, y7);
+            slice7.Params.Input[0].AddSource(part7); slice7.Params.Input[1].AddSource(s7);
+            setInt(slice7.Params.Input[5], 2); // Guide Mode: follow the part (no guide)
+            var walls7 = (GH_Component)place(new WallsComponent(), 620, y7);
+            walls7.Params.Input[0].AddSource(slice7.Params.Output[0]); walls7.Params.Input[1].AddSource(s7);
+            var path7 = (GH_Component)place(new ContinuousPathComponent(), 880, y7);
+            path7.Params.Input[0].AddSource(walls7.Params.Output[0]); path7.Params.Input[1].AddSource(s7);
+            setInt(path7.Params.Input[2], 0); // spiral: one line that climbs all the time
+            { var vr = path7.Params.Input.Count > 8 ? path7.Params.Input[8] as Grasshopper.Kernel.Parameters.Param_Number : null; if (vr != null) { vr.PersistentData.Clear(); vr.PersistentData.Append(new GH_Number(330)); } } // the Ginger delivers about 330 mm3/s
+            var lead7 = (GH_Component)place(new StartEndComponent(), 1140, y7);
+            lead7.Params.Input[0].AddSource(path7.Params.Output[0]);
+            var check7 = (GH_Component)place(new PathCheckComponent(), 1440, y7);
+            check7.Params.Input[0].AddSource(lead7.Params.Output[0]);
+            var np7 = (GH_Component)place(new NonPlanarCheckComponent(), 1440, y7 + 200);
+            np7.Params.Input[0].AddSource(lead7.Params.Output[0]);
+            var machine7 = (GH_Component)place(new MachineComponent(), 1760, y7);
+            setInt(machine7.Params.Input[0], 2); // Ginger Additive · Ginger One (Klipper)
+            var gcode7 = (GH_Component)place(new MachineGCodeComponent(), 2040, y7);
+            gcode7.Params.Input[0].AddSource(lead7.Params.Output[0]); gcode7.Params.Input[1].AddSource(machine7.Params.Output[0]);
+            beds.Add(lead7.Params.Output[0]);
+            all.Add(slice7); all.Add(walls7); all.Add(path7); all.Add(lead7); all.Add(check7); all.Add(np7); all.Add(machine7); all.Add(gcode7);
+            hide.Add(part7);
+            group("NON-PLANAR LAYERS FROM THE PART, ONE SPIRAL, HEAD CHECK  -  then 'Save G-code' on Machine G-code", System.Drawing.Color.FromArgb(70, 90, 140, 200), new IGH_DocumentObject[] { part7, slice7, walls7, path7, lead7, check7, np7, machine7, gcode7 });
 
             // one name for all files of this part
             var jobName = new Grasshopper.Kernel.Special.GH_Panel { NickName = "Part name" };
@@ -658,21 +691,21 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
-            p.AddNumberParameter("Bead Width", "W", "Width of the printed bead (mm)", GH_ParamAccess.item, 5.0);
-            p.AddNumberParameter("Layer Height", "H", "Layer height (mm)", GH_ParamAccess.item, 2.0);
-            p.AddNumberParameter("Speed", "F", "Print speed (mm/min)", GH_ParamAccess.item, 3000.0);
+            p.AddNumberParameter("Bead Width", "W", "Width of the printed bead, in mm", GH_ParamAccess.item, 5.0);
+            p.AddNumberParameter("Layer Height", "H", "Layer height, in mm", GH_ParamAccess.item, 2.0);
+            p.AddNumberParameter("Speed", "V", "Print speed, in mm/s (50 mm/s = F3000 in G-code)", GH_ParamAccess.item, 50.0);
             p.AddNumberParameter("Flow", "Fl", "Extrusion multiplier (1 = calculated amount)", GH_ParamAccess.item, 1.0);
             p.AddNumberParameter("Overlap", "Ov", "Sideways overlap of neighbouring beads, 0-1 (used by walls and infill)", GH_ParamAccess.item, 0.15);
             p.AddNumberParameter("Min Radius", "R", "Smallest corner radius of the path (mm). 0 = bead width", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Resolution", "Res", "Smallest point spacing of the path (mm)", GH_ParamAccess.item, 2.0);
             p.AddNumberParameter("Filament Diameter", "Fil", "0 = extrusion as volume in mm3 (pellet extruder). >0 = extrusion as filament length", GH_ParamAccess.item, 0.0);
-            p.AddNumberParameter("Min Speed", "Fmin", "Lowest speed when speed compensates the layer height (mm/min)", GH_ParamAccess.item, 300.0);
-            p.AddNumberParameter("Max Speed", "Fmax", "Highest speed and travel speed (mm/min)", GH_ParamAccess.item, 12000.0);
+            p.AddNumberParameter("Min Speed", "Vmin", "Lowest speed when speed compensates the layer height, in mm/s", GH_ParamAccess.item, 5.0);
+            p.AddNumberParameter("Max Speed", "Vmax", "Highest speed and travel speed, in mm/s", GH_ParamAccess.item, 200.0);
             p.AddBooleanParameter("Preview", "Prev", "True = fast preview: coarse slicing, corners are not rounded", GH_ParamAccess.item, false);
             p.AddGenericParameter("Machine Profile", "MP", "Optional Machine Profile: how your printer wants the extrusion values (volume, filament length, or a value the controller scales). Empty = volume in mm3.", GH_ParamAccess.item);
             p.AddNumberParameter("Density", "D", "Density of the printed material (g/cm3), for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9, with glass fibre more", GH_ParamAccess.item, 1.25);
             p.AddNumberParameter("First Layer Height", "H1", "Height of the first layer (mm): the nozzle runs this high above the bed, so the first bead is not pressed into it. 0 = the layer height", GH_ParamAccess.item, 0.0);
-            p.AddIntegerParameter("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width and layer height (Weber DXR profiles, FH Muenster setting). 0 = own values from Bead Width and Layer Height:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width (mm) and layer height (mm). 0 = own values from Bead Width and Layer Height:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
             p[11].Optional = true;
         }
 
@@ -682,7 +715,7 @@ namespace LARGERslicer.Components.Slicer
             AddSlider(doc, 13, "First Layer", 0, 10, 0, 1);
             AddSlider(doc, 0, "Bead Width", 1m, 40m, 5m, 1);
             AddSlider(doc, 1, "Layer Height", 0.5m, 20m, 2m, 1);
-            AddSlider(doc, 2, "Speed", 300m, 12000m, 3000m, 0);
+            AddSlider(doc, 2, "Speed (mm/s)", 5m, 200m, 50m, 0);
             AddToggle(doc, 10, "Preview", false);
         }
 
@@ -698,6 +731,8 @@ namespace LARGERslicer.Components.Slicer
             da.GetData(3, ref s.Flow); da.GetData(4, ref s.Overlap); da.GetData(5, ref s.MinRadius);
             da.GetData(6, ref s.Resolution); da.GetData(7, ref s.FilamentDiameter);
             da.GetData(8, ref s.MinSpeed); da.GetData(9, ref s.MaxSpeed); da.GetData(10, ref s.Preview);
+            // speeds are given in mm/s; the path keeps mm/min (the F of the machine)
+            if (SpeedUnits.ToMmPerMin(this, _oldSpeedUnit, ref s.Speed, ref s.MinSpeed, ref s.MaxSpeed)) { }
             if (Params.Input.Count > 11)
             {
                 var machine = SlicerIO.Get<MachineProfile>(da, 11);
@@ -729,9 +764,13 @@ namespace LARGERslicer.Components.Slicer
             s.Resolution = Math.Max(0.05, s.Resolution);
             s.MaxSpeed = Math.Max(s.MaxSpeed, s.Speed);
             s.MinSpeed = Math.Min(Math.Max(1, s.MinSpeed), s.Speed);
-            Message = (s.Preview ? "Preview" : "Final") + (s.Nozzle > 0 ? $"\nNozzle {s.Nozzle:0.#}: {s.BeadWidth:0.##}/{s.LayerHeight:0.##}" : "") + (s.Machine.Name != new MachineProfile().Name ? "\n" + s.Machine.Name.Split(' ')[0] : "");
+            Message = (s.Preview ? "Preview" : "Final") + $"\n{s.BeadWidth:0.##} x {s.LayerHeight:0.##} mm, {SpeedUnits.Text(s.Speed)}" + (s.Nozzle > 0 ? $"\nNozzle {s.Nozzle:0.#} mm" : "");
             da.SetData(0, new GH_PrintSettings(s));
         }
+
+        private bool _oldSpeedUnit;
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { SpeedUnits.Mark(writer); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { _oldSpeedUnit = SpeedUnits.IsOld(reader); return base.Read(reader); }
     }
 
     // ============================================================== design rules (CEAD and Ginger sheets)
@@ -837,7 +876,7 @@ namespace LARGERslicer.Components.Slicer
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "First Layer Factor must be greater than 0.");
                 return;
             }
-            Message = m.Name.Split(' ')[0];
+            Message = MachineProfile.ShortName(m.Name);
             string section = m.RectangleSection ? "width x height" : "squashed bead (width - height) x height + pi/4 x height2";
             da.SetData(0, new GH_MachineProfile(m));
             da.SetData(1, $"{m.Name}: E = {section} x length x Flow x {m.Factor:0.####}" +
@@ -1805,7 +1844,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddPointParameter("Points", "Pt", "Path points", GH_ParamAccess.list);
             p.AddPlaneParameter("Planes", "Pl", "Tool planes: Z = tool axis, X = travel direction", GH_ParamAccess.list);
             p.AddNumberParameter("Extrusion", "E", "Extrusion for the move that ends at each point (mm3, or mm filament)", GH_ParamAccess.list);
-            p.AddNumberParameter("Speed", "F", "Speed for the move that ends at each point (mm/min)", GH_ParamAccess.list);
+            p.AddNumberParameter("Feed", "F", "Feed F for the machine, in mm/min (mm/s x 60), for the move that ends at each point", GH_ParamAccess.list);
             p.AddNumberParameter("Layer Height", "H", "Local layer height at each point (mm)", GH_ParamAccess.list);
             p.AddIntegerParameter("Layer", "L", "Layer index of each point", GH_ParamAccess.list);
             p.AddTextParameter("Role", "Role", "Wall, Bottom, Infill, Support, Seam or Travel", GH_ParamAccess.list);
@@ -1909,6 +1948,10 @@ namespace LARGERslicer.Components.Slicer
     /// <summary>The whole chain in one component, for the first print and for simple parts.</summary>
     public class EasySlicerComponent : SlicerComponent
     {
+        private bool _oldSpeedUnit;
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { SpeedUnits.Mark(writer); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { _oldSpeedUnit = SpeedUnits.IsOld(reader); return base.Read(reader); }
+
         public EasySlicerComponent()
             : base("Easy Slicer", "Easy",
                   "Model in, checked print path out: slices, builds walls, bottom and infill, joins everything into one continuous line, rounds the corners, adds skirt and exit and checks the result. Uses settings that suit most prints. For every option use the single components (Slice, Walls, Infill ..., Continuous Path) - they do the same steps one by one.") { }
@@ -1922,7 +1965,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddGenericParameter("Geometry", "G", "Your part: Breps, surfaces, SubDs or meshes, standing on the XY plane", GH_ParamAccess.list);
             p.AddNumberParameter("Bead Width", "W", "Width of one printed bead (mm). Every dimension follows from it", GH_ParamAccess.item, 5.0);
             p.AddNumberParameter("Layer Height", "H", "Layer height (mm): a third to a half of the bead width", GH_ParamAccess.item, 2.0);
-            p.AddNumberParameter("Speed", "F", "Print speed (mm/min), the same for every move", GH_ParamAccess.item, 3000.0);
+            p.AddNumberParameter("Speed", "V", "Print speed, in mm/s, the same for every move (50 mm/s = F3000 in G-code)", GH_ParamAccess.item, 50.0);
             p.AddIntegerParameter("Machine Profile", "MP", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n)), GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Walls", "N", "Number of walls", GH_ParamAccess.item, 1);
             p.AddIntegerParameter("Bottom Layers", "B", "Solid layers at the bottom. 0 = open (hulls, vases)", GH_ParamAccess.item, 0);
@@ -1943,7 +1986,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 3, "Speed", 300m, 12000m, 3000m, 0);
+            AddSlider(doc, 3, "Speed (mm/s)", 5m, 200m, 50m, 0);
             AddSlider(doc, 5, "Walls", 1, 4, 1, 0);
             AddSlider(doc, 6, "Bottom Layers", 0, 10, 0, 0);
             AddToggle(doc, 9, "Spiral", false);
@@ -1975,7 +2018,7 @@ namespace LARGERslicer.Components.Slicer
         {
             var geo = new List<object>();
             if (!da.GetDataList(0, geo) || geo.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Connect your part to Geometry: a Brep, surface, SubD or mesh that stands on the XY plane."); Message = "Connect a part"; return; }
-            double w = 5, h = 2, f = 3000, size = 0; int machine = 0, walls = 1, bottom = 0, infill = 0; bool spiral = false;
+            double w = 5, h = 2, f = 50, size = 0; int machine = 0, walls = 1, bottom = 0, infill = 0; bool spiral = false;
             da.GetData(1, ref w); da.GetData(2, ref h); da.GetData(3, ref f); da.GetData(4, ref machine); da.GetData(5, ref walls);
             da.GetData(6, ref bottom); da.GetData(7, ref infill); da.GetData(8, ref size); da.GetData(9, ref spiral);
             int brim = 0; da.GetData(10, ref brim); brim = Math.Max(0, Math.Min(3, brim));
@@ -1983,6 +2026,7 @@ namespace LARGERslicer.Components.Slicer
             if (h > 0.6 * w) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The layer height is {h / w * 100:0} % of the bead width. Stay below half the bead width or the beads bond poorly.");
             machine = Math.Max(0, Math.Min(MachineProfile.PresetNames.Length - 1, machine));
             double h1 = 0; if (Params.Input.Count > 11) da.GetData(11, ref h1);
+            f = SpeedUnits.ToMmPerMin(this, _oldSpeedUnit, f);
             var st = new PrintSettings { BeadWidth = w, LayerHeight = h, FirstLayerHeight = Math.Max(0, h1), Speed = f, Machine = MachineProfile.Preset(machine) };
             int nozzle = 0, solidPattern = 0, top = 0, extra = 0, wallPos = 0; double angle = 0; bool bridge = true;
             if (Params.Input.Count > 12) da.GetData(12, ref nozzle);
@@ -2097,7 +2141,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
-            p.AddIntegerParameter("Machine", "M", "Which machine: 0 = Ginger One, 1 = Generic G-code machine (Marlin), 2 = Ginger One (Klipper), then your own machines from Documents/LARGER/Machines in the order of their file names", GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Machine", "M", "Which machine (manufacturer \u00B7 machine):\n" + string.Join("\n", MachineDefinition.BuiltIn().Select((m, i) => i + " = " + m.Title)) + "\nthen your own machines from Documents/LARGER/Machines, in the order of their file names", GH_ParamAccess.item, 0);
             p.AddTextParameter("File", "File", "Optional. A .machine file anywhere on the computer: used instead of the list", GH_ParamAccess.item);
             p.AddTextParameter("Name", "N", "Optional. Name of your own machine: everything you do not set below is taken from the machine chosen above", GH_ParamAccess.item);
             p.AddTextParameter("Start Code", "Start", "Optional. Your start code, one line per item", GH_ParamAccess.list);
@@ -2116,7 +2160,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void CreateAutoInputs(GH_Document doc)
         {
             AddButton(doc, 8, "Save machine");
-            AddValueList(doc, 0, "Machine", MachineDefinition.All().Select(m => m.Name).ToArray());
+            AddValueList(doc, 0, "Machine", MachineDefinition.All().Select(m => m.Title).ToArray());
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -2279,7 +2323,7 @@ namespace LARGERslicer.Components.Slicer
         {
             p.AddTextParameter("Robot Path", "Path", "One PTP line per path point: connect to Robot Path of the DXR Generator", GH_ParamAccess.list);
             p.AddNumberParameter("Extrusion", "E", "Extrusion per line, plus one closing value (the DXR Generator drops the last value)", GH_ParamAccess.list);
-            p.AddNumberParameter("Speed", "F", "Speed in mm/min per line, plus one closing value", GH_ParamAccess.list);
+            p.AddNumberParameter("Feed", "F", "Feed F for the machine, in mm/min (mm/s x 60), per line, plus one closing value", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)

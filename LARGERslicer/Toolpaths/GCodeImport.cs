@@ -734,7 +734,7 @@ namespace LARGERslicer.Toolpaths
             rep.Add(r.TravelMoves == 0 ? "Travel: no moves without extrusion." : $"Travel: {r.TravelMoves} move(s) without extrusion in {r.TravelRuns} run(s), {F(r.TravelLength, "0")} mm.");
             rep.Add(r.Retractions == 0 ? "Retractions: none." : $"Retractions: {r.Retractions}{(r.RetractionsOutside > 0 ? $" ({r.RetractionsOutside} before the first bead)" : "")}.");
             rep.Add(r.FPrintMax > 0
-                ? $"Feedrate: printing at F{F(r.FPrintMin, "0")} to F{F(r.FPrintMax, "0")} (mostly F{F(st.Speed, "0")}), travel up to F{F(r.FTravelMax, "0")}; F changes {r.FeedChanges} time(s), {r.FeedChangesInBead} of them in the middle of a bead."
+                ? $"Speed: printing at {F(r.FPrintMin / 60, "0.#")} to {F(r.FPrintMax / 60, "0.#")} mm/s (mostly {F(st.Speed / 60, "0.#")} mm/s = F{F(st.Speed, "0")}), travel up to {F(r.FTravelMax / 60, "0.#")} mm/s; F changes {r.FeedChanges} time(s), {r.FeedChangesInBead} of them in the middle of a bead."
                 : "Feedrate: no F in the file.");
             if (r.F0 > 0) { r.Warnings.Add($"F0: {r.F0} line(s) set the feedrate to 0. A move with F0 never finishes: the machine stops there."); }
             else rep.Add("No F0: every feedrate is above 0.");

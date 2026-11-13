@@ -771,7 +771,7 @@ namespace LARGERslicer.Toolpaths
             if (st.MaxVolumeRate > 0)
             {
                 if (pr.VolumeOverLimit > 0)
-                    r.Report.Add($"VOLUME RATE: {pr.VolumeOverLimit} move(s) need more than the extruder's {st.MaxVolumeRate:0} mm3/s even at Min Speed F{st.MinSpeed:0} (up to {pr.MaxVolumeRate:0} mm3/s): the bead gets thin there. Use a lower layer height or bead width, or a lower Min Speed.");
+                    r.Report.Add($"VOLUME RATE: {pr.VolumeOverLimit} move(s) need more than the extruder's {st.MaxVolumeRate:0} mm3/s even at Min Speed {st.MinSpeed / 60:0.#} mm/s (up to {pr.MaxVolumeRate:0} mm3/s): the bead gets thin there. Use a lower layer height or bead width, or a lower Min Speed.");
                 else
                     r.Report.Add($"Volume rate OK: at most {pr.MaxVolumeRate:0} mm3/s, the extruder gives {st.MaxVolumeRate:0} mm3/s" + (pr.VolumeCapped > 0 ? $" ({pr.VolumeCapped} move(s) run slower to stay below it)." : "."));
             }
@@ -786,7 +786,7 @@ namespace LARGERslicer.Toolpaths
             }
             if (minSeconds <= 0)
             {
-                r.Report.Add($"Layer time: {shortest:0} s (layer {shortLayer + 1}) to {pr.LayerSeconds[longLayer]:0} s per layer at F{st.Speed:0}. " +
+                r.Report.Add($"Layer time: {shortest:0} s (layer {shortLayer + 1}) to {pr.LayerSeconds[longLayer]:0} s per layer at {st.Speed / 60:0.#} mm/s. " +
                              "Set Min Layer Time (for example 60 s for a large pellet print) to check that every layer has cooled enough before the next one lands on it.");
                 return;
             }
@@ -811,9 +811,9 @@ namespace LARGERslicer.Toolpaths
                 double reached = other + printing * now / feed;
                 r.SuggestedSpeed = feed;
                 if (need < st.MinSpeed || now <= st.MinSpeed + 1e-9)
-                    s.Append($"(1) Slower helps only in part: even at the lowest speed F{st.MinSpeed:0} (Min Speed in the Print Settings) the shortest layer takes {reached:0} s. Combine it with (2) or (3). ");
+                    s.Append($"(1) Slower helps only in part: even at the lowest speed {st.MinSpeed / 60:0.#} mm/s (Min Speed in the Print Settings) the shortest layer takes {reached:0} s. Combine it with (2) or (3). ");
                 else if (st.MinLayerTime <= 0)
-                    s.Append($"(1) Slower: set Min Layer Time to {minSeconds:0} s in Continuous Path, and only the short layers are printed slower (the shortest at F{feed:0} instead of F{st.Speed:0}, then {reached:0} s); or print everything at F{feed:0}. ");
+                    s.Append($"(1) Slower: set Min Layer Time to {minSeconds:0} s in Continuous Path, and only the short layers are printed slower (the shortest at {feed / 60:0.#} mm/s instead of {st.Speed / 60:0.#} mm/s, then {reached:0} s); or print everything at {feed / 60:0.#} mm/s (Speed in the Print Settings). ");
                 else
                     s.Append($"(1) Slower: print the short layers at F{feed:0}; the shortest then takes {reached:0} s. ");
             }
