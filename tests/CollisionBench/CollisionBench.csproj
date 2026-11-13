@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><Nullable>disable</Nullable><LangVersion>latest</LangVersion><NoWarn>CS0618;CA1416;NU1701;MSB3277</NoWarn><AssemblyName>ColBench</AssemblyName></PropertyGroup>
+  <PropertyGroup><R>/Applications/Rhino 9.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources</R><W>$(MSBuildThisFileDirectory)../../LARGERslicer/bin/Release/net8.0</W></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="RhinoCommon"><HintPath>$(R)/RhinoCommon.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Grasshopper"><HintPath>$(R)/ManagedPlugIns/GrasshopperPlugin.rhp/Grasshopper.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="GH_IO"><HintPath>$(R)/ManagedPlugIns/GrasshopperPlugin.rhp/GH_IO.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="LARGERslicer"><HintPath>$(W)/LARGERslicer.gha</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>
