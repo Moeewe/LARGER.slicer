@@ -184,6 +184,7 @@ namespace LARGERslicer.Toolpaths
             public double[] Len, T0, T1, H, W;
             public int[] Layer, Bead;
             public double Cell;
+            public double Speed;          // nominal print speed, mm/min
             public Dictionary<long, List<int>> Grid = new Dictionary<long, List<int>>();
         }
 
@@ -349,11 +350,11 @@ namespace LARGERslicer.Toolpaths
                 }
                 for (int L = 0; L <= maxLayer; L++)
                 {
+                    // a flat layer's tool axis is its plane normal (Slice sets both); the plane through
+                    // the points is only the fallback, as skirt, lead-in and ramp points tilt it
                     Vector3d a = Unit(axis[L]);
-                    Vector3d fit = FitNormal(pts[L]);
-                    if (fit.IsZero) fit = a;
-                    else if (!a.IsZero && fit * a < 0) fit = -fit;
-                    layerNormal[L] = fit.IsZero ? Vector3d.ZAxis : fit;
+                    if (a.IsZero) a = FitNormal(pts[L]);
+                    layerNormal[L] = a.IsZero ? Vector3d.ZAxis : a;
                 }
             }
 
@@ -381,6 +382,7 @@ namespace LARGERslicer.Toolpaths
             s.N = A.Count; s.A = A.ToArray(); s.B = B.ToArray(); s.Dir = D.ToArray(); s.E3 = E.ToArray();
             s.Len = len.ToArray(); s.T0 = t0.ToArray(); s.T1 = t1.ToArray(); s.H = hh.ToArray(); s.W = ww.ToArray();
             s.Layer = lay.ToArray(); s.Bead = bead.ToArray();
+            s.Speed = st.Speed;
 
             // grid of pieces no longer than one cell, filed by their midpoint
             s.Cell = Math.Max(1.0, Math.Max(st.BeadWidth, st.LayerHeight));
@@ -518,9 +520,11 @@ namespace LARGERslicer.Toolpaths
             int k = Nearest(s, p, reach, null, out Point3d c, out double t, out double dist);
             if (k < 0) return;
 
-            Vector3d e1 = s.Dir[k], e3 = s.E3[k];
-            e3 = Unit(e3 - e1 * (e3 * e1));
-            if (e3.IsZero) e3 = s.E3[k];
+            // e3 is the stacking direction as it is; the bead direction is laid into the layer
+            // (on the ramp to the next layer and on lead-ins the path climbs a little)
+            Vector3d e3 = s.E3[k];
+            Vector3d e1 = Unit(s.Dir[k] - e3 * (s.Dir[k] * e3));
+            if (e1.IsZero) { e1 = Unit(Vector3d.CrossProduct(e3, Math.Abs(e3.Z) < 0.9 ? Vector3d.ZAxis : Vector3d.XAxis)); }
             Vector3d e2 = Unit(Vector3d.CrossProduct(e3, e1));
             sm.E1 = e1; sm.E2 = e2; sm.E3 = e3;
             int L = s.Layer[k];
@@ -554,6 +558,8 @@ namespace LARGERslicer.Toolpaths
 
             // bead interfaces: the neighbour beads beside this one in the same layer
             double nearSide = double.MaxValue, spacing = double.MaxValue;
+            // a piece printed within the time of a few bead widths is this bead itself (a corner, the seam)
+            double self = s.Speed > 0 ? 3 * w / s.Speed * 60.0 : 0;
             for (int sgn = -1; sgn <= 1; sgn += 2)
             {
                 int sideSign = sgn;
@@ -561,6 +567,7 @@ namespace LARGERslicer.Toolpaths
                 int j = Nearest(s, probe, 1.5 * w, (kk, q) =>
                 {
                     if (s.Layer[kk] != L) return false;
+                    if (Math.Abs(0.5 * (s.T0[kk] + s.T1[kk]) - tHere) < self + 0.5 * (s.T1[kk] - s.T0[kk])) return false;
                     Vector3d rr = q - c;
                     double lat = rr * e2;
                     return lat * sideSign > 0.25 * w && Math.Abs(rr * e3) < 0.5 * h && Math.Abs(s.Dir[kk] * e1) > 0.7 && Math.Abs(rr * e1) < w;
