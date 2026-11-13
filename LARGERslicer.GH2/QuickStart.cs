@@ -105,7 +105,7 @@ namespace LARGERslicer.GH2
 
             // ---- 1 flat layers, with the files for the machines
             float y1 = 880; // below the tall Print Settings
-            section("01. FLAT LAYERS  -  FROM THE PART TO THE FILE", "The normal case. Replace 'Your part' with your own geometry, read Path Check, then take the file for your machine: output A, B or C.", y1 - 300);
+            section("01. FLAT LAYERS  -  FROM THE PART TO THE FILE", "The normal case. Replace 'Your part' with your own geometry, read Path Check, then take the file for your machine: output A, B or C.", y1 - 200);
             var part1 = geometry("Your part", "Replace this with your own geometry: standing on the XY plane, in millimetres, on the positive side of the origin.", DemoParts.Hull(), 0, y1);
             var slice = put(new SliceComponent(), col, y1);
             var walls = put(new WallsComponent(), 2 * col, y1);

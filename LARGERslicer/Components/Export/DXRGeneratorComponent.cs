@@ -49,6 +49,9 @@ namespace LARGERslicer.Components.Export
             pManager.AddTextParameter("Info", "I", "Generation summary and statistics", GH_ParamAccess.list);
         }
 
+        /// <summary>While Robot Program still computes in the background, its empty Robot Path is waiting, not an error.</summary>
+        public override void ComputeData() { base.ComputeData(); LARGERslicer.Components.AsyncSolve.ShowWaiting(this); }
+
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             MachineSettings machineSettings = null;
