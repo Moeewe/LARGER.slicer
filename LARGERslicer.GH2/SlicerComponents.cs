@@ -176,7 +176,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddNumber("Angle", "A", "Tilts the layers around the X axis, in degrees. 45 = 45 degree slicing.").Set(0.0);
             inputs.AddGeneric("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it. A curve: the layers stand square to it.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddInteger("Guide Mode", "GM", "Only with a guide surface: 0 = flat bottom, top follows the guide. 1 = all layers follow the guide.").Set(0);
+            inputs.AddInteger("Guide Mode", "GM", "0 = with a guide surface: flat bottom, top follows the guide.\n1 = with a guide surface: all layers follow the guide (curved base or mould).\n2 = follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical.").Set(0);
             inputs.AddInteger("Tool Axis", "TA", "Only with a guide: 0 = tool square to the layer (robot). 1 = tool stays vertical.").Set(0);
             inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away afterwards (about 5 for angled printing). The start feature stands on the bed. 0 = none.").Set(0);
         }
@@ -218,8 +218,22 @@ namespace LARGERslicer.GH2
                 else plane = Plane.WorldXY;
             }
 
-            Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), tol, log, warp != null ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
+            // a bent layer needs a fine mesh, or long flat faces would stay straight
+            bool followPart = guide == null && guideMode == 2;
+            Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), tol, log, warp != null || followPart ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
+            if (followPart)
+            {
+                // non-planar layers from the part itself (meridians), nozzle vertical
+                var mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth);
+                if (mw.Valid)
+                {
+                    warp = mw; plane = Plane.WorldXY;
+                    log.Add(mw.Summary(settings.BeadWidth)); log.AddRange(mw.Notes);
+                    if (mw.ThickMeridians > 0) access.AddWarning("Follow the part", mw.Summary(settings.BeadWidth));
+                }
+                else access.AddWarning("Follow the part", mw.Problem + ". Slicing flat.");
+            }
             int extra; access.GetItem(6, out extra);
             var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
             if (extra > 0 && warp == null)
@@ -376,6 +390,9 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Seam Gap", "G", "Layered: the gap at the seam in mm. Every layer ends this far before its own start; the path crosses the gap on a short incline up to the next layer. 0 = one bead width.").Set(0.0);
             inputs.AddGeneric("Seam", "Seam", "Optional. A point or a curve: where the seam is. Every layer starts at the place on its contour nearest to it. Empty = the seam stays where the first layer started.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Bridge", "Br", "True = a contour inside another (inner shell, opening) is joined to it by a bridge of two lines one bead spacing apart, stacked on every layer: one line without travel moves.").Set(true);
+            inputs.AddInteger("Seam Mode", "Sm", "Layered only: where the seam goes.\n0 = fixed point (default): at the Seam point, or where the first layer starts.\n1 = inner corner: in an inner corner of the outer wall, where it shows least and milling does not run over it (no inner corner: the sharpest outer corner).\n2 = sharpest corner of the outer wall.\nThe corner is followed from layer to layer, at most half a bead to the side. A Seam point picks which corner.").Set(0);
+            inputs.AddNumber("Min Layer Time", "Tmin", "Shortest time a layer may take in s. A layer that would be done sooner is printed slower, so the layer below can cool: F stays constant within the layer and never goes below Min Speed. 0 = off (default). About 60 s suits many large pellet prints.").Set(0.0);
+            inputs.AddNumber("Max Volume Rate", "Vmax", "Most the extruder can deliver in mm3/s. Moves that would ask for more run slower, never below Min Speed. 0 = off (default). The Ginger gives about 330 mm3/s.").Set(0.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -398,7 +415,15 @@ namespace LARGERslicer.GH2
             else if (seamIn is Polyline spl) seam = new PolylineCurve(spl);
             else if (seamIn is GeometryBase sg) seam = sg;
             bool bridge; access.GetItem(5, out bridge);
-            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, Math.Max(0, ramp), false, log, bridge);
+            int seamMode; double minTime, maxRate;
+            access.GetItem(6, out seamMode); access.GetItem(7, out minTime); access.GetItem(8, out maxRate);
+            if (minTime > 0 || maxRate > 0)
+            {
+                // the limits travel with the path, so every machine output (G-code, DXR, robot) uses them
+                settings = settings.Duplicate();
+                settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
+            }
+            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, Math.Max(0, ramp), false, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
             Io.Remarks(access, log);
             if (tp.Count < 2) { access.AddError("No path", "The layers contain no printable contour."); return; }
             int travels = 0; for (int i = 1; i < tp.Count; i++) if (tp.Roles[i] == PathRole.Travel && tp.Roles[i - 1] != PathRole.Travel) travels++;
@@ -460,6 +485,7 @@ namespace LARGERslicer.GH2
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Toolpath", "T", "The path to check.");
+            inputs.AddNumber("Min Layer Time", "Tmin", "Shortest time a layer may take in s, so the layer below has cooled enough to carry the next one. A layer printed faster lands on soft material: overhangs sag and the part warps. 0 = the Min Layer Time of Continuous Path, or off (the report still lists the times). About 60 s suits many large pellet prints.").Set(0.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -468,17 +494,75 @@ namespace LARGERslicer.GH2
             outputs.AddText("Report", "R", "What was checked and found.", Access.Twig);
             outputs.AddPoint("Crossings", "X", "Where the path crosses itself.", Access.Twig);
             outputs.AddPoint("Unsupported", "U", "Points that hang in the air.", Access.Twig);
+            outputs.AddNumber("Layer Times", "Lt", "Time of every layer at the print speed in s, from the first layer up.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
         {
             var tp = Io.Path(access, 0); if (tp == null) return;
-            var r = LeadEngine.Check(tp, 0);
+            double minTime; access.GetItem(1, out minTime);
+            var r = LeadEngine.Check(tp, 0, Math.Max(0, minTime));
             if (!r.Ok) access.AddWarning("Not printable as it is", string.Join("\n", r.Report));
+            // too short layers and an extruder over its limit: the path can be printed, but say it
+            foreach (var l in r.Report.Where(l => l.StartsWith("LAYER TIME") || l.StartsWith("VOLUME RATE"))) access.AddWarning(l.StartsWith("LAYER TIME") ? "Layer time" : "Volume rate", l);
             access.SetItem(0, r.Ok);
             access.SetTwig(1, r.Report.ToArray(), null, null);
             access.SetTwig(2, r.Crossings.ToArray(), null, null);
             access.SetTwig(3, r.Unsupported.ToArray(), null, null);
+            access.SetTwig(4, r.LayerTimes.ToArray(), null, null);
+        }
+    }
+
+    // ============================================================== non-planar check
+    [IoId("c3e7a2d4-6f1b-4a8e-9d25-8e2da5d2c15d")]
+    public sealed class NonPlanarCheckComponent : Component
+    {
+        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, 7)) { }
+        public NonPlanarCheckComponent(IReader reader) : base(reader) { }
+
+        protected override void AddInputs(InputAdder inputs)
+        {
+            inputs.AddGeneric("Toolpath", "T", "The path to check.");
+            inputs.AddNumber("Tip Radius", "r0", "Radius of the nozzle tip in mm.").Set(4.0);
+            inputs.AddNumber("Cone Angle", "A", "Half angle of the nozzle cone, from vertical, in degrees.").Set(30.0);
+            inputs.AddNumber("Cone Length", "Lc", "Height of the cone from the tip up to the head in mm.").Set(60.0);
+            inputs.AddNumber("Head Radius", "R", "Radius of the head above the cone in mm.").Set(40.0);
+            inputs.AddNumber("Pose", "P", "Where the head is shown along the path: 0 = start, 1 = end.").Set(1.0);
+        }
+
+        protected override void AddOutputs(OutputAdder outputs)
+        {
+            outputs.AddBoolean("OK", "OK", "True if the bead heights fit and the head hits nothing.");
+            outputs.AddText("Report", "R", "What was checked and found.", Access.Twig);
+            outputs.AddNumber("Bead Height", "H", "Measured bead height (vertical gap to the layer below) for every path point in mm; 0 = not measured. Use it to colour the path.", Access.Twig);
+            outputs.AddPoint("Bad Heights", "Bh", "Points where the bead is higher than 0.8 x bead width or thinner than 0.4 x layer height.", Access.Twig);
+            outputs.AddPoint("Collisions", "X", "Points where the head hits beads printed before, or the path climbs more steeply than the cone. Must be empty.", Access.Twig);
+            outputs.AddMesh("Head", "Hd", "The head as it is checked (tip, cone, body), standing on the path at Pose.");
+        }
+
+        protected override void Process(IDataAccess access)
+        {
+            var tp = Io.Path(access, 0); if (tp == null) return;
+            var head = new NonPlanarCheck.Head();
+            double tip, angle, length, radius, pose;
+            access.GetItem(1, out tip); access.GetItem(2, out angle); access.GetItem(3, out length); access.GetItem(4, out radius); access.GetItem(5, out pose);
+            head.TipRadius = tip; head.HalfAngle = angle; head.ConeLength = length; head.Radius = radius;
+            if (tip < 0 || angle < 0 || angle >= 90 || length <= 0 || radius <= 0)
+            {
+                access.AddError("Invalid head", "Tip Radius must be 0 or more, Cone Angle between 0 and 90 degrees, Cone Length and Head Radius more than 0.");
+                return;
+            }
+            if (tp.Normals.Any(n => Math.Abs(n.Z) < 0.9998))
+                access.AddRemark("Tilted tool axes", "The path has tilted tool axes. This check is for a vertical nozzle.");
+            var r = NonPlanarCheck.Run(tp, head);
+            if (!r.Ok) access.AddWarning("Check the path", r.Report.FirstOrDefault(l => l.StartsWith("HEAD") || l.StartsWith("TOO") || l.StartsWith("BEAD") || l.StartsWith("EXTRUSION") || l.StartsWith("Empty")) ?? "Read Report.");
+            access.SetItem(0, r.Ok);
+            access.SetTwig(1, r.Report.ToArray(), null, null);
+            access.SetTwig(2, r.BeadHeights.ToArray(), null, null);
+            access.SetTwig(3, r.BadHeights.ToArray(), null, null);
+            access.SetTwig(4, r.Collisions.ToArray(), null, null);
+            int at = (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (tp.Count - 1));
+            access.SetItem(5, head.ToMesh(tp.Points[at]));
         }
     }
 
