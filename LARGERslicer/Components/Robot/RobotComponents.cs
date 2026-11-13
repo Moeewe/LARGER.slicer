@@ -239,6 +239,7 @@ namespace LARGERslicer.Components.Robot
             p.AddIntegerParameter("Collision Poses", "Col", "Fast mode of the collision check: how many poses along the path it looks at (evenly spread). Critical poses come on top: both ends of every move without extrusion, every place where the tool turns by 5 degrees, the strongest tilt of every layer. -1 = every move. 0 = no check. Needs the 3D model of the robot", GH_ParamAccess.item, 500);
             p.AddBooleanParameter("Check Collisions", "CC", "True = check the robot, the tool, rail and turntable against each other, the part printed so far, the bed and the Environment", GH_ParamAccess.item, true);
             p.AddNumberParameter("Clearance", "Cl", "Bodies closer than this (mm) are reported as a near miss", GH_ParamAccess.item, 10.0);
+            p.AddBooleanParameter("Show Cell", "Cell", "True = draw the cell around the robot (floor, fence, glass, walls) with the robot. False = only the robot and its tool. The collision check always uses the cell", GH_ParamAccess.item, false);
             p[1].Optional = true; p[6].Optional = true; p[8].Optional = true;
         }
 
@@ -246,6 +247,7 @@ namespace LARGERslicer.Components.Robot
         {
             rows.Add(Toggle(4, "Check reach"));
             rows.Add(Toggle(10, "Check collisions"));
+            rows.Add(Toggle(12, "Show cell"));
             rows.Add(Button(7, "Save KRL"));
         }
 
@@ -270,32 +272,39 @@ namespace LARGERslicer.Components.Robot
         }
 
         // The robot at the chosen pose, drawn in its own colours: base dark, arm KUKA orange, tool steel blue.
-        private readonly List<Mesh> _robot = new List<Mesh>();
-        private static readonly Rhino.Display.DisplayMaterial BaseMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(60, 60, 64));
-        private static readonly Rhino.Display.DisplayMaterial ArmMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(240, 110, 20));
-        private static readonly Rhino.Display.DisplayMaterial ToolMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(90, 120, 150));
+        internal static readonly System.Drawing.Color BaseColor = System.Drawing.Color.FromArgb(60, 60, 64), ArmColor = System.Drawing.Color.FromArgb(240, 110, 20),
+            ToolColor = System.Drawing.Color.FromArgb(90, 120, 150), AxisColor = System.Drawing.Color.FromArgb(150, 152, 158);
+        internal static readonly Rhino.Display.DisplayMaterial HitMaterial = MachineLook.Material(MachineLook.Hit);
 
+        private readonly List<Mesh> _robot = new List<Mesh>();
         private readonly List<Mesh> _axes = new List<Mesh>();
-        internal static readonly Rhino.Display.DisplayMaterial AxisMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(150, 152, 158));
-        internal static readonly Rhino.Display.DisplayMaterial HitMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(230, 30, 30));
+        private readonly List<Mesh> _env = new List<Mesh>();
         // what collides at the chosen pose: robot bodies (0 base, 1-6 links, 7 tool), axis models, other meshes
         private readonly HashSet<int> _hitRobot = new HashSet<int>(), _hitAxes = new HashSet<int>();
         private readonly List<Mesh> _hitOther = new List<Mesh>();
+        private readonly LARGERslicer.Components.MachinePreview _preview = new LARGERslicer.Components.MachinePreview();
 
-        protected override void BeforeSolveInstance() { _robot.Clear(); _axes.Clear(); _hitRobot.Clear(); _hitAxes.Clear(); _hitOther.Clear(); base.BeforeSolveInstance(); }
+        protected override void BeforeSolveInstance() { _robot.Clear(); _axes.Clear(); _env.Clear(); _hitRobot.Clear(); _hitAxes.Clear(); _hitOther.Clear(); _preview.Clear(); base.BeforeSolveInstance(); }
 
-        public override BoundingBox ClippingBox
+        /// <summary>The robot, its axes, the cell (when shown) and what collides, in the order they are drawn: one helper for all machine previews.</summary>
+        internal static void Fill(LARGERslicer.Components.MachinePreview preview, List<Mesh> robot, List<Mesh> axes, List<Mesh> env, HashSet<int> hitRobot, HashSet<int> hitAxes, List<Mesh> hitOther)
         {
-            get { var b = base.ClippingBox; foreach (var m in _robot.Concat(_axes)) b.Union(m.GetBoundingBox(false)); return b; }
+            for (int i = 0; i < robot.Count; i++)
+                if (hitRobot.Contains(i)) preview.Hit(robot[i]); else preview.Add(robot[i], i == 0 ? BaseColor : i >= 7 ? ToolColor : ArmColor);
+            for (int i = 0; i < axes.Count; i++)
+                if (hitAxes.Contains(i)) preview.Hit(axes[i]); else preview.Add(axes[i], AxisColor);
+            foreach (var m in env) if (!hitOther.Contains(m)) preview.Add(m, MachineLook.Cell, 0.55);
+            foreach (var m in hitOther) preview.Hit(m);
         }
+
+        protected override void AfterSolveInstance() { Fill(_preview, _robot, _axes, _env, _hitRobot, _hitAxes, _hitOther); base.AfterSolveInstance(); }
+
+        public override BoundingBox ClippingBox => _preview.Box(base.ClippingBox);
 
         public override void DrawViewportMeshes(IGH_PreviewArgs args)
         {
             base.DrawViewportMeshes(args);
-            for (int i = 0; i < _robot.Count; i++)
-                args.Display.DrawMeshShaded(_robot[i], _hitRobot.Contains(i) ? HitMaterial : i == 0 ? BaseMaterial : (i >= 7 ? ToolMaterial : ArmMaterial));
-            for (int i = 0; i < _axes.Count; i++) args.Display.DrawMeshShaded(_axes[i], _hitAxes.Contains(i) ? HitMaterial : AxisMaterial);
-            foreach (var m in _hitOther) args.Display.DrawMeshShaded(m, HitMaterial);
+            _preview.Draw(args);
         }
 
         /// <summary>Marks what collides at this pose, to draw it red.</summary>
@@ -336,6 +345,9 @@ namespace LARGERslicer.Components.Robot
             if (Params.Output.Count > 12) da.SetData(12, new GH_ObjectWrapper(RobotRun.Make(r, cell, tp)));
             // with a Robot Simulation connected, that one shows the robot
             bool simulated = Params.Output.Count > 12 && Params.Output[12].Recipients.Count > 0;
+            bool showCell = false;
+            if (Params.Input.Count > 12) da.GetData(12, ref showCell);
+            if (showCell && !simulated && cell.Environment != null) _env.AddRange(cell.Environment.Where(m => m != null));
             da.SetDataList(0, r.Lines);
             da.SetDataList(1, e);
             da.SetDataList(2, f);
@@ -413,16 +425,17 @@ namespace LARGERslicer.Components.Robot
             p.AddNumberParameter("Time", "T", "Where in the print: 0 = start, 1 = end", GH_ParamAccess.item, 0.0);
             p.AddBooleanParameter("Play", "Play", "True = the simulation runs by itself, from where Time stands, and starts again at the end. False = it stands where Time says", GH_ParamAccess.item, false);
             p.AddNumberParameter("Film Length", "Len", "How long one run of the whole print takes on the screen, in seconds. A print of an hour in 30 seconds runs 120 times faster than in the lab", GH_ParamAccess.item, 30.0);
+            p.AddBooleanParameter("Show Cell", "Cell", "True = draw the cell around the robot (floor, fence, glass, walls) with the simulation. False = only the robot and its tool (and what collides, in red). The collision check always uses the cell", GH_ParamAccess.item, false);
         }
 
-        // Play: the component keeps its own clock and asks Grasshopper for the next picture.
-        private bool _playing;
-        private DateTime _playSince;
-        private double _playFrom;
+        // Play: the clock shared with Printer Simulation keeps the time and asks Grasshopper for the next picture.
+        private readonly LARGERslicer.Components.PlayClock _clock = new LARGERslicer.Components.PlayClock();
 
         protected override void Options(List<LARGERslicer.Components.OptionRow> rows)
         {
             rows.Add(Toggle(2, "Play", "\u25A0  Stop", "\u25B6  Play"));
+            rows.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Number, Label = "Film Length (s)", Input = 3, Presets = LARGERslicer.Components.PlayClock.Lengths, Decimals = 0 });
+            rows.Add(Toggle(4, "Show cell"));
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -436,7 +449,7 @@ namespace LARGERslicer.Components.Robot
             p.AddNumberParameter("External", "E", "Values of the external axes at that moment (rail in mm, turntable in degrees), in the order of the cell", GH_ParamAccess.list);
             p.AddCurveParameter("Printed", "Pr", "The path printed up to that moment, where it is in the room: it turns with a turntable", GH_ParamAccess.item);
             p.AddMeshParameter("Axes Model", "AM", "The rail with its carriage and the turntable at that moment", GH_ParamAccess.list);
-            p.AddMeshParameter("Environment", "Env", "What stands around the robot (the Environment of the cell), drawn with the simulation", GH_ParamAccess.list);
+            p.AddMeshParameter("Environment", "Env", "What stands around the robot (the Environment of the cell); drawn with the simulation when Show Cell is on", GH_ParamAccess.list);
             p.AddMeshParameter("Colliding", "Col", "What collides at this moment (drawn red): robot links, tool, rail, table, environment, and a ball where it touches. Empty = clear", GH_ParamAccess.list);
             p.HideParameter(0); // drawn by the component, in colour
             p.HideParameter(8); p.HideParameter(9); p.HideParameter(10);
@@ -444,32 +457,20 @@ namespace LARGERslicer.Components.Robot
 
         private readonly List<Mesh> _robot = new List<Mesh>();
         private readonly List<Mesh> _axes = new List<Mesh>();
-        private static readonly Rhino.Display.DisplayMaterial BaseMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(60, 60, 64));
-        private static readonly Rhino.Display.DisplayMaterial ArmMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(240, 110, 20));
-        private static readonly Rhino.Display.DisplayMaterial ToolMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(90, 120, 150));
-
         private readonly List<Mesh> _env = new List<Mesh>();
-        private static readonly Rhino.Display.DisplayMaterial EnvMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(200, 200, 196), 0.55);
-
         private readonly HashSet<int> _hitRobot = new HashSet<int>(), _hitAxes = new HashSet<int>();
         private readonly List<Mesh> _hitOther = new List<Mesh>();
+        private readonly LARGERslicer.Components.MachinePreview _preview = new LARGERslicer.Components.MachinePreview();
 
-        protected override void BeforeSolveInstance() { _robot.Clear(); _axes.Clear(); _env.Clear(); _hitRobot.Clear(); _hitAxes.Clear(); _hitOther.Clear(); base.BeforeSolveInstance(); }
+        protected override void BeforeSolveInstance() { _robot.Clear(); _axes.Clear(); _env.Clear(); _hitRobot.Clear(); _hitAxes.Clear(); _hitOther.Clear(); _preview.Clear(); base.BeforeSolveInstance(); }
+        protected override void AfterSolveInstance() { RobotProgramComponent.Fill(_preview, _robot, _axes, _env, _hitRobot, _hitAxes, _hitOther); base.AfterSolveInstance(); }
 
-        public override BoundingBox ClippingBox
-        {
-            get { var b = base.ClippingBox; foreach (var m in _robot.Concat(_axes).Concat(_env)) b.Union(m.GetBoundingBox(false)); return b; }
-        }
+        public override BoundingBox ClippingBox => _preview.Box(base.ClippingBox);
 
         public override void DrawViewportMeshes(IGH_PreviewArgs args)
         {
             base.DrawViewportMeshes(args);
-            var hit = RobotProgramComponent.HitMaterial;
-            for (int i = 0; i < _robot.Count; i++)
-                args.Display.DrawMeshShaded(_robot[i], _hitRobot.Contains(i) ? hit : i == 0 ? BaseMaterial : (i >= 7 ? ToolMaterial : ArmMaterial));
-            for (int i = 0; i < _axes.Count; i++) args.Display.DrawMeshShaded(_axes[i], _hitAxes.Contains(i) ? hit : RobotProgramComponent.AxisMaterial);
-            foreach (var m in _env) if (!_hitOther.Contains(m)) args.Display.DrawMeshShaded(m, EnvMaterial);
-            foreach (var m in _hitOther) args.Display.DrawMeshShaded(m, hit);
+            _preview.Draw(args);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -478,18 +479,10 @@ namespace LARGERslicer.Components.Robot
             if (run == null || run.Points.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect Program of Robot Program."); return; }
             double time = 0; da.GetData(1, ref time);
             time = Math.Max(0, Math.Min(1, time));
-            bool play = false; double film = 30;
+            bool play = false, showCell = false; double film = 30;
             if (Params.Input.Count > 3) { da.GetData(2, ref play); da.GetData(3, ref film); }
-            if (play)
-            {
-                if (!_playing) { _playing = true; _playSince = DateTime.UtcNow; _playFrom = time >= 1 ? 0 : time; }
-                double ran = (DateTime.UtcNow - _playSince).TotalSeconds / Math.Max(1.0, film);
-                time = _playFrom + ran;
-                time -= Math.Floor(time); // start again at the end
-                var ghDoc = OnPingDocument();
-                if (ghDoc != null) ghDoc.ScheduleSolution(40, d => ExpireSolution(false));
-            }
-            else _playing = false;
+            if (Params.Input.Count > 4) da.GetData(4, ref showCell);
+            time = _clock.Position(this, play, time, film);
             double seconds = time * run.Duration;
             var axes = run.AxesAt(seconds, out int move, out double share);
             if (axes == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The robot cannot get to move {move}: nothing to show here. Read the Report of Robot Program."); da.SetData(3, move); da.SetData(4, seconds); return; }
@@ -506,7 +499,7 @@ namespace LARGERslicer.Components.Robot
                 var printed = run.PrintedAt(seconds); if (printed.Count > 1) da.SetData(7, new PolylineCurve(printed));
                 da.SetDataList(8, axesModel);
             }
-            if (Params.Output.Count > 9 && run.Cell.Environment != null) { _env.AddRange(run.Cell.Environment); da.SetDataList(9, run.Cell.Environment); }
+            if (Params.Output.Count > 9 && run.Cell.Environment != null) { if (showCell) _env.AddRange(run.Cell.Environment.Where(m => m != null)); da.SetDataList(9, run.Cell.Environment); }
             // what collides at this moment: drawn red
             string collision = "";
             if (run.Collider != null)
@@ -535,7 +528,7 @@ namespace LARGERslicer.Components.Robot
             da.SetData(2, tip.ToPlane());
             da.SetData(3, move);
             da.SetData(4, seconds);
-            if (play) Message = "> " + Message;
+            if (_clock.Playing) Message = "> " + Message;
             da.SetData(5, $"{Message} of {TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci)}, move {move} of {run.Points.Count - 1}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci)))
                 + (ext == null ? "" : string.Concat(ext.Select((v, k) => ", " + run.Cell.ExternalAxes[k].Name + " " + v.ToString("0.0", ci)))) + (inRange ? "" : " - OUTSIDE THE AXIS RANGE") + collision);
         }
