@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (collision check for multi-axis and angled prints)
+- `Robot Program` checks the robot, the tool, rail and turntable against each other, the part printed so far, the bed and the Environment: new inputs `Check Collisions` and `Clearance`, outputs `Collision Moves` and `Collision Bodies`; `Robot Simulation` shows what collides in red. The report names the pair, the move and the layer, and suggests what to change (tilt, nozzle length, tool turn, rail or turntable offset). Bodies that stand on something (robot foot, carriage, table) may touch it by a few mm while they slide. Tested with the cell of the FH Muenster (KR120, AE20 extruder): free tower 0 hits, box over the part, tool leaning 45 deg over the printed part, 80 deg at the bed, rail and turntable without false alarm; Quick Start without false alarm and faster than before (64 s instead of 107 s for the whole demo).
+- Example `LARGERslicer - Non Planar Head (Ginger).gh` (EXAMPLE FILES, Weber - Ginger): layers that follow the part on the Ginger One with Klipper.
+
+### Fixed (after the canvas test)
+- Path Check: the seam closing onto its own start no longer counts as a crossing after Start and End thinned the path.
+- Non-Planar Check: the wall next to a fin or the first bead of an overhang no longer reads as a squashed bead (a bead of the same layer only carries a point where it lies clearly lower).
+- Start and End: the info no longer shows a negative number of exit points.
+
+### Removed
+- Copyrighted manufacturer manuals (Ginger operating manual, Zünd HP-GL manual) are no longer in the repository.
+
 ### Added (non-planar for a vertical nozzle, Ginger on Klipper)
 - Slice: new Guide Mode **"Follow the part (no guide)"**. Non-planar layers follow the part's own wall from bottom to top (meridians, N = mean wall length / layer height), so overhangs get layers of even thickness without drawing a guide surface. The nozzle stays vertical and the extrusion follows the vertical gap to the layer below - not the 3D distance, which over-extrudes by 15 % at 45 degrees and 43 % at 60 degrees. Warns when a layer is thicker than 0.8 x bead width along the wall.
 - **Non-Planar Check** (Slicer, next to Path Check): measures the real bead height at every point against bead width, layer height and extrusion, and checks the head (tip radius, cone angle and length, head radius) against everything printed before and the in-layer slope against the cone ("HEAD COLLISION at move i, layer k, with layer m"). Tested on a 200 mm vase with a 40 mm bulge: 101 layers, bead height 0.8 to 2.0 mm, E per layer within 0.07 % of the measured gap, head clear.
