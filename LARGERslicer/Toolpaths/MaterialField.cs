@@ -115,7 +115,7 @@ namespace LARGERslicer.Toolpaths
         public static readonly string[] UpperNames = Enumerable.Range(0, 6).SelectMany(i => Enumerable.Range(i, 6 - i).Select(j => "C" + (i + 1) + (j + 1))).ToArray();
 
         public override string ToString() =>
-            $"E {E1:0.#} / {E2:0.#} / {E3:0.#} MPa, G {G12:0.#} / {G13:0.#} / {G23:0.#} MPa, nu {Nu12:0.###} / {Nu13:0.###} / {Nu23:0.###}";
+            Inv.F($"E {E1:0.#} / {E2:0.#} / {E3:0.#} MPa, G {G12:0.#} / {G13:0.#} / {G23:0.#} MPa, nu {Nu12:0.###} / {Nu13:0.###} / {Nu23:0.###}");
     }
 
     /// <summary>The material at one sample point of the part.</summary>
@@ -238,7 +238,7 @@ namespace LARGERslicer.Toolpaths
                     }
                     samples.Add(s);
                 }
-                r.Log.Add($"{points.Count} given points (e.g. Gauss points of the analysis).");
+                r.Log.Add(Inv.F($"{points.Count} given points (e.g. Gauss points of the analysis)."));
             }
             else if (breps != null && breps.Count > 0)
             {
@@ -256,7 +256,7 @@ namespace LARGERslicer.Toolpaths
                     if (total <= o.MaxSamples) break;
                     double old = spacing;
                     spacing *= Math.Sqrt(total / (double)o.MaxSamples) * 1.02;
-                    r.Log.Add($"{total} samples at {old:0.##} mm would be too many; spacing set to {spacing:0.##} mm.");
+                    r.Log.Add(Inv.F($"{total} samples at {old:0.##} mm would be too many; spacing set to {spacing:0.##} mm."));
                 }
                 int faceNo = 0;
                 foreach (var br in breps)
@@ -282,7 +282,7 @@ namespace LARGERslicer.Toolpaths
                     }
                 }
                 if (spacing > 0.51 * st.LayerHeight)
-                    r.Log.Add($"Sample spacing {spacing:0.##} mm is more than half the layer height: the layer interfaces are not resolved, read Weakness as a rough value.");
+                    r.Log.Add(Inv.F($"Sample spacing {spacing:0.##} mm is more than half the layer height: the layer interfaces are not resolved, read Weakness as a rough value."));
             }
             else
             {
@@ -296,7 +296,7 @@ namespace LARGERslicer.Toolpaths
                         foreach (double f in new[] { -0.4, 0.0, 0.4 })
                             samples.Add(new MaterialSample { P = c + seg.E3[k] * (f * seg.H[k]) });
                     }
-                    if (samples.Count > o.MaxSamples) { r.Log.Add($"Stopped at {o.MaxSamples} volume samples; set a larger spacing."); break; }
+                    if (samples.Count > o.MaxSamples) { r.Log.Add(Inv.F($"Stopped at {o.MaxSamples} volume samples; set a larger spacing.")); break; }
                 }
                 r.Log.Add("No geometry: samples lie in the beads (centre and 40 % of the layer height above and below).");
             }
@@ -307,15 +307,15 @@ namespace LARGERslicer.Toolpaths
             Parallel.For(0, samples.Count, i => Evaluate(samples[i], seg, layerTimes, reach, o, stiff));
 
             int missing = samples.Count(s => s.Layer < 0);
-            if (missing > 0) r.Log.Add($"{missing} of {samples.Count} samples have no bead within {reach:0.#} mm (not printed there): layer -1, no directions.");
+            if (missing > 0) r.Log.Add(Inv.F($"{missing} of {samples.Count} samples have no bead within {reach:0.#} mm (not printed there): layer -1, no directions."));
             r.Samples = samples;
             r.MaxWeakness = samples.Count > 0 ? samples.Max(s => s.Weakness) : 0;
 
             if (nodeIndex.Count > 0) r.Mesh = BuildMesh(samples, grids, nodeIndex, r.MaxWeakness);
 
-            r.Info = $"{samples.Count} samples, spacing {spacing:0.##} mm, {seg.N} bead segments in {layerTimes.Count(t => t > 0)} layers. " +
-                     $"Layer time {(layerTimes.Length > 0 ? layerTimes.Where(t => t > 0).DefaultIfEmpty(0).Min() : 0):0.#} to {(layerTimes.Length > 0 ? layerTimes.Max() : 0):0.#} s. " +
-                     $"Largest weakness {r.MaxWeakness:0.###} (colours run from 0 to it). Material: {o.Material}.";
+            r.Info = Inv.F($"{samples.Count} samples, spacing {spacing:0.##} mm, {seg.N} bead segments in {layerTimes.Count(t => t > 0)} layers. ") +
+                     Inv.F($"Layer time {(layerTimes.Length > 0 ? layerTimes.Where(t => t > 0).DefaultIfEmpty(0).Min() : 0):0.#} to {(layerTimes.Length > 0 ? layerTimes.Max() : 0):0.#} s. ") +
+                     Inv.F($"Largest weakness {r.MaxWeakness:0.###} (colours run from 0 to it). Material: {o.Material}.");
             return r;
         }
 
@@ -677,8 +677,8 @@ namespace LARGERslicer.Toolpaths
             sb.Append("  \"frame\": \"e1 along the bead, e2 = e3 x e1 across the bead in the layer, e3 stacking direction\",\n");
             sb.Append("  \"voigt\": \"11, 22, 33, 23, 13, 12; engineering shear strains; C upper triangle row by row\",\n");
             sb.Append("  \"missing\": -1,\n");
-            sb.Append($"  \"print\": {{ \"bead_width\": {F(st.BeadWidth)}, \"layer_height\": {F(st.LayerHeight)}, \"overlap\": {F(st.Overlap)}, \"speed_mm_min\": {F(st.Speed)} }},\n");
-            sb.Append($"  \"material\": {{ \"E1\": {F(m.E1)}, \"E2\": {F(m.E2)}, \"E3\": {F(m.E3)}, \"G12\": {F(m.G12)}, \"G13\": {F(m.G13)}, \"G23\": {F(m.G23)}, \"nu12\": {F(m.Nu12)}, \"nu13\": {F(m.Nu13)}, \"nu23\": {F(m.Nu23)}, \"placeholder\": true }},\n");
+            sb.Append(Inv.F($"  \"print\": {{ \"bead_width\": {F(st.BeadWidth)}, \"layer_height\": {F(st.LayerHeight)}, \"overlap\": {F(st.Overlap)}, \"speed_mm_min\": {F(st.Speed)} }},\n"));
+            sb.Append(Inv.F($"  \"material\": {{ \"E1\": {F(m.E1)}, \"E2\": {F(m.E2)}, \"E3\": {F(m.E3)}, \"G12\": {F(m.G12)}, \"G13\": {F(m.G13)}, \"G23\": {F(m.G23)}, \"nu12\": {F(m.Nu12)}, \"nu13\": {F(m.Nu13)}, \"nu23\": {F(m.Nu23)}, \"placeholder\": true }},\n"));
             sb.Append("  \"layer_times\": [").Append(string.Join(", ", r.LayerTimes.Select(F))).Append("],\n");
             sb.Append("  \"columns\": [").Append(string.Join(", ", Columns.Select(x => "\"" + x + "\""))).Append(r.Samples.Any(s => s.C != null) ? ", \"C\"" : "").Append("],\n");
             sb.Append("  \"samples\": [\n");
@@ -710,20 +710,20 @@ namespace LARGERslicer.Toolpaths
                 "LARGER.slicer material field (mm, s, MPa; -1 = not available)",
                 "ASCII",
                 "DATASET POLYDATA",
-                $"POINTS {n} double"
+                Inv.F($"POINTS {n} double")
             };
-            foreach (var s in r.Samples) l.Add($"{F(s.P.X)} {F(s.P.Y)} {F(s.P.Z)}");
-            l.Add($"VERTICES {n} {2 * n}");
+            foreach (var s in r.Samples) l.Add(Inv.F($"{F(s.P.X)} {F(s.P.Y)} {F(s.P.Z)}"));
+            l.Add(Inv.F($"VERTICES {n} {2 * n}"));
             for (int i = 0; i < n; i++) l.Add("1 " + i);
-            l.Add($"POINT_DATA {n}");
+            l.Add(Inv.F($"POINT_DATA {n}"));
             void Vec(string name, Func<MaterialSample, Vector3d> f)
             {
-                l.Add($"VECTORS {name} double");
-                foreach (var s in r.Samples) { var v = f(s); l.Add($"{F(v.X)} {F(v.Y)} {F(v.Z)}"); }
+                l.Add(Inv.F($"VECTORS {name} double"));
+                foreach (var s in r.Samples) { var v = f(s); l.Add(Inv.F($"{F(v.X)} {F(v.Y)} {F(v.Z)}")); }
             }
             void Sca(string name, string type, Func<MaterialSample, string> f)
             {
-                l.Add($"SCALARS {name} {type} 1");
+                l.Add(Inv.F($"SCALARS {name} {type} 1"));
                 l.Add("LOOKUP_TABLE default");
                 foreach (var s in r.Samples) l.Add(f(s));
             }
@@ -742,7 +742,7 @@ namespace LARGERslicer.Toolpaths
             if (r.Samples.Any(s => s.C != null))
             {
                 l.Add("FIELD stiffness 1");
-                l.Add($"C 21 {n} double");
+                l.Add(Inv.F($"C 21 {n} double"));
                 foreach (var s in r.Samples) l.Add(string.Join(" ", (s.C ?? new double[21]).Select(F)));
             }
             return l;
@@ -753,7 +753,7 @@ namespace LARGERslicer.Toolpaths
         {
             string path = OutputFile.Resolve(file, OutputFile.Name("MAT", "Material Field", null, ".csv"));
             string dir = System.IO.Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir)) throw new System.IO.DirectoryNotFoundException($"The folder {dir} does not exist.");
+            if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir)) throw new System.IO.DirectoryNotFoundException(Inv.F($"The folder {dir} does not exist."));
             string stem = System.IO.Path.Combine(dir ?? "", System.IO.Path.GetFileNameWithoutExtension(path));
             var written = new List<string>();
             if (format == 0 || format == 1) { System.IO.File.WriteAllLines(stem + ".csv", Csv(r)); written.Add(stem + ".csv"); }

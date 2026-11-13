@@ -67,7 +67,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Where the definition comes from: "built in", or the path of its file.</summary>
         public string Source = "built in";
 
-        public override string ToString() => $"Machine {Title} ({Source})";
+        public override string ToString() => Inv.F($"Machine {Title} ({Source})");
 
         public MachineDefinition Duplicate()
         {
@@ -212,13 +212,13 @@ namespace LARGERslicer.Toolpaths
                     {
                         if (!m.AfterLayer.TryGetValue(after, out block)) m.AfterLayer[after] = block = new List<string>();
                     }
-                    else { error = $"line {n}: unknown block [{key}]. Use [start], [layer], [after layer 2] and [end]."; return null; }
+                    else { error = Inv.F($"line {n}: unknown block [{key}]. Use [start], [layer], [after layer 2] and [end]."); return null; }
                     continue;
                 }
                 if (block != null) { block.Add(line.TrimEnd()); continue; }
                 if (t.Length == 0) continue;
                 int eq = t.IndexOf('=');
-                if (eq < 0) { error = $"line {n}: expected 'key = value' or a block like [start]."; return null; }
+                if (eq < 0) { error = Inv.F($"line {n}: expected 'key = value' or a block like [start]."); return null; }
                 string k = t.Substring(0, eq).Trim().ToLowerInvariant(), v = t.Substring(eq + 1).Trim();
                 double d;
                 bool isNumber = double.TryParse(v.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out d);
@@ -232,7 +232,7 @@ namespace LARGERslicer.Toolpaths
                         var parts = v.ToLowerInvariant().Split('x');
                         double bx = 0, by = 0;
                         if (parts.Length != 2 || !double.TryParse(parts[0].Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out bx)
-                            || !double.TryParse(parts[1].Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out by)) { error = $"line {n}: bed needs two numbers, like 1000 x 1000."; return null; }
+                            || !double.TryParse(parts[1].Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out by)) { error = Inv.F($"line {n}: bed needs two numbers, like 1000 x 1000."); return null; }
                         m.BedX = bx; m.BedY = by; break;
                     case "extrusion factor": if (!isNumber) goto bad; m.Profile.Factor = d; break;
                     case "first layer factor": if (!isNumber) goto bad; m.Profile.FirstLayerFactor = d; break;
@@ -244,12 +244,12 @@ namespace LARGERslicer.Toolpaths
                     case "section":
                         if (v.ToLowerInvariant() == "rectangle") m.Profile.RectangleSection = true;
                         else if (v.ToLowerInvariant() == "bead") m.Profile.RectangleSection = false;
-                        else { error = $"line {n}: section is rectangle or bead."; return null; }
+                        else { error = Inv.F($"line {n}: section is rectangle or bead."); return null; }
                         break;
-                    default: error = $"line {n}: unknown key '{k}'."; return null;
+                    default: error = Inv.F($"line {n}: unknown key '{k}'."); return null;
                 }
                 continue;
-                bad: error = $"line {n}: '{k}' needs a number, got '{v}'."; return null;
+                bad: error = Inv.F($"line {n}: '{k}' needs a number, got '{v}'."); return null;
             }
             if (string.IsNullOrWhiteSpace(m.Name)) { error = "The machine has no name (name = ...)."; return null; }
             if (m.Profile.Factor <= 0) { error = "The extrusion factor must be larger than 0."; return null; }
@@ -328,13 +328,14 @@ namespace LARGERslicer.Toolpaths
                 r.Warnings.Add("The toolpath has tilted tool axes (angled, non-planar or multi-axis). G-code carries positions only: the nozzle stays as the machine holds it. Check the clearance between nozzle and part.");
             var box = new BoundingBox(tp.Points);
             if (box.Min.X < 0 || box.Min.Y < 0 || box.Min.Z < 0)
-                r.Warnings.Add($"Part of the path has negative coordinates (X {box.Min.X:0}, Y {box.Min.Y:0}, Z {box.Min.Z:0}). Move the part onto the bed: the machine origin is at 0, 0, 0.");
+                r.Warnings.Add(Inv.F($"Part of the path has negative coordinates (X {box.Min.X:0}, Y {box.Min.Y:0}, Z {box.Min.Z:0}). Move the part onto the bed: the machine origin is at 0, 0, 0."));
             if (machine.BedX > 0 && machine.BedY > 0 && (box.Max.X > machine.BedX || box.Max.Y > machine.BedY))
-                r.Warnings.Add($"The path reaches X {box.Max.X:0}, Y {box.Max.Y:0}: beyond the bed of {machine.BedX:0} x {machine.BedY:0} mm.");
+                r.Warnings.Add(Inv.F($"The path reaches X {box.Max.X:0}, Y {box.Max.Y:0}: beyond the bed of {machine.BedX:0} x {machine.BedY:0} mm."));
 
             var L = r.Lines;
             L.Add("; LARGER.slicer - " + machine.Name);
-            L.Add("; bead " + N(st.BeadWidth, 2) + " x " + N(st.LayerHeight, 2) + " mm, F" + N(st.Speed, 0) + " constant, " + st.Machine);
+            L.Add("; bead " + N(st.BeadWidth, 2) + " x " + N(st.LayerHeight, 2) + " mm, " + st.Machine);
+            L.Add("; " + OutputFile.SpeedNote(st, pr));
             L.Add("; path " + N(pr.Length / 1000.0, 2) + " m, about " + N(pr.Minutes, 0) + " min, " + N(OutputFile.Grams(pr.Volume, st), 0) + " g");
             foreach (string code in machine.Start) L.Add(machine.Fill(code));
 
@@ -362,13 +363,13 @@ namespace LARGERslicer.Toolpaths
                 bool print = tp.Flows[i] > 0 && tp.Roles[i] != PathRole.Travel;
                 if (!print) { L.Add("G0 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " F" + N(travel, 0)); continue; }
                 double f = pr.Speed[i]; if (f <= 0) { f = st.Speed; zero++; }
-                // the feedrate is written on every line: it never changes and is never 0
+                // the feedrate is written on every line and is never 0 (it changes where Min Layer Time or Max Volume Rate slow a layer or a move)
                 L.Add("G1 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " E" + N(pr.Extrusion[i], 5) + " F" + N(f, 0));
                 total += pr.Extrusion[i];
             }
-            if (zero > 0) r.Warnings.Add($"{zero} move(s) had speed 0 and got the print speed instead.");
+            if (zero > 0) r.Warnings.Add(Inv.F($"{zero} move(s) had speed 0 and got the print speed instead."));
             foreach (string code in machine.End) L.Add(machine.Fill(code));
-            r.Info = $"{machine.Name}: {number} layers, {pr.PrintLength / 1000.0:0.00} m printed, E total {total:0.0}, about {pr.Minutes:0} min, {OutputFile.Grams(pr.Volume, st):0} g, {L.Count} lines";
+            r.Info = Inv.F($"{machine.Name}: {number} layers, {pr.PrintLength / 1000.0:0.00} m printed, E total {total:0.0}, about {pr.Minutes:0} min, {OutputFile.Grams(pr.Volume, st):0} g, {L.Count} lines");
             return r;
         }
     }

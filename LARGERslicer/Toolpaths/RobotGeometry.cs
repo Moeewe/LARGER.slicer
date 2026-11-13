@@ -113,7 +113,7 @@ namespace LARGERslicer.Toolpaths
                         if (m != null) found.Add(new KeyValuePair<double, Mesh>(rank < 0 ? -1e9 + seen : rank, m.DuplicateMesh()));
                     }
                     var meshes = found.OrderBy(k => k.Key).Select(k => k.Value).ToList();
-                    if (meshes.Count < 7) { error = $"layer {layerName} has {meshes.Count} meshes; the base and six links are needed, in that order."; return null; }
+                    if (meshes.Count < 7) { error = Inv.F($"layer {layerName} has {meshes.Count} meshes; the base and six links are needed, in that order."); return null; }
                     return meshes.Take(7).ToArray();
                 }
             }

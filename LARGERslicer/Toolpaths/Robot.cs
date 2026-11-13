@@ -120,15 +120,15 @@ namespace LARGERslicer.Toolpaths
             var cells = doc.Descendants("RobotCell").ToList();
             if (cells.Count == 0) throw new ArgumentException("No RobotCell found. Use a file of the Robots plug-in library.");
             var xc = string.IsNullOrWhiteSpace(cell) ? cells[0] : cells.FirstOrDefault(c => string.Equals((string)c.Attribute("name"), cell, StringComparison.OrdinalIgnoreCase));
-            if (xc == null) throw new ArgumentException($"RobotCell '{cell}' not found. The file has: {string.Join(", ", cells.Select(c => (string)c.Attribute("name")))}.");
+            if (xc == null) throw new ArgumentException(Inv.F($"RobotCell '{cell}' not found. The file has: {string.Join(", ", cells.Select(c => (string)c.Attribute("name")))}."));
             var xa = xc.Descendants("RobotArm").FirstOrDefault();
             if (xa == null) throw new ArgumentException("The RobotCell has no RobotArm.");
             var joints = xa.Descendants("Revolute").OrderBy(j => (int)j.Attribute("number")).ToList();
-            if (joints.Count != 6) throw new ArgumentException($"A six-axis arm is needed; this one has {joints.Count} revolute joints.");
+            if (joints.Count != 6) throw new ArgumentException(Inv.F($"A six-axis arm is needed; this one has {joints.Count} revolute joints."));
             Func<XElement, string, double> num = (e, n) =>
             {
                 var at = e.Attribute(n);
-                if (at == null) throw new ArgumentException($"Attribute '{n}' is missing on <{e.Name}>.");
+                if (at == null) throw new ArgumentException(Inv.F($"Attribute '{n}' is missing on <{e.Name}>."));
                 return double.Parse(at.Value, NumberStyles.Float, ci);
             };
             var arm = new RobotArm
@@ -287,7 +287,7 @@ namespace LARGERslicer.Toolpaths
             return pts;
         }
 
-        public override string ToString() => $"{Manufacturer} {Name} (reach {Reach:0} mm)";
+        public override string ToString() => Inv.F($"{Manufacturer} {Name} (reach {Reach:0} mm)");
     }
 
     /// <summary>The tool on the flange: where its tip is, and what it weighs.</summary>
@@ -307,7 +307,7 @@ namespace LARGERslicer.Toolpaths
         public Point3d Centroid = Point3d.Origin;
         /// <summary>The tool as a 3D model, drawn where it sits on the flange: the flange is the world XY plane, the tool grows along +Z. Null = none.</summary>
         public Mesh Mesh;
-        public override string ToString() => $"{Name} (TCP {Tcp.O.X:0.#}, {Tcp.O.Y:0.#}, {Tcp.O.Z:0.#}; {Weight:0.#} kg)";
+        public override string ToString() => Inv.F($"{Name} (TCP {Tcp.O.X:0.#}, {Tcp.O.Y:0.#}, {Tcp.O.Z:0.#}; {Weight:0.#} kg)");
     }
 
     /// <summary>Robot, tool and the place of the work on the table.</summary>
@@ -344,7 +344,7 @@ namespace LARGERslicer.Toolpaths
             return f;
         }
 
-        public override string ToString() => $"{Arm}, tool {Tool.Name}" + (HasExternalAxes ? ", " + string.Join(", ", ExternalAxes.Select(a => a.Name + (a.IsRail ? " rail" : " turntable"))) : "");
+        public override string ToString() => Inv.F($"{Arm}, tool {Tool.Name}") + (HasExternalAxes ? ", " + string.Join(", ", ExternalAxes.Select(a => a.Name + (a.IsRail ? " rail" : " turntable"))) : "");
     }
 
     /// <summary>
@@ -361,7 +361,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Seconds from the start at which each move ends.</summary>
         public List<double> Seconds = new List<double>();
         public double Duration => Seconds.Count > 0 ? Seconds[Seconds.Count - 1] : 0;
-        public override string ToString() => $"Robot run ({Points.Count} moves, {Duration / 60:0.#} min)";
+        public override string ToString() => Inv.F($"Robot run ({Points.Count} moves, {Duration / 60:0.#} min)");
 
         public static RobotRun Make(RobotProgramResult program, RobotCell cell, Toolpath tp)
         {
@@ -513,7 +513,7 @@ namespace LARGERslicer.Toolpaths
             return sb.ToString();
         }
 
-        private static string XyzAbc(double[] v) => $"X {N(v[0], 3)},Y {N(v[1], 3)},Z {N(v[2], 3)},A {N(v[3], 4)},B {N(v[4], 4)},C {N(v[5], 4)}";
+        private static string XyzAbc(double[] v) => Inv.F($"X {N(v[0], 3)},Y {N(v[1], 3)},Z {N(v[2], 3)},A {N(v[3], 4)},B {N(v[4], 4)},C {N(v[5], 4)}");
 
         /// <summary>
         /// Target frame of the tool tip. As in the Robots plug-in and on the Weber DXR the target's
@@ -670,7 +670,7 @@ namespace LARGERslicer.Toolpaths
             r.Speed.AddRange(pr.Speed);
 
             // ---- report
-            r.Report.Add($"{tp.Count} moves for {arm}, tool {cell.Tool.Name}, counted from '{cell.BaseName}'.");
+            r.Report.Add(Inv.F($"{tp.Count} moves for {arm}, tool {cell.Tool.Name}, counted from '{cell.BaseName}'."));
             if (r.External != null)
             {
                 r.Report.AddRange(r.External.Report);
@@ -680,32 +680,32 @@ namespace LARGERslicer.Toolpaths
             {
                 if (r.OutOfReach == 0 && r.OverLimit == 0)
                     r.Report.Add("Reach OK: the robot gets to every point within its axis ranges. Axes used: " +
-                                 string.Join(", ", Enumerable.Range(0, 6).Select(ax => $"A{ax + 1} {r.AxisMin[ax]:0}..{r.AxisMax[ax]:0}")) + " degrees.");
+                                 string.Join(", ", Enumerable.Range(0, 6).Select(ax => Inv.F($"A{ax + 1} {r.AxisMin[ax]:0}..{r.AxisMax[ax]:0}"))) + " degrees.");
                 else
                 {
                     r.Ok = false;
                     var p = tp.Points[firstBad];
-                    r.Report.Add($"NOT REACHABLE: {r.OutOfReach} point(s) are out of reach and {r.OverLimit} need an axis beyond its range. First one: point {firstBad + 1} at {p.X:0}, {p.Y:0}, {p.Z:0} ({firstBadWhy}). " +
+                    r.Report.Add(Inv.F($"NOT REACHABLE: {r.OutOfReach} point(s) are out of reach and {r.OverLimit} need an axis beyond its range. First one: point {firstBad + 1} at {p.X:0}, {p.Y:0}, {p.Z:0} ({firstBadWhy}). ") +
                                  "Move the part closer to the robot, turn it, or change the tool turn.");
                 }
                 if (r.Wound > 0)
-                    r.Report.Add($"NOT RUNNABLE: at {r.Wound} point(s) axis 4 or 6 would have to turn on past its range (first at point {firstWound + 1}). The tool keeps turning in one direction along the path; a linear move cannot turn it back. Start the print with the tool turned the other way (Turn), or print the part the other way round.");
+                    r.Report.Add(Inv.F($"NOT RUNNABLE: at {r.Wound} point(s) axis 4 or 6 would have to turn on past its range (first at point {firstWound + 1}). The tool keeps turning in one direction along the path; a linear move cannot turn it back. Start the print with the tool turned the other way (Turn), or print the part the other way round."));
                 if (r.ConfigChanges > 0)
                 {
                     r.Ok = false;
                     var p = tp.Points[firstConfig];
-                    r.Report.Add($"NOT RUNNABLE: at {r.ConfigChanges} point(s) the arm would have to change its configuration (shoulder, elbow or wrist turning over), first at point {firstConfig + 1} ({p.X:0}, {p.Y:0}, {p.Z:0}). A linear move cannot do that: the robot stops there. Move or turn the part, or change the tool turn.");
+                    r.Report.Add(Inv.F($"NOT RUNNABLE: at {r.ConfigChanges} point(s) the arm would have to change its configuration (shoulder, elbow or wrist turning over), first at point {firstConfig + 1} ({p.X:0}, {p.Y:0}, {p.Z:0}). A linear move cannot do that: the robot stops there. Move or turn the part, or change the tool turn."));
                 }
                 if (r.Singular > 0)
                 {
                     r.Ok = false;
-                    r.Report.Add($"NOT RUNNABLE: at {r.Singular} point(s) axes 4 and 6 are in line (axis 5 near 0, wrist singularity). The robot stops or jerks there. A small tilt of the tool or another position of the part avoids it.");
+                    r.Report.Add(Inv.F($"NOT RUNNABLE: at {r.Singular} point(s) axes 4 and 6 are in line (axis 5 near 0, wrist singularity). The robot stops or jerks there. A small tilt of the tool or another position of the part avoids it."));
                 }
                 if (r.BetweenProblems > 0)
                 {
                     r.Ok = false;
                     var p = tp.Points[firstBetween];
-                    r.Report.Add($"NOT RUNNABLE between points: on {r.BetweenProblems} step(s) of long moves {firstBetweenWhy}, first on the way to point {firstBetween + 1} ({p.X:0}, {p.Y:0}, {p.Z:0}). The points themselves can be fine; the straight way between them is not.");
+                    r.Report.Add(Inv.F($"NOT RUNNABLE between points: on {r.BetweenProblems} step(s) of long moves {firstBetweenWhy}, first on the way to point {firstBetween + 1} ({p.X:0}, {p.Y:0}, {p.Z:0}). The points themselves can be fine; the straight way between them is not."));
                 }
                 // how fast the axes have to turn at print speed
                 double worst = 0; int worstAxis = 0;
@@ -718,8 +718,8 @@ namespace LARGERslicer.Toolpaths
                     for (int ax = 0; ax < 6; ax++)
                         if (arm.MaxSpeed[ax] > 0) { double share = Math.Abs(b[ax] - a[ax]) / seconds / arm.MaxSpeed[ax]; if (share > worst) { worst = share; worstAxis = ax; } }
                 }
-                if (worst > 1.0) { r.Ok = false; r.Report.Add($"NOT RUNNABLE at print speed: A{worstAxis + 1} would have to turn at {worst * 100:0} % of its top speed. The robot cannot keep the print speed there and the bead gets thick (usually next to a wrist singularity). Lower the speed or change the position of the part."); }
-                else if (worst > 0) r.Report.Add($"Axis speed OK: at most {worst * 100:0} % of the top speed (A{worstAxis + 1}).");
+                if (worst > 1.0) { r.Ok = false; r.Report.Add(Inv.F($"NOT RUNNABLE at print speed: A{worstAxis + 1} would have to turn at {worst * 100:0} % of its top speed. The robot cannot keep the print speed there and the bead gets thick (usually next to a wrist singularity). Lower the speed or change the position of the part.")); }
+                else if (worst > 0) r.Report.Add(Inv.F($"Axis speed OK: at most {worst * 100:0} % of the top speed (A{worstAxis + 1})."));
             }
             else r.Report.Add("Axis ranges were not checked.");
 
@@ -731,8 +731,9 @@ namespace LARGERslicer.Toolpaths
             var k = r.Krl;
             k.Add("&ACCESS RVP");
             k.Add("&REL 1");
-            k.Add($"DEF {prog}()");
+            k.Add(Inv.F($"DEF {prog}()"));
             k.Add("; LARGER.slicer - " + arm + ", tool " + cell.Tool.Name);
+            k.Add("; " + OutputFile.SpeedNote(tp.Settings, pr) + " ($VEL.CP in m/s)");
             k.Add("BAS (#INITMOV,0)");
             k.Add("$ADVANCE = 5");
             k.Add("$TOOL = {" + XyzAbc(new[] { cell.Tool.Tcp.O.X, cell.Tool.Tcp.O.Y, cell.Tool.Tcp.O.Z, tcpAbc[0], tcpAbc[1], tcpAbc[2] }) + "}");
@@ -750,8 +751,8 @@ namespace LARGERslicer.Toolpaths
             {
                 // the work base as it sits on the table flange: the table frame at 0 is its Place
                 var onTable = table.Place.Inverse().Times(cell.WorkBase); var tAbc = onTable.Abc();
-                k.Add($"; turntable = MACHINE_DEF[{table.Machine}] on the controller: check the number there");
-                k.Add($"$BASE = EK(MACHINE_DEF[{table.Machine}].ROOT, MACHINE_DEF[{table.Machine}].MECH_TYPE, {{" + XyzAbc(new[] { onTable.O.X, onTable.O.Y, onTable.O.Z, tAbc[0], tAbc[1], tAbc[2] }) + "})   ; work base '" + cell.BaseName + "' on the turntable");
+                k.Add(Inv.F($"; turntable = MACHINE_DEF[{table.Machine}] on the controller: check the number there"));
+                k.Add(Inv.F($"$BASE = EK(MACHINE_DEF[{table.Machine}].ROOT, MACHINE_DEF[{table.Machine}].MECH_TYPE, {{") + XyzAbc(new[] { onTable.O.X, onTable.O.Y, onTable.O.Z, tAbc[0], tAbc[1], tAbc[2] }) + "})   ; work base '" + cell.BaseName + "' on the turntable");
             }
             else
                 k.Add("$BASE = {" + XyzAbc(new[] { baseInRobot.O.X, baseInRobot.O.Y, baseInRobot.O.Z, bAbc[0], bAbc[1], bAbc[2] }) + "}   ; work base '" + cell.BaseName + "', counted from the robot's foot");
@@ -763,7 +764,7 @@ namespace LARGERslicer.Toolpaths
                 if (i == 0)
                 {
                     k.Add("; approach in axis mode, then follow the path");
-                    if (mv.Axes != null && mv.Reachable) k.Add("PTP {" + string.Join(",", mv.Axes.Select((v, ax) => $"A{ax + 1} {N(v, 4)}")) + Ext(axesExt, mv) + "}");
+                    if (mv.Axes != null && mv.Reachable) k.Add("PTP {" + string.Join(",", mv.Axes.Select((v, ax) => Inv.F($"A{ax + 1} {N(v, 4)}"))) + Ext(axesExt, mv) + "}");
                     else k.Add("PTP {" + XyzAbc(mv.Xyzabc) + Ext(axesExt, mv) + "}");
                     continue;
                 }

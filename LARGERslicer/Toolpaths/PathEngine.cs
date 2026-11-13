@@ -414,9 +414,9 @@ namespace LARGERslicer.Toolpaths
                 if (hasInfill) infillLayers++;
                 loops.Add(list);
             }
-            if (slivers > 0) log?.Add($"{slivers} contour(s) are smaller than one bead (slivers where a layer just touches the part) and were left out.");
-            if (bridgesMade > 0) log?.Add($"{bridgesMade} bridge(s) join inner contours to the ones around them (two lines one bead spacing apart, stacked into a rib): no travel move between them.");
-            if (bridgesNotMade > 0) log?.Add($"{bridgesNotMade} layer(s) have a contour inside another that could not be joined (no free way between them): a travel move remains there.");
+            if (slivers > 0) log?.Add(Inv.F($"{slivers} contour(s) are smaller than one bead (slivers where a layer just touches the part) and were left out."));
+            if (bridgesMade > 0) log?.Add(Inv.F($"{bridgesMade} bridge(s) join inner contours to the ones around them (two lines one bead spacing apart, stacked into a rib): no travel move between them."));
+            if (bridgesNotMade > 0) log?.Add(Inv.F($"{bridgesNotMade} layer(s) have a contour inside another that could not be joined (no free way between them): a travel move remains there."));
             SeamCorners corners = outers != null ? FindCorners(layers, loops, outers, seamMode, seam, w, log) : null;
 
             // Layers with fill (bottom, top) are printed flat. Every stretch of at least two plain
@@ -440,15 +440,15 @@ namespace LARGERslicer.Toolpaths
                 at = flatTo;
             }
             if (mode == ContinuousMode.Spiral && infillLayers > 0)
-                log?.Add($"{infillLayers} layer(s) with ribs or cells are printed as flat layers; only plain single walls are printed as a spiral.");
+                log?.Add(Inv.F($"{infillLayers} layer(s) with ribs or cells are printed as flat layers; only plain single walls are printed as a spiral."));
             if (mode == ContinuousMode.Spiral && !anySpiral)
                 log?.Add("Spiral needs layers with exactly one closed contour and no infill. Printed as flat layers instead.");
             if (corners != null && corners.Eligible > 0 && corners.Hits == 0)
                 log?.Add("Seam: no corner can be reached without a move that does not print (the layer below ends elsewhere, e.g. after a bottom fill), so the seam stays where it was.");
             else if (corners != null && corners.Eligible > 0)
-                log?.Add($"Seam: in {(corners.Concave ? "an inner" : "an outer")} corner on {corners.Hits} of {corners.Eligible} wall layer(s)" +
+                log?.Add(Inv.F($"Seam: in {(corners.Concave ? "an inner" : "an outer")} corner on {corners.Hits} of {corners.Eligible} wall layer(s)") +
                          (corners.Hits < corners.Eligible ? " (on the others it stays above the seam below)" : "") +
-                         $"; from layer to layer it moves at most {corners.MaxStep:0.0} mm sideways (allowed {0.5 * w:0.0} mm).");
+                         Inv.F($"; from layer to layer it moves at most {corners.MaxStep:0.0} mm sideways (allowed {0.5 * w:0.0} mm)."));
             TagInfill(tp, layers);
             return warp != null ? ToReal(tp, warp) : tp;
         }

@@ -141,8 +141,8 @@ namespace LARGERslicer.Toolpaths
             result.Path.DeleteShortSegments(1e-6);
             double length = result.Path.Length;
             result.Note = note.Trim();
-            result.Info = note + $"{(contour ? "Contour" : "Zigzag")} fill, bead {width:0.##} mm, {length / 1000.0:0.00} m" +
-                          (result.Links.Count > 0 ? $", {result.Links.Count} link(s) across open space" : ", one continuous line");
+            result.Info = note + Inv.F($"{(contour ? "Contour" : "Zigzag")} fill, bead {width:0.##} mm, {length / 1000.0:0.00} m") +
+                          (result.Links.Count > 0 ? Inv.F($", {result.Links.Count} link(s) across open space") : ", one continuous line");
             return result;
         }
 

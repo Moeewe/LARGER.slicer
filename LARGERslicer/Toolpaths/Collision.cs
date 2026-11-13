@@ -396,7 +396,7 @@ namespace LARGERslicer.Toolpaths
 
             int skipped = _bodies.Count(b => b.Shape == null);
             if (!HasToolModel)
-                Notes.Add(ToolIsCylinder ? $"The tool has no 3D model: it is checked as a cylinder of {Math.Max(40, 4 * w):0} mm from the flange to the tip. Give the tool a mesh (Robot Tool) for a true check."
+                Notes.Add(ToolIsCylinder ? Inv.F($"The tool has no 3D model: it is checked as a cylinder of {Math.Max(40, 4 * w):0} mm from the flange to the tip. Give the tool a mesh (Robot Tool) for a true check.")
                                          : "The tool has no 3D model and its tip sits on the flange: the tool itself is not checked. Give the tool a mesh (Robot Tool).");
             if (Cell.Environment == null || Cell.Environment.Count == 0) Notes.Add("No Environment in the cell: floor, fence and walls are not checked (Cell Geometry gives the cell of the FH Muenster).");
         }
@@ -879,7 +879,7 @@ namespace LARGERslicer.Toolpaths
             string poses = r.Stride > 1 ? string.Format(ci, "{0} poses (every {1}th move and {2} critical ones)", r.Poses, r.Stride, r.Critical) : string.Format(ci, "{0} poses (every move)", r.Poses);
             string scope = "itself, the tool, the printed part, the bed" + (cell.HasExternalAxes ? ", rail and turntable" : "") + (cell.Environment != null && cell.Environment.Count > 0 ? ", the environment" : "");
             r.Lines.Add(hits.Count == 0
-                ? string.Format(ci, "No collision: {0} checked in {1:0.0} s, {2:0} mm clearance, robot against {3}{4}.", poses, r.Seconds, opt.Clearance, scope, nears.Count > 0 ? $"; {nears.Count} near miss(es)" : "")
+                ? string.Format(ci, "No collision: {0} checked in {1:0.0} s, {2:0} mm clearance, robot against {3}{4}.", poses, r.Seconds, opt.Clearance, scope, nears.Count > 0 ? Inv.F($"; {nears.Count} near miss(es)") : "")
                 : string.Format(ci, "COLLISIONS at {0} of {1} checked in {2:0.0} s ({3:0} mm clearance): {4} pair(s) of bodies collide, first at move {5}.", r.Moves.Count, poses, r.Seconds, opt.Clearance, hits.Count, r.FirstMove));
             foreach (var e in hits.Take(12)) r.Lines.Add(e.Text());
             foreach (var e in nears.Take(8)) r.Lines.Add(e.Text());
@@ -923,9 +923,9 @@ namespace LARGERslicer.Toolpaths
             if (env.Count > 0)
             {
                 var e = env[0];
-                if (cell.HasExternalAxes && cell.ExternalAxes.Any(a => a.IsRail)) s.Add($"Change Offset of the rail, so the robot stands further from {e.B} (it hits at move {e.Move}).");
+                if (cell.HasExternalAxes && cell.ExternalAxes.Any(a => a.IsRail)) s.Add(Inv.F($"Change Offset of the rail, so the robot stands further from {e.B} (it hits at move {e.Move})."));
                 if (cell.HasExternalAxes && cell.ExternalAxes.Any(a => !a.IsRail)) s.Add("Change Offset of the turntable, so the arm reaches the part from another side.");
-                s.Add($"Move or turn the part on the bed, or change where the robot stands: {e.A} hits {e.B}.");
+                s.Add(Inv.F($"Move or turn the part on the bed, or change where the robot stands: {e.A} hits {e.B}."));
             }
             if (hits.Any(e => e.A.StartsWith("link") || e.A == "tool") && hits.Any(e => e.B.StartsWith("link") || e.B == "robot base"))
                 s.Add("The arm runs into itself: change the tool turn (Turn) or the place of the part, so the wrist does not fold back onto the arm.");

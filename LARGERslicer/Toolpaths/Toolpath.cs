@@ -55,7 +55,7 @@ namespace LARGERslicer.Toolpaths
         }
 
         public override string ToString() =>
-            $"Print Settings (bead {BeadWidth:0.##} x {LayerHeight:0.##} mm, {Speed / 60:0.#} mm/s{(Preview ? ", preview" : "")})";
+            Inv.F($"Print Settings (bead {BeadWidth:0.##} x {LayerHeight:0.##} mm, {Speed / 60:0.#} mm/s{(Preview ? ", preview" : "")})");
     }
 
     /// <summary>
@@ -88,7 +88,7 @@ namespace LARGERslicer.Toolpaths
             return RectangleSection ? width * height : PrintSettings.BeadArea(width, height);
         }
 
-        public override string ToString() => $"{Name} (E x {Factor:0.###}{(FirstLayerFactor != 1 ? $", first layer x {FirstLayerFactor:0.##}" : "")}, {Unit})";
+        public override string ToString() => Inv.F($"{Name} (E x {Factor:0.###}{(FirstLayerFactor != 1 ? Inv.F($", first layer x {FirstLayerFactor:0.##}") : "")}, {Unit})");
 
         /// <summary>Starting points. Weber 1.128 (a Cura value) and Ginger 0.21 are the factors of the GCODE MAKER in the FH Muenster definition at 100 % flow, applied to width x height x length.</summary>
         public static readonly string[] PresetNames =
@@ -154,7 +154,7 @@ namespace LARGERslicer.Toolpaths
         private List<Polyline> _real;
         private int _realCount;
 
-        public override string ToString() => $"Layer {Index} ({Contours.Count} contour{(Contours.Count == 1 ? "" : "s")})";
+        public override string ToString() => Inv.F($"Layer {Index} ({Contours.Count} contour{(Contours.Count == 1 ? "" : "s")})");
     }
 
     /// <summary>
@@ -207,7 +207,7 @@ namespace LARGERslicer.Toolpaths
         public override string ToString()
         {
             int layers = Layers.Count > 0 ? Layers[Layers.Count - 1] + 1 : 0;
-            return $"Toolpath ({Count} points, {layers} layers, {Length() / 1000.0:0.00} m)";
+            return Inv.F($"Toolpath ({Count} points, {layers} layers, {Length() / 1000.0:0.00} m)");
         }
     }
 }

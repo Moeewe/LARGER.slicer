@@ -303,12 +303,12 @@ namespace LARGERslicer.Toolpaths
             else
             {
                 int finLayers = pieces.Count(p => p.Count > 0);
-                log?.Add($"{finCount} fin(s), {pieceCount} fin pieces in {finLayers} layers, leg spacing {spacing:0.##} mm.");
-                if (gapped > 0) log?.Add($"Breakaway gap: {gapped} top fin piece(s) printed {gap:0.##} mm lower.");
-                if (landed > 0) log?.Add($"{landed} fin(s) stand on the part below instead of on the bed.");
+                log?.Add(Inv.F($"{finCount} fin(s), {pieceCount} fin pieces in {finLayers} layers, leg spacing {spacing:0.##} mm."));
+                if (gapped > 0) log?.Add(Inv.F($"Breakaway gap: {gapped} top fin piece(s) printed {gap:0.##} mm lower."));
+                if (landed > 0) log?.Add(Inv.F($"{landed} fin(s) stand on the part below instead of on the bed."));
                 if (lost > 0 || dropped > 0 || trimmed > 0)
-                    log?.Add($"{lost + dropped} fin piece(s) left out and {trimmed} shortened: no wall to start from, no room next to the part or another fin, or nothing below to stand on. Fins above them are shortened too, so no fin floats.");
-                if (fins.Count > finCount) log?.Add($"{fins.Count - finCount} planned fin(s) could not be printed at all.");
+                    log?.Add(Inv.F($"{lost + dropped} fin piece(s) left out and {trimmed} shortened: no wall to start from, no room next to the part or another fin, or nothing below to stand on. Fins above them are shortened too, so no fin floats."));
+                if (fins.Count > finCount) log?.Add(Inv.F($"{fins.Count - finCount} planned fin(s) could not be printed at all."));
             }
             return result;
         }

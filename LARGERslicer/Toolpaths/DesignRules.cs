@@ -39,34 +39,34 @@ namespace LARGERslicer.Toolpaths
             r.MinCornerRadius = 0.5 * n;
             r.StartLayers = 5;
             Func<double, string> f = v => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-            r.Report.Add($"Nozzle {f(n)} mm{(nozzle > 0 ? "" : " (assumed: about bead width / 1.5)")}, bead width {f(lw)} mm.");
-            r.Report.Add($"Layer height {f(r.LayerMin)} to {f(r.LayerMax)} mm (a quarter to half the nozzle).");
+            r.Report.Add(Inv.F($"Nozzle {f(n)} mm{(nozzle > 0 ? "" : " (assumed: about bead width / 1.5)")}, bead width {f(lw)} mm."));
+            r.Report.Add(Inv.F($"Layer height {f(r.LayerMin)} to {f(r.LayerMax)} mm (a quarter to half the nozzle)."));
             // Weber quick guide: the nozzle shape decides how wide a bead it lays
-            r.Report.Add($"Bead width for this nozzle (Weber): pointed nozzle {f(0.7 * n)} to {f(1.3 * n)} mm, flat nozzle {f(1.0 * n)} to {f(1.8 * n)} mm; Weber's own profiles use about {f(1.2 * n)} mm with a {f(0.4 * n)} mm layer.");
-            if (lw > 1.3 * n + 1e-9 && lw <= 1.8 * n + 1e-9) r.Report.Add($"Bead {f(lw)} mm needs a flat nozzle: a pointed {f(n)} mm nozzle lays at most {f(1.3 * n)} mm.");
-            else if (lw > 1.8 * n + 1e-9) { r.Ok = false; r.Report.Add($"BEAD TOO WIDE FOR THE NOZZLE: {f(lw)} mm is more than even a flat {f(n)} mm nozzle lays ({f(1.8 * n)} mm)."); }
-            r.Report.Add($"Milling allowance: print half a bead ({f(0.5 * lw)} mm) more where the surface is milled (Weber).");
+            r.Report.Add(Inv.F($"Bead width for this nozzle (Weber): pointed nozzle {f(0.7 * n)} to {f(1.3 * n)} mm, flat nozzle {f(1.0 * n)} to {f(1.8 * n)} mm; Weber's own profiles use about {f(1.2 * n)} mm with a {f(0.4 * n)} mm layer."));
+            if (lw > 1.3 * n + 1e-9 && lw <= 1.8 * n + 1e-9) r.Report.Add(Inv.F($"Bead {f(lw)} mm needs a flat nozzle: a pointed {f(n)} mm nozzle lays at most {f(1.3 * n)} mm."));
+            else if (lw > 1.8 * n + 1e-9) { r.Ok = false; r.Report.Add(Inv.F($"BEAD TOO WIDE FOR THE NOZZLE: {f(lw)} mm is more than even a flat {f(n)} mm nozzle lays ({f(1.8 * n)} mm).")); }
+            r.Report.Add(Inv.F($"Milling allowance: print half a bead ({f(0.5 * lw)} mm) more where the surface is milled (Weber)."));
             if (layerHeight > 0)
             {
-                if (layerHeight > 0.8 * n + 1e-9) { r.Ok = false; r.Report.Add($"LAYER TOO HIGH: {f(layerHeight)} mm is more than 80 % of the nozzle; the bead is hardly pressed and bonds poorly."); }
-                else if (layerHeight > r.LayerMax + 1e-9) r.Report.Add($"Note: {f(layerHeight)} mm is above the CEAD range (half the nozzle, {f(r.LayerMax)} mm; the Ginger handbook allows up to 60 %, {f(0.6 * n)} mm). It can work with a well-flowing material: check how the layers bond.");
-                else if (layerHeight < r.LayerMin - 1e-9) r.Report.Add($"Note: {f(layerHeight)} mm is less than a quarter of the nozzle: the extruder has to push hard, printing takes long.");
-                else r.Report.Add($"Layer height {f(layerHeight)} mm: OK.");
-                if (lw / layerHeight < 2) { r.Ok = false; r.Report.Add($"BEAD TOO NARROW: width / height is {f(lw / layerHeight)}; keep it at 2 or more (Ginger handbook)."); }
+                if (layerHeight > 0.8 * n + 1e-9) { r.Ok = false; r.Report.Add(Inv.F($"LAYER TOO HIGH: {f(layerHeight)} mm is more than 80 % of the nozzle; the bead is hardly pressed and bonds poorly.")); }
+                else if (layerHeight > r.LayerMax + 1e-9) r.Report.Add(Inv.F($"Note: {f(layerHeight)} mm is above the CEAD range (half the nozzle, {f(r.LayerMax)} mm; the Ginger handbook allows up to 60 %, {f(0.6 * n)} mm). It can work with a well-flowing material: check how the layers bond."));
+                else if (layerHeight < r.LayerMin - 1e-9) r.Report.Add(Inv.F($"Note: {f(layerHeight)} mm is less than a quarter of the nozzle: the extruder has to push hard, printing takes long."));
+                else r.Report.Add(Inv.F($"Layer height {f(layerHeight)} mm: OK."));
+                if (lw / layerHeight < 2) { r.Ok = false; r.Report.Add(Inv.F($"BEAD TOO NARROW: width / height is {f(lw / layerHeight)}; keep it at 2 or more (Ginger handbook).")); }
             }
-            if (lw < 1.5 * n - 1e-9) { r.Ok = false; r.Report.Add($"BEAD TOO NARROW FOR THE NOZZLE: {f(lw)} mm is less than 1.5 x the nozzle ({f(1.5 * n)} mm)."); }
-            r.Report.Add($"Overlap of two beads side by side {f(r.OverlapMin)} to {f(r.OverlapMax)} mm; used {f(r.Overlap)} mm{(overlap > 0 && (overlap < r.OverlapMin - 1e-9 || overlap > r.OverlapMax + 1e-9) ? " - OUTSIDE the range" : "")}.");
-            r.Report.Add($"Wall of two beads: model it {f(r.CO90)} mm thick where the layers stand square to it (CO90 = 2 LW - OL), {f(r.CO45)} mm where they cross it at 45 degrees (CO45 = 1/2 sqrt2 (2 LW - OL)).");
+            if (lw < 1.5 * n - 1e-9) { r.Ok = false; r.Report.Add(Inv.F($"BEAD TOO NARROW FOR THE NOZZLE: {f(lw)} mm is less than 1.5 x the nozzle ({f(1.5 * n)} mm).")); }
+            r.Report.Add(Inv.F($"Overlap of two beads side by side {f(r.OverlapMin)} to {f(r.OverlapMax)} mm; used {f(r.Overlap)} mm{(overlap > 0 && (overlap < r.OverlapMin - 1e-9 || overlap > r.OverlapMax + 1e-9) ? " - OUTSIDE the range" : "")}."));
+            r.Report.Add(Inv.F($"Wall of two beads: model it {f(r.CO90)} mm thick where the layers stand square to it (CO90 = 2 LW - OL), {f(r.CO45)} mm where they cross it at 45 degrees (CO45 = 1/2 sqrt2 (2 LW - OL))."));
             if (finishThickness > 0)
             {
                 r.LW45 = Math.Sqrt(2) * Math.Max(0, finishThickness - Math.Max(0, milling));
                 r.Report.Add(milling > 0
-                    ? $"For a finished wall of {f(finishThickness)} mm after milling {f(milling)} mm away, at 45 degrees use a layer width of {f(r.LW45)} mm (LW45 = sqrt2 (t - t milling))."
-                    : $"For a finished wall of {f(finishThickness)} mm at 45 degrees use a layer width of {f(r.LW45)} mm (LW45 = sqrt2 t).");
+                    ? Inv.F($"For a finished wall of {f(finishThickness)} mm after milling {f(milling)} mm away, at 45 degrees use a layer width of {f(r.LW45)} mm (LW45 = sqrt2 (t - t milling)).")
+                    : Inv.F($"For a finished wall of {f(finishThickness)} mm at 45 degrees use a layer width of {f(r.LW45)} mm (LW45 = sqrt2 t)."));
             }
-            r.Report.Add($"Corners: radius at least {f(r.MinCornerRadius)} mm (half the nozzle); Round Corners uses the bead width.");
-            r.Report.Add($"Two beads in one go (double bead): 0.8 to 0.9 x the layer width apart, {f(0.8 * lw)} to {f(0.9 * lw)} mm.");
-            r.Report.Add($"At an angle: add a start and an end feature of about {r.StartLayers:0} layers ({f(r.StartLayers * (layerHeight > 0 ? layerHeight : r.LayerRecommended))} mm) before and after the part, milled away afterwards, so the part itself starts and ends on full layers: set Start/End Layers on Slice.");
+            r.Report.Add(Inv.F($"Corners: radius at least {f(r.MinCornerRadius)} mm (half the nozzle); Round Corners uses the bead width."));
+            r.Report.Add(Inv.F($"Two beads in one go (double bead): 0.8 to 0.9 x the layer width apart, {f(0.8 * lw)} to {f(0.9 * lw)} mm."));
+            r.Report.Add(Inv.F($"At an angle: add a start and an end feature of about {r.StartLayers:0} layers ({f(r.StartLayers * (layerHeight > 0 ? layerHeight : r.LayerRecommended))} mm) before and after the part, milled away afterwards, so the part itself starts and ends on full layers: set Start/End Layers on Slice."));
             r.Report.Add("Overhang: flat layers up to 45 degrees; printed at 45 degrees up to 90 degrees. Contours inside contours are joined by bridges in Continuous Path, so the line never stops.");
             return r;
         }

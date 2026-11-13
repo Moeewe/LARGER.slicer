@@ -87,13 +87,13 @@ namespace LARGERslicer.Toolpaths
 
         public MaterialDefinition Duplicate() => (MaterialDefinition)MemberwiseClone();
 
-        public override string ToString() => $"Material {Name} ({Source})";
+        public override string ToString() => Inv.F($"Material {Name} ({Source})");
 
         /// <summary>The temperatures in one line, from the feed zone to the nozzle, then the bed.</summary>
         public string TemperatureText =>
-            $"feed {N(FeedZone)} / zone 1 {Zone1} / zone 2 {Zone2} / zone 3 {Zone3} / nozzle {Nozzle} °C, bed {Bed} °C";
+            Inv.F($"feed {N(FeedZone)} / zone 1 {Zone1} / zone 2 {Zone2} / zone 3 {Zone3} / nozzle {Nozzle} °C, bed {Bed} °C");
 
-        public string DryingText => DryHours > 0 ? $"{N(DryHours)} h at {N(DryTemperature)} °C, residual moisture below {MaxMoisture.ToString("0.###", CultureInfo.InvariantCulture)} %" : "no drying given";
+        public string DryingText => DryHours > 0 ? Inv.F($"{N(DryHours)} h at {N(DryTemperature)} °C, residual moisture below {MaxMoisture.ToString("0.###", CultureInfo.InvariantCulture)} %") : "no drying given";
 
         // ---------------------------------------------------------------- built in
 
@@ -194,7 +194,7 @@ namespace LARGERslicer.Toolpaths
                 string t = (raw ?? "").Trim();
                 if (t.Length == 0 || t.StartsWith("#")) continue;
                 int eq = t.IndexOf('=');
-                if (eq < 0) { error = $"line {n}: expected 'key = value'."; return null; }
+                if (eq < 0) { error = Inv.F($"line {n}: expected 'key = value'."); return null; }
                 string k = t.Substring(0, eq).Trim().ToLowerInvariant(), v = t.Substring(eq + 1).Trim();
                 double d;
                 bool isNumber = double.TryParse(v.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out d);
@@ -222,15 +222,15 @@ namespace LARGERslicer.Toolpaths
                             double hours, temp;
                             if (parts.Length != 2 || !double.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out hours)
                                 || !double.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out temp))
-                            { error = $"line {n}: drying is written like 6 h at 65."; return null; }
+                            { error = Inv.F($"line {n}: drying is written like 6 h at 65."); return null; }
                             m.DryHours = hours; m.DryTemperature = temp;
                             break;
                         }
-                    default: error = $"line {n}: unknown key '{k}'."; return null;
+                    default: error = Inv.F($"line {n}: unknown key '{k}'."); return null;
                 }
                 continue;
-                bad: error = $"line {n}: '{k}' needs a number, got '{v}'."; return null;
-                badRange: error = $"line {n}: '{k}' needs a value or a range like 200-210, got '{v}'."; return null;
+                bad: error = Inv.F($"line {n}: '{k}' needs a number, got '{v}'."); return null;
+                badRange: error = Inv.F($"line {n}: '{k}' needs a value or a range like 200-210, got '{v}'."); return null;
             }
             if (string.IsNullOrWhiteSpace(m.Name)) { error = "The material has no name (name = ...)."; return null; }
             if (!densityGiven) { m.DensityTypical = true; }
@@ -287,13 +287,13 @@ namespace LARGERslicer.Toolpaths
             r.Deviation = (r.Mean - target) / target * 100.0;
             r.NewFactor = target / r.Mean * current;
 
-            string what = widths > 0 && walls > 0 ? $"{widths} bead width(s) and {walls} wall thickness(es) of a single-wall test"
-                        : walls > 0 ? $"{walls} wall thickness(es) of a single-wall test" : $"{widths} bead width(s)";
-            r.Report.Add($"Measured {what}: mean {F(r.Mean, "0.###")} mm" + (values.Count > 1 ? $" ({F(min)} to {F(max)} mm, spread {F(r.Spread, "0.###")} mm)" : "") + $", target {F(target)} mm.");
+            string what = widths > 0 && walls > 0 ? Inv.F($"{widths} bead width(s) and {walls} wall thickness(es) of a single-wall test")
+                        : walls > 0 ? Inv.F($"{walls} wall thickness(es) of a single-wall test") : Inv.F($"{widths} bead width(s)");
+            r.Report.Add(Inv.F($"Measured {what}: mean {F(r.Mean, "0.###")} mm") + (values.Count > 1 ? Inv.F($" ({F(min)} to {F(max)} mm, spread {F(r.Spread, "0.###")} mm)") : "") + Inv.F($", target {F(target)} mm."));
             r.Report.Add(Math.Abs(r.Deviation) < 0.05 ? "The bead is exactly as wide as wanted."
-                : $"The bead is {F(Math.Abs(r.Deviation), "0.#")} % too {(r.Deviation > 0 ? "wide" : "narrow")}.");
-            r.Report.Add($"New factor = {F(target)} / {F(r.Mean, "0.###")} x {F(current, "0.###")} = {F(r.NewFactor, "0.###")}.");
-            if (skipped > 0) r.Report.Add($"{skipped} value(s) of 0 or less were left out.");
+                : Inv.F($"The bead is {F(Math.Abs(r.Deviation), "0.#")} % too {(r.Deviation > 0 ? "wide" : "narrow")}."));
+            r.Report.Add(Inv.F($"New factor = {F(target)} / {F(r.Mean, "0.###")} x {F(current, "0.###")} = {F(r.NewFactor, "0.###")}."));
+            if (skipped > 0) r.Report.Add(Inv.F($"{skipped} value(s) of 0 or less were left out."));
             if (values.Count < 3) r.Report.Add("Tip: measure at three or more places, away from the seam and the start; the mean is more reliable.");
             if (values.Count > 1 && r.Spread > 0.1 * r.Mean)
             {

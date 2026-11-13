@@ -62,7 +62,7 @@ namespace LARGERslicer.Toolpaths
                 used++;
             }
 
-            if (skipped > 0) log?.Add($"{skipped} input(s) could not be meshed and were skipped.");
+            if (skipped > 0) log?.Add(Inv.F($"{skipped} input(s) could not be meshed and were skipped."));
             if (used == 0 || joined.Vertices.Count == 0) return null;
 
             joined.Faces.ConvertQuadsToTriangles();
@@ -108,7 +108,7 @@ namespace LARGERslicer.Toolpaths
                 if (warp.KeepLayerStep) maxScale = 1.0; // the warp has fixed the layer count itself
                 layerHeight /= maxScale;
                 if (!flatFirst) first /= maxScale; // (the flat first layer is not stretched)
-                if (maxScale > 1.02) log?.Add($"Layers are up to {maxScale:0.00}x further apart on the outside of the bend; the step along the guide is {layerHeight:0.00} mm so no layer is higher than set.");
+                if (maxScale > 1.02) log?.Add(Inv.F($"Layers are up to {maxScale:0.00}x further apart on the outside of the bend; the step along the guide is {layerHeight:0.00} mm so no layer is higher than set."));
             }
             var dist = new double[verts.Length];
             double min = double.MaxValue, max = double.MinValue;
@@ -187,15 +187,15 @@ namespace LARGERslicer.Toolpaths
                 if (l.Contours.Count == 0) { empty++; continue; }
                 layers.Add(l);
             }
-            if (empty > 0) log?.Add($"{empty} layer(s) had no contour and were dropped.");
+            if (empty > 0) log?.Add(Inv.F($"{empty} layer(s) had no contour and were dropped."));
             if (warp == null && Math.Abs(n.Z) > 0.999)
             {
                 // the bed is Z 0: say so when the part does not stand on it
                 double bottom = basePlane.Origin.Z * Math.Sign(n.Z) + min;
                 if (bottom < -0.05)
-                    log?.Add($"The part reaches {-bottom:0.##} mm below Z 0. If Z 0 is the bed, the first layers are printed into it: move the part up onto the bed.");
+                    log?.Add(Inv.F($"The part reaches {-bottom:0.##} mm below Z 0. If Z 0 is the bed, the first layers are printed into it: move the part up onto the bed."));
                 else if (bottom > 0.05)
-                    log?.Add($"The part stands {bottom:0.##} mm above Z 0. The first layer is printed {first:0.##} mm above the bottom of the part, at Z {bottom + first:0.##}.");
+                    log?.Add(Inv.F($"The part stands {bottom:0.##} mm above Z 0. The first layer is printed {first:0.##} mm above the bottom of the part, at Z {bottom + first:0.##}."));
             }
             return layers;
         }
