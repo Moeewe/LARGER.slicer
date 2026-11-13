@@ -1652,7 +1652,9 @@ namespace LARGERslicer.Components.Slicer
             double minTime = 0; if (Params.Input.Count > 2) da.GetData(2, ref minTime);
             var r = LeadEngine.Check(tp, max, Math.Max(0, minTime));
             Message = r.Ok ? "OK" : "Check!";
-            if (!r.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.First(l => l.StartsWith("CROSSES") || l.StartsWith("NOT") || l.StartsWith("Bead shape:") || l.StartsWith("Speed")));
+            if (!r.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.FirstOrDefault(l => l.StartsWith("CROSSES") || l.StartsWith("NOT") || l.StartsWith("Bead shape:") || l.StartsWith("Speed"))
+                ?? r.Report.FirstOrDefault(l => l.Length > 0 && char.IsUpper(l[0]) && l.Split(' ')[0].ToUpperInvariant() == l.Split(' ')[0] && l.Split(' ')[0].Length > 2)
+                ?? "The path is not printable: read Report.");
             // too short layers and an extruder over its limit: the path can be printed, but say it
             foreach (var l in r.Report.Where(l => l.StartsWith("LAYER TIME") || l.StartsWith("VOLUME RATE"))) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
             da.SetData(0, r.Ok);

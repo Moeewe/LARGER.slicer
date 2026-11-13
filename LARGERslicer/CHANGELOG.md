@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (seam, layer time, volume rate)
+- **Seam Mode** on Continuous Path (and Easy Slicer): Fixed point (as before), Inner corner, or Sharpest corner. The seam and its ramp go into an inner corner of the outer wall, where they show least and milling does not run over them; without one, to the sharpest outer corner. Followed from layer to layer within half a bead, never at the cost of a move without extrusion. L and star parts: seam in the inner corner on every layer, stack step 0 mm.
+- The skirt also runs straight into a part that starts in a hollow of its outline.
+- **Min Layer Time** (Continuous Path): layers that would be done sooner are printed slower, constant within the layer, never below Min Speed. **Max Volume Rate** (mm3/s, about 330 for the Ginger): moves that would ask more of the extruder run slower.
+- **Path Check**: Min Layer Time input and Layer Times output. Too-short layers get three remedies: the speed that reaches the minimum, how many parts side by side would, or a pause as a last resort (and why it harms a pellet extruder).
+
+### Fixed
+- Path Check no longer fails when the path is not printable for a reason without a known prefix (e.g. INTO THE BED).
+
 ### Added (self-supporting geometry)
 - **Self Support Check, Self Supporting Envelope, Best Angle** (Slicer, next to Slice; Grasshopper 1 and 2). Self Support Check colours the part by how far it hangs over for the chosen build direction (flat, angled, guide curve or guide surface); the limit comes from the bead (half a bead beside the bead below: 5 mm beads in 2 mm layers allow 51 degrees). Self Supporting Envelope adds the least material that makes every layer hold the one above: slice-ready layers, the new part as a closed NURBS Brep (or a mesh) for analysis (IGA), and the added material alone to mill away later. Best Angle tries slice angles 0 to 75 degrees in every tilt direction and suggests the one with the least overhang. Tested: the mushroom part goes from "NOT SUPPORTED, offset 50 mm" to "Support OK" with 417 cm3 added; Best Angle picks 55 degrees for the 55-degree lean block.
 
