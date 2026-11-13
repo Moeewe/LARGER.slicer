@@ -405,7 +405,7 @@ namespace LARGERslicer.Components.Robot
 
         public override Guid ComponentGuid => new Guid("5D2E8B14-9A63-4F70-B1C8-3A6F0D9E2475");
         public override GH_Exposure Exposure => GH_Exposure.secondary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotProgramIcon.png", this);
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotSimulationIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
@@ -550,7 +550,7 @@ namespace LARGERslicer.Components.Robot
 
         public override Guid ComponentGuid => new Guid("8B4D2E61-3F7A-4C95-A0E8-5D1C7B9F2A46");
         public override GH_Exposure Exposure => GH_Exposure.primary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotCellIcon.png", this);
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotExternalAxisIcon.png", this);
 
         internal static readonly string[] Kinds = { "Rail (the robot moves along it)", "Turntable (the part turns on it)" };
 
@@ -608,7 +608,7 @@ namespace LARGERslicer.Components.Robot
 
         public override Guid ComponentGuid => new Guid("C3A7E91D-2F64-4B08-9D53-6E1B8A4F0C72");
         public override GH_Exposure Exposure => GH_Exposure.primary;
-        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotCellIcon.png", this);
+        protected override System.Drawing.Bitmap Icon => IconHelper.Load("RobotCellGeometryIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
