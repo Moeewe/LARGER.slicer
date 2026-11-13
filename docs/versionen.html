@@ -1,0 +1,435 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LARGER.slicer: Versionen und Download</title>
+<meta name="description" content="Alle Versionen des LARGER.slicer, die neueste zuerst, dazu Download, Installation über den Rhino-Paketmanager oder von Hand und die Systemvoraussetzungen.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:site_name" content="LARGER.slicer">
+<meta property="og:title" content="LARGER.slicer: Versionen und Download">
+<meta property="og:description" content="Alle Versionen des LARGER.slicer, die neueste zuerst, dazu Download, Installation über den Rhino-Paketmanager oder von Hand und die Systemvoraussetzungen.">
+<meta property="og:url" content="https://parametricsolutions.de/larger-slicer/versionen/">
+<meta property="og:image" content="https://raw.githubusercontent.com/Moeewe/LARGER.slicer/main/docs/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same system as the slicer page and the course. A page is read top to bottom: one big
+   statement in the head, numbered sections, tables and lists in plain German. Logo blue marks only
+   the one thing that matters in each block. */
+:root{
+  --bg:#ffffff; --band:#f1f4f7; --ink:#14203a; --muted:#5d6a7e; --faint:#97a1b0; --line:#dfe4ea;
+  --bead-wall:#e6eaf0; --bead-fill:#cfe3ff; --cl-wall:#14203a; --cl-fill:#0a84ff;
+  --marker:#0a84ff; --on-marker:#ffffff; --marker-soft:#dcecff; --alert:#d23f45; --ok:#138a5e;
+  --night:#121a2b; --night-2:#0a0e18; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#26334f;
+  --win:#ffffff; --win-side:#eef1f5; --win-bar:#e7ebf0;
+  --coil-front:#14203a; --coil-back:#a9b1bf; --coil-new:#0a84ff;
+  --wall:#0a84ff; --infill:#e8870c; --bottom:#0f9e8e; --travel:#e5484d; --skirt:#b46be0;
+  --surface:#ffffff; --fg:#14203a;
+  --chip-built:#dcecff; --chip-built-fg:#0b4f99; --chip-idea:#f1f4f7; --chip-idea-fg:#5d6a7e;
+  --chip-ok:#dcf3e9; --chip-ok-fg:#0d6b48;
+  --display:"Bricolage Grotesque",-apple-system,"SF Pro Display","Helvetica Neue",sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#1a2433; --chip-idea-fg:#a1acbb;
+  --chip-ok:#0f3326; --chip-ok-fg:#6fdcaa; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#1a2433; --chip-idea-fg:#a1acbb;
+  --chip-ok:#0f3326; --chip-ok-fg:#6fdcaa; color-scheme:dark }
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--marker);outline-offset:3px}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);font-weight:800;margin:0;text-wrap:balance;letter-spacing:-.035em}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:11;background:var(--bg)}
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.6) blur(16px);-webkit-backdrop-filter:saturate(1.6) blur(16px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;height:54px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-.02em;text-decoration:none}
+.brand svg{width:28px;height:28px;flex:none;display:block}
+.links{display:flex;gap:22px;font-size:14px;font-weight:600;color:var(--muted);margin-left:auto}
+.links a{text-decoration:none}.links a:hover{color:var(--ink)}
+
+/* head */
+.hero{padding-block:88px 56px}
+.eyebrow{font:500 13px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--marker);margin:0 0 20px}
+h1{font-size:clamp(44px,7.4vw,92px);line-height:1;letter-spacing:-.05em;max-width:12em}
+.hl{color:var(--on-marker);background:linear-gradient(var(--marker),var(--marker)) no-repeat left 60%/100% 72%;padding:0 .06em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.lede{font-size:clamp(19px,2.1vw,23px);color:var(--muted);margin:28px 0 0;max-width:32em}
+.toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 32px;margin-top:56px;border-top:1px solid var(--line)}
+.toc a{display:flex;gap:14px;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--line);text-decoration:none;font-weight:600}
+.toc a:hover{color:var(--marker)}
+.toc .num{font-size:13px;color:var(--faint)}
+
+/* sections */
+section{padding-block:88px;border-top:1px solid var(--line)}
+section:nth-of-type(even){background:var(--band)}
+.lhead{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 28px;align-items:baseline;margin-bottom:48px}
+.lhead .no{font-size:15px;color:var(--marker);grid-row:span 2}
+.lhead h2{font-size:clamp(34px,4.8vw,60px);line-height:1.02}
+.lead{margin:12px 0 0;font-size:clamp(18px,1.9vw,21px);color:var(--muted);max-width:34em}
+h3.sub{font-size:clamp(22px,2.4vw,28px);letter-spacing:-.03em;margin:56px 0 18px}
+h3.sub:first-child{margin-top:0}
+p.txt{margin:0 0 16px;color:var(--muted);max-width:40em}
+p.txt b{color:var(--ink)}
+.src{font-size:13px;color:var(--faint);margin:14px 0 0;max-width:46em}
+.take{margin:40px 0 0;padding:22px 26px;background:var(--marker-soft);color:var(--ink);font-size:19px;font-weight:600;max-width:44em}
+.cap{font-size:13px;color:var(--faint);margin:10px 0 0;max-width:32em}
+code,.c{font-family:var(--mono);font-size:.92em;background:var(--marker-soft);padding:1px 6px;overflow-wrap:anywhere}
+pre{font:14px/1.6 var(--mono);background:var(--night);color:var(--night-ink);padding:20px 22px;margin:0;overflow-x:auto;max-width:100%}
+
+/* tables */
+.cmp{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:16px}
+th,td{text-align:left;padding:14px 16px 14px 0;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+tbody th{font-weight:700;white-space:nowrap}
+td{color:var(--muted)}
+td.k,tr.k td{color:var(--ink)}
+tr.mark th,tr.mark td{color:var(--marker)}
+table.n td,table.n th{font-variant-numeric:tabular-nums}
+
+/* blocks */
+.trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:32px 40px}
+.trio>div{border-top:2px solid var(--ink);padding-top:18px;min-width:0}
+.trio h3{font-size:22px;letter-spacing:-.02em}
+.trio p{margin:10px 0 0;color:var(--muted);font-size:16px}
+.trio .k{color:var(--marker);font-size:13px}
+.list{margin:0;padding:0;list-style:none;display:grid;gap:0;max-width:46em}
+.list li{padding:14px 0 14px 26px;border-bottom:1px solid var(--line);position:relative;color:var(--muted)}
+.list li b{color:var(--ink)}
+.list li::before{content:"";position:absolute;left:0;top:25px;width:12px;height:2px;background:var(--marker)}
+.steps{list-style:none;margin:0;padding:0;counter-reset:st;display:grid;gap:0;max-width:52em}
+.steps li{counter-increment:st;display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px 14px;padding:18px 0;border-top:1px solid var(--line)}
+.steps li::before{content:counter(st);font:500 22px var(--mono);color:var(--marker);grid-row:span 2}
+.steps b{font-size:19px}
+.steps span{color:var(--muted)}
+.flow{list-style:none;margin:0;padding:0;counter-reset:f;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 40px}
+.flow li{counter-increment:f;display:grid;grid-template-columns:28px minmax(0,1fr);gap:2px 10px;padding:16px 0;border-top:1px solid var(--line)}
+.flow li::before{content:counter(f);font:500 13px var(--mono);color:var(--faint);grid-row:span 2;padding-top:3px}
+.flow b{font-size:15px;color:var(--marker);font-weight:500}
+.flow span{color:var(--muted);font-size:16px}
+.checks{list-style:none;margin:0;padding:0;max-width:46em}
+.checks li{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--line)}
+.checks input{width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--marker)}
+.checks label{cursor:pointer}
+.checks input:checked+label{color:var(--faint);text-decoration:line-through}
+.checks .grp{display:block;padding:22px 0 6px;border-top:0;font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:40px 56px;align-items:start}
+.two>*{min-width:0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 32px;margin:0}
+.facts div{border-top:2px solid var(--ink);padding:14px 0 20px;min-width:0}
+.facts dt{font-size:13px;font-weight:600;color:var(--faint)}
+.facts dd{margin:6px 0 0;font-family:var(--display);font-weight:600;font-size:21px;letter-spacing:-.02em;line-height:1.25;overflow-wrap:anywhere}
+.facts dd small{display:block;font-family:var(--body);font-weight:400;font-size:15px;letter-spacing:0;color:var(--muted);margin-top:4px}
+
+/* status chips */
+.chip{display:inline-flex;align-items:center;gap:7px;font:600 12px/1 var(--body);padding:6px 10px;white-space:nowrap;background:var(--chip-idea);color:var(--chip-idea-fg)}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.chip.ok{background:var(--chip-ok);color:var(--chip-ok-fg)}
+.chip.pre{background:var(--chip-built);color:var(--chip-built-fg)}
+.chip.dev{background:var(--chip-idea);color:var(--ink)}
+.chip.plan{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.chip.plan::before{background:transparent;box-shadow:inset 0 0 0 1.5px currentColor}
+.legend{display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:40px;font-size:15px;color:var(--muted);align-items:center}
+.legend span.l{display:flex;gap:10px;align-items:center}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+.card{background:var(--bg);border:1px solid var(--line);padding:26px 24px 24px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.lit{border-top:4px solid var(--marker);padding-top:23px}
+.card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.card h3{font-size:clamp(24px,2.4vw,28px);letter-spacing:-.03em;line-height:1.08}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.card .meta{font:500 13px var(--mono);color:var(--faint)}
+.card ul{margin:0;padding:0;list-style:none;font-size:15px;color:var(--muted)}
+.card ul li{padding:7px 0 7px 20px;border-top:1px solid var(--line);position:relative}
+.card ul li::before{content:"";position:absolute;left:0;top:18px;width:10px;height:2px;background:var(--faint)}
+.card .go{margin-top:auto;padding-top:10px;display:flex;flex-wrap:wrap;gap:8px 20px;font-weight:600;font-size:15px}
+.card .go a{color:var(--marker);text-decoration:none}
+.card .go a:hover{text-decoration:underline}
+
+/* dark band with one statement */
+.night{background:linear-gradient(180deg,var(--night),var(--night-2));color:var(--night-ink);padding-block:104px}
+.night h2{font-size:clamp(40px,6.4vw,80px);line-height:.98;letter-spacing:-.045em;max-width:14em}
+.night p{font-size:clamp(18px,2vw,22px);color:var(--night-muted);margin:24px 0 0;max-width:34em}
+.night .split{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px;margin-top:64px}
+.night .split b{display:block;font-family:var(--display);font-weight:800;font-size:clamp(56px,8vw,104px);line-height:.9;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+.night .split b.you{color:var(--marker)}
+.night .split span{display:block;margin-top:12px;color:var(--night-muted);font-size:16px}
+
+/* calculator */
+.calc{margin-top:40px;padding:32px;background:var(--night);color:var(--night-ink);max-width:880px}
+.calc h3{font-size:24px}
+.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px 20px;margin-top:22px}
+.inputs label{display:grid;grid-template-columns:1fr auto;gap:6px 8px;align-items:center;font-size:13px;color:var(--night-muted);min-width:0}
+.inputs label>span{grid-column:1/-1}
+.inputs input{width:100%;min-width:0;font:500 18px var(--mono);padding:10px 12px;background:var(--night-2);color:var(--night-ink);border:1px solid var(--night-line);border-radius:0}
+.inputs i{font:normal 12px var(--mono);color:var(--night-muted)}
+.outs{margin:28px 0 0;padding-top:24px;border-top:1px solid var(--night-line)}
+.outs dt{font-size:13px;color:var(--night-muted)}
+.outs dd{margin:6px 0 0;font-family:var(--display);font-weight:800;font-size:clamp(36px,5vw,56px);letter-spacing:-.04em;color:var(--marker)}
+.note{margin:14px 0 0;font-size:14px;color:var(--night-muted)}
+
+/* versions */
+.rel{display:grid;grid-template-columns:220px minmax(0,1fr);gap:8px 48px;padding:36px 0;border-top:1px solid var(--line)}
+.rel:first-of-type{border-top:2px solid var(--ink)}
+.rel .v{font-family:var(--display);font-weight:800;font-size:clamp(36px,4.4vw,52px);letter-spacing:-.045em;line-height:1}
+.rel .d{font:500 13px var(--mono);color:var(--faint);margin-top:10px}
+.rel .chip{margin-top:14px}
+.rel.now .v{color:var(--marker)}
+.rel h3{font-size:clamp(22px,2.4vw,28px);letter-spacing:-.03em;margin-bottom:12px}
+.rel ul{margin:0;padding:0;list-style:none;color:var(--muted)}
+.rel ul li{padding:8px 0 8px 24px;position:relative}
+.rel ul li::before{content:"";position:absolute;left:0;top:20px;width:12px;height:2px;background:var(--marker)}
+.rel ul li b{color:var(--ink)}
+
+/* glossary */
+.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 40px;margin:0}
+.gloss div{padding:16px 0;border-top:1px solid var(--line);min-width:0}
+.gloss dt{font-weight:700}
+.gloss dt i{font-style:normal;font-weight:400;color:var(--faint);font-size:14px;margin-left:6px}
+.gloss dd{margin:4px 0 0;color:var(--muted);font-size:16px}
+
+/* book outline */
+.outline{list-style:none;margin:0;padding:0;counter-reset:ch;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:0 48px}
+.outline li{counter-increment:ch;display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 12px;padding:20px 0;border-top:1px solid var(--line)}
+.outline li::before{content:counter(ch,decimal-leading-zero);font:500 15px var(--mono);color:var(--marker);grid-row:span 2;padding-top:5px}
+.outline b{font-family:var(--display);font-size:22px;letter-spacing:-.02em;line-height:1.2}
+.outline span{color:var(--muted);font-size:16px}
+.todo{background:#fff3c4;color:#5c4400;padding:1px 6px;font-weight:600}
+
+/* buttons and end */
+.btn{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;padding:13px 24px;font:600 16px var(--body);text-decoration:none;border:1px solid var(--ink);color:var(--ink);background:transparent}
+.btn.solid{background:var(--ink);color:var(--bg)}
+.btn.solid:hover{background:var(--marker);border-color:var(--marker);color:var(--on-marker)}
+.btn:not(.solid):hover{background:var(--band)}
+.ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+.end{text-align:center}
+.end h2{font-size:clamp(34px,5vw,60px)}
+.end .sub{font-size:clamp(18px,2vw,21px);color:var(--muted);margin:18px auto 0;max-width:30em}
+.end .ctas{justify-content:center}
+footer{padding-block:28px 44px;font-size:13px;color:var(--faint);border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
+footer a{text-decoration:none}footer a:hover{color:var(--ink)}
+
+@media (max-width:760px){
+  .lhead{grid-template-columns:1fr}.lhead .no{grid-row:auto}
+  section{padding-block:64px}.hero{padding-block:56px 40px}.night{padding-block:72px}
+  .calc{padding:24px 20px}
+  .rel{grid-template-columns:minmax(0,1fr);gap:12px}
+  .night .split{grid-template-columns:minmax(0,1fr);gap:36px;margin-top:44px}
+  .btn{white-space:normal}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+td code{white-space:nowrap}
+
+/* site nav: the same block on every page of the site */
+body{margin:0}
+.nav .links{gap:20px;white-space:nowrap}
+.nav .links a{padding:5px 0;border-bottom:2px solid transparent}
+.nav .links a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--marker)}
+@media (max-width:980px){
+  html{scroll-padding-top:104px}
+  .nav .wrap{flex-wrap:wrap;height:auto;row-gap:0;padding-top:10px}
+  .nav .brand{min-height:34px}
+  .nav .wrap .links{display:flex;order:3;flex:1 0 100%;margin:0;padding:6px 0 8px;gap:20px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  .nav .wrap .links::-webkit-scrollbar{display:none}
+  .nav .wrap .links a:last-child{padding-right:28px}
+}
+</style>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><svg class="lm" viewBox="0 0 64 64" aria-hidden="true"></svg>LARGER.slicer</a>
+  <nav class="links" aria-label="Seiten"><a href="../suite/">Suite</a><a href="../einstieg/">Einstieg</a><a href="../erste-schritte/">Erste Schritte</a><a href="../lehrgang/">Lehrgang</a><a href="../maschinen/">Maschinen</a><a href="../versionen/" aria-current="page">Versionen</a><a href="../buch/">Buch</a><a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a></nav>
+</div></header>
+<main>
+<div class="hero wrap">
+    <p class="eyebrow">Versionen und Download</p>
+    <h1>Die neueste Version liegt auf <span class="hl">GitHub.</span></h1>
+    <p class="lede">Herunterladen, installieren, und hier nachlesen, was sich mit jeder Version geändert hat. Die neueste steht oben.</p>
+    <div class="ctas"><a class="btn solid" href="https://github.com/Moeewe/LARGER.slicer/releases/latest">Neueste Version</a><a class="btn" href="https://github.com/Moeewe/LARGER.slicer">Quellcode auf GitHub</a></div>
+    <nav class="toc" aria-label="Abschnitte"><a href="#installieren"><span class="num">01</span>Installieren</a><a href="#voraussetzungen"><span class="num">02</span>Voraussetzungen</a><a href="#verlauf"><span class="num">03</span>Was sich geändert hat</a></nav>
+  </div>
+
+<section id="installieren"><div class="wrap">
+  <div class="lhead"><span class="no num">01</span><h2>Installieren</h2><p class="lead">Drei Wege. Der erste richtet alles auf einmal ein und ist für die Maschinen der FH Münster gedacht.</p></div>
+  <div class="cards">
+    <article class="card lit">
+      <span class="meta">Empfohlen</span>
+      <h3>SETUP-Paket mit Installer</h3>
+      <p>Installiert LARGER.slicer, das Robots-Plug-in und Pufferfish über den Rhino-Paketmanager und kopiert die Bibliothek des KUKA KR120. Kann jederzeit wieder laufen, dann wird nur Veraltetes erneuert.</p>
+      <ol class="steps">
+        <li><b>Paket laden</b><span><a href="https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip">LARGERslicer-SETUP.zip</a> herunterladen und entpacken.</span></li>
+        <li><b>Rhino schließen, Installer starten</b><span>Windows: Doppelklick auf <code>Install Windows.bat</code>. Mac: Rechtsklick auf <code>Install Mac.command</code>, dann zweimal Öffnen.</span></li>
+        <li><b>Rhino in Millimetern öffnen</b><span>Grasshopper starten und die Definition aus dem Ordner <code>SETUP</code> öffnen, oder im Tab LARGER mit Quick Start beginnen.</span></li>
+      </ol>
+      <div class="go"><a href="https://github.com/Moeewe/LARGER.slicer/blob/main/SETUP/README.de.md">SETUP-Anleitung</a></div>
+    </article>
+    <article class="card">
+      <span class="meta">Nur das Plug-in</span>
+      <h3>Rhino-Paketmanager</h3>
+      <p>In Rhino den Befehl <code>PackageManager</code> eingeben (deutsches Rhino: <code>PaketManager</code>), nach <b>LARGERslicer</b> suchen, installieren und Rhino neu starten. Updates kommen auf demselben Weg.</p>
+      <p>Ohne Internet an der Maschine: Die Datei <code>.yak</code> für deine Rhino-Version aus dem Release laden und auf das Rhino-Fenster ziehen.</p>
+      <div class="go"><a href="https://github.com/Moeewe/LARGER.slicer/releases/latest">.yak-Dateien im Release</a></div>
+    </article>
+    <article class="card">
+      <span class="meta">Von Hand</span>
+      <h3>Die .gha-Datei</h3>
+      <p>Für Rechner, auf denen kein Paket installiert werden darf. Die <code>.yak</code>-Datei ist ein ZIP-Archiv: umbenennen, entpacken, alle Dateien aus dem Ordner für dein System nehmen, nicht nur die <code>.gha</code>.</p>
+      <ul><li>Rhino 9 (Paket <code>rh9_0</code>): Windows <code>net8.0-windows</code>, Mac <code>net8.0</code></li><li>Rhino 8 (Paket <code>rh8_0</code>): Windows <code>net7.0-windows</code>, Mac <code>net7.0</code></li><li>Rhino 7 (Paket <code>rh7_0</code>): die Dateien ganz oben im Archiv</li></ul>
+      <p>In Grasshopper unter File, Special Folders, Components Folder ablegen. Unter Windows vorher in den Eigenschaften jeder Datei „Zulassen“ anklicken. Alte Kopien entfernen, sonst erscheinen Bausteine doppelt.</p>
+    </article>
+  </div>
+  <p class="src">Grasshopper 2 (Vorschau, Rhino 9) wird noch nicht über den Paketmanager verteilt. Wie man es lädt, steht in der <a href="https://github.com/Moeewe/LARGER.slicer/tree/main/LARGERslicer.GH2">Anleitung zur Grasshopper-2-Version</a>.</p>
+</div></section>
+
+<section id="voraussetzungen"><div class="wrap">
+  <div class="lhead"><span class="no num">02</span><h2>Voraussetzungen</h2><p class="lead">Was auf dem Rechner sein muss.</p></div>
+  <div class="cmp"><table>
+    <thead><tr><th>Was</th><th>Voraussetzung</th><th>Hinweis</th></tr></thead>
+    <tbody>
+      <tr><th>Rhino</th><td class="k">Rhino 8 (empfohlen) oder Rhino 9</td><td>Für Rhino 7 liegt ein eigenes Paket bei. Die Definition im SETUP ist mit Rhino 8 getestet.</td></tr>
+      <tr><th>Grasshopper</th><td class="k">Grasshopper 1</td><td>Grasshopper 2 nur in Rhino 9, als Vorschau.</td></tr>
+      <tr><th>Betriebssystem</th><td class="k">Windows 11 oder macOS 11 und neuer</td><td>Die Weber-Anlage selbst läuft mit einem eigenen Windows-Rechner.</td></tr>
+      <tr><th>Einheiten</th><td class="k">Millimeter</td><td>Das Bauteil steht auf der XY-Ebene, mit positiven Koordinaten.</td></tr>
+      <tr><th>Internet</th><td class="k">während der Einrichtung</td><td>Der Installer lädt die Plug-ins über den Rhino-Paketmanager.</td></tr>
+      <tr><th>Weitere Plug-ins</th><td class="k">Robots, Pufferfish</td><td>Nur für die Definition im SETUP und die Roboterbibliothek. Der Installer richtet sie ein. Unter Rhino 7 gibt es Robots 1.9.</td></tr>
+      <tr><th>Lizenz</th><td class="k">CC BY-NC 4.0</td><td>Frei für nicht kommerzielle Nutzung.</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<section id="verlauf"><div class="wrap">
+  <div class="lhead"><span class="no num">03</span><h2>Was sich geändert hat</h2><p class="lead">Kurz und auf Deutsch. Die vollständige Liste steht im <a href="https://github.com/Moeewe/LARGER.slicer/blob/main/LARGERslicer/CHANGELOG.md">Changelog</a> (Englisch).</p></div>
+
+  <article class="rel">
+    <div><div class="v num">Nächste</div><div class="d">in Arbeit</div><span class="chip dev">In Entwicklung</span></div>
+    <div><h3>Düsen, Roboterzelle, eigene Maschinen</h3><ul>
+      <li><b>Externe Achsen:</b> Schiene und Drehtisch fahren mit dem Druck mit. In Rhino getestet, an einer Steuerung noch nicht.</li>
+      <li><b>Düse wählen:</b> Bahnbreite und Lagenhöhe passend zur eingeschraubten Düse, aus den Weber-Profilen und der Einstellung der FH Münster. Eine Warnung, wenn Bahn und Düse nicht zusammenpassen.</li>
+      <li><b>Easy Slicer kann alles:</b> Düse, Boden- und Deckmuster, gekippte Lagen, Start- und Endlagen, Brücken, massive Teile.</li>
+      <li><b>Einstellungen am Baustein:</b> Auswahl, Zahlen, Schalter und Knöpfe sitzen direkt am Baustein. Speichern schreibt die Datei einmal pro Klick.</li>
+      <li><b>Für 45 Grad:</b> Opferlagen vor und nach dem Bauteil, die danach abgefräst werden. Brücken verbinden innere und äußere Wände, damit die Düse nicht absetzt.</li>
+      <li><b>Design Rules:</b> Was Bahnbreite und Düse erlauben, bevor du modellierst, mit Wandstärken für zwei Bahnen und Fräsaufmaß.</li>
+      <li><b>Eigene Maschinen und Zellen:</b> .machine-Dateien und Druckzellen als Rhino-Datei. Maschine und Zelle erscheinen in 3D.</li>
+      <li><b>Erste Lage und Bett:</b> eigene Höhe für die erste Lage. Eine Bahn im Bett oder zu tief darüber wird gemeldet.</li>
+      <li><b>Roboter:</b> Simulation des Drucks, Kollisionsprüfung mit allen Gliedern, Werkzeugrichtung wie im Robots-Plug-in, Anfahrt von oben, Brim.</li>
+      <li><b>Korrigiert:</b> zu viel Material auf gebogenen Lagen, falsche Lagenmarken im DXR, Lagenzahl gerundet statt aufgerundet, ein Absturz in Grasshopper 2.</li>
+    </ul></div>
+  </article>
+
+  <article class="rel">
+    <div><div class="v num">1.3.0</div><div class="d">12.11.2026</div><span class="chip dev">Release folgt</span></div>
+    <div><h3>Roboter-Tab und Easy Slicer</h3><ul>
+      <li><b>Roboter-Tab:</b> Robot, Robot Tool, Robot Cell und Robot Program. Das Werkzeug folgt der Bahn, auch gekippt und mehrachsig. Prüft Reichweite, Achsen, Singularitäten und Achsgeschwindigkeit, schreibt KRL und die Zeilen für den DXR Generator.</li>
+      <li><b>Easy Slicer:</b> ein Baustein vom Modell zur geprüften Bahn, mit Bericht.</li>
+      <li><b>Ginger G-code:</b> G-Code in Originalgröße für den Ginger One.</li>
+      <li><b>Desktop Test Print:</b> eigener Start- und Endcode für Bambu Lab, Prusa, Creality und Elegoo.</li>
+      <li><b>Print Bed:</b> zeigt das Bett der Maschine und prüft, ob die Bahn darauf passt. Quick Start legt fünf Beispiele auf ein Bett.</li>
+      <li><b>Speichern:</b> ohne Pfad landet die Datei auf dem Schreibtisch.</li>
+      <li><b>Korrigiert:</b> Dezimalpunkt im DXR auf deutschen Rechnern, fehlende Lagen im DXR-Kopf, springende Wendepunkte an runden Öffnungen.</li>
+    </ul></div>
+  </article>
+
+  <article class="rel now">
+    <div><div class="v num">1.2.1</div><div class="d">11.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><h3>Korrekturen aus dem Test in Grasshopper</h3><ul>
+      <li><b>Grasshopper 2:</b> erste Version für Rhino 9, mit neun Slicer- und drei DXR-Bausteinen auf demselben Kern.</li>
+      <li><b>Quick Start:</b> drei Beispiele: flach, entlang einer Fläche, entlang einer Kurve.</li>
+      <li><b>Korrigiert:</b> Skirt endet gegenüber dem ersten Punkt, die Welle bindet Öffnungen ein, Verbindungsstellen springen nicht mehr von Lage zu Lage.</li>
+    </ul></div>
+  </article>
+
+  <article class="rel">
+    <div><div class="v num">1.2.0</div><div class="d">11.11.2026</div></div>
+    <div><h3>Der Slicer-Tab</h3><ul>
+      <li><b>Neu gebaut:</b> Print Settings, Slice, Walls, Bottom Fill, Continuous Path, Round Corners, Start and End, Path Check. Alles wird eine Linie.</li>
+      <li><b>Infill aus einer Linie:</b> Stege, Waben und Gitter, Welle, Fachwerk und Mäander, Kammerwand, eigene Linien.</li>
+      <li><b>Gebogene Lagen:</b> entlang einer Führungsfläche (non-planar) oder senkrecht zu einer Kurve (multiaxial).</li>
+      <li><b>Machine Profile</b> für Weber DXR, Ginger und Filament, <b>Desktop Test Print</b> für den Tischdrucker.</li>
+      <li><b>Path Check</b> prüft Auflage und Kreuzungen. Der Vorschub bleibt in jeder Zeile gleich, F0 kommt nicht mehr vor.</li>
+      <li>Läuft in Rhino 9. Neues Logo.</li>
+    </ul></div>
+  </article>
+
+  <article class="rel">
+    <div><div class="v num">1.1.13</div><div class="d">23.10.2026</div></div>
+    <div><h3>Variable Bahnbreite</h3><ul>
+      <li><b>DXR Variable Width:</b> die Extrusion entlang X, Y oder Z skalieren, mit farbiger Vorschau.</li>
+      <li>Anleitungen für die Weber-Anlage und für den KUKA-Wiederanlauf auf Deutsch und Englisch.</li>
+    </ul></div>
+  </article>
+
+  <article class="rel">
+    <div><div class="v num">1.1</div><div class="d">27. bis 29.07.2026</div></div>
+    <div><h3>Prüfen vor dem Druck</h3><ul>
+      <li><b>DXR File Health Check:</b> GO oder NO GO für eine Druckdatei, mit Prüfung der Z-Werte und der ersten Lage.</li>
+      <li>Schnelle Vorschau für G-Code und DXR, Vergleich zweier Dateien, Neuberechnung der Extrusion.</li>
+      <li>CNC Utilities für die Fräsvorbereitung, Fehler beim Packen der Pakete behoben.</li>
+    </ul></div>
+  </article>
+
+  <article class="rel">
+    <div><div class="v num">1.0</div><div class="d">2025 bis März 2026</div></div>
+    <div><h3>Die Anfänge</h3><ul>
+      <li>Robotercode für die Weber DXR, Fräsbahnen für die Zünd G3, Werkzeuge für die Fräsvorbereitung.</li>
+      <li>Pakete für Rhino 7 und Rhino 8.</li>
+    </ul></div>
+  </article>
+</div></section>
+
+  <section class="end"><div class="wrap">
+    <h2>Installiert? Dann los.</h2>
+    <div class="ctas"><a class="btn solid" href="../erste-schritte/">Erste Schritte</a><a class="btn" href="../maschinen/">Maschinen</a></div>
+  </div></section>
+</main>
+<footer><div class="wrap"><span>LARGER.slicer · Moritz Wesseler · FH Münster</span><span>Vor dem Update: Rhino schließen.</span></div></footer>
+<script>
+// logo mark: one continuous line climbing in loops, newest loop blue, nozzle at the end
+(function () {
+  var ns = 'http://www.w3.org/2000/svg';
+  document.querySelectorAll('svg.lm').forEach(function (svg) {
+    var steps = 240, prev = null, segs = [];
+    for (var i = 0; i <= steps; i++) {
+      var t = i / steps, a = 2 * Math.PI * 3 * t - Math.PI * 0.25;
+      var p = { x: 32 + 23 * Math.cos(a), y: 49 - 31 * t + 6.4 * Math.sin(a), d: Math.sin(a), t: t };
+      if (prev) segs.push([prev, p]); prev = p;
+    }
+    [false, true].forEach(function (front) {
+      segs.forEach(function (sg) {
+        if ((sg[1].d >= 0) !== front) return;
+        var e = document.createElementNS(ns, 'path');
+        e.setAttribute('d', 'M' + sg[0].x.toFixed(2) + ' ' + sg[0].y.toFixed(2) + 'L' + sg[1].x.toFixed(2) + ' ' + sg[1].y.toFixed(2));
+        e.setAttribute('stroke', sg[1].t > 2 / 3 ? 'var(--coil-new)' : (front ? 'var(--coil-front)' : 'var(--coil-back)'));
+        e.setAttribute('stroke-width', '4.6'); e.setAttribute('stroke-linecap', 'round'); e.setAttribute('fill', 'none');
+        svg.appendChild(e);
+      });
+    });
+    var c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', prev.x.toFixed(2)); c.setAttribute('cy', prev.y.toFixed(2)); c.setAttribute('r', '4.4'); c.setAttribute('fill', 'var(--coil-new)'); svg.appendChild(c);
+    var d = document.createElementNS(ns, 'circle'); d.setAttribute('cx', prev.x.toFixed(2)); d.setAttribute('cy', prev.y.toFixed(2)); d.setAttribute('r', '1.9'); d.setAttribute('fill', 'var(--bg)'); svg.appendChild(d);
+  });
+})();
+
+</script>

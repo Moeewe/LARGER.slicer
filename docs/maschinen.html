@@ -1,0 +1,560 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LARGER.slicer: Maschinen und Bedienung</title>
+<meta name="description" content="Weber DXR an der FH Münster, Ginger One, Tischdrucker für Testdrucke und eigene Maschinen: was der Slicer ausgibt, der Weg zur Datei, Checklisten, Düsen- und Materialwerte.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:site_name" content="LARGER.slicer">
+<meta property="og:title" content="LARGER.slicer: Maschinen und Bedienung">
+<meta property="og:description" content="Weber DXR an der FH Münster, Ginger One, Tischdrucker für Testdrucke und eigene Maschinen: was der Slicer ausgibt, der Weg zur Datei, Checklisten, Düsen- und Materialwerte.">
+<meta property="og:url" content="https://parametricsolutions.de/larger-slicer/maschinen/">
+<meta property="og:image" content="https://raw.githubusercontent.com/Moeewe/LARGER.slicer/main/docs/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same system as the slicer page and the course. A page is read top to bottom: one big
+   statement in the head, numbered sections, tables and lists in plain German. Logo blue marks only
+   the one thing that matters in each block. */
+:root{
+  --bg:#ffffff; --band:#f1f4f7; --ink:#14203a; --muted:#5d6a7e; --faint:#97a1b0; --line:#dfe4ea;
+  --bead-wall:#e6eaf0; --bead-fill:#cfe3ff; --cl-wall:#14203a; --cl-fill:#0a84ff;
+  --marker:#0a84ff; --on-marker:#ffffff; --marker-soft:#dcecff; --alert:#d23f45; --ok:#138a5e;
+  --night:#121a2b; --night-2:#0a0e18; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#26334f;
+  --win:#ffffff; --win-side:#eef1f5; --win-bar:#e7ebf0;
+  --coil-front:#14203a; --coil-back:#a9b1bf; --coil-new:#0a84ff;
+  --wall:#0a84ff; --infill:#e8870c; --bottom:#0f9e8e; --travel:#e5484d; --skirt:#b46be0;
+  --surface:#ffffff; --fg:#14203a;
+  --chip-built:#dcecff; --chip-built-fg:#0b4f99; --chip-idea:#f1f4f7; --chip-idea-fg:#5d6a7e;
+  --chip-ok:#dcf3e9; --chip-ok-fg:#0d6b48;
+  --display:"Bricolage Grotesque",-apple-system,"SF Pro Display","Helvetica Neue",sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#1a2433; --chip-idea-fg:#a1acbb;
+  --chip-ok:#0f3326; --chip-ok-fg:#6fdcaa; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#1a2433; --chip-idea-fg:#a1acbb;
+  --chip-ok:#0f3326; --chip-ok-fg:#6fdcaa; color-scheme:dark }
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--marker);outline-offset:3px}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);font-weight:800;margin:0;text-wrap:balance;letter-spacing:-.035em}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:11;background:var(--bg)}
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.6) blur(16px);-webkit-backdrop-filter:saturate(1.6) blur(16px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;height:54px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-.02em;text-decoration:none}
+.brand svg{width:28px;height:28px;flex:none;display:block}
+.links{display:flex;gap:22px;font-size:14px;font-weight:600;color:var(--muted);margin-left:auto}
+.links a{text-decoration:none}.links a:hover{color:var(--ink)}
+
+/* head */
+.hero{padding-block:88px 56px}
+.eyebrow{font:500 13px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--marker);margin:0 0 20px}
+h1{font-size:clamp(44px,7.4vw,92px);line-height:1;letter-spacing:-.05em;max-width:12em}
+.hl{color:var(--on-marker);background:linear-gradient(var(--marker),var(--marker)) no-repeat left 60%/100% 72%;padding:0 .06em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.lede{font-size:clamp(19px,2.1vw,23px);color:var(--muted);margin:28px 0 0;max-width:32em}
+.toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 32px;margin-top:56px;border-top:1px solid var(--line)}
+.toc a{display:flex;gap:14px;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--line);text-decoration:none;font-weight:600}
+.toc a:hover{color:var(--marker)}
+.toc .num{font-size:13px;color:var(--faint)}
+
+/* sections */
+section{padding-block:88px;border-top:1px solid var(--line)}
+section:nth-of-type(even){background:var(--band)}
+.lhead{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 28px;align-items:baseline;margin-bottom:48px}
+.lhead .no{font-size:15px;color:var(--marker);grid-row:span 2}
+.lhead h2{font-size:clamp(34px,4.8vw,60px);line-height:1.02}
+.lead{margin:12px 0 0;font-size:clamp(18px,1.9vw,21px);color:var(--muted);max-width:34em}
+h3.sub{font-size:clamp(22px,2.4vw,28px);letter-spacing:-.03em;margin:56px 0 18px}
+h3.sub:first-child{margin-top:0}
+p.txt{margin:0 0 16px;color:var(--muted);max-width:40em}
+p.txt b{color:var(--ink)}
+.src{font-size:13px;color:var(--faint);margin:14px 0 0;max-width:46em}
+.take{margin:40px 0 0;padding:22px 26px;background:var(--marker-soft);color:var(--ink);font-size:19px;font-weight:600;max-width:44em}
+.cap{font-size:13px;color:var(--faint);margin:10px 0 0;max-width:32em}
+code,.c{font-family:var(--mono);font-size:.92em;background:var(--marker-soft);padding:1px 6px;overflow-wrap:anywhere}
+pre{font:14px/1.6 var(--mono);background:var(--night);color:var(--night-ink);padding:20px 22px;margin:0;overflow-x:auto;max-width:100%}
+
+/* tables */
+.cmp{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:16px}
+th,td{text-align:left;padding:14px 16px 14px 0;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+tbody th{font-weight:700;white-space:nowrap}
+td{color:var(--muted)}
+td.k,tr.k td{color:var(--ink)}
+tr.mark th,tr.mark td{color:var(--marker)}
+table.n td,table.n th{font-variant-numeric:tabular-nums}
+
+/* blocks */
+.trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:32px 40px}
+.trio>div{border-top:2px solid var(--ink);padding-top:18px;min-width:0}
+.trio h3{font-size:22px;letter-spacing:-.02em}
+.trio p{margin:10px 0 0;color:var(--muted);font-size:16px}
+.trio .k{color:var(--marker);font-size:13px}
+.list{margin:0;padding:0;list-style:none;display:grid;gap:0;max-width:46em}
+.list li{padding:14px 0 14px 26px;border-bottom:1px solid var(--line);position:relative;color:var(--muted)}
+.list li b{color:var(--ink)}
+.list li::before{content:"";position:absolute;left:0;top:25px;width:12px;height:2px;background:var(--marker)}
+.steps{list-style:none;margin:0;padding:0;counter-reset:st;display:grid;gap:0;max-width:52em}
+.steps li{counter-increment:st;display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px 14px;padding:18px 0;border-top:1px solid var(--line)}
+.steps li::before{content:counter(st);font:500 22px var(--mono);color:var(--marker);grid-row:span 2}
+.steps b{font-size:19px}
+.steps span{color:var(--muted)}
+.flow{list-style:none;margin:0;padding:0;counter-reset:f;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 40px}
+.flow li{counter-increment:f;display:grid;grid-template-columns:28px minmax(0,1fr);gap:2px 10px;padding:16px 0;border-top:1px solid var(--line)}
+.flow li::before{content:counter(f);font:500 13px var(--mono);color:var(--faint);grid-row:span 2;padding-top:3px}
+.flow b{font-size:15px;color:var(--marker);font-weight:500}
+.flow span{color:var(--muted);font-size:16px}
+.checks{list-style:none;margin:0;padding:0;max-width:46em}
+.checks li{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--line)}
+.checks input{width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--marker)}
+.checks label{cursor:pointer}
+.checks input:checked+label{color:var(--faint);text-decoration:line-through}
+.checks .grp{display:block;padding:22px 0 6px;border-top:0;font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:40px 56px;align-items:start}
+.two>*{min-width:0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 32px;margin:0}
+.facts div{border-top:2px solid var(--ink);padding:14px 0 20px;min-width:0}
+.facts dt{font-size:13px;font-weight:600;color:var(--faint)}
+.facts dd{margin:6px 0 0;font-family:var(--display);font-weight:600;font-size:21px;letter-spacing:-.02em;line-height:1.25;overflow-wrap:anywhere}
+.facts dd small{display:block;font-family:var(--body);font-weight:400;font-size:15px;letter-spacing:0;color:var(--muted);margin-top:4px}
+
+/* status chips */
+.chip{display:inline-flex;align-items:center;gap:7px;font:600 12px/1 var(--body);padding:6px 10px;white-space:nowrap;background:var(--chip-idea);color:var(--chip-idea-fg)}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.chip.ok{background:var(--chip-ok);color:var(--chip-ok-fg)}
+.chip.pre{background:var(--chip-built);color:var(--chip-built-fg)}
+.chip.dev{background:var(--chip-idea);color:var(--ink)}
+.chip.plan{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.chip.plan::before{background:transparent;box-shadow:inset 0 0 0 1.5px currentColor}
+.legend{display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:40px;font-size:15px;color:var(--muted);align-items:center}
+.legend span.l{display:flex;gap:10px;align-items:center}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+.card{background:var(--bg);border:1px solid var(--line);padding:26px 24px 24px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.lit{border-top:4px solid var(--marker);padding-top:23px}
+.card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.card h3{font-size:clamp(24px,2.4vw,28px);letter-spacing:-.03em;line-height:1.08}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.card .meta{font:500 13px var(--mono);color:var(--faint)}
+.card ul{margin:0;padding:0;list-style:none;font-size:15px;color:var(--muted)}
+.card ul li{padding:7px 0 7px 20px;border-top:1px solid var(--line);position:relative}
+.card ul li::before{content:"";position:absolute;left:0;top:18px;width:10px;height:2px;background:var(--faint)}
+.card .go{margin-top:auto;padding-top:10px;display:flex;flex-wrap:wrap;gap:8px 20px;font-weight:600;font-size:15px}
+.card .go a{color:var(--marker);text-decoration:none}
+.card .go a:hover{text-decoration:underline}
+
+/* dark band with one statement */
+.night{background:linear-gradient(180deg,var(--night),var(--night-2));color:var(--night-ink);padding-block:104px}
+.night h2{font-size:clamp(40px,6.4vw,80px);line-height:.98;letter-spacing:-.045em;max-width:14em}
+.night p{font-size:clamp(18px,2vw,22px);color:var(--night-muted);margin:24px 0 0;max-width:34em}
+.night .split{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px;margin-top:64px}
+.night .split b{display:block;font-family:var(--display);font-weight:800;font-size:clamp(56px,8vw,104px);line-height:.9;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+.night .split b.you{color:var(--marker)}
+.night .split span{display:block;margin-top:12px;color:var(--night-muted);font-size:16px}
+
+/* calculator */
+.calc{margin-top:40px;padding:32px;background:var(--night);color:var(--night-ink);max-width:880px}
+.calc h3{font-size:24px}
+.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px 20px;margin-top:22px}
+.inputs label{display:grid;grid-template-columns:1fr auto;gap:6px 8px;align-items:center;font-size:13px;color:var(--night-muted);min-width:0}
+.inputs label>span{grid-column:1/-1}
+.inputs input{width:100%;min-width:0;font:500 18px var(--mono);padding:10px 12px;background:var(--night-2);color:var(--night-ink);border:1px solid var(--night-line);border-radius:0}
+.inputs i{font:normal 12px var(--mono);color:var(--night-muted)}
+.outs{margin:28px 0 0;padding-top:24px;border-top:1px solid var(--night-line)}
+.outs dt{font-size:13px;color:var(--night-muted)}
+.outs dd{margin:6px 0 0;font-family:var(--display);font-weight:800;font-size:clamp(36px,5vw,56px);letter-spacing:-.04em;color:var(--marker)}
+.note{margin:14px 0 0;font-size:14px;color:var(--night-muted)}
+
+/* versions */
+.rel{display:grid;grid-template-columns:220px minmax(0,1fr);gap:8px 48px;padding:36px 0;border-top:1px solid var(--line)}
+.rel:first-of-type{border-top:2px solid var(--ink)}
+.rel .v{font-family:var(--display);font-weight:800;font-size:clamp(36px,4.4vw,52px);letter-spacing:-.045em;line-height:1}
+.rel .d{font:500 13px var(--mono);color:var(--faint);margin-top:10px}
+.rel .chip{margin-top:14px}
+.rel.now .v{color:var(--marker)}
+.rel h3{font-size:clamp(22px,2.4vw,28px);letter-spacing:-.03em;margin-bottom:12px}
+.rel ul{margin:0;padding:0;list-style:none;color:var(--muted)}
+.rel ul li{padding:8px 0 8px 24px;position:relative}
+.rel ul li::before{content:"";position:absolute;left:0;top:20px;width:12px;height:2px;background:var(--marker)}
+.rel ul li b{color:var(--ink)}
+
+/* glossary */
+.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 40px;margin:0}
+.gloss div{padding:16px 0;border-top:1px solid var(--line);min-width:0}
+.gloss dt{font-weight:700}
+.gloss dt i{font-style:normal;font-weight:400;color:var(--faint);font-size:14px;margin-left:6px}
+.gloss dd{margin:4px 0 0;color:var(--muted);font-size:16px}
+
+/* book outline */
+.outline{list-style:none;margin:0;padding:0;counter-reset:ch;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:0 48px}
+.outline li{counter-increment:ch;display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 12px;padding:20px 0;border-top:1px solid var(--line)}
+.outline li::before{content:counter(ch,decimal-leading-zero);font:500 15px var(--mono);color:var(--marker);grid-row:span 2;padding-top:5px}
+.outline b{font-family:var(--display);font-size:22px;letter-spacing:-.02em;line-height:1.2}
+.outline span{color:var(--muted);font-size:16px}
+.todo{background:#fff3c4;color:#5c4400;padding:1px 6px;font-weight:600}
+
+/* buttons and end */
+.btn{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;padding:13px 24px;font:600 16px var(--body);text-decoration:none;border:1px solid var(--ink);color:var(--ink);background:transparent}
+.btn.solid{background:var(--ink);color:var(--bg)}
+.btn.solid:hover{background:var(--marker);border-color:var(--marker);color:var(--on-marker)}
+.btn:not(.solid):hover{background:var(--band)}
+.ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+.end{text-align:center}
+.end h2{font-size:clamp(34px,5vw,60px)}
+.end .sub{font-size:clamp(18px,2vw,21px);color:var(--muted);margin:18px auto 0;max-width:30em}
+.end .ctas{justify-content:center}
+footer{padding-block:28px 44px;font-size:13px;color:var(--faint);border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
+footer a{text-decoration:none}footer a:hover{color:var(--ink)}
+
+@media (max-width:760px){
+  .lhead{grid-template-columns:1fr}.lhead .no{grid-row:auto}
+  section{padding-block:64px}.hero{padding-block:56px 40px}.night{padding-block:72px}
+  .calc{padding:24px 20px}
+  .rel{grid-template-columns:minmax(0,1fr);gap:12px}
+  .night .split{grid-template-columns:minmax(0,1fr);gap:36px;margin-top:44px}
+  .btn{white-space:normal}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+td code{white-space:nowrap}
+
+/* site nav: the same block on every page of the site */
+body{margin:0}
+.nav .links{gap:20px;white-space:nowrap}
+.nav .links a{padding:5px 0;border-bottom:2px solid transparent}
+.nav .links a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--marker)}
+@media (max-width:980px){
+  html{scroll-padding-top:104px}
+  .nav .wrap{flex-wrap:wrap;height:auto;row-gap:0;padding-top:10px}
+  .nav .brand{min-height:34px}
+  .nav .wrap .links{display:flex;order:3;flex:1 0 100%;margin:0;padding:6px 0 8px;gap:20px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  .nav .wrap .links::-webkit-scrollbar{display:none}
+  .nav .wrap .links a:last-child{padding-right:28px}
+}
+</style>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><svg class="lm" viewBox="0 0 64 64" aria-hidden="true"></svg>LARGER.slicer</a>
+  <nav class="links" aria-label="Seiten"><a href="../suite/">Suite</a><a href="../einstieg/">Einstieg</a><a href="../erste-schritte/">Erste Schritte</a><a href="../lehrgang/">Lehrgang</a><a href="../maschinen/" aria-current="page">Maschinen</a><a href="../versionen/">Versionen</a><a href="../buch/">Buch</a><a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a></nav>
+</div></header>
+<main>
+<div class="hero wrap">
+    <p class="eyebrow">Maschinen und Bedienung</p>
+    <h1>Eine Bahn. <span class="hl">Jede Maschine</span> bekommt ihre Datei.</h1>
+    <p class="lede">Der Slicer rechnet die Bahn einmal. Wie sie bei der Maschine ankommt, legt das Profil fest. Hier steht pro Maschine, was herauskommt, wie die Datei zur Maschine kommt und mit welchen Werten du anfängst.</p>
+    <nav class="toc" aria-label="Maschinen"><a href="#weber"><span class="num">01</span>Weber DXR, FH Münster</a><a href="#ginger"><span class="num">02</span>Ginger One</a><a href="#tisch"><span class="num">03</span>Tischdrucker</a><a href="#eigene"><span class="num">04</span>Eigene Maschinen</a></nav>
+    <div class="cmp" style="margin-top:56px"><table>
+      <thead><tr><th>Maschine</th><th>Datei</th><th>Extrusion</th><th>Weg zur Maschine</th></tr></thead>
+      <tbody>
+        <tr><th>Weber DXR</th><td class="k"><code>.dxr</code></td><td>Volumen in mm³, an der Steuerung mal P1</td><td>USB-Stick oder Fernwartung, Weber-Bedienfeld</td></tr>
+        <tr><th>Ginger One</th><td class="k"><code>.gcode</code></td><td>relativ, Faktor im Profil</td><td>microSD-Karte</td></tr>
+        <tr><th>Tischdrucker</th><td class="k"><code>.gcode</code></td><td>Filamentlänge, 1,75 mm</td><td>wie beim Drucker üblich</td></tr>
+        <tr><th>Eigene</th><td class="k">nach Profil</td><td>Volumen oder Filamentlänge</td><td>nach Maschine</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+<section id="weber"><div class="wrap">
+  <div class="lhead"><span class="no num">01</span><h2>Weber DXR an der FH Münster</h2><p class="lead">Ein KUKA-Industrieroboter KR120 R2700-2 führt einen Weber-Granulatextruder (AE20) über ein beheiztes Bett. Die Anlage steht im MSA Robotics Lab und wird nur nach Einweisung bedient.</p></div>
+
+  <dl class="facts">
+    <div><dt>Ausgabe</dt><dd>DXR-Datei<small>Zeilen mit X, Y, Z, Werkzeugrichtung A, B, C und Extrusion</small></dd></div>
+    <div><dt>Extrusion</dt><dd>Volumen × P1<small>P1 ist der Materialfaktor an der Steuerung</small></dd></div>
+    <div><dt>Dateiname</dt><dd class="num">DXR_Datum_Teil_g_min<small>z. B. DXR_2611051216_Testteil_2668g_53min.dxr</small></dd></div>
+    <div><dt>Erprobt</dt><dd>3-mm-Flachdüse<small>5 mm Bahn, 2 mm Lage</small></dd></div>
+  </dl>
+
+  <h3 class="sub">Vom Bauteil zur Datei</h3>
+  <ol class="flow">
+    <li><b>Rhino</b><span>Bauteil in Millimetern, auf positiven Koordinaten, auf dem Bett der Zelle.</span></li>
+    <li><b>Print Settings</b><span>Machine Profile „Weber DXR“, Düse, Bahnbreite, Lagenhöhe, Geschwindigkeit.</span></li>
+    <li><b>Slice bis Path Check</b><span>Oder alles in einem: Easy Slicer. Der Path Check muss OK melden.</span></li>
+    <li><b>Robot Cell</b><span>Roboter, Werkzeug und Zelle der FH Münster (Cell Geometry).</span></li>
+    <li><b>Robot Program</b><span>Reichweite, Achsen, Kollisionen prüfen. Erst wenn alles ausführbar ist, weiter.</span></li>
+    <li><b>DXR Generator</b><span>Save schreibt die Datei, ohne Pfad auf den Schreibtisch.</span></li>
+    <li><b>DXR File Health Check</b><span>Liest die Datei und sagt GO oder NO GO.</span></li>
+    <li><b>An die Anlage</b><span>USB-Stick am rechten Anschluss des Bedienfelds oder per Fernwartung, in den G-Code-Ordner der Anlage kopieren.</span></li>
+    <li><b>Laden und starten</b><span>Am Weber-Bedienfeld laden, Vorschau und Versatz prüfen, mit wenig Override starten.</span></li>
+  </ol>
+  <p class="src">Ohne Roboter-Tab (bis Version 1.2.1) gehen flache Bahnen über „Toolpath to Robot Lines“ in den DXR Generator, oder über die Definition im SETUP-Paket.</p>
+
+  <div class="two" style="margin-top:56px">
+    <div>
+      <h3 class="sub">Checkliste zum Start</h3>
+      <ul class="checks">
+        <li class="grp">Vorbereiten</li>
+        <li><input type="checkbox" id="w1"><label for="w1">Raum einige Minuten gelüftet, Zelle frei, Bettplatten liegen ohne Lücke</label></li>
+        <li><input type="checkbox" id="w2"><label for="w2">Trockner an und gefüllt, nur freigegebenes Material (PETG, PLA)</label></li>
+        <li><input type="checkbox" id="w3"><label for="w3">Kühlkreislauf sieht plausibel aus</label></li>
+        <li><input type="checkbox" id="w4"><label for="w4">Erst Robotersteuerung, dann Schaltschrank einschalten</label></li>
+        <li><input type="checkbox" id="w5"><label for="w5">Am Bedienfeld anmelden, Meldungen lesen und quittieren</label></li>
+        <li><input type="checkbox" id="w6"><label for="w6">Tür zu, verriegelt, Antriebe an, Grundstellung, Bremstest</label></li>
+        <li class="grp">Material und Düse</li>
+        <li><input type="checkbox" id="w7"><label for="w7">Rezept geladen, Heizzonen auf Soll, mindestens 15 Minuten durchwärmen</label></li>
+        <li><input type="checkbox" id="w8"><label for="w8">Extruder säubern: Antriebslast bleibt im blauen Bereich</label></li>
+        <li><input type="checkbox" id="w9"><label for="w9">Düse fest, Überdrucksicherung intakt, Handschuhe bereit</label></li>
+        <li class="grp">Druck</li>
+        <li><input type="checkbox" id="w10"><label for="w10">Datei geladen, Vorschau, Maße und Versatz geprüft</label></li>
+        <li><input type="checkbox" id="w11"><label for="w11">Mit 10 bis 50 % Override starten, erste Lage beobachten</label></li>
+        <li><input type="checkbox" id="w12"><label for="w12">Nach Düsen- oder Plattenwechsel Abstand Düse zu Bett nachmessen</label></li>
+        <li class="grp">Danach</li>
+        <li><input type="checkbox" id="w13"><label for="w13">Teil erst unter 50 °C lösen, Heizungen aus, Kühlung nachlaufen lassen</label></li>
+        <li><input type="checkbox" id="w14"><label for="w14">Roboter in Grundstellung, dann Software, Windows, Schaltschrank, Steuerung aus</label></li>
+      </ul>
+      <p class="src">Die ausführliche Anleitung mit Fehlerhilfe: <a href="https://github.com/Moeewe/LARGER.slicer/blob/main/EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20GERMAN.md">Inbetriebnahme und Bedienung DXR25</a>. Zugangsdaten gibt es bei der Werkstattleitung, nicht hier.</p>
+    </div>
+    <div>
+      <h3 class="sub">Mehrachsig oder schräg</h3>
+      <ul class="list">
+        <li><b>Erst flach testen.</b> Alle Druckwerte zuerst in flachen Lagen prüfen, mit derselben Software.</li>
+        <li><b>Simulieren.</b> Robot Simulation und Robot Program: Singularitäten, Werkzeugrichtung, Kollisionen mit Bett, Bauteil und Zaun.</li>
+        <li><b>Trockenlauf.</b> Ein Testprogramm mit sehr hohen Lagen und fast ohne Extrusion zuerst an der Anlage fahren.</li>
+        <li><b>Düse vermessen.</b> Länge auf etwa 0,1 mm genau, dann mit zusätzlichem Düsenabstand starten und nachmessen.</li>
+        <li><b>Neigung zur freien Seite.</b> Den Extruder zur Wand und in den größten freien Raum neigen, weg von der Tür. Abstand zum Zaun lassen.</li>
+        <li><b>Bei 45 Grad.</b> Die ersten Bahnen sehr langsam und mit deutlich mehr Material legen. Opferlagen vorher und nachher einplanen.</li>
+      </ul>
+      <p class="src">Ablauf nach Angaben im Weber Quick Guide und in der Bedienanleitung der FH Münster.</p>
+    </div>
+  </div>
+
+  <h3 class="sub">Düse, Bahn, Lage</h3>
+  <p class="txt">Die Düsenform entscheidet, wie breit die Bahn werden darf: eine <b>spitze Düse</b> legt etwa das 0,7- bis 1,3-Fache ihres Durchmessers, eine <b>flache Düse</b> das 1,0- bis 1,8-Fache. Die Lage liegt bei einem Viertel bis zur Hälfte der Düse.</p>
+  <div class="cmp"><table class="n">
+    <thead><tr><th>Düse</th><th>Weber-Profil: Bahn / Lage</th><th>Bahn mit spitzer Düse</th><th>Bahn mit flacher Düse</th><th>Lage ¼ bis ½</th></tr></thead>
+    <tbody>
+      <tr><th class="num">1 mm</th><td class="k num">1,25 / 0,5 mm</td><td class="num">0,7–1,3 mm</td><td class="num">1,0–1,8 mm</td><td class="num">0,25–0,5 mm</td></tr>
+      <tr><th class="num">2 mm</th><td class="k num">2,5 / 1,0 mm</td><td class="num">1,4–2,6 mm</td><td class="num">2,0–3,6 mm</td><td class="num">0,5–1,0 mm</td></tr>
+      <tr><th class="num">3 mm</th><td class="k num">3,6 / 1,25 mm</td><td class="num">2,1–3,9 mm</td><td class="num">3,0–5,4 mm</td><td class="num">0,75–1,5 mm</td></tr>
+      <tr class="mark"><th class="num">3 mm flach</th><td class="num">5 / 2 mm, FH Münster</td><td class="num">–</td><td class="num">3,0–5,4 mm</td><td class="num">erprobt mit 2 mm</td></tr>
+      <tr><th class="num">4 mm</th><td class="k num">4,8 / 1,8 mm</td><td class="num">2,8–5,2 mm</td><td class="num">4,0–7,2 mm</td><td class="num">1,0–2,0 mm</td></tr>
+      <tr><th class="num">5 mm</th><td class="k num">6,0 / 2,0 mm</td><td class="num">3,5–6,5 mm</td><td class="num">5,0–9,0 mm</td><td class="num">1,25–2,5 mm</td></tr>
+      <tr><th class="num">6 mm</th><td class="k num">7,2 / 2,4 mm</td><td class="num">4,2–7,8 mm</td><td class="num">6,0–10,8 mm</td><td class="num">1,5–3,0 mm</td></tr>
+      <tr><th class="num">8 mm</th><td class="k num">10 / 3,2 mm</td><td class="num">5,6–10,4 mm</td><td class="num">8,0–14,4 mm</td><td class="num">2,0–4,0 mm</td></tr>
+    </tbody>
+  </table></div>
+  <p class="src">Bahn und Lage der Weber-Profile aus den Slicer-Daten des Weber-Startpakets, Bereiche für spitze und flache Düsen nach Angaben im Weber Quick Guide, Lagenhöhe nach dem CEAD-Datenblatt. Die 2-mm-Lage der FH-Einstellung liegt über der Hälfte der Düse, ist aber mit fließfähigem PETG erprobt. Mit der nächsten Version wählt Print Settings diese Werte über den Eingang „Nozzle“.</p>
+
+  <h3 class="sub">Material: Startwerte</h3>
+  <div class="cmp"><table class="n">
+    <thead><tr><th>Material</th><th>Einfüllzone</th><th>Heizzonen 1 / 2 / 3</th><th>Düse</th><th>Bett</th><th>Trocknen</th></tr></thead>
+    <tbody>
+      <tr><th>PLA</th><td class="num">35 °C</td><td class="num">160–170 / 170–180 / 180–190 °C</td><td class="num">180–190 °C</td><td class="num">60–100 °C</td><td class="num">4 h bei 60 °C</td></tr>
+      <tr><th>rPETG</th><td class="num">60 °C</td><td class="num">190–200 / 200–210 / 210–215 °C</td><td class="num">215–220 °C</td><td class="num">70–90 °C</td><td class="num">6 h bei 60 °C</td></tr>
+      <tr><th>Carbon-P (mit Kohlefaser)</th><td class="num">35 °C</td><td class="num">200–210 / 210–220 / 220–230 °C</td><td class="num">235–240 °C</td><td class="num">60–90 °C</td><td class="num">6 h bei 65 °C</td></tr>
+    </tbody>
+  </table></div>
+  <p class="src">Temperaturen und Trocknung nach Angaben im Weber Quick Guide für je ein bestimmtes Handelsmaterial. Herstellerdatenblatt und das freigegebene Rezept an der Anlage gehen vor.</p>
+  <dl class="facts" style="margin-top:32px">
+    <div><dt>Rezept an der FH</dt><dd>„PETG 3 mm“<small>um 230 °C, je nach Material und Düse</small></dd></div>
+    <div><dt>Materialfaktor P1, Start</dt><dd class="num">PETG ≈ 3,1 · PLA ≈ 3,5<small>an der Steuerung, nicht im Slicer</small></dd></div>
+    <div><dt>Restfeuchte</dt><dd class="num">unter 0,03 %<small>sonst Bläschen, matte Bahn, zu breite Bahn</small></dd></div>
+    <div><dt>Bauteilkühlung</dt><dd>anfangs aus<small>für die Haftung auf dem Bett, später nach Bedarf</small></dd></div>
+  </dl>
+</div></section>
+
+<section id="ginger"><div class="wrap">
+  <div class="lhead"><span class="no num">02</span><h2>Ginger One</h2><p class="lead">Ein Großformatdrucker mit Granulatextruder und einem Bett von 1 × 1 m. Er liest G-Code von der microSD-Karte und mischt Grundmaterial und Zusatz im Extruder.</p></div>
+
+  <dl class="facts">
+    <div><dt>Ausgabe</dt><dd>G-Code<small>relative Extrusion, ein Vorschub für jede Zeile</small></dd></div>
+    <div><dt>Profil</dt><dd class="num">Faktor 0,21<small>für PLA-Neuware, im Machine Profile „Ginger“</small></dd></div>
+    <div><dt>Dateiname</dt><dd class="num">GIN_Datum_Teil_g_min<small>.gcode</small></dd></div>
+    <div><dt>Mischer</dt><dd class="num">93 / 7 %<small>Grundmaterial zu Zusatz, voreingestellt</small></dd></div>
+  </dl>
+
+  <h3 class="sub">Vom Bauteil zur Datei</h3>
+  <ol class="flow">
+    <li><b>Rhino</b><span>Bauteil in Millimetern auf dem Bett, 0 bis 1000 mm in X und Y.</span></li>
+    <li><b>Easy Slicer oder die Kette</b><span>Machine Profile „Ginger“, Bahnbreite mindestens das 1,5-Fache der Düse.</span></li>
+    <li><b>Path Check</b><span>Muss OK melden.</span></li>
+    <li><b>Ginger G-code</b><span>Schreibt Start, Bahn und Ende in eine Datei. Bis Version 1.2.1 über die Definition im SETUP-Paket.</span></li>
+    <li><b>microSD-Karte</b><span>Datei kopieren, Karte hinten links in den Steuerkasten.</span></li>
+    <li><b>Drucken</b><span>Am Drucker die Datei wählen. Der Startcode heizt, fährt nach Hause und wartet auf deine Bestätigung.</span></li>
+  </ol>
+
+  <div class="two" style="margin-top:56px">
+    <div>
+      <h3 class="sub">Checkliste zum Start</h3>
+      <ul class="checks">
+        <li><input type="checkbox" id="g1"><label for="g1">Heizbett an einem eigenen Stromkreis (bis 4 × 800 W)</label></li>
+        <li><input type="checkbox" id="g2"><label for="g2">Drucker an der Steckdosenleiste einschalten, alle Not-Aus-Taster entriegelt</label></li>
+        <li><input type="checkbox" id="g3"><label for="g3">Düsengröße passt zu Bahnbreite und Lagenhöhe der Datei</label></li>
+        <li><input type="checkbox" id="g4"><label for="g4">Bett und Extruder auf Temperatur</label></li>
+        <li><input type="checkbox" id="g5"><label for="g5">Spülen, bis das Material sauber kommt, Düse vor dem Referenzieren säubern</label></li>
+        <li><input type="checkbox" id="g6"><label for="g6">Bett nivelliert, Z-Versatz gespeichert, Haftmittel aufgetragen</label></li>
+        <li><input type="checkbox" id="g7"><label for="g7">Saugschlauch liegt unten in der Materialkiste, Granulat trocken und rieselfähig</label></li>
+        <li><input type="checkbox" id="g8"><label for="g8">Datei von der microSD-Karte geladen, Mischer auf 93 / 7 %</label></li>
+        <li><input type="checkbox" id="g9"><label for="g9">Erste Lagen beobachten, Fluss bei Bedarf im Tune-Menü anpassen</label></li>
+        <li><input type="checkbox" id="g10"><label for="g10">Lüfter in den ersten vier Lagen aus, danach 60 bis 100 %</label></li>
+        <li><input type="checkbox" id="g11"><label for="g11">Nach dem Druck das Bett abkühlen lassen, dann das Teil lösen</label></li>
+      </ul>
+      <p class="src">Nach dem <a href="https://github.com/Moeewe/LARGER.slicer/blob/main/EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20GINGER%20-%20ONE%20-%20README/README%20GINGER%2000%20QUICK%20START%20GUIDE.md">Ginger-Handbuch der FH Münster</a> (Englisch).</p>
+    </div>
+    <div>
+      <h3 class="sub">Regeln für den Ginger</h3>
+      <div class="cmp"><table class="n" style="min-width:0">
+        <thead><tr><th>Düse</th><th>Bahn ab</th><th>Lage bis</th><th>Eckradius ab</th></tr></thead>
+        <tbody>
+          <tr><th class="num">2 mm</th><td class="num">3 mm</td><td class="num">1,2 mm</td><td class="num">1 mm</td></tr>
+          <tr><th class="num">3 mm</th><td class="num">4,5 mm</td><td class="num">1,8 mm</td><td class="num">1,5 mm</td></tr>
+          <tr><th class="num">5 mm</th><td class="num">7,5 mm</td><td class="num">3,0 mm</td><td class="num">2,5 mm</td></tr>
+          <tr><th class="num">8 mm</th><td class="num">12 mm</td><td class="num">4,8 mm</td><td class="num">4 mm</td></tr>
+        </tbody>
+      </table></div>
+      <p class="src">Bahn mindestens das 1,5-Fache der Düse, Lage höchstens 60 % der Düse, Bahn mindestens doppelt so breit wie hoch, Eckradius mindestens eine halbe Düse. Eine Düse wird nur heiß gewechselt, das Gewinde mit Teflonband abgedichtet.</p>
+    </div>
+  </div>
+
+  <h3 class="sub">Material: Startwerte</h3>
+  <div class="cmp"><table class="n">
+    <thead><tr><th>Material</th><th>Zone 1 / 2 / 3</th><th>Trocknen</th><th>Haftung</th><th>Faktor in Grasshopper</th></tr></thead>
+    <tbody>
+      <tr><th>PLA, Neuware</th><td class="num">200 / 205 / 200 °C</td><td>nein</td><td>glatte Platte, Haarspray</td><td class="k num">0,21</td></tr>
+      <tr><th>PLA, recycelte Flakes</th><td class="num">190 / 190 / 180 °C</td><td>nein</td><td>glatte Platte, Haarspray</td><td class="k num">0,7</td></tr>
+      <tr><th>PETG, Neuware</th><td class="num">220 / 220 / 210 °C</td><td>ja</td><td>MDF, verschraubt</td><td class="k num">0,5 (3-mm-Düse)</td></tr>
+      <tr><th>rPP, Flakes</th><td class="num">200 / 200 / 190 °C</td><td>nein</td><td>MDF verschraubt oder PP-Platte</td><td class="num">–</td></tr>
+      <tr><th>TPU</th><td class="num">220 / 230 / 220 °C</td><td>nein</td><td>glatte Platte, Haarspray</td><td class="num">–</td></tr>
+    </tbody>
+  </table></div>
+  <p class="src">Aus der Materialtabelle des Ginger-Handbuchs der FH Münster. Ein Strich heißt: noch kein erprobter Wert. Den Faktor pro Material und Düse mit einer einwandigen Probe bestimmen, siehe <a href="../einstieg/#trocknen">Materialfaktor</a>.</p>
+</div></section>
+
+<section id="tisch"><div class="wrap">
+  <div class="lhead"><span class="no num">03</span><h2>Tischdrucker für den Testdruck</h2><p class="lead">Derselbe Pfad, verkleinert. So siehst du Muster, Naht und Überhänge, bevor der Roboter anfährt. Material und Abkühlen eines Granulatextruders lassen sich damit nicht prüfen.</p></div>
+
+  <dl class="facts">
+    <div><dt>Ausgabe</dt><dd>G-Code<small>Marlin oder Klipper, Filament 1,75 mm</small></dd></div>
+    <div><dt>Baustein</dt><dd>Desktop Test Print<small>prüft Bett, Bahn gegen Düse und Lagenhöhe, schlägt einen Maßstab vor</small></dd></div>
+    <div><dt>Vorlagen</dt><dd>Bambu Lab, Prusa, Creality, Elegoo<small>eigener Start- und Endcode ab Version 1.3</small></dd></div>
+  </dl>
+
+  <div class="two" style="margin-top:48px">
+    <div>
+      <h3 class="sub">Vom Bauteil zur Datei</h3>
+      <ol class="flow" style="grid-template-columns:minmax(0,1fr)">
+        <li><b>Dieselbe Kette</b><span>Bis zum Path Check alles wie für die große Maschine.</span></li>
+        <li><b>Desktop Test Print</b><span>Drucker wählen, Maßstab übernehmen oder eingeben, Save.</span></li>
+        <li><b>Drucken</b><span>Datei wie gewohnt an den Drucker schicken.</span></li>
+      </ol>
+      <h3 class="sub">Checkliste</h3>
+      <ul class="checks">
+        <li><input type="checkbox" id="t1"><label for="t1">Start- und Endcode mit dem eigenen Drucker verglichen</label></li>
+        <li><input type="checkbox" id="t2"><label for="t2">Verkleinertes Teil passt aufs Bett</label></li>
+        <li><input type="checkbox" id="t3"><label for="t3">Bahn etwa das 1,2-Fache der Düse, Lage unter der Hälfte</label></li>
+        <li><input type="checkbox" id="t4"><label for="t4">Erste Lage beobachten</label></li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="sub">Maßstab für eine 0,4-mm-Düse</h3>
+      <div class="cmp"><table class="n" style="min-width:0">
+        <thead><tr><th>Groß: Bahn / Lage</th><th>Maßstab</th><th>Klein: Bahn / Lage</th></tr></thead>
+        <tbody>
+          <tr><td class="num">3,6 / 1,25 mm</td><td class="num">× 0,133</td><td class="k num">0,48 / 0,17 mm</td></tr>
+          <tr class="mark"><td class="num">5 / 2 mm</td><td class="num">× 0,096</td><td class="num">0,48 / 0,19 mm</td></tr>
+          <tr><td class="num">6 / 2 mm</td><td class="num">× 0,08</td><td class="k num">0,48 / 0,16 mm</td></tr>
+          <tr><td class="num">10 / 3,2 mm</td><td class="num">× 0,048</td><td class="k num">0,48 / 0,15 mm</td></tr>
+        </tbody>
+      </table></div>
+      <p class="src">Maßstab = 0,48 mm ÷ große Bahnbreite. Bahn, Lage und Weg schrumpfen im selben Verhältnis.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="eigene"><div class="wrap">
+  <div class="lhead"><span class="no num">04</span><h2>Eigene Maschinen</h2><p class="lead">Eine Maschine, die G-Code liest, ist eine kleine Textdatei. Eine eigene Roboterzelle ist eine Rhino-Datei. Beides kommt mit der nächsten Version.</p></div>
+  <div class="two">
+    <div>
+      <h3 class="sub">Die .machine-Datei</h3>
+      <p class="txt">Im Ordner <code>Dokumente/LARGER/Machines</code> abgelegt, erscheint sie im Baustein <b>Machine</b>. <b>Machine G-code</b> schreibt dann die Bahn für diese Maschine. Der Baustein Machine kann die Datei auch aus Name, Start-, Lagen- und Endcode und Faktor selbst anlegen.</p>
+<pre>name = Mein Drucker
+prefix = MDR
+extension = .gcode
+bed = 1000 x 1000
+extrusion factor = 0.21
+first layer factor = 1
+filament diameter = 0
+[start]
+G21
+G28
+[layer]
+; layer {layer} at Z {z}
+[end]
+M84</pre>
+      <p class="src"><code>filament diameter = 0</code> heißt: E ist ein Volumen. Zeilen mit # sind Kommentare. Eine Rhino-Datei mit demselben Namen daneben zeigt die Maschine in 3D.</p>
+    </div>
+    <div>
+      <h3 class="sub">So fängst du an</h3>
+      <ol class="steps">
+        <li><b>Profil „Granulat“ nehmen</b><span>Es gibt Position, Werkzeugachse, E und F pro Punkt aus. Format und Faktor stimmst du an der Maschine ab.</span></li>
+        <li><b>Start- und Endcode übernehmen</b><span>Aus dem Slicer, mit dem die Maschine bisher läuft. Heizen, Referenzfahrt, Spülen, am Ende wegfahren.</span></li>
+        <li><b>Faktor bestimmen</b><span>Eine einwandige Probe drucken, Breite messen. Neuer Faktor = Sollbreite ÷ Istbreite × alter Faktor.</span></li>
+        <li><b>Erst klein, dann groß</b><span>Eine kurze Wand, dann ein Teil mit Infill. Erst danach das eigentliche Bauteil.</span></li>
+      </ol>
+      <h3 class="sub">Eigene Roboterzelle</h3>
+      <p class="txt">Eine <code>.3dm</code> in <code>Dokumente/LARGER/Cells</code> mit je einer Ebene für <b>Bed</b>, <b>Robot Base</b> (Punkt und Linie entlang der X-Achse des Roboters) und optional <b>Work Base</b>. Alles auf anderen Ebenen zählt für die Kollisionsprüfung. Export in Cell Geometry schreibt die Zelle der FH Münster als Vorlage. Andere Sechsachser lädt der Baustein Robot aus der Bibliothek des Robots-Plug-ins.</p>
+    </div>
+  </div>
+  <p class="src" style="margin-top:40px">Vorbereitet, aber nicht an der Maschine getestet: WASP, CEAD, Caracol und weitere Granulat- und Robotersysteme. Alle genannten Marken gehören ihren Inhabern. LARGER.slicer ist ein unabhängiges Projekt und steht in keiner Verbindung zu diesen Herstellern.</p>
+</div></section>
+
+  <section class="end"><div class="wrap">
+    <h2>Neu an der Maschine?</h2>
+    <p class="sub">Erst verstehen, was im Großformat anders ist, dann das erste Teil.</p>
+    <div class="ctas"><a class="btn solid" href="../einstieg/">Einstieg</a><a class="btn" href="../erste-schritte/">Erste Schritte</a></div>
+  </div></section>
+</main>
+<footer><div class="wrap"><span>LARGER.slicer · Moritz Wesseler · FH Münster</span><span>Richtwerte. Einweisung und Herstellerangaben gehen vor.</span></div></footer>
+<script>
+// logo mark: one continuous line climbing in loops, newest loop blue, nozzle at the end
+(function () {
+  var ns = 'http://www.w3.org/2000/svg';
+  document.querySelectorAll('svg.lm').forEach(function (svg) {
+    var steps = 240, prev = null, segs = [];
+    for (var i = 0; i <= steps; i++) {
+      var t = i / steps, a = 2 * Math.PI * 3 * t - Math.PI * 0.25;
+      var p = { x: 32 + 23 * Math.cos(a), y: 49 - 31 * t + 6.4 * Math.sin(a), d: Math.sin(a), t: t };
+      if (prev) segs.push([prev, p]); prev = p;
+    }
+    [false, true].forEach(function (front) {
+      segs.forEach(function (sg) {
+        if ((sg[1].d >= 0) !== front) return;
+        var e = document.createElementNS(ns, 'path');
+        e.setAttribute('d', 'M' + sg[0].x.toFixed(2) + ' ' + sg[0].y.toFixed(2) + 'L' + sg[1].x.toFixed(2) + ' ' + sg[1].y.toFixed(2));
+        e.setAttribute('stroke', sg[1].t > 2 / 3 ? 'var(--coil-new)' : (front ? 'var(--coil-front)' : 'var(--coil-back)'));
+        e.setAttribute('stroke-width', '4.6'); e.setAttribute('stroke-linecap', 'round'); e.setAttribute('fill', 'none');
+        svg.appendChild(e);
+      });
+    });
+    var c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', prev.x.toFixed(2)); c.setAttribute('cy', prev.y.toFixed(2)); c.setAttribute('r', '4.4'); c.setAttribute('fill', 'var(--coil-new)'); svg.appendChild(c);
+    var d = document.createElementNS(ns, 'circle'); d.setAttribute('cx', prev.x.toFixed(2)); d.setAttribute('cy', prev.y.toFixed(2)); d.setAttribute('r', '1.9'); d.setAttribute('fill', 'var(--bg)'); svg.appendChild(d);
+  });
+})();
+
+</script>
