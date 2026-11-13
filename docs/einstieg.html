@@ -1,0 +1,513 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Einstieg in den großformatigen 3D-Druck</title>
+<meta name="description" content="Großformatiger 3D-Druck mit Granulat für Einsteiger: FGF und LFAM, Granulat oder Filament, warum eine durchgehende Bahn, Düse, Lagenhöhe, Überhang, Trocknen, Materialfaktor und ein Glossar.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:site_name" content="LARGER.slicer">
+<meta property="og:title" content="Einstieg in den großformatigen 3D-Druck">
+<meta property="og:description" content="Großformatiger 3D-Druck mit Granulat für Einsteiger: FGF und LFAM, Granulat oder Filament, warum eine durchgehende Bahn, Düse, Lagenhöhe, Überhang, Trocknen, Materialfaktor und ein Glossar.">
+<meta property="og:url" content="https://parametricsolutions.de/larger-slicer/einstieg/">
+<meta property="og:image" content="https://raw.githubusercontent.com/Moeewe/LARGER.slicer/main/docs/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same system as the slicer page and the course. A page is read top to bottom: one big
+   statement in the head, numbered sections, tables and lists in plain German. Logo blue marks only
+   the one thing that matters in each block. */
+:root{
+  --bg:#ffffff; --band:#f1f4f7; --ink:#14203a; --muted:#5d6a7e; --faint:#97a1b0; --line:#dfe4ea;
+  --bead-wall:#e6eaf0; --bead-fill:#cfe3ff; --cl-wall:#14203a; --cl-fill:#0a84ff;
+  --marker:#0a84ff; --on-marker:#ffffff; --marker-soft:#dcecff; --alert:#d23f45; --ok:#138a5e;
+  --night:#121a2b; --night-2:#0a0e18; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#26334f;
+  --win:#ffffff; --win-side:#eef1f5; --win-bar:#e7ebf0;
+  --coil-front:#14203a; --coil-back:#a9b1bf; --coil-new:#0a84ff;
+  --wall:#0a84ff; --infill:#e8870c; --bottom:#0f9e8e; --travel:#e5484d; --skirt:#b46be0;
+  --surface:#ffffff; --fg:#14203a;
+  --chip-built:#dcecff; --chip-built-fg:#0b4f99; --chip-idea:#f1f4f7; --chip-idea-fg:#5d6a7e;
+  --chip-ok:#dcf3e9; --chip-ok-fg:#0d6b48;
+  --display:"Bricolage Grotesque",-apple-system,"SF Pro Display","Helvetica Neue",sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#1a2433; --chip-idea-fg:#a1acbb;
+  --chip-ok:#0f3326; --chip-ok-fg:#6fdcaa; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0c121c; --band:#111925; --ink:#eef2f7; --muted:#a1acbb; --faint:#6f7b8c; --line:#253041;
+  --bead-wall:#1f2a3b; --bead-fill:#12304f; --cl-wall:#dfe6f0; --cl-fill:#4aa3ff;
+  --marker:#3d9bff; --on-marker:#06121f; --marker-soft:#14304f; --alert:#ff6b70; --ok:#45c48f;
+  --night:#0f1726; --night-2:#060a11; --night-ink:#f3f5f8; --night-muted:#8f9bb0; --night-line:#1c2638;
+  --win:#151d29; --win-side:#111823; --win-bar:#1b2432;
+  --coil-front:#eef2f7; --coil-back:#4b5568; --coil-new:#3d9bff;
+  --wall:#4aa3ff; --infill:#f5a13a; --bottom:#35c2b1; --travel:#ff6b70; --skirt:#c792ee;
+  --surface:#151d29; --fg:#eef2f7;
+  --chip-built:#14304f; --chip-built-fg:#9ccbff; --chip-idea:#1a2433; --chip-idea-fg:#a1acbb;
+  --chip-ok:#0f3326; --chip-ok-fg:#6fdcaa; color-scheme:dark }
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--marker);outline-offset:3px}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);font-weight:800;margin:0;text-wrap:balance;letter-spacing:-.035em}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:11;background:var(--bg)}
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.6) blur(16px);-webkit-backdrop-filter:saturate(1.6) blur(16px);border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;height:54px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-.02em;text-decoration:none}
+.brand svg{width:28px;height:28px;flex:none;display:block}
+.links{display:flex;gap:22px;font-size:14px;font-weight:600;color:var(--muted);margin-left:auto}
+.links a{text-decoration:none}.links a:hover{color:var(--ink)}
+
+/* head */
+.hero{padding-block:88px 56px}
+.eyebrow{font:500 13px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--marker);margin:0 0 20px}
+h1{font-size:clamp(44px,7.4vw,92px);line-height:1;letter-spacing:-.05em;max-width:12em}
+.hl{color:var(--on-marker);background:linear-gradient(var(--marker),var(--marker)) no-repeat left 60%/100% 72%;padding:0 .06em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.lede{font-size:clamp(19px,2.1vw,23px);color:var(--muted);margin:28px 0 0;max-width:32em}
+.toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 32px;margin-top:56px;border-top:1px solid var(--line)}
+.toc a{display:flex;gap:14px;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--line);text-decoration:none;font-weight:600}
+.toc a:hover{color:var(--marker)}
+.toc .num{font-size:13px;color:var(--faint)}
+
+/* sections */
+section{padding-block:88px;border-top:1px solid var(--line)}
+section:nth-of-type(even){background:var(--band)}
+.lhead{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 28px;align-items:baseline;margin-bottom:48px}
+.lhead .no{font-size:15px;color:var(--marker);grid-row:span 2}
+.lhead h2{font-size:clamp(34px,4.8vw,60px);line-height:1.02}
+.lead{margin:12px 0 0;font-size:clamp(18px,1.9vw,21px);color:var(--muted);max-width:34em}
+h3.sub{font-size:clamp(22px,2.4vw,28px);letter-spacing:-.03em;margin:56px 0 18px}
+h3.sub:first-child{margin-top:0}
+p.txt{margin:0 0 16px;color:var(--muted);max-width:40em}
+p.txt b{color:var(--ink)}
+.src{font-size:13px;color:var(--faint);margin:14px 0 0;max-width:46em}
+.take{margin:40px 0 0;padding:22px 26px;background:var(--marker-soft);color:var(--ink);font-size:19px;font-weight:600;max-width:44em}
+.cap{font-size:13px;color:var(--faint);margin:10px 0 0;max-width:32em}
+code,.c{font-family:var(--mono);font-size:.92em;background:var(--marker-soft);padding:1px 6px;overflow-wrap:anywhere}
+pre{font:14px/1.6 var(--mono);background:var(--night);color:var(--night-ink);padding:20px 22px;margin:0;overflow-x:auto;max-width:100%}
+
+/* tables */
+.cmp{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:16px}
+th,td{text-align:left;padding:14px 16px 14px 0;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+tbody th{font-weight:700;white-space:nowrap}
+td{color:var(--muted)}
+td.k,tr.k td{color:var(--ink)}
+tr.mark th,tr.mark td{color:var(--marker)}
+table.n td,table.n th{font-variant-numeric:tabular-nums}
+
+/* blocks */
+.trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:32px 40px}
+.trio>div{border-top:2px solid var(--ink);padding-top:18px;min-width:0}
+.trio h3{font-size:22px;letter-spacing:-.02em}
+.trio p{margin:10px 0 0;color:var(--muted);font-size:16px}
+.trio .k{color:var(--marker);font-size:13px}
+.list{margin:0;padding:0;list-style:none;display:grid;gap:0;max-width:46em}
+.list li{padding:14px 0 14px 26px;border-bottom:1px solid var(--line);position:relative;color:var(--muted)}
+.list li b{color:var(--ink)}
+.list li::before{content:"";position:absolute;left:0;top:25px;width:12px;height:2px;background:var(--marker)}
+.steps{list-style:none;margin:0;padding:0;counter-reset:st;display:grid;gap:0;max-width:52em}
+.steps li{counter-increment:st;display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px 14px;padding:18px 0;border-top:1px solid var(--line)}
+.steps li::before{content:counter(st);font:500 22px var(--mono);color:var(--marker);grid-row:span 2}
+.steps b{font-size:19px}
+.steps span{color:var(--muted)}
+.flow{list-style:none;margin:0;padding:0;counter-reset:f;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 40px}
+.flow li{counter-increment:f;display:grid;grid-template-columns:28px minmax(0,1fr);gap:2px 10px;padding:16px 0;border-top:1px solid var(--line)}
+.flow li::before{content:counter(f);font:500 13px var(--mono);color:var(--faint);grid-row:span 2;padding-top:3px}
+.flow b{font-size:15px;color:var(--marker);font-weight:500}
+.flow span{color:var(--muted);font-size:16px}
+.checks{list-style:none;margin:0;padding:0;max-width:46em}
+.checks li{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--line)}
+.checks input{width:22px;height:22px;flex:none;margin:2px 0 0;accent-color:var(--marker)}
+.checks label{cursor:pointer}
+.checks input:checked+label{color:var(--faint);text-decoration:line-through}
+.checks .grp{display:block;padding:22px 0 6px;border-top:0;font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:40px 56px;align-items:start}
+.two>*{min-width:0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 32px;margin:0}
+.facts div{border-top:2px solid var(--ink);padding:14px 0 20px;min-width:0}
+.facts dt{font-size:13px;font-weight:600;color:var(--faint)}
+.facts dd{margin:6px 0 0;font-family:var(--display);font-weight:600;font-size:21px;letter-spacing:-.02em;line-height:1.25;overflow-wrap:anywhere}
+.facts dd small{display:block;font-family:var(--body);font-weight:400;font-size:15px;letter-spacing:0;color:var(--muted);margin-top:4px}
+
+/* status chips */
+.chip{display:inline-flex;align-items:center;gap:7px;font:600 12px/1 var(--body);padding:6px 10px;white-space:nowrap;background:var(--chip-idea);color:var(--chip-idea-fg)}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.chip.ok{background:var(--chip-ok);color:var(--chip-ok-fg)}
+.chip.pre{background:var(--chip-built);color:var(--chip-built-fg)}
+.chip.dev{background:var(--chip-idea);color:var(--ink)}
+.chip.plan{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.chip.plan::before{background:transparent;box-shadow:inset 0 0 0 1.5px currentColor}
+.legend{display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:40px;font-size:15px;color:var(--muted);align-items:center}
+.legend span.l{display:flex;gap:10px;align-items:center}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+.card{background:var(--bg);border:1px solid var(--line);padding:26px 24px 24px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.lit{border-top:4px solid var(--marker);padding-top:23px}
+.card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.card h3{font-size:clamp(24px,2.4vw,28px);letter-spacing:-.03em;line-height:1.08}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.card .meta{font:500 13px var(--mono);color:var(--faint)}
+.card ul{margin:0;padding:0;list-style:none;font-size:15px;color:var(--muted)}
+.card ul li{padding:7px 0 7px 20px;border-top:1px solid var(--line);position:relative}
+.card ul li::before{content:"";position:absolute;left:0;top:18px;width:10px;height:2px;background:var(--faint)}
+.card .go{margin-top:auto;padding-top:10px;display:flex;flex-wrap:wrap;gap:8px 20px;font-weight:600;font-size:15px}
+.card .go a{color:var(--marker);text-decoration:none}
+.card .go a:hover{text-decoration:underline}
+
+/* dark band with one statement */
+.night{background:linear-gradient(180deg,var(--night),var(--night-2));color:var(--night-ink);padding-block:104px}
+.night h2{font-size:clamp(40px,6.4vw,80px);line-height:.98;letter-spacing:-.045em;max-width:14em}
+.night p{font-size:clamp(18px,2vw,22px);color:var(--night-muted);margin:24px 0 0;max-width:34em}
+.night .split{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px;margin-top:64px}
+.night .split b{display:block;font-family:var(--display);font-weight:800;font-size:clamp(56px,8vw,104px);line-height:.9;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+.night .split b.you{color:var(--marker)}
+.night .split span{display:block;margin-top:12px;color:var(--night-muted);font-size:16px}
+
+/* calculator */
+.calc{margin-top:40px;padding:32px;background:var(--night);color:var(--night-ink);max-width:880px}
+.calc h3{font-size:24px}
+.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px 20px;margin-top:22px}
+.inputs label{display:grid;grid-template-columns:1fr auto;gap:6px 8px;align-items:center;font-size:13px;color:var(--night-muted);min-width:0}
+.inputs label>span{grid-column:1/-1}
+.inputs input{width:100%;min-width:0;font:500 18px var(--mono);padding:10px 12px;background:var(--night-2);color:var(--night-ink);border:1px solid var(--night-line);border-radius:0}
+.inputs i{font:normal 12px var(--mono);color:var(--night-muted)}
+.outs{margin:28px 0 0;padding-top:24px;border-top:1px solid var(--night-line)}
+.outs dt{font-size:13px;color:var(--night-muted)}
+.outs dd{margin:6px 0 0;font-family:var(--display);font-weight:800;font-size:clamp(36px,5vw,56px);letter-spacing:-.04em;color:var(--marker)}
+.note{margin:14px 0 0;font-size:14px;color:var(--night-muted)}
+
+/* versions */
+.rel{display:grid;grid-template-columns:220px minmax(0,1fr);gap:8px 48px;padding:36px 0;border-top:1px solid var(--line)}
+.rel:first-of-type{border-top:2px solid var(--ink)}
+.rel .v{font-family:var(--display);font-weight:800;font-size:clamp(36px,4.4vw,52px);letter-spacing:-.045em;line-height:1}
+.rel .d{font:500 13px var(--mono);color:var(--faint);margin-top:10px}
+.rel .chip{margin-top:14px}
+.rel.now .v{color:var(--marker)}
+.rel h3{font-size:clamp(22px,2.4vw,28px);letter-spacing:-.03em;margin-bottom:12px}
+.rel ul{margin:0;padding:0;list-style:none;color:var(--muted)}
+.rel ul li{padding:8px 0 8px 24px;position:relative}
+.rel ul li::before{content:"";position:absolute;left:0;top:20px;width:12px;height:2px;background:var(--marker)}
+.rel ul li b{color:var(--ink)}
+
+/* glossary */
+.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 40px;margin:0}
+.gloss div{padding:16px 0;border-top:1px solid var(--line);min-width:0}
+.gloss dt{font-weight:700}
+.gloss dt i{font-style:normal;font-weight:400;color:var(--faint);font-size:14px;margin-left:6px}
+.gloss dd{margin:4px 0 0;color:var(--muted);font-size:16px}
+
+/* book outline */
+.outline{list-style:none;margin:0;padding:0;counter-reset:ch;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:0 48px}
+.outline li{counter-increment:ch;display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 12px;padding:20px 0;border-top:1px solid var(--line)}
+.outline li::before{content:counter(ch,decimal-leading-zero);font:500 15px var(--mono);color:var(--marker);grid-row:span 2;padding-top:5px}
+.outline b{font-family:var(--display);font-size:22px;letter-spacing:-.02em;line-height:1.2}
+.outline span{color:var(--muted);font-size:16px}
+.todo{background:#fff3c4;color:#5c4400;padding:1px 6px;font-weight:600}
+
+/* buttons and end */
+.btn{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;padding:13px 24px;font:600 16px var(--body);text-decoration:none;border:1px solid var(--ink);color:var(--ink);background:transparent}
+.btn.solid{background:var(--ink);color:var(--bg)}
+.btn.solid:hover{background:var(--marker);border-color:var(--marker);color:var(--on-marker)}
+.btn:not(.solid):hover{background:var(--band)}
+.ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+.end{text-align:center}
+.end h2{font-size:clamp(34px,5vw,60px)}
+.end .sub{font-size:clamp(18px,2vw,21px);color:var(--muted);margin:18px auto 0;max-width:30em}
+.end .ctas{justify-content:center}
+footer{padding-block:28px 44px;font-size:13px;color:var(--faint);border-top:1px solid var(--line)}
+footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
+footer a{text-decoration:none}footer a:hover{color:var(--ink)}
+
+@media (max-width:760px){
+  .lhead{grid-template-columns:1fr}.lhead .no{grid-row:auto}
+  section{padding-block:64px}.hero{padding-block:56px 40px}.night{padding-block:72px}
+  .calc{padding:24px 20px}
+  .rel{grid-template-columns:minmax(0,1fr);gap:12px}
+  .night .split{grid-template-columns:minmax(0,1fr);gap:36px;margin-top:44px}
+  .btn{white-space:normal}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+td code{white-space:nowrap}
+
+/* site nav: the same block on every page of the site */
+body{margin:0}
+.nav .links{gap:20px;white-space:nowrap}
+.nav .links a{padding:5px 0;border-bottom:2px solid transparent}
+.nav .links a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--marker)}
+@media (max-width:980px){
+  html{scroll-padding-top:104px}
+  .nav .wrap{flex-wrap:wrap;height:auto;row-gap:0;padding-top:10px}
+  .nav .brand{min-height:34px}
+  .nav .wrap .links{display:flex;order:3;flex:1 0 100%;margin:0;padding:6px 0 8px;gap:20px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  .nav .wrap .links::-webkit-scrollbar{display:none}
+  .nav .wrap .links a:last-child{padding-right:28px}
+}
+</style>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><svg class="lm" viewBox="0 0 64 64" aria-hidden="true"></svg>LARGER.slicer</a>
+  <nav class="links" aria-label="Seiten"><a href="../suite/">Suite</a><a href="../einstieg/" aria-current="page">Einstieg</a><a href="../erste-schritte/">Erste Schritte</a><a href="../lehrgang/">Lehrgang</a><a href="../maschinen/">Maschinen</a><a href="../versionen/">Versionen</a><a href="../buch/">Buch</a><a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a></nav>
+</div></header>
+<main>
+<div class="hero wrap">
+    <p class="eyebrow">Einstieg ins Großformat</p>
+    <h1>Groß drucken heißt: <span class="hl">dick</span> drucken.</h1>
+    <p class="lede">Statt Filament schmilzt eine Schnecke Granulat auf, und die Bahn wird zehnmal breiter als am Tischdrucker. Damit ändern sich fast alle Regeln. Hier stehen die wichtigsten, in der Reihenfolge, in der du sie brauchst.</p>
+    <nav class="toc" aria-label="Abschnitte"><a href="#was"><span class="num">01</span>Was ist FGF?</a><a href="#granulat"><span class="num">02</span>Granulat oder Filament</a><a href="#linie"><span class="num">03</span>Eine Linie</a><a href="#bahn"><span class="num">04</span>Bahn, Düse, Lage</a><a href="#ueberhang"><span class="num">05</span>Überhang und 45 Grad</a><a href="#mehrachsig"><span class="num">06</span>Mehrachsig</a><a href="#trocknen"><span class="num">07</span>Trocknen und Faktor</a><a href="#entwurf"><span class="num">08</span>Für den Druck entwerfen</a><a href="#glossar"><span class="num">09</span>Glossar</a></nav>
+  </div>
+
+<section id="was"><div class="wrap">
+  <div class="lhead"><span class="no num">01</span><h2>Was ist FGF, was ist LFAM?</h2><p class="lead">Zwei Abkürzungen für dieselbe Sache aus zwei Richtungen.</p></div>
+  <div class="trio">
+    <div><span class="k num">FGF</span><h3>Fused Granulate Fabrication</h3><p>Das Verfahren: Kunststoffgranulat wird in einem Schneckenextruder aufgeschmolzen und als Strang abgelegt, Lage für Lage. Wie beim Filamentdruck, nur ohne Filament.</p></div>
+    <div><span class="k num">LFAM</span><h3>Large Format Additive Manufacturing</h3><p>Der Maßstab: Bauteile von einem halben bis mehreren Metern, Bahnen von 3 bis über 12 mm Breite, Kilogramm pro Stunde statt Gramm.</p></div>
+    <div><span class="k num">Maschine</span><h3>Roboter oder Portal</h3><p>Den Extruder führt ein Industrieroboter, etwa die Weber DXR an der FH Münster, oder ein Portal wie beim Ginger One. Der Roboter kann das Werkzeug zusätzlich neigen.</p></div>
+  </div>
+</div></section>
+
+<section id="granulat"><div class="wrap">
+  <div class="lhead"><span class="no num">02</span><h2>Granulat oder Filament</h2><p class="lead">Granulat ist das Rohmaterial der Kunststoffindustrie. Darum ist es günstig und in fast jeder Sorte zu haben, auch recycelt.</p></div>
+  <div class="cmp"><table>
+    <thead><tr><th></th><th>Filament</th><th>Granulat</th></tr></thead>
+    <tbody>
+      <tr><th>Form</th><td>Draht auf der Rolle, 1,75 oder 2,85 mm</td><td class="k">Körner, Flakes oder Regranulat aus dem Sack</td></tr>
+      <tr><th>Fördern</th><td>Zahnrad schiebt den Draht</td><td class="k">Schnecke fördert, schmilzt und baut Druck auf</td></tr>
+      <tr><th>Bahnbreite</th><td>0,4 bis 1 mm</td><td class="k">3 bis über 12 mm</td></tr>
+      <tr><th>Durchsatz</th><td>Gramm pro Stunde</td><td class="k">Kilogramm pro Stunde</td></tr>
+      <tr><th>Material</th><td>was es als Filament gibt</td><td class="k">fast jeder Thermoplast, auch mit Glas- oder Kohlefaser, auch recycelt</td></tr>
+      <tr><th>Absetzen</th><td>Rückzug in Millisekunden</td><td class="k">die Schnecke reagiert träge, Material läuft nach</td></tr>
+      <tr><th>Trocknen</th><td>bei manchen Sorten</td><td class="k">bei fast allen, vor und während des Drucks</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<div class="night" id="linie"><div class="wrap">
+  <h2>Jedes Absetzen hinterlässt eine Spur.</h2>
+  <p>Ein Schneckenextruder druckt am besten, wenn er gleichmäßig fördert. Hält die Düse an, baut sich der Druck nur langsam ab: Es tropft, es zieht Fäden. Fährt sie wieder an, fehlt erst Material, dann kommt zu viel. Das gibt Nähte, Wülste und Lunker. Darum druckt der LARGER.slicer jedes Bauteil als eine einzige Linie, vom Skirt bis zur letzten Lage.</p>
+  <div class="split">
+    <div><b class="you">1</b><span>Linie vom ersten bis zum letzten Punkt</span></div>
+    <div><b>0</b><span>Leerfahrten im Bauteil, wo es die Form erlaubt</span></div>
+    <div><b>1</b><span>Naht, immer an derselben Stelle</span></div>
+  </div>
+</div></div>
+
+<section id="bahn"><div class="wrap">
+  <div class="lhead"><span class="no num">04</span><h2>Die Bahnbreite bestimmt alles</h2><p class="lead">Wandstärke, Abstände, Radien, Überhang und Infill sind Vielfache der Bahn. Leg Bahnbreite und Lagenhöhe fest, bevor du konstruierst.</p></div>
+  <div class="trio">
+    <div><span class="k">Düsenform</span><h3>Spitz oder flach</h3><p>Eine spitze Düse legt eine Bahn vom 0,7- bis 1,3-Fachen ihres Durchmessers, mit sauberen Ecken. Eine flache Düse drückt die Bahn platt und legt das 1,0- bis 1,8-Fache, mit weniger Lunkern, aber mehr Anhaftung an der Düse.</p></div>
+    <div><span class="k">Lagenhöhe</span><h3>Ein Viertel bis die Hälfte der Düse</h3><p>Bei einer 3-mm-Düse also 0,75 bis 1,5 mm. Zu flach, und der Extruder muss hart drücken. Zu hoch, und die Bahn wird kaum angedrückt und haftet schlecht. Die Bahn soll mindestens doppelt so breit sein wie hoch.</p></div>
+    <div><span class="k">Überlappung</span><h3>5 bis 10 % der Bahn</h3><p>Zwei Bahnen nebeneinander überlappen leicht, sonst bleibt ein Spalt. Eine Wand aus zwei Bahnen ist darum 2 × Breite minus Überlappung dick, nicht 2 × Breite.</p></div>
+  </div>
+  <div class="cmp" style="margin-top:48px"><table class="n">
+    <thead><tr><th>Düse</th><th>Bahn spitz</th><th>Bahn flach</th><th>Lage</th><th>Beispiel</th></tr></thead>
+    <tbody>
+      <tr><th class="num">2 mm</th><td class="num">1,4–2,6 mm</td><td class="num">2,0–3,6 mm</td><td class="num">0,5–1,0 mm</td><td class="k num">2,5 mm Bahn, 1 mm Lage</td></tr>
+      <tr class="mark"><th class="num">3 mm</th><td class="num">2,1–3,9 mm</td><td class="num">3,0–5,4 mm</td><td class="num">0,75–1,5 mm</td><td class="num">5 mm Bahn, 2 mm Lage, flach (FH Münster)</td></tr>
+      <tr><th class="num">5 mm</th><td class="num">3,5–6,5 mm</td><td class="num">5,0–9,0 mm</td><td class="num">1,25–2,5 mm</td><td class="k num">6 mm Bahn, 2 mm Lage</td></tr>
+      <tr><th class="num">8 mm</th><td class="num">5,6–10,4 mm</td><td class="num">8,0–14,4 mm</td><td class="num">2,0–4,0 mm</td><td class="k num">10 mm Bahn, 3,2 mm Lage</td></tr>
+    </tbody>
+  </table></div>
+  <p class="src">Bereiche für spitze und flache Düsen nach Angaben im Weber Quick Guide, Lagenhöhe nach dem CEAD-Datenblatt, Beispiele aus den Weber-Profilen. Die FH-Einstellung liegt mit 2 mm Lage etwas über der Hälfte und ist erprobt. Mehr Werte pro Maschine auf der Seite <a href="../maschinen/">Maschinen</a>.</p>
+</div></section>
+
+<section id="ueberhang"><div class="wrap">
+  <div class="lhead"><span class="no num">05</span><h2>Höchstens eine halbe Bahn pro Lage</h2><p class="lead">Jede Bahn muss auf der Bahn darunter liegen. Seitlich darf sie höchstens eine halbe Bahnbreite überstehen, sonst hängt sie in der Luft.</p></div>
+  <div class="two">
+    <div>
+      <svg viewBox="0 0 360 230" role="img" aria-label="Querschnitt: vier Bahnen, jede eine halbe Bahnbreite weiter außen als die darunter" style="width:100%;max-width:420px;height:auto;display:block">
+        <line x1="20" y1="210" x2="340" y2="210" stroke="var(--faint)" stroke-width="1"/>
+        <g fill="var(--bead-wall)" stroke="var(--cl-wall)" stroke-width="1.5">
+          <rect x="60" y="170" width="100" height="40" rx="20"/>
+          <rect x="110" y="130" width="100" height="40" rx="20"/>
+          <rect x="160" y="90" width="100" height="40" rx="20"/>
+        </g>
+        <rect x="210" y="50" width="100" height="40" rx="20" fill="var(--bead-fill)" stroke="var(--cl-fill)" stroke-width="2"/>
+        <line x1="160" y1="210" x2="160" y2="30" stroke="var(--faint)" stroke-width="1"/>
+        <line x1="160" y1="210" x2="310" y2="90" stroke="var(--marker)" stroke-width="2" stroke-dasharray="5 4"/>
+        <text x="168" y="62" font-family="JetBrains Mono, monospace" font-size="14" fill="var(--marker)">51°</text>
+        <line x1="260" y1="30" x2="310" y2="30" stroke="var(--muted)" stroke-width="1"/>
+        <line x1="260" y1="25" x2="260" y2="35" stroke="var(--muted)" stroke-width="1"/>
+        <line x1="310" y1="25" x2="310" y2="35" stroke="var(--muted)" stroke-width="1"/>
+        <text x="268" y="20" font-family="JetBrains Mono, monospace" font-size="13" fill="var(--muted)">½ b</text>
+      </svg>
+      <p class="cap">Querschnitt, maßstäblich für 5 mm Bahn und 2 mm Lage: Jede Lage rückt eine halbe Bahn nach außen, das ergibt 51 Grad.</p>
+    </div>
+    <div>
+      <p class="txt">Daraus folgt der größte Winkel gegen die Senkrechte: <b>atan(½ Bahnbreite ÷ Lagenhöhe)</b>. Flachere Lagen tragen mehr Überhang.</p>
+      <div class="cmp"><table class="n" style="min-width:0">
+        <thead><tr><th>Bahn</th><th>Lage</th><th>größter Überhang</th></tr></thead>
+        <tbody>
+          <tr><td class="num">5 mm</td><td class="num">2 mm</td><td class="k num">51°</td></tr>
+          <tr><td class="num">5 mm</td><td class="num">1,25 mm</td><td class="k num">63°</td></tr>
+          <tr><td class="num">10 mm</td><td class="num">3,2 mm</td><td class="k num">57°</td></tr>
+        </tbody>
+      </table></div>
+      <p class="txt" style="margin-top:20px">Plane mit 45 Grad, dann bleibt Reserve. Der Path Check meldet jede Bahn, die zu weit übersteht.</p>
+    </div>
+  </div>
+  <h3 class="sub">Wenn es steiler wird: schräg drucken</h3>
+  <p class="txt">Mit dem Roboter müssen die Lagen nicht waagerecht liegen. Kippt man sie um 45 Grad, lehnt sich jede Lage an die vorige, und Überhänge bis 90 Grad werden druckbar, zum Beispiel ein hohler Kasten ohne Stützen.</p>
+  <ul class="list">
+    <li><b>Start- und Endfeature.</b> Etwa fünf Opferlagen vor und nach dem Bauteil, die danach abgefräst werden. So beginnt und endet das Bauteil auf vollen Lagen. In Slice heißt das „Start/End Layers“.</li>
+    <li><b>Die ersten Bahnen.</b> Sehr langsam und mit deutlich mehr Material, damit die schräge Kante am Bett hält (nach Angaben im Weber Quick Guide etwa 10 mm/s und ein Vielfaches der normalen Menge).</li>
+    <li><b>Düsenversatz.</b> Bei geneigtem Extruder ändert sich der Abstand zum Bett. Ersten Abstand prüfen, an der Weber-Anlage mit dem automatischen Düsenoffset.</li>
+    <li><b>Freiraum.</b> Der geneigte Extruder darf weder Bett noch Bauteil berühren. Erst simulieren, dann drucken.</li>
+  </ul>
+</div></section>
+
+<section id="mehrachsig"><div class="wrap">
+  <div class="lhead"><span class="no num">06</span><h2>Mehrachsig drucken</h2><p class="lead">Der Roboter kann das Werkzeug während des Drucks neigen. Dann folgen die Lagen einer Fläche oder stehen senkrecht auf einer Kurve.</p></div>
+  <div class="trio">
+    <div><span class="k">Non-planar</span><h3>Entlang einer Fläche</h3><p>Die Lagen folgen einer Führungsfläche. Die oberste Lage liegt auf der Oberfläche, Treppenstufen verschwinden. Auch zum Drucken auf eine gewölbte Unterlage.</p></div>
+    <div><span class="k">Multiaxial</span><h3>Entlang einer Kurve</h3><p>Die Lagen stehen senkrecht auf einer Führungskurve. Rohrbögen und Äste wachsen entlang ihrer Achse, ohne Überhang.</p></div>
+    <div><span class="k">Vorsicht</span><h3>Langsam herantasten</h3><p>Singularitäten, Reichweite und Kollisionen vorher simulieren. Zuerst ein Testprogramm mit sehr hohen Lagen und kaum Material fahren, dann mit zusätzlichem Düsenabstand starten.</p></div>
+  </div>
+</div></section>
+
+<section id="trocknen"><div class="wrap">
+  <div class="lhead"><span class="no num">07</span><h2>Trocknen und Materialfaktor</h2><p class="lead">Granulat zieht Feuchtigkeit. Feuchtes Material schäumt in der Düse, die Bahn wird matt, voller Bläschen und breiter als geplant.</p></div>
+  <div class="two">
+    <div>
+      <ul class="list">
+        <li><b>Trocknen nach Datenblatt.</b> Üblich sind 4 bis 6 Stunden bei 60 bis 65 °C. Die Restfeuchte soll unter 0,03 % liegen (nach Angaben im Weber Quick Guide).</li>
+        <li><b>Während des Drucks weiter trocknen.</b> Der Trockner fördert das Material in den Extruder. Läuft er leer, reißt die Bahn ab.</li>
+        <li><b>PETG immer trocknen.</b> Ebenso ABS, ASA, PC und PET. PLA braucht es meist nicht, altes PLA dankt es trotzdem.</li>
+        <li><b>Zischen an der Düse</b> heißt fast immer: zu feucht.</li>
+      </ul>
+    </div>
+    <div>
+      <p class="txt">Der <b>Materialfaktor</b> gleicht aus, dass jedes Material, jede Düse und jede Temperatur etwas anders fördert. Du bestimmst ihn mit einer einwandigen Probe, etwas breiter als die Düse:</p>
+      <ol class="steps">
+        <li><b>Probe drucken</b><span>Eine Wand aus einer Bahn, Sollbreite etwa das 1,2-Fache der Düse.</span></li>
+        <li><b>Messen</b><span>Die Breite an mehreren Stellen messen und mitteln.</span></li>
+        <li><b>Umrechnen</b><span>Neuer Faktor = Sollbreite ÷ Istbreite × alter Faktor. Neu drucken und prüfen.</span></li>
+      </ol>
+    </div>
+  </div>
+  <div class="calc" aria-labelledby="calc-h">
+    <h3 id="calc-h">Neuer Faktor</h3>
+    <div class="inputs">
+      <label for="f-soll"><span>Sollbreite</span><input id="f-soll" type="number" min="0.1" step="0.1" value="5" inputmode="decimal"><i>mm</i></label>
+      <label for="f-ist"><span>Istbreite, gemessen</span><input id="f-ist" type="number" min="0.1" step="0.1" value="5.5" inputmode="decimal"><i>mm</i></label>
+      <label for="f-alt"><span>Alter Faktor</span><input id="f-alt" type="number" min="0.001" step="0.001" value="1.128" inputmode="decimal"><i>×</i></label>
+    </div>
+    <dl class="outs"><dt>Neuer Faktor</dt><dd class="num" id="f-neu" aria-live="polite">1,025</dd></dl>
+    <p class="note" id="f-note">Die Bahn war 10 % zu breit, also 9 % weniger Material.</p>
+  </div>
+</div></section>
+
+<section id="entwurf"><div class="wrap">
+  <div class="lhead"><span class="no num">08</span><h2>Für den Druck entwerfen</h2><p class="lead">Wer die Bahn schon im Entwurf mitdenkt, muss im Slicer nichts reparieren. Mehr Regeln mit Zeichnungen im <a href="../lehrgang/">Lehrgang</a>.</p></div>
+  <div class="trio">
+    <div><span class="k">Vasenmodus</span><h3>Eine Wand, eine Spirale</h3><p>Ein Teil aus einer einzigen Wand druckt als Spirale ohne jede Naht. Viele Teile lassen sich so umkonstruieren, dass sie im Vasenmodus gehen.</p></div>
+    <div><span class="k">Doppelwand</span><h3>Zwei Wände statt enger Kurven</h3><p>Enge Kurven und Kanten umgeht man oft, indem die Bahn doppelt läuft, hin und zurück. Die Umkehrstellen bekommen große Radien und werden danach abgetrennt, wenn sie stören.</p></div>
+    <div><span class="k">Radien</span><h3>Keine scharfen Ecken</h3><p>In einer scharfen Ecke bremst die Maschine, die Schnecke fördert weiter: Es entsteht ein Wulst, das Material zieht sich hoch. Runde jede Ecke mindestens mit der Bahnbreite aus.</p></div>
+    <div><span class="k">Aufmaß</span><h3>Eine halbe Bahn zum Fräsen</h3><p>Wo die Fläche später gefräst wird, eine halbe Bahnbreite mehr drucken. Sonst kommen nach dem Fräsen Lunker zum Vorschein.</p></div>
+    <div><span class="k">Wandstärke</span><h3>Ganze Bahnen</h3><p>Eine Wand ist eine, zwei oder drei Bahnen dick, nie anderthalb. Dazwischen bleibt ein Spalt oder es staut sich Material.</p></div>
+    <div><span class="k">Brücken</span><h3>Öffnungen schräg schließen</h3><p>Eine waagerechte Brücke hält mit schweren Bahnen nicht. Öffnungen bekommen ein Dach in Tropfenform, als Spitzbogen oder Fase.</p></div>
+  </div>
+</div></section>
+
+<section id="glossar"><div class="wrap">
+  <div class="lhead"><span class="no num">09</span><h2>Glossar</h2><p class="lead">Die Wörter, die im Slicer, an der Maschine und auf diesen Seiten vorkommen.</p></div>
+  <dl class="gloss">
+    <div><dt>Bahn <i>bead</i></dt><dd>Der Kunststoffstrang, den die Düse ablegt. Ihr Querschnitt ist breiter als hoch.</dd></div>
+    <div><dt>Bahnbreite <i>LW, bead width</i></dt><dd>Wie breit die Bahn liegt. Die wichtigste Zahl im Großformat.</dd></div>
+    <div><dt>Lagenhöhe <i>LH, layer height</i></dt><dd>Wie hoch eine Lage ist, also wie weit die Düse pro Lage steigt.</dd></div>
+    <div><dt>Überlappung <i>OL, overlap</i></dt><dd>Wie weit zwei Bahnen nebeneinander ineinander liegen, meist 5 bis 10 % der Bahn.</dd></div>
+    <div><dt>Granulat <i>pellets</i></dt><dd>Kunststoff in Körnern, das Rohmaterial der Kunststoffindustrie.</dd></div>
+    <div><dt>Flakes, Regranulat</dt><dd>Recyceltes Material: geschredderte Flocken oder wieder zu Körnern verarbeitet.</dd></div>
+    <div><dt>Schneckenextruder</dt><dd>Eine beheizte Schnecke, die Granulat fördert, aufschmilzt und durch die Düse drückt.</dd></div>
+    <div><dt>Heizzonen</dt><dd>Abschnitte des Extruders mit eigener Temperatur, von der Einfüllzone bis zur Düse.</dd></div>
+    <div><dt>Materialfaktor <i>P1</i></dt><dd>Skaliert die Extrusion, damit die Bahn so breit wird wie geplant. Bei Weber an der Steuerung eingestellt.</dd></div>
+    <div><dt>E-Wert</dt><dd>Die Extrusionsmenge pro Zeile im G-Code: Volumen oder Filamentlänge, je nach Maschine.</dd></div>
+    <div><dt>Vorschub <i>F</i></dt><dd>Die Geschwindigkeit entlang der Bahn. Im LARGER.slicer in jeder Zeile gleich, nie 0.</dd></div>
+    <div><dt>Naht <i>seam</i></dt><dd>Die Stelle, an der eine Lage in die nächste übergeht. Liegt immer an derselben Stelle.</dd></div>
+    <div><dt>Rampe</dt><dd>Kurzes Stück, auf dem die Bahn um eine Lagenhöhe steigt, an der Naht.</dd></div>
+    <div><dt>Skirt</dt><dd>Eine Bahn um das Bauteil vor dem eigentlichen Druck, bis das Material gleichmäßig fließt. Läuft direkt in die Wand.</dd></div>
+    <div><dt>Brim</dt><dd>Zusätzliche Bahnen direkt an der ersten Lage, die den Fuß verbreitern und das Teil am Bett halten.</dd></div>
+    <div><dt>Vasenmodus <i>Spirale</i></dt><dd>Eine einzige Wand, die als Spirale ohne Lagenwechsel nach oben läuft.</dd></div>
+    <div><dt>Infill</dt><dd>Was zwischen den Wänden liegt. Im Großformat Tragwerk aus wenigen Bahnen, kein Füllgrad in Prozent.</dd></div>
+    <div><dt>Steg <i>rib</i></dt><dd>Eine Haarnadel aus der Wand ins Innere, Hin- und Rückweg verschmelzen.</dd></div>
+    <div><dt>Leerfahrt <i>travel</i></dt><dd>Eine Bewegung ohne Material. Im Großformat möglichst keine.</dd></div>
+    <div><dt>Lunker</dt><dd>Ein Hohlraum zwischen Bahnen, wo Material fehlt.</dd></div>
+    <div><dt>Überhang</dt><dd>Wie weit eine Wand gegen die Senkrechte lehnt. Grenze: eine halbe Bahn pro Lage.</dd></div>
+    <div><dt>Start- und Endfeature</dt><dd>Opferlagen vor und nach einem schräg gedruckten Bauteil, die abgefräst werden.</dd></div>
+    <div><dt>Aufmaß</dt><dd>Material, das mehr gedruckt und später abgefräst wird, meist eine halbe Bahn.</dd></div>
+    <div><dt>Non-planar</dt><dd>Lagen, die einer gewölbten Fläche folgen statt eben zu liegen.</dd></div>
+    <div><dt>Multiaxial</dt><dd>Lagen, die senkrecht auf einer Kurve stehen. Das Werkzeug neigt sich mit.</dd></div>
+    <div><dt>Werkzeugachse</dt><dd>Die Richtung, in der die Düse steht. Senkrecht bei flachen Lagen, geneigt bei gebogenen.</dd></div>
+    <div><dt>TCP <i>tool centre point</i></dt><dd>Die Spitze des Werkzeugs, die der Roboter auf die Bahn führt.</dd></div>
+    <div><dt>Singularität</dt><dd>Eine Stellung, in der zwei Roboterachsen zusammenfallen und der Roboter nicht sauber weiterfahren kann.</dd></div>
+    <div><dt>Override</dt><dd>Der Regler für die Geschwindigkeit an der Anlage, in Prozent. Zum Start niedrig.</dd></div>
+    <div><dt>G-Code</dt><dd>Die Befehlssprache der meisten Drucker: eine Zeile pro Bewegung.</dd></div>
+    <div><dt>DXR</dt><dd>Das Dateiformat der Weber-Anlagen, mit Werkzeugrichtung und Materialfaktor in jeder Zeile.</dd></div>
+    <div><dt>KRL</dt><dd>Die Programmiersprache der KUKA-Roboter.</dd></div>
+    <div><dt>Path Check</dt><dd>Die Prüfung im LARGER.slicer: keine Kreuzung, jede Bahn liegt auf, Überhang im Rahmen.</dd></div>
+  </dl>
+</div></section>
+
+  <section class="end"><div class="wrap">
+    <h2>Genug gelesen. Jetzt slicen.</h2>
+    <p class="sub">Erste Schritte führt durch das erste Teil, der Lehrgang durch den Entwurf.</p>
+    <div class="ctas"><a class="btn solid" href="../erste-schritte/">Erste Schritte</a><a class="btn" href="../lehrgang/">Zum Lehrgang</a><a class="btn" href="../maschinen/">Maschinen</a></div>
+  </div></section>
+</main>
+<footer><div class="wrap"><span>LARGER.slicer · Moritz Wesseler · FH Münster</span><span>Richtwerte. Maschine und Material entscheiden: erst klein testen.</span></div></footer>
+<script>
+// logo mark: one continuous line climbing in loops, newest loop blue, nozzle at the end
+(function () {
+  var ns = 'http://www.w3.org/2000/svg';
+  document.querySelectorAll('svg.lm').forEach(function (svg) {
+    var steps = 240, prev = null, segs = [];
+    for (var i = 0; i <= steps; i++) {
+      var t = i / steps, a = 2 * Math.PI * 3 * t - Math.PI * 0.25;
+      var p = { x: 32 + 23 * Math.cos(a), y: 49 - 31 * t + 6.4 * Math.sin(a), d: Math.sin(a), t: t };
+      if (prev) segs.push([prev, p]); prev = p;
+    }
+    [false, true].forEach(function (front) {
+      segs.forEach(function (sg) {
+        if ((sg[1].d >= 0) !== front) return;
+        var e = document.createElementNS(ns, 'path');
+        e.setAttribute('d', 'M' + sg[0].x.toFixed(2) + ' ' + sg[0].y.toFixed(2) + 'L' + sg[1].x.toFixed(2) + ' ' + sg[1].y.toFixed(2));
+        e.setAttribute('stroke', sg[1].t > 2 / 3 ? 'var(--coil-new)' : (front ? 'var(--coil-front)' : 'var(--coil-back)'));
+        e.setAttribute('stroke-width', '4.6'); e.setAttribute('stroke-linecap', 'round'); e.setAttribute('fill', 'none');
+        svg.appendChild(e);
+      });
+    });
+    var c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', prev.x.toFixed(2)); c.setAttribute('cy', prev.y.toFixed(2)); c.setAttribute('r', '4.4'); c.setAttribute('fill', 'var(--coil-new)'); svg.appendChild(c);
+    var d = document.createElementNS(ns, 'circle'); d.setAttribute('cx', prev.x.toFixed(2)); d.setAttribute('cy', prev.y.toFixed(2)); d.setAttribute('r', '1.9'); d.setAttribute('fill', 'var(--bg)'); svg.appendChild(d);
+  });
+})();
+// material factor: new = target width / measured width x old factor
+(function () {
+  function v(id) { var x = parseFloat(String(document.getElementById(id).value).replace(',', '.')); return isFinite(x) && x > 0 ? x : NaN; }
+  function de(x, d) { return x.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+  function calc() {
+    var s = v('f-soll'), i = v('f-ist'), a = v('f-alt'), out = document.getElementById('f-neu'), note = document.getElementById('f-note');
+    if (!(s && i && a)) { out.textContent = '–'; note.textContent = 'Alle drei Werte eingeben.'; return; }
+    var n = s / i * a, d = (i / s - 1) * 100, c = (s / i - 1) * 100;
+    out.textContent = de(n, 3);
+    if (Math.abs(d) < 0.5) note.textContent = 'Die Bahn hat die Sollbreite. Der Faktor bleibt.';
+    else note.textContent = 'Die Bahn war ' + de(Math.abs(d), 0) + ' % zu ' + (d > 0 ? 'breit' : 'schmal') + ', also ' + de(Math.abs(c), 0) + ' % ' + (c < 0 ? 'weniger' : 'mehr') + ' Material.';
+  }
+  ['f-soll', 'f-ist', 'f-alt'].forEach(function (id) { document.getElementById(id).addEventListener('input', calc); });
+  calc();
+})();
+</script>
