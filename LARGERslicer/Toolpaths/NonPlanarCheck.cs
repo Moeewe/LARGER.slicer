@@ -12,7 +12,8 @@ namespace LARGERslicer.Toolpaths
     ///    path of the layer below is found; dz = p.z - q.z is the bead height the nozzle really
     ///    leaves. It is compared with the bead width (too high: above 0.8 x width), with the layer
     ///    height (too thin: below 0.4 x layer height), and with the height the extrusion (E) was
-    ///    worked out for.
+    ///    worked out for. Paths whose E follows the shell law (BeadLaw) are measured by it; E that
+    ///    follows the 2024 law (over-extrudes leaning laps) is recognised and reported.
     /// 2. Head clearance. The head is a cone (tip radius r0, half angle theta, length Lc) and above
     ///    it a cylinder (radius R). Every point q printed earlier that lies more than half a layer
     ///    above the nozzle tip must stay outside the head: r_xy >= (dz &lt; Lc ? r0 + dz tan theta : R)
@@ -83,11 +84,19 @@ namespace LARGERslicer.Toolpaths
             public int Measured, TooHigh, TooThin, Deviating, CollisionMoves, SteepMoves, Ramp, GrazeMoves;
             /// <summary>Deepest reach of an earlier bead into the head's outline (mm), grazes included.</summary>
             public double MaxIntrusion;
-            /// <summary>True when the extrusion follows the law of the printed head (vertical gap, less where the
-            /// lap below lies to the side) better than the plain vertical gap; the heights are then measured by it.</summary>
+            /// <summary>True when the extrusion follows the shell law (vertical gap to the lap below, or the sideways
+            /// step x skin thickness / bead width where the laps step mostly sideways) better than the plain vertical
+            /// gap; the heights are then measured by it.</summary>
             public bool Law;
-            /// <summary>Per path point: bead height by the law of the printed head (BeadLaw); 0 = not measured.</summary>
+            /// <summary>True when the extrusion follows the law of the 2024 head (UNIKAT HEAD V2, used up to 1.3.0) best:
+            /// it over-extrudes leaning laps. The heights are then measured by the shell law, and the excess is reported.</summary>
+            public bool LegacyV2;
+            /// <summary>With LegacyV2: E above the shell law along the measured path, and per point the 95th percentile (0.1 = 10 %).</summary>
+            public double V2Excess, V2ExcessMax;
+            /// <summary>Per path point: bead height by the shell law (BeadLaw.Height); 0 = not measured.</summary>
             public List<double> LawHeights = new List<double>();
+            /// <summary>Per path point: bead height by the 2024 law (BeadLaw.HeightV2); 0 = not measured.</summary>
+            public List<double> V2Heights = new List<double>();
             /// <summary>Of Measured: points compared with the height used for E (Compared), and the ones left out of that comparison because the used height is below a quarter of the layer height (Tiny: run-in, run-out, a bead that fades to nothing; a percentage of almost nothing says nothing).</summary>
             public int Compared, Tiny;
             public double MaxSlope;
@@ -103,8 +112,9 @@ namespace LARGERslicer.Toolpaths
             var st = tp.Settings;
             double w = st.BeadWidth, h = Math.Max(0.05, st.LayerHeight);
             int n = tp.Count;
-            for (int i = 0; i < n; i++) { r.BeadHeights.Add(0); r.LawHeights.Add(0); }
+            for (int i = 0; i < n; i++) { r.BeadHeights.Add(0); r.LawHeights.Add(0); r.V2Heights.Add(0); }
             var measuredAt = new List<int>(); // points measured (not ramp)
+            var skinAt = new HashSet<int>();  // points where the skin term of the shell law sets the height
 
             // ------------------------------------------------ 1. measured bead height
             var byLayer = new SortedDictionary<int, List<int>>();
@@ -133,14 +143,14 @@ namespace LARGERslicer.Toolpaths
                     if (below != null && tp.Roles[i] != PathRole.Seam) // the ramp between two layers climbs on purpose
                     {
                         Point3d p = tp.Points[i];
-                        if (!ClosestBelow(tp, below, grid, along, along[i], cell, p, 2 * w, 0.25 * w, 0.25 * h, 2 * w, out double zq, out double law)) notMeasured++;
+                        if (!ClosestBelow(tp, below, grid, along, along[i], cell, p, 2 * w, 0.25 * w, 0.25 * h, 2 * w, out double zq, out double law, out double lawV2, out bool skinPart)) notMeasured++;
                         else
                         {
                             double dz = p.Z - zq;
                             double used = tp.Heights[i];
                             // the start and end of a spiral run out to nothing on purpose, and the extrusion with them
                             bool ramp = (kv.Key == secondLayer || kv.Key == lastLayer) && used < 0.4 * h && Math.Min(Math.Abs(dz - used), Math.Abs(law - used)) <= 0.05 * h;
-                            r.BeadHeights[i] = dz; r.LawHeights[i] = law;
+                            r.BeadHeights[i] = dz; r.LawHeights[i] = law; r.V2Heights[i] = lawV2; if (skinPart) skinAt.Add(i);
                             if (ramp) r.Ramp++;
                             else measuredAt.Add(i);
                         }
@@ -161,17 +171,37 @@ namespace LARGERslicer.Toolpaths
                 }
                 if (grid.Count > 0) below = grid;
             }
-            // Which height did the extrusion follow: the vertical gap, or the law of the printed head? The
-            // one that fits better is used to judge the heights (a path made for the law, or the G-code of
-            // the printed head, would otherwise read as "does not fit").
-            double devGap = 0, devLaw = 0; int nDev = 0;
+            // Which height did the extrusion follow: the vertical gap, the shell law, or the law of the 2024 head?
+            // The vertical gap and the shell law are both right (the shell law is the vertical gap plus the skin
+            // where the laps step sideways); the one that fits better judges the heights. A path whose E follows
+            // the 2024 law (a file made with 1.3.0 or older, the G-code of the printed head) is judged by the
+            // shell law, so its extra material on the leaning laps shows.
+            double devGap = 0, devLaw = 0, devV2 = 0; int nDev = 0;
             foreach (int i in measuredAt)
             {
                 double used = tp.Heights[i];
                 if (used < 0.25 * h) continue;
-                devGap += Math.Abs(r.BeadHeights[i] - used) / used; devLaw += Math.Abs(r.LawHeights[i] - used) / used; nDev++;
+                devGap += Math.Abs(r.BeadHeights[i] - used) / used; devLaw += Math.Abs(r.LawHeights[i] - used) / used;
+                devV2 += Math.Abs(r.V2Heights[i] - used) / used; nDev++;
             }
             r.Law = nDev > 0 && devLaw < 0.8 * devGap;
+            r.LegacyV2 = nDev > 0 && devV2 < 0.8 * Math.Min(devGap, devLaw);
+            if (r.LegacyV2)
+            {
+                r.Law = true;
+                // material: E along the path against E by the shell law; per point: the 95th percentile
+                double eUsed = 0, eLaw = 0; var ratios = new List<double>();
+                foreach (int i in measuredAt)
+                {
+                    double used = tp.Heights[i], law = r.LawHeights[i];
+                    if (used < 0.25 * h || law < 0.25 * h) continue;
+                    double len = tp.Points[i].DistanceTo(tp.Points[i - 1]);
+                    eUsed += used * len; eLaw += law * len;
+                    ratios.Add(used / law - 1);
+                }
+                r.V2Excess = eLaw > 0 ? eUsed / eLaw - 1 : 0;
+                if (ratios.Count > 0) { ratios.Sort(); r.V2ExcessMax = ratios[(int)(0.95 * (ratios.Count - 1))]; }
+            }
             foreach (int i in measuredAt)
             {
                 Point3d p = tp.Points[i];
@@ -182,7 +212,9 @@ namespace LARGERslicer.Toolpaths
                 if (dz > r.MaxHeight) r.MaxHeight = dz;
                 bool bad = false;
                 if (dz > 0.8 * w) { r.TooHigh++; bad = true; }
-                if (dz < 0.4 * h) { r.TooThin++; bad = true; }
+                // where the laps step mostly sideways the shell law lays a skin of Skin Thickness (at least 0.4 x layer
+                // height by construction): its height t = A / w is an equivalent, not a squashed bead, and is not judged
+                if (dz < 0.4 * h && !(r.Law && skinAt.Contains(i))) { r.TooThin++; bad = true; }
                 if (used < 0.25 * h) r.Tiny++;
                 else
                 {
@@ -198,15 +230,21 @@ namespace LARGERslicer.Toolpaths
             {
                 r.MeanDeviation = r.Compared > 0 ? sumDev / r.Compared : 0;
                 double tooHigh = 100.0 * r.TooHigh / r.Measured, tooThin = 100.0 * r.TooThin / r.Measured, dev = r.Compared > 0 ? 100.0 * r.Deviating / r.Compared : 0;
-                r.Report.Add(Inv.F($"Bead height ({(r.Law ? "law of the printed head: vertical gap, less where the lap below lies to the side" : "vertical gap to the layer below")}, {r.Measured} points): {r.MinHeight:0.##} to {r.MaxHeight:0.##} mm. ") +
-                             Inv.F($"Allowed {0.4 * h:0.##} (0.4 x layer height) to {0.8 * w:0.##} mm (0.8 x bead width)."));
-                if ((r.TooHigh > 0 || r.TooThin > 0) && r.Law && r.TooHigh <= 0.005 * r.Measured && r.MaxHeight <= 1.1 * w && r.TooThin <= 0.01 * r.Measured)
+                if (r.LegacyV2)
+                    r.Report.Add(Inv.F($"OLD EXTRUSION LAW: E matches the law of the 2024 head (t = dz + (h - dz) dxy / w, used up to version 1.3.0) better than the shell law. That law over-extrudes leaning laps: here {100 * r.V2Excess:0.#} % more material than the shell law (w x dz per lap, or the sideways step x skin thickness where the laps step sideways), at 5 % of the points more than {100 * r.V2ExcessMax:0} %. Slice the part again with this version."));
+                r.Report.Add(Inv.F($"Bead height ({(r.Law ? "shell law: vertical gap to the lap below, or sideways step x skin thickness / bead width where the laps step sideways" : "vertical gap to the layer below")}, {r.Measured} points): {r.MinHeight:0.##} to {r.MaxHeight:0.##} mm. ") +
+                             Inv.F($"Allowed {0.4 * h:0.##} (0.4 x layer height) to {0.8 * w:0.##} mm (0.8 x bead width)") + (r.Law && skinAt.Count > 0 ? Inv.F($"; at {skinAt.Count} points the laps step mostly sideways and form a skin {st.EffectiveSkin:0.##} mm thick (Skin Thickness), which is not judged by the 0.4 x layer height rule.") : "."));
+                if (r.TooHigh == 0 && r.TooThin > 0 && r.Law && r.TooThin <= 0.01 * r.Measured)
                 {
-                    // Calibrated on the UNIKAT HEAD V2 (Ginger One, 2024), which printed fine with 0.3 % of its points
-                    // above 0.8 x bead width (up to 4.0 mm, where a ring leans on the one below under the chin and on
-                    // the crown) and 0.1 % below 0.4 x layer height (the last rings of the crown).
-                    r.Report.Add(Inv.F($"Bead height OK for leaning laps: {r.TooHigh} points ({tooHigh:0.#} %) above 0.8 x bead width (up to {r.MaxHeight:0.##} mm) and {r.TooThin} ({tooThin:0.#} %) below 0.4 x layer height, where the rings lean on the ring below (chin, crown). ") +
-                                 "Accepted up to 0.5 % above (at most 1.1 x bead width) and 1 % below: the printed head of 2024 had 0.3 % (up to 1.0 x bead width) and 0.1 % and printed fine. See Bad Heights.");
+                    // The last rings that close a crown lie almost on top of each other and step less than a bead
+                    // sideways: their beads are thin by nature, and a few of them close the hole. The shell law also
+                    // gives its least material where the laps step about as far sideways as t_skin / w times up
+                    // (for laps one layer height apart along the surface: h x t_skin / sqrt(w^2 + t_skin^2), 0.4 h
+                    // for a 4 mm bead and 1.75 mm layers): a narrow band of points there may read just under 0.4 h. No allowance above
+                    // 0.8 x bead width: up to 1.3.0 such points were accepted (0.5 %, up to 1.1 x bead width) because the
+                    // 2024 head printed them, but those heights came from its law, which over-extrudes leaning laps; by
+                    // the shell law a bead is never higher than the vertical gap or the skin.
+                    r.Report.Add(Inv.F($"Bead height OK with a note: {r.TooThin} points ({tooThin:0.#} %) below 0.4 x layer height, where the laps step sideways (towards the crown, where the last rings close it). Accepted up to 1 % of the points. See Bad Heights."));
                 }
                 else if (r.TooHigh > 0 || r.TooThin > 0)
                 {
@@ -318,9 +356,9 @@ namespace LARGERslicer.Toolpaths
         /// at least gap back along the path that lie clearly lower. (Where a spiral turn ends above its own
         /// start, both lie under the nozzle.)</summary>
         private static bool ClosestBelow(Toolpath tp, Dictionary<long, List<int>> below, Dictionary<long, List<int>> same, double[] along, double alongP,
-            double cell, Point3d p, double maxDist, double slack, double above, double gap, out double z, out double law)
+            double cell, Point3d p, double maxDist, double slack, double above, double gap, out double z, out double law, out double lawV2, out bool skinPart)
         {
-            z = 0; law = 0;
+            z = 0; law = 0; lawV2 = 0; skinPart = false;
             double best3 = double.MaxValue; Point3d q3 = Point3d.Unset;
             int cx = (int)Math.Floor(p.X / cell), cy = (int)Math.Floor(p.Y / cell);
             int ring = (int)Math.Ceiling(maxDist / cell);
@@ -369,10 +407,13 @@ namespace LARGERslicer.Toolpaths
                 if (kv.Key < dAny) { dAny = kv.Key; zAny = kv.Value; }
                 if (kv.Value <= p.Z + above && kv.Value > zBest) { zBest = kv.Value; found = true; }
             }
-            double bw = tp.Settings.BeadWidth;
-            if (found) { z = zBest; law = q3.IsValid ? BeadLaw.Height(p, q3, bw) : p.Z - z; return true; }
-            if (dAny < double.MaxValue) { z = zAny; law = q3.IsValid ? BeadLaw.Height(p, q3, bw) : p.Z - z; return true; }
-            return false;
+            double bw = tp.Settings.BeadWidth, skin = tp.Settings.EffectiveSkin;
+            if (!found && dAny == double.MaxValue) return false;
+            z = found ? zBest : zAny;
+            law = q3.IsValid ? BeadLaw.Height(p, q3, bw, skin) : p.Z - z;
+            skinPart = q3.IsValid && law > Math.Max(0, p.Z - q3.Z) + 1e-9;
+            lawV2 = q3.IsValid ? BeadLaw.HeightV2(p, q3, bw) : p.Z - z;
+            return true;
         }
     }
 }

@@ -717,7 +717,7 @@ namespace LARGERslicer.Toolpaths
             var r = new CheckResult();
             Toolpath real = tp;
             // Follow the surface: the laps lean on the lap below where the surface turns flat (under the
-            // chin, the crown), and the extrusion follows the law of the printed head there
+            // chin, the crown), and the extrusion follows the shell law there (BeadLaw)
             bool leaning = tp.Warp != null && tp.Warp.UseBeadLaw;
             if (tp.Warp != null)
             {
@@ -882,16 +882,31 @@ namespace LARGERslicer.Toolpaths
                 r.Report.Add(Inv.F($"CROSSES ITSELF: the path runs across its own bead at {r.Crossings.Count} place(s). The nozzle would plough through material it has just laid. See the Crossings output."));
             }
 
+            // the longest stretch of path that lies more than the limit beside the layer below, in one piece
+            double longestHang = 0;
+            {
+                double run = 0;
+                for (int i = firstPrint + 1; i < n; i++)
+                {
+                    if (tp.Flows[i] > 0 && r.Offsets[i] > limit) { run += tp.Points[i].DistanceTo(tp.Points[i - 1]); if (run > longestHang) longestHang = run; }
+                    else run = 0;
+                }
+            }
+
             // ---- report
             if (unsupported == 0)
                 r.Report.Add(Inv.F($"Support OK: every bead lies on the layer below (largest sideways offset {r.MaxOffset:0.0} mm, allowed {limit:0.0} mm = half the bead width)."));
-            else if (leaning && maxOffset <= 0 && r.MaxOffset <= 2.0 * limit + 0.05 && unsupported <= 0.025 * Math.Max(1, checkedPoints))
+            else if (leaning && maxOffset <= 0 && r.MaxOffset <= 2.0 * limit + 0.05 && unsupported <= 0.025 * Math.Max(1, checkedPoints) && longestHang <= 12 * st.BeadWidth)
             {
-                // Calibrated on the UNIKAT HEAD V2 (Ginger One, 2024), which printed fine: 336 of its 18 177
-                // points (1.8 %) lie 2 to 4 mm (up to one bead width) beside the lap below, under the chin
-                // and on the crown, where the rings lean on the ring below and the law gives them less material.
-                r.Report.Add(Inv.F($"Support OK for leaning laps: {unsupported} of {checkedPoints} points ({100.0 * unsupported / Math.Max(1, checkedPoints):0.#} %) lie more than {limit:0.0} mm beside the lap below (up to {r.MaxOffset:0.0} mm), where the surface turns flat (under the chin, at the crown). ") +
-                             Inv.F($"Accepted up to one bead width ({2 * limit:0.0} mm) at up to 2.5 % of the points: the printed head of 2024 had 1.8 % of its points up to 4.0 mm beside the lap below and printed fine. Use the Offset output to see where."));
+                // Laps that follow the surface step sideways where it turns flat (under a chin, towards the crown).
+                // A short stretch of such a lap that lies more than half a bead beside the lap below still touches it
+                // and hangs between the supported stretches on either side of it, as a short bridge: accepted up to
+                // one bead width beside, at up to 2.5 % of the points, in stretches of at most 12 bead widths.
+                // (Up to 1.3.0 this was justified by the 2024 head "UNIKAT HEAD V2"; measured in plan its laps never
+                // lay more than 1.95 mm, half a bead, beside the lap below - the 4 mm read before came from splitting
+                // its G-code into layers by turns. The allowance is kept for the bridging, not for that print.)
+                r.Report.Add(Inv.F($"Support OK with a note: {unsupported} of {checkedPoints} points ({100.0 * unsupported / Math.Max(1, checkedPoints):0.#} %) lie more than {limit:0.0} mm (half a bead) beside the lap below, up to {r.MaxOffset:0.0} mm, where the surface turns flat (under a chin, at the crown); the longest such stretch is {longestHang:0} mm. ") +
+                             Inv.F($"Accepted up to one bead width ({2 * limit:0.0} mm) at up to 2.5 % of the points, in stretches of at most 12 bead widths ({12 * st.BeadWidth:0} mm) that hang between supported ones like short bridges. Print them slowly and cool well; use the Offset output to see where."));
             }
             else if ((r.MaxOffset <= 1.75 * limit && unsupported <= 0.01 * Math.Max(1, checkedPoints)) || (hangLayers.Count == 0 && r.Unsupported.Count <= Math.Max(8, checkedPoints / 2000)))
             {
