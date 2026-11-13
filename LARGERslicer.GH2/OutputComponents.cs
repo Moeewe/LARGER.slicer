@@ -335,6 +335,7 @@ namespace LARGERslicer.GH2
             foreach (var w in r.Warnings)
                 if (w.StartsWith("NOT PRINTABLE")) access.AddError("Not printable on this machine", w);
                 else access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
+            foreach (var n in r.Notes) access.AddRemark("Non-planar on this machine", n);
             if (run != null) access.SetItem(4, run);
             var named = tp.Duplicate(); named.Settings = tp.Settings.Duplicate(); named.Settings.Machine = machine.Profile.Duplicate();
             string fileName = OutputFile.Name(machine.Prefix, part, named, machine.Extension);

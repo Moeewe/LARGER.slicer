@@ -78,6 +78,8 @@ namespace LARGERslicer.Toolpaths
         {
             public List<string> Lines = new List<string>();
             public List<string> Warnings = new List<string>();
+            /// <summary>Remarks: worth knowing, no problem (shown grey).</summary>
+            public List<string> Notes = new List<string>();
             public string Info = "";
         }
 
