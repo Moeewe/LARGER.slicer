@@ -39,7 +39,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 3, "Fin Spacing", 4m, 60m, 15m, 0, "mm");
+            AddSlider(doc, 3, "Fin Spacing (bead widths)", 4m, 60m, 15m, 0, "", new double[] { 5, 10, 15, 20, 30 });
             AddSlider(doc, 4, "Reach (bead widths)", 0m, 5m, 1m, 1, "", new double[] { 0, 0.5, 1, 2, 3 });
             AddValueList(doc, 5, "Contact", "Neck (cut off)", "Neck + gap (break off)", "Full (strongest)");
         }
