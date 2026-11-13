@@ -541,7 +541,7 @@ namespace LARGERslicer.Components.Slicer
             // the settings reach every slicer component: thin wires, so the chains stay readable
             foreach (var c in all)
                 foreach (var prm in c.Params.Input)
-                    if (prm.Sources.Contains(s)) prm.WireDisplay = GH_ParamWireDisplay.faint;
+                    if (prm.Sources.Contains(s) || prm.Sources.Any(src => relays.Contains(src))) prm.WireDisplay = GH_ParamWireDisplay.faint;
 
             // spell out every input and output, so nobody has to guess what "W" or "Fl" means
             foreach (var c in all)
