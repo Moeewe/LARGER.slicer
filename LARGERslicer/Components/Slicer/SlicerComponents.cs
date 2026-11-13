@@ -273,13 +273,13 @@ namespace LARGERslicer.Components.Slicer
             var ginger = (GH_Component)place(new GingerGCodeComponent(), 2260, y1 - 90);
             ginger.Params.Input[0].AddSource(lead.Params.Output[0]);
             // the robot cell: robot behind the bed, tool, work base in the bed corner
-            var robot = (GH_Component)place(new LARGERslicer.Components.Robot.RobotArmComponent(), 2260, y1 + 130);
-            var tool = (GH_Component)place(new LARGERslicer.Components.Robot.RobotToolComponent(), 2260, y1 + 270);
-            var cellC = (GH_Component)place(new LARGERslicer.Components.Robot.RobotCellComponent(), 2500, y1 + 190);
-            var program = (GH_Component)place(new LARGERslicer.Components.Robot.RobotProgramComponent(), 2720, y1 + 130);
+            var robot = (GH_Component)place(new LARGERslicer.Components.Robot.RobotArmComponent(), 2430, y1 + 190);
+            var tool = (GH_Component)place(new LARGERslicer.Components.Robot.RobotToolComponent(), 2430, y1 + 330);
+            var cellC = (GH_Component)place(new LARGERslicer.Components.Robot.RobotCellComponent(), 2670, y1 + 250);
+            var program = (GH_Component)place(new LARGERslicer.Components.Robot.RobotProgramComponent(), 2890, y1 + 190);
             Action<IGH_Param, Plane> setPlane = (prm, pl) => { var pp = prm as Grasshopper.Kernel.Parameters.Param_Plane; if (pp == null) return; pp.PersistentData.Clear(); pp.PersistentData.Append(new GH_Plane(pl)); };
             // the cell of the FH Muenster: it says where the robot stands and what stands around it
-            var cellGeo = (GH_Component)place(new LARGERslicer.Components.Robot.CellGeometryComponent(), 2020, y1 + 330);
+            var cellGeo = (GH_Component)place(new LARGERslicer.Components.Robot.CellGeometryComponent(), 2180, y1 + 390);
             robot.Params.Input[2].AddSource(cellGeo.Params.Output[2]);
             cellC.Params.Input[2].AddSource(cellGeo.Params.Output[3]);
             if (cellC.Params.Input.Count > 4) cellC.Params.Input[4].AddSource(cellGeo.Params.Output[0]);
@@ -294,8 +294,8 @@ namespace LARGERslicer.Components.Slicer
             cellC.Params.Input[1].AddSource(tool.Params.Output[0]);
             program.Params.Input[0].AddSource(lead.Params.Output[0]);
             program.Params.Input[1].AddSource(cellC.Params.Output[0]);
-            var dxrMachine = (GH_Component)place(new LARGERslicer.Components.Export.MachineSettingsComponent(), 2720, y1 + 420);
-            var dxr = (GH_Component)place(new LARGERslicer.Components.Export.DXRGeneratorComponent(), 3020, y1 + 190);
+            var dxrMachine = (GH_Component)place(new LARGERslicer.Components.Export.MachineSettingsComponent(), 2890, y1 + 480);
+            var dxr = (GH_Component)place(new LARGERslicer.Components.Export.DXRGeneratorComponent(), 3190, y1 + 250);
             dxr.Params.Input[0].AddSource(program.Params.Output[0]);
             dxr.Params.Input[1].AddSource(program.Params.Output[1]);
             dxr.Params.Input[2].AddSource(program.Params.Output[2]);
@@ -366,19 +366,19 @@ namespace LARGERslicer.Components.Slicer
             // the robot for this example: with layers square to the guide curve the tool leans, and here you can watch it
             {
                 var lead3 = (GH_Component)row3[5];
-                var program3 = (GH_Component)place(new LARGERslicer.Components.Robot.RobotProgramComponent(), 1760, y3 - 20);
+                var program3 = (GH_Component)place(new LARGERslicer.Components.Robot.RobotProgramComponent(), 1800, y3 - 20);
                 program3.Params.Input[0].AddSource(lead3.Params.Output[0]);
-                var cell3 = relay(cellC.Params.Output[0], "Robot Cell", 1560, y3 + 80);
+                var cell3 = relay(cellC.Params.Output[0], "Robot Cell", 1600, y3 + 80);
                 program3.Params.Input[1].AddSource(cell3);
                 { var pn = program3.Params.Input[3] as Grasshopper.Kernel.Parameters.Param_String; if (pn != null) { pn.PersistentData.Clear(); pn.PersistentData.Append(new GH_String("Multi Axis")); } }
-                var simulate3 = (GH_Component)place(new LARGERslicer.Components.Robot.RobotSimulationComponent(), 2300, y3 - 20);
+                var simulate3 = (GH_Component)place(new LARGERslicer.Components.Robot.RobotSimulationComponent(), 2340, y3 - 20);
                 if (program3.Params.Output.Count > 12) simulate3.Params.Input[0].AddSource(program3.Params.Output[12]);
                 var slider3 = new Grasshopper.Kernel.Special.GH_NumberSlider();
                 slider3.CreateAttributes();
                 slider3.NickName = "Simulation (0 = start, 1 = end)";
                 slider3.Slider.Minimum = 0; slider3.Slider.Maximum = 1; slider3.Slider.DecimalPlaces = 3;
                 slider3.SetSliderValue(0.9m);
-                slider3.Attributes.Pivot = new System.Drawing.PointF(x0 + 1800, y0 + y3 + 20);
+                slider3.Attributes.Pivot = new System.Drawing.PointF(x0 + 1840, y0 + y3 + 20);
                 doc.AddObject(slider3, false);
                 simulate3.Params.Input[1].AddSource(slider3);
                 // Play is a button on Robot Simulation itself
@@ -470,7 +470,9 @@ namespace LARGERslicer.Components.Slicer
             group("EASY SLICER  -  click the rows to change nozzle, infill, walls, angle", System.Drawing.Color.FromArgb(70, 90, 160, 90), new IGH_DocumentObject[] { part6, easy, check6 });
 
             // ---- 7 non-planar head (Ginger One): layers that follow the part, nozzle vertical
-            float y7 = y6 + 520;
+            // Easy Slicer is a tall block (all its rows): the next section starts below it
+            easy.Attributes.ExpireLayout(); easy.Attributes.PerformLayout();
+            float y7 = Math.Max(y6 + 520, easy.Attributes.Bounds.Bottom - y0 + 360);
             section("07. NON-PLANAR HEAD  -  GINGER ADDITIVE \u00B7 GINGER ONE (KLIPPER)", "Layers that follow the part itself, no guide surface; the nozzle stays vertical. Each layer lies at the same share of the way up the wall, so the bulging side gets even layers. Non-Planar Check measures every bead and shows the head: move Pose.", y7);
             var part7 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), 60, y7);
             part7.NickName = "Part";
@@ -488,18 +490,20 @@ namespace LARGERslicer.Components.Slicer
             { var vr = path7.Params.Input.Count > 8 ? path7.Params.Input[8] as Grasshopper.Kernel.Parameters.Param_Number : null; if (vr != null) { vr.PersistentData.Clear(); vr.PersistentData.Append(new GH_Number(330)); } } // the Ginger delivers about 330 mm3/s
             var lead7 = (GH_Component)place(new StartEndComponent(), 1140, y7);
             lead7.Params.Input[0].AddSource(path7.Params.Output[0]);
-            var check7 = (GH_Component)place(new PathCheckComponent(), 1440, y7);
+            // Machine G-code right after Start and End (short straight wire), the machine under
+            // Start and End, the checks in a column under Machine G-code: no wire runs behind a block
+            var check7 = (GH_Component)place(new PathCheckComponent(), 1440, y7 + 260);
             check7.Params.Input[0].AddSource(lead7.Params.Output[0]);
-            var np7 = (GH_Component)place(new NonPlanarCheckComponent(), 1440, y7 + 200);
+            var np7 = (GH_Component)place(new NonPlanarCheckComponent(), 1440, y7 + 460);
             np7.Params.Input[0].AddSource(lead7.Params.Output[0]);
-            var machine7 = (GH_Component)place(new MachineComponent(), 1760, y7);
+            var machine7 = (GH_Component)place(new MachineComponent(), 1160, y7 + 330);
             setInt(machine7.Params.Input[0], 2); // Ginger Additive · Ginger One (Klipper)
-            var gcode7 = (GH_Component)place(new MachineGCodeComponent(), 2040, y7);
+            var gcode7 = (GH_Component)place(new MachineGCodeComponent(), 1440, y7);
             gcode7.Params.Input[0].AddSource(lead7.Params.Output[0]); gcode7.Params.Input[1].AddSource(machine7.Params.Output[0]);
             beds.Add(lead7.Params.Output[0]);
             all.Add(slice7); all.Add(walls7); all.Add(path7); all.Add(lead7); all.Add(check7); all.Add(np7); all.Add(machine7); all.Add(gcode7);
             hide.Add(part7);
-            group("NON-PLANAR LAYERS FROM THE PART, ONE SPIRAL, HEAD CHECK  -  then 'Save G-code' on Machine G-code", System.Drawing.Color.FromArgb(70, 90, 140, 200), new IGH_DocumentObject[] { part7, slice7, walls7, path7, lead7, check7, np7, machine7, gcode7 });
+            group("NON-PLANAR LAYERS FROM THE PART, ONE SPIRAL, HEAD CHECK  -  then 'Save G-code' on Machine G-code", System.Drawing.Color.FromArgb(70, 90, 140, 200), new IGH_DocumentObject[] { part7, s7, slice7, walls7, path7, lead7, check7, np7, machine7, gcode7 });
 
             // one name for all files of this part
             var jobName = new Grasshopper.Kernel.Special.GH_Panel { NickName = "Part name" };
@@ -515,14 +519,14 @@ namespace LARGERslicer.Components.Slicer
             if (dxr.Params.Input.Count > 4 && program.Params.Output.Count > 11) dxr.Params.Input[4].AddSource(program.Params.Output[11]);
 
             // play the program: the robot at any moment of the print
-            var simulate = (GH_Component)place(new LARGERslicer.Components.Robot.RobotSimulationComponent(), 3020, y1 + 520);
+            var simulate = (GH_Component)place(new LARGERslicer.Components.Robot.RobotSimulationComponent(), 3190, y1 + 730);
             if (program.Params.Output.Count > 12) simulate.Params.Input[0].AddSource(program.Params.Output[12]);
             var simSlider = new Grasshopper.Kernel.Special.GH_NumberSlider();
             simSlider.CreateAttributes();
             simSlider.NickName = "Simulation (0 = start, 1 = end)";
             simSlider.Slider.Minimum = 0; simSlider.Slider.Maximum = 1; simSlider.Slider.DecimalPlaces = 3;
             simSlider.SetSliderValue(0.5m);
-            simSlider.Attributes.Pivot = new System.Drawing.PointF(x0 + 2640, y0 + y1 + 590);
+            simSlider.Attributes.Pivot = new System.Drawing.PointF(x0 + 2810, y0 + y1 + 800);
             doc.AddObject(simSlider, false);
             simulate.Params.Input[1].AddSource(simSlider);
             // Play is a button on Robot Simulation itself
