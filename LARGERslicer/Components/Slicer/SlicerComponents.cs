@@ -82,9 +82,9 @@ namespace LARGERslicer.Components.Slicer
         }
 
         /// <summary>An on/off switch on the component.</summary>
-        protected void AddToggle(GH_Document doc, int input, string name, bool value)
+        protected void AddToggle(GH_Document doc, int input, string name, bool value, string on = null, string off = null)
         {
-            _rows?.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Toggle, Label = name, Input = input });
+            _rows?.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Toggle, Label = name, Input = input, On = on, Off = off });
         }
 
         /// <summary>A button on the component for a Save-like input: true for one solution, then false again.</summary>
@@ -2179,10 +2179,16 @@ namespace LARGERslicer.Components.Slicer
         }
 
         private readonly List<Mesh> _model = new List<Mesh>();
+        private readonly List<System.Drawing.Color> _colors = new List<System.Drawing.Color>();
         private static readonly Rhino.Display.DisplayMaterial ModelMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(120, 124, 132), 0.35);
-        protected override void BeforeSolveInstance() { _model.Clear(); base.BeforeSolveInstance(); }
+        protected override void BeforeSolveInstance() { _model.Clear(); _colors.Clear(); base.BeforeSolveInstance(); }
         public override BoundingBox ClippingBox { get { var b = base.ClippingBox; foreach (var m in _model) b.Union(m.GetBoundingBox(false)); return b; } }
-        public override void DrawViewportMeshes(IGH_PreviewArgs args) { base.DrawViewportMeshes(args); if (!Hidden) foreach (var m in _model) args.Display.DrawMeshShaded(m, ModelMaterial); }
+        public override void DrawViewportMeshes(IGH_PreviewArgs args)
+        {
+            base.DrawViewportMeshes(args);
+            if (Hidden) return;
+            for (int i = 0; i < _model.Count; i++) args.Display.DrawMeshShaded(_model[i], i < _colors.Count ? PrinterSimulationComponent.Material(_colors[i]) : ModelMaterial);
+        }
 
         protected override void SolveInstance(IGH_DataAccess da)
         {
@@ -2242,13 +2248,20 @@ namespace LARGERslicer.Components.Slicer
             }
             Message = m.Name;
             string note = null;
-            var preview = ownModel ?? m.Preview(out note);
+            List<Mesh> preview;
+            if (ownModel != null) preview = ownModel;
+            else
+            {
+                var parts = m.PreviewParts(out note);
+                preview = parts.Select(pp => pp.Mesh).ToList();
+                _colors.AddRange(parts.Select(pp => pp.Color));
+            }
             if (ownModel == null && note != null) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, note);
             _model.AddRange(preview);
             if (Params.Output.Count > 3) da.SetDataList(3, preview);
             da.SetData(0, new GH_ObjectWrapper(m));
             da.SetDataList(1, m.ToText());
-            da.SetData(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}, {m.Material}, bed {m.BedTemperature:0} C.{(m.AfterLayer.Count > 0 ? " After layer " + string.Join(", ", m.AfterLayer.Keys) + ": " + string.Join(" / ", m.AfterLayer.Values.Select(v => string.Join(" ", v))) + "." : "")}{(string.IsNullOrWhiteSpace(m.Note) ? "" : " " + m.Note)} 3D: {(ownModel != null ? "your model" : !string.IsNullOrWhiteSpace(m.Model) ? System.IO.Path.GetFileName(m.Model) : m.BedX > 0 ? $"bed {m.BedX:0} x {m.BedY:0} mm" : "none")}. Your own machines: {MachineDefinition.Folder}");
+            da.SetData(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}, {m.Material}, bed {m.BedTemperature:0} C.{(m.AfterLayer.Count > 0 ? " After layer " + string.Join(", ", m.AfterLayer.Keys) + ": " + string.Join(" / ", m.AfterLayer.Values.Select(v => string.Join(" ", v))) + "." : "")}{(string.IsNullOrWhiteSpace(m.Note) ? "" : " " + m.Note)} 3D: {(ownModel != null ? "your model" : !string.IsNullOrWhiteSpace(m.Model) ? System.IO.Path.GetFileName(m.Model) : !string.IsNullOrWhiteSpace(m.BuiltInModel) ? m.BuiltInModel + " (built in: layers Frame, Bed, Z, Y, X; play it with Printer Simulation)" : m.BedX > 0 ? $"bed {m.BedX:0} x {m.BedY:0} mm" : "none")}. Your own machines: {MachineDefinition.Folder}");
         }
     }
 
@@ -2282,6 +2295,17 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("G-code", "G", "G-code lines", GH_ParamAccess.list);
             p.AddTextParameter("Info", "I", "Layers, length, extrusion, time and weight", GH_ParamAccess.item);
             p.AddTextParameter("File Name", "Fn", "The name the file gets on the Desktop", GH_ParamAccess.item);
+            p.AddMeshParameter("Model", "3D", "The machine in 3D with the nozzle at the start of the path (Ginger One built in). Play the whole print with Printer Simulation", GH_ParamAccess.list);
+            p.HideParameter(3); // drawn by the component in the colours of the model
+        }
+
+        private readonly List<PrinterModel.Part> _parts = new List<PrinterModel.Part>();
+        protected override void BeforeSolveInstance() { _parts.Clear(); base.BeforeSolveInstance(); }
+        public override BoundingBox ClippingBox { get { var b = base.ClippingBox; foreach (var p in _parts) b.Union(p.Mesh.GetBoundingBox(false)); return b; } }
+        public override void DrawViewportMeshes(IGH_PreviewArgs args)
+        {
+            base.DrawViewportMeshes(args);
+            if (!Hidden) foreach (var p in _parts) args.Display.DrawMeshShaded(p.Mesh, PrinterSimulationComponent.Material(p.Color));
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -2304,6 +2328,17 @@ namespace LARGERslicer.Components.Slicer
             da.SetDataList(0, r.Lines);
             da.SetData(1, r.Info);
             da.SetData(2, fileName);
+            if (Params.Output.Count > 3)
+            {
+                var printer = machine.Printer(out _);
+                if (printer != null)
+                {
+                    var posed = printer.Pose(tp.Points[0]);
+                    _parts.AddRange(posed);
+                    da.SetDataList(3, posed.Select(pp => pp.Mesh));
+                }
+            }
+
         }
     }
 
