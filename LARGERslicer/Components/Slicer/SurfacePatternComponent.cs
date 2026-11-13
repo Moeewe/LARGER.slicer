@@ -50,9 +50,9 @@ namespace LARGERslicer.Components.Slicer
         protected override void CreateAutoInputs(GH_Document doc)
         {
             AddValueList(doc, 1, "Pattern", SurfacePattern.Names);
-            AddSlider(doc, 2, "Amplitude", 0.5m, 30m, 3m, 1);
-            AddSlider(doc, 3, "Pitch", 2m, 60m, 10m, 1);
-            AddSlider(doc, 5, "Phase Shift", 0m, 1m, 0m, 2);
+            AddSlider(doc, 2, "Amplitude", 0.5m, 30m, 3m, 1, "mm");
+            AddSlider(doc, 3, "Pitch", 2m, 60m, 10m, 1, "mm");
+            AddSlider(doc, 5, "Phase Shift", 0m, 1m, 0m, 2, "", new double[] { 0, 0.05, 0.1, 0.25, 0.5 });
             AddValueList(doc, 8, "Side", "Outside (looks into the open)", "Inside (the hollow of a vase)");
             AddToggle(doc, 14, "Invert", false);
         }

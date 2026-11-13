@@ -37,8 +37,23 @@ namespace LARGERslicer.Components.Slicer
             : base(name, nick, description, SlicerIO.Category, SlicerIO.SubCategory) { }
 
         /// <summary>Override to declare the settings drawn on the component: AddValueList (a choice),
-        /// AddSlider (a number), AddToggle (on/off), AddButton (a button, e.g. Save).</summary>
+        /// AddSlider / AddAngle (a number), AddToggle (on/off), AddButton (a button, e.g. Save).</summary>
         protected virtual void CreateAutoInputs(GH_Document doc) { }
+
+        // ---- calculating in the background (see AsyncSolve)
+        /// <summary>True for components with long calculations: they solve in the background, with a
+        /// "Background" row to switch it off. SolveInstance then uses Async.Deliver / Async.Run.</summary>
+        protected virtual bool CanRunInBackground => false;
+        private LARGERslicer.Components.AsyncSolve _async;
+        protected LARGERslicer.Components.AsyncSolve Async => CanRunInBackground ? (_async ?? (_async = new LARGERslicer.Components.AsyncSolve(this))) : null;
+        protected override void BeforeSolveInstance() { Async?.Before(); base.BeforeSolveInstance(); }
+        protected override void AfterSolveInstance() { base.AfterSolveInstance(); Async?.After(); }
+        public override void ExpireSolution(bool recompute) { Async?.Expired(); base.ExpireSolution(recompute); }
+        public override void RemovedFromDocument(GH_Document document) { Async?.Cancel(); base.RemovedFromDocument(document); }
+        public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context) { if (context == GH_DocumentContext.Close || context == GH_DocumentContext.Unloaded) Async?.Cancel(); base.DocumentContextChanged(document, context); }
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { Async?.Write(writer); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { Async?.Read(reader); return base.Read(reader); }
+        protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu) { base.AppendAdditionalComponentMenuItems(menu); Async?.AppendMenu(menu); }
 
         private List<LARGERslicer.Components.OptionRow> _rows;
         public List<LARGERslicer.Components.OptionRow> Rows
@@ -49,7 +64,9 @@ namespace LARGERslicer.Components.Slicer
                 {
                     _rows = new List<LARGERslicer.Components.OptionRow>();
                     try { CreateAutoInputs(null); } catch { }
-                    _rows = _rows.OrderBy(r => r.Kind == LARGERslicer.Components.RowKind.Button ? 1 : 0).ThenBy(r => r.Input).ToList();
+                    if (Async != null) _rows.Add(Async.Row());
+                    // settings first (in the order of the inputs), then buttons, then settings of the component itself
+                    _rows = _rows.OrderBy(r => r.Input < 0 ? 2 : r.Kind == LARGERslicer.Components.RowKind.Button ? 1 : 0).ThenBy(r => r.Input).ToList();
                 }
                 return _rows;
             }
@@ -69,16 +86,45 @@ namespace LARGERslicer.Components.Slicer
             _rows?.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Choice, Label = name, Input = input, Items = items });
         }
 
-        private static readonly double[] Nice = { 0.2, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 14, 15, 16, 18, 20, 25, 30, 40, 50, 60, 70, 80, 100, 120, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1200, 1500, 1800, 2000, 2400, 3000, 3600, 4000, 5000, 6000, 8000, 10000, 12000 };
+        private static readonly double[] Nice = { 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 75, 80, 100, 120, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 12000 };
 
-        /// <summary>A number on the component: a few round values to pick and a field to type one.</summary>
-        protected void AddSlider(GH_Document doc, int input, string name, decimal min, decimal max, decimal value, int decimals)
+        /// <summary>A handful of round values between min and max (always with min, the default and max).</summary>
+        internal static double[] QuickPicks(double min, double max, double value, int decimals, int count = 6)
         {
-            var inRange = Nice.Where(v => v >= (double)min - 1e-9 && v <= (double)max + 1e-9).ToList();
-            if (!inRange.Contains((double)value)) inRange.Add((double)value);
-            inRange.Sort();
-            while (inRange.Count > 12) { int drop = inRange.Count - 1; for (int k = inRange.Count - 2; k > 0; k -= 2) if (Math.Abs(inRange[k] - (double)value) > 1e-9) { drop = k; break; } inRange.RemoveAt(drop); }
-            _rows?.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Number, Label = name, Input = input, Presets = inRange.ToArray(), Decimals = decimals });
+            double step = Math.Pow(10, -Math.Max(0, decimals));
+            var all = Nice.Where(v => v > min + 1e-9 && v < max - 1e-9 && Math.Abs(v / step - Math.Round(v / step)) < 1e-6).ToList();
+            var picks = new List<double> { min, max, value };
+            int inner = Math.Max(0, count - 2);
+            for (int k = 1; k <= inner && all.Count > 0; k++)
+                picks.Add(all[(int)Math.Round((all.Count - 1) * (k - 0.5) / inner)]);
+            return picks.Distinct().OrderBy(v => v).ToArray();
+        }
+
+        /// <summary>A number on the component: drag it left or right between min and max, click to type
+        /// any value, or pick one of a few round values from the arrow. A wire into the input still wins.</summary>
+        protected void AddSlider(GH_Document doc, int input, string name, decimal min, decimal max, decimal value, int decimals, string unit = "", double[] presets = null)
+        {
+            _rows?.Add(new LARGERslicer.Components.OptionRow
+            {
+                Kind = LARGERslicer.Components.RowKind.Number, Label = name, Input = input, Decimals = decimals, Unit = unit ?? "",
+                Min = (double)min, Max = (double)max, Default = (double)value,
+                Presets = presets ?? QuickPicks((double)min, (double)max, (double)value, decimals),
+            });
+        }
+
+        /// <summary>An angle in degrees: drag in 1 degree steps, quick picks 0 / 15 / 30 / 45 / 60 / 75 / 90.</summary>
+        protected void AddAngle(GH_Document doc, int input, string name, double min, double max, double value)
+        {
+            var picks = new[] { 0.0, 15, 30, 45, 60, 75, 90 }.Where(a => a >= min - 1e-9 && a <= max + 1e-9).ToList();
+            if (!picks.Contains(value)) picks.Add(value);
+            AddSlider(doc, input, name, (decimal)min, (decimal)max, (decimal)value, 0, "°", picks.OrderBy(a => a).ToArray());
+        }
+
+        /// <summary>A count (walls, layers, loops): whole numbers only.</summary>
+        protected void AddCount(GH_Document doc, int input, string name, int min, int max, int value)
+        {
+            var picks = max - min <= 6 ? Enumerable.Range(min, max - min + 1).Select(v => (double)v).ToArray() : null;
+            AddSlider(doc, input, name, min, max, value, 0, "", picks);
         }
 
         /// <summary>An on/off switch on the component.</summary>
@@ -717,10 +763,10 @@ namespace LARGERslicer.Components.Slicer
         protected override void CreateAutoInputs(GH_Document doc)
         {
             AddValueList(doc, 14, "Nozzle", Nozzles.Names);
-            AddSlider(doc, 13, "First Layer", 0, 10, 0, 1);
-            AddSlider(doc, 0, "Bead Width", 1m, 40m, 5m, 1);
-            AddSlider(doc, 1, "Layer Height", 0.5m, 20m, 2m, 1);
-            AddSlider(doc, 2, "Speed (mm/s)", 5m, 200m, 50m, 0);
+            AddSlider(doc, 13, "First Layer", 0, 10, 0, 1, "mm", new double[] { 0, 1, 2, 3, 4, 5 });
+            AddSlider(doc, 0, "Bead Width", 1m, 40m, 5m, 1, "mm", new double[] { 3, 4, 5, 6, 8, 10, 12, 15, 20 });
+            AddSlider(doc, 1, "Layer Height", 0.5m, 20m, 2m, 1, "mm", new double[] { 1, 1.5, 2, 2.5, 3, 4, 5 });
+            AddSlider(doc, 2, "Speed", 5m, 200m, 50m, 0, "mm/s", new double[] { 10, 25, 30, 50, 80, 100, 150 });
             AddToggle(doc, 10, "Preview", false);
         }
 
@@ -918,8 +964,8 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 3, "Angle", 0, 60, 0, 0);
-            AddSlider(doc, 7, "Start/End Layers", 0, 10, 0, 0);
+            AddAngle(doc, 3, "Angle", 0, 90, 0);
+            AddCount(doc, 7, "Start/End Layers", 0, 10, 0);
             AddValueList(doc, 5, "Guide Mode", "Flat bottom, top follows guide", "All layers follow guide", "Follow the part (no guide)", "Follow the surface (no guide)");
             AddValueList(doc, 6, "Tool Axis", "Square to the layer (robot)", "Stays vertical (3-axis)");
         }
@@ -1059,7 +1105,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 2, "Walls", 1, 4, 1, 0);
+            AddCount(doc, 2, "Walls", 1, 4, 1);
             AddValueList(doc, 3, "Position", "Inside the geometry", "Centred on the geometry", "Outside the geometry");
         }
 
@@ -1119,7 +1165,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void CreateAutoInputs(GH_Document doc)
         {
             AddValueList(doc, 2, "Pattern", "Honeycomb", "Grid");
-            AddSlider(doc, 3, "Cell Size", 20, 300, 60, 0);
+            AddSlider(doc, 3, "Cell Size", 20, 300, 60, 0, "mm");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -1183,7 +1229,7 @@ namespace LARGERslicer.Components.Slicer
         protected override void CreateAutoInputs(GH_Document doc)
         {
             AddValueList(doc, 2, "Shape", "Wave", "Truss", "Meander");
-            AddSlider(doc, 3, "Wavelength", 30, 400, 80, 0);
+            AddSlider(doc, 3, "Wavelength", 30, 400, 80, 0, "mm");
             AddToggle(doc, 6, "Meet", true);
         }
 
@@ -1316,8 +1362,8 @@ namespace LARGERslicer.Components.Slicer
         protected override void CreateAutoInputs(GH_Document doc)
         {
             AddValueList(doc, 2, "Shape", "Boxes", "Truss");
-            AddSlider(doc, 3, "Length", 30, 400, 70, 0);
-            AddSlider(doc, 4, "Depth", 20, 300, 50, 0);
+            AddSlider(doc, 3, "Length", 30, 400, 70, 0, "mm");
+            AddSlider(doc, 4, "Depth", 20, 300, 50, 0, "mm");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -1442,7 +1488,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 2, "Bottom Layers", 0, 10, 0, 0);
+            AddCount(doc, 2, "Bottom Layers", 0, 10, 0);
             AddValueList(doc, 3, "Pattern", "Auto", "Zigzag", "Contour (follows the wall)");
         }
 
@@ -1644,8 +1690,8 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 1, "Skirt Loops", 0, 5, 1, 0);
-            AddSlider(doc, 8, "Brim Loops", 1, 6, 3, 0);
+            AddCount(doc, 1, "Skirt Loops", 0, 5, 1);
+            AddCount(doc, 8, "Brim Loops", 1, 6, 3);
             AddValueList(doc, 7, "Brim", "None", "Outside", "Inside", "Both sides");
         }
 
@@ -1696,7 +1742,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 2, "Min Layer Time", 0, 300, 0, 0);
+            AddSlider(doc, 2, "Min Layer Time", 0, 300, 0, 0, "s", new double[] { 0, 30, 60, 90, 120, 180 });
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -1999,21 +2045,21 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 3, "Speed (mm/s)", 5m, 200m, 50m, 0);
-            AddSlider(doc, 5, "Walls", 1, 4, 1, 0);
-            AddSlider(doc, 6, "Bottom Layers", 0, 10, 0, 0);
+            AddSlider(doc, 3, "Speed", 5m, 200m, 50m, 0, "mm/s", new double[] { 10, 25, 30, 50, 80, 100, 150 });
+            AddCount(doc, 5, "Walls", 1, 4, 1);
+            AddCount(doc, 6, "Bottom Layers", 0, 10, 0);
             AddToggle(doc, 9, "Spiral", false);
-            AddSlider(doc, 11, "First Layer", 0, 10, 0, 1);
-            AddSlider(doc, 1, "Bead Width", 2, 20, 5, 1);
-            AddSlider(doc, 2, "Layer Height", 0.5m, 10, 2, 1);
+            AddSlider(doc, 11, "First Layer", 0, 10, 0, 1, "mm", new double[] { 0, 1, 2, 3, 4, 5 });
+            AddSlider(doc, 1, "Bead Width", 2, 20, 5, 1, "mm", new double[] { 3, 4, 5, 6, 8, 10, 12, 15, 20 });
+            AddSlider(doc, 2, "Layer Height", 0.5m, 10, 2, 1, "mm", new double[] { 1, 1.5, 2, 2.5, 3, 4, 5 });
             AddValueList(doc, 4, "Machine Profile", MachineProfile.PresetNames);
             AddValueList(doc, 7, "Infill", EasySlicer.Infills);
             AddValueList(doc, 10, "Brim", "None", "Outside", "Inside", "Both sides");
             AddValueList(doc, 12, "Nozzle", Nozzles.Names);
             AddValueList(doc, 13, "Solid Pattern", "Auto", "Zigzag", "Contour (follows the wall)");
-            AddSlider(doc, 14, "Top Layers", 0, 10, 0, 0);
-            AddSlider(doc, 15, "Angle", 0, 60, 0, 0);
-            AddSlider(doc, 16, "Start/End Layers", 0, 10, 0, 0);
+            AddCount(doc, 14, "Top Layers", 0, 10, 0);
+            AddAngle(doc, 15, "Angle", 0, 90, 0);
+            AddCount(doc, 16, "Start/End Layers", 0, 10, 0);
             AddValueList(doc, 17, "Wall Position", "Inside the geometry", "Centred on the geometry", "Outside the geometry");
             AddToggle(doc, 18, "Bridge", true);
         }

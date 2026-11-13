@@ -48,7 +48,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 3, "Sample Spacing", 0, 50, 0, 1);
+            AddSlider(doc, 3, "Sample Spacing", 0, 50, 0, 1, "mm");
             AddValueList(doc, 13, "Format", MaterialField.Formats);
             AddButton(doc, 14, "Save");
         }

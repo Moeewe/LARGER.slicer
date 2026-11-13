@@ -33,7 +33,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 5, "Pose (0 = start, 1 = end)", 0m, 1m, 1m, 3);
+            AddSlider(doc, 5, "Pose (0 = start, 1 = end)", 0m, 1m, 1m, 3, "", new double[] { 0, 0.25, 0.5, 0.75, 1 });
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)

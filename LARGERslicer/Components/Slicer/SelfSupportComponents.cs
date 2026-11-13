@@ -51,8 +51,8 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 3, "Angle", 0, 75, 0, 0);
-            AddSlider(doc, 6, "Factor", 0.2m, 0.8m, 0.5m, 2);
+            AddAngle(doc, 3, "Angle", 0, 90, 0);
+            AddSlider(doc, 6, "Factor", 0.2m, 0.8m, 0.5m, 2, "", new double[] { 0.25, 0.4, 0.5, 0.6, 0.75 });
             AddValueList(doc, 5, "Guide Mode", "Flat bottom, top follows guide", "All layers follow guide");
         }
 
@@ -117,7 +117,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 2, "Factor", 0.2m, 0.8m, 0.5m, 2);
+            AddSlider(doc, 2, "Factor", 0.2m, 0.8m, 0.5m, 2, "", new double[] { 0.25, 0.4, 0.5, 0.6, 0.75 });
             AddToggle(doc, 3, "Geometry", true);
         }
 
@@ -180,10 +180,10 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 2, "Min Angle", 0, 75, 0, 0);
-            AddSlider(doc, 3, "Max Angle", 0, 75, 75, 0);
+            AddAngle(doc, 2, "Min Angle", 0, 90, 0);
+            AddAngle(doc, 3, "Max Angle", 0, 90, 75);
             AddToggle(doc, 4, "Turn", true);
-            AddSlider(doc, 5, "Factor", 0.2m, 0.8m, 0.5m, 2);
+            AddSlider(doc, 5, "Factor", 0.2m, 0.8m, 0.5m, 2, "", new double[] { 0.25, 0.4, 0.5, 0.6, 0.75 });
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
