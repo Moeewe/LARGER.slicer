@@ -6,7 +6,7 @@ namespace LARGERslicer.Components.Slicer
 {
     /// <summary>
     /// Speeds are entered in mm/s, as people think about a moving nozzle; the path and the machine
-    /// files keep mm/min (the F of G-code and the DXR). Definitions saved before version 1.3 gave
+    /// files keep mm/min (the F of G-code and the DXR). Definitions saved before speeds were given in mm/s gave
     /// mm/min: they carry no "SpeedMmS" mark and are read as before, with a note.
     /// </summary>
     public static class SpeedUnits

@@ -14,7 +14,7 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 | Print Settings | Bead width, layer height, speed (mm/s; 50 mm/s = F3000), nozzle, machine profile |
 | Material | Start values for a pellet material: temperatures, drying, density; own materials as `.material` files |
 | Material Factor | New extrusion factor from measured bead widths |
-| Slice | Flat, angled, non-planar (guide surface) or multi-axis (guide curve) layers |
+| Slice | Flat, angled, non-planar (guide surface, or following the part itself with a vertical nozzle) or multi-axis (guide curve) layers |
 | Self Support Check · Self Supporting Envelope · Best Angle | Where the part hangs over too far, the least material that makes it self-supporting, the slice angle with the least overhang |
 | Walls | Wall centre lines, one bead spacing apart |
 | Bottom Fill | Solid bottom as one line |
@@ -22,7 +22,8 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 | Support Fins | Thin fins outside the part that hold up overhangs, as part of the one line |
 | Continuous Path | All layers as one path; layered with a short ramp, or spiral |
 | Round and Lead | Rounded corners, skirt before the part, exit move after it |
-| Path Check | No crossing, every bead supported |
+| Path Check | No crossing, every bead supported; layer times against Min Layer Time |
+| Non-Planar Check | Non-planar paths for a vertical nozzle: real bead height at every point, the head (tip, cone, body) against what is printed; shows the head at Pose |
 | Import G-code | G-code from other slicers or a .dxr file as a toolpath, to check it |
 | Material Field | The toolpath as a direction-dependent material field for FE or IGA (CSV, JSON, VTK) |
 | Extrusion and Speed | Points, planes, extrusion, speed, role and layer per point |
