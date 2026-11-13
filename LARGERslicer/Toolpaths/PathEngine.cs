@@ -9,6 +9,15 @@ namespace LARGERslicer.Toolpaths
     public enum ContinuousMode { Spiral = 0, Layered = 1 }
 
     /// <summary>
+    /// Where a layered path puts its seam (start and end of every layer loop, and the ramp).
+    /// Fixed = at the seam point, or where the first layer starts. InnerCorner = in a concave
+    /// corner of the outer wall, where it is least visible and milling does not run over it
+    /// (no inner corner: the sharpest outer corner). SharpestCorner = the sharpest corner of
+    /// either kind.
+    /// </summary>
+    public enum SeamMode { Fixed = 0, InnerCorner = 1, SharpestCorner = 2 }
+
+    /// <summary>
     /// Builds one continuous print path from layers.
     ///  - Spiral: vase mode. The path climbs steadily and blends from one layer contour to the
     ///    next, so there is no seam at all. A flat first loop and a flat last loop close the
@@ -335,7 +344,7 @@ namespace LARGERslicer.Toolpaths
         // ------------------------------------------------------------------ build
 
         public static Toolpath Build(List<SliceLayer> layers, PrintSettings settings, ContinuousMode mode,
-            GeometryBase seam, double rampLength, bool alternate, List<string> log, bool bridge = true)
+            GeometryBase seam, double rampLength, bool alternate, List<string> log, bool bridge = true, SeamMode seamMode = SeamMode.Fixed)
         {
             var tp = new Toolpath { Settings = settings };
             if (layers == null || layers.Count == 0) return tp;
@@ -357,6 +366,7 @@ namespace LARGERslicer.Toolpaths
             int infillLayers = 0;
             int slivers = 0;
             int bridgesMade = 0, bridgesNotMade = 0; List<Point3d> bridgesBelow = null;
+            var outers = seamMode != SeamMode.Fixed && mode == ContinuousMode.Layered ? new Loop[layers.Count] : null;
             for (int li = 0; li < layers.Count; li++)
             {
                 var layer = layers[li];
@@ -382,6 +392,8 @@ namespace LARGERslicer.Toolpaths
                 // contours inside contours (inner shell, openings, more walls) are joined by a bridge
                 bool fill = layer.EntryHints != null && layer.EntryHints.Count > 0;
                 bool spliced = layer.Reference != null && layer.Reference.Count > 0;
+                // the plain outer wall, before ribs or bridges are joined to it: the seam corners are on it
+                if (outers != null && !fill) outers[li] = OuterWall(spliced ? PlainWalls(layer.Reference, minSpacing) : list, layer.Plane);
                 if (bridge && !fill && !spliced && list.Count(l => l.Closed) >= 2 && list.All(l => l.Role == PathRole.Wall))
                 {
                     // Two walls one bead apart are joined by a short turn only where that makes the whole
@@ -405,6 +417,7 @@ namespace LARGERslicer.Toolpaths
             if (slivers > 0) log?.Add($"{slivers} contour(s) are smaller than one bead (slivers where a layer just touches the part) and were left out.");
             if (bridgesMade > 0) log?.Add($"{bridgesMade} bridge(s) join inner contours to the ones around them (two lines one bead spacing apart, stacked into a rib): no travel move between them.");
             if (bridgesNotMade > 0) log?.Add($"{bridgesNotMade} layer(s) have a contour inside another that could not be joined (no free way between them): a travel move remains there.");
+            SeamCorners corners = outers != null ? FindCorners(layers, loops, outers, seamMode, seam, w, log) : null;
 
             // Layers with fill (bottom, top) are printed flat. Every stretch of at least two plain
             // layers in between is printed as a spiral.
@@ -423,15 +436,222 @@ namespace LARGERslicer.Toolpaths
                 }
                 int flatTo = at + 1;
                 while (flatTo < layers.Count && !(mode == ContinuousMode.Spiral && plain[flatTo] && runEnd(flatTo) - flatTo >= 2)) flatTo++;
-                BuildLayered(tp, layers, loops, seam, rampLength, alternate, w, at, flatTo);
+                BuildLayered(tp, layers, loops, seam, rampLength, alternate, w, at, flatTo, corners);
                 at = flatTo;
             }
             if (mode == ContinuousMode.Spiral && infillLayers > 0)
                 log?.Add($"{infillLayers} layer(s) with ribs or cells are printed as flat layers; only plain single walls are printed as a spiral.");
             if (mode == ContinuousMode.Spiral && !anySpiral)
                 log?.Add("Spiral needs layers with exactly one closed contour and no infill. Printed as flat layers instead.");
+            if (corners != null && corners.Eligible > 0 && corners.Hits == 0)
+                log?.Add("Seam: no corner can be reached without a move that does not print (the layer below ends elsewhere, e.g. after a bottom fill), so the seam stays where it was.");
+            else if (corners != null && corners.Eligible > 0)
+                log?.Add($"Seam: in {(corners.Concave ? "an inner" : "an outer")} corner on {corners.Hits} of {corners.Eligible} wall layer(s)" +
+                         (corners.Hits < corners.Eligible ? " (on the others it stays above the seam below)" : "") +
+                         $"; from layer to layer it moves at most {corners.MaxStep:0.0} mm sideways (allowed {0.5 * w:0.0} mm).");
             TagInfill(tp, layers);
             return warp != null ? ToReal(tp, warp) : tp;
+        }
+
+        // ------------------------------------------------------------------ seam in a corner
+
+        private class Corner { public Point3d P; public double Turn; } // Turn > 0: outer (convex) corner, < 0: inner (concave)
+
+        /// <summary>The corners each layer offers and the one the seam stack starts in.</summary>
+        private class SeamCorners
+        {
+            public List<Corner>[] Cand;
+            public int StartLayer = -1;
+            public Point3d StartPoint;
+            public bool Concave;
+            public Point3d Last = Point3d.Unset; // where the seam of the last flat wall layer was
+            public int Hits, Eligible;
+            public double MaxStep;
+        }
+
+        private static List<Loop> PlainWalls(List<Polyline> reference, double minSpacing)
+        {
+            var list = new List<Loop>();
+            foreach (var r in reference)
+            {
+                var pts = Clean(r, minSpacing, out bool closed);
+                if (closed && pts.Count >= 3) list.Add(new Loop(pts, true));
+            }
+            return list;
+        }
+
+        /// <summary>Largest closed wall loop, counter-clockwise: the outer wall.</summary>
+        private static Loop OuterWall(List<Loop> list, Plane plane)
+        {
+            Loop best = null; double bestArea = 0;
+            foreach (var lp in list)
+            {
+                if (!lp.Closed || lp.P.Count < 3 || lp.Role != PathRole.Wall) continue;
+                double a = Area2(lp.P.Select(q => To2(plane, q)).ToList());
+                if (a > bestArea) { bestArea = a; best = lp; }
+            }
+            if (best == null) return null;
+            if (!IsCounterClockwise(best.P, plane)) { var pts = new List<Point3d>(best.P); pts.Reverse(); best = new Loop(pts, true); }
+            return best;
+        }
+
+        /// <summary>Signed turn (radians) of a closed loop at arc length s, measured over a window on each side.</summary>
+        private static double TurnAt(Loop lp, double s, double window, Vector3d n)
+        {
+            Point3d a = lp.PointAt(s - window), b = lp.PointAt(s), c = lp.PointAt(s + window);
+            Vector3d d1 = b - a, d2 = c - b;
+            d1 -= n * (d1 * n); d2 -= n * (d2 * n);
+            if (d1.SquareLength < 1e-12 || d2.SquareLength < 1e-12) return 0;
+            return Math.Atan2(Vector3d.CrossProduct(d1, d2) * n, d1 * d2);
+        }
+
+        /// <summary>
+        /// Corners of a counter-clockwise outer wall: where the wall turns by more than 35 degrees
+        /// within 1.5 bead widths, and does most of that turn within half a bead (a circle turns
+        /// evenly, a corner does not). Corners rounded by the wall offset count too. One point per
+        /// corner. Turn &lt; 0 = inner (concave) corner.
+        /// </summary>
+        private static List<Corner> CornersOf(Loop lp, Vector3d n, double w)
+        {
+            var found = new List<Corner>();
+            double window = Math.Min(1.5 * w, lp.Len / 6.0);
+            if (window < 1e-3) return found;
+            var raw = new List<KeyValuePair<double, double>>(); // arc length, turn
+            for (int i = 0; i < lp.P.Count; i++)
+            {
+                double t = TurnAt(lp, lp.S[i], window, n);
+                if (Math.Abs(t) < 35 * Math.PI / 180) continue;
+                double tShort = TurnAt(lp, lp.S[i], window / 3.0, n);
+                if (Math.Sign(tShort) != Math.Sign(t) || Math.Abs(tShort) < 0.6 * Math.Abs(t)) continue;
+                raw.Add(new KeyValuePair<double, double>(lp.S[i], t));
+            }
+            // the strongest point of each corner; nothing else within two windows of it
+            var kept = new List<KeyValuePair<double, double>>();
+            foreach (var kv in raw.OrderByDescending(k => Math.Abs(k.Value)))
+            {
+                bool near = false;
+                foreach (var k in kept)
+                {
+                    double d = Math.Abs(k.Key - kv.Key); d = Math.Min(d, lp.Len - d);
+                    if (d < 2 * window) { near = true; break; }
+                }
+                if (!near) kept.Add(kv);
+            }
+            foreach (var kv in kept) found.Add(new Corner { P = lp.PointAt(kv.Key), Turn = kv.Value });
+            return found;
+        }
+
+        private static double Sideways(Point3d a, Point3d b, Vector3d n) { Vector3d d = a - b; d -= n * (d * n); return d.Length; }
+
+        private static Corner NearestCorner(List<Corner> list, Point3d p, Vector3d n, bool concave, double limit)
+        {
+            if (list == null) return null;
+            Corner best = null; double bd = limit;
+            foreach (var c in list)
+            {
+                if ((c.Turn < 0) != concave) continue;
+                double d = Sideways(c.P, p, n);
+                if (d <= bd) { bd = d; best = c; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Finds the corners of the outer wall on every flat wall layer and picks the one the seam
+        /// starts in: the corner that the most layers above keep within half a bead, so the stack
+        /// of seams stands on itself (of those the sharpest; with a seam point the corner nearest
+        /// to it). Layers whose start is fixed otherwise (fill, tilted layers, several separate
+        /// walls) are left alone, and corners where a rib or bridge leaves the outer wall are not used.
+        /// </summary>
+        private static SeamCorners FindCorners(List<SliceLayer> layers, List<List<Loop>> loops, Loop[] outers, SeamMode mode, GeometryBase seam, double w, List<string> log)
+        {
+            var sc = new SeamCorners { Cand = new List<Corner>[layers.Count] };
+            int first = -1;
+            for (int li = 0; li < layers.Count; li++)
+            {
+                var layer = layers[li];
+                Vector3d n = layer.Plane.ZAxis;
+                bool fill = layer.EntryHints != null && layer.EntryHints.Count > 0;
+                var closed = loops[li].Where(l => l.Closed).ToList();
+                if (fill || outers[li] == null || closed.Count != 1 || Math.Abs(n.Z) < 0.999) continue;
+                Loop final = closed[0], outer = outers[li];
+                var list = new List<Corner>();
+                foreach (var c in CornersOf(outer, n, w))
+                {
+                    // the path itself runs along the outer wall there, two beads to either side:
+                    // no rib foot and no bridge next to the seam
+                    double sf = ArcAt(final, c.P);
+                    bool onWall = true;
+                    for (int k = -2; k <= 2 && onWall; k++)
+                    {
+                        Point3d q = final.PointAt(sf + k * w);
+                        int h = -1;
+                        if (outer.Closest(q, ref h, int.MaxValue).DistanceTo(q) > 0.3 * w) onWall = false;
+                    }
+                    if (onWall) { c.P = final.PointAt(sf); list.Add(c); }
+                }
+                sc.Cand[li] = list;
+                if (first < 0) first = li;
+            }
+            if (first < 0) return null;
+
+            // the corners of the first layer, and how many layers above keep each of them
+            var start = sc.Cand[first];
+            var options = mode == SeamMode.InnerCorner && start.Any(c => c.Turn < 0) ? start.Where(c => c.Turn < 0).ToList() : start;
+            if (options.Count == 0)
+            {
+                log?.Add("Seam: the outer wall has no corner on its first layer, so the seam stays where the first layer starts.");
+                return null;
+            }
+            var hits = new Dictionary<Corner, int>();
+            foreach (var c in options)
+            {
+                bool cc = c.Turn < 0; Point3d last = c.P; int count = 1;
+                for (int li = first + 1; li < layers.Count; li++)
+                {
+                    if (sc.Cand[li] == null) continue;
+                    var next = NearestCorner(sc.Cand[li], last, layers[li].Plane.ZAxis, cc, 0.5 * w);
+                    if (next != null) { last = next.P; count++; }
+                    else { int h = -1; last = loops[li].First(l => l.Closed).Closest(last, ref h, int.MaxValue); }
+                }
+                hits[c] = count;
+            }
+            int most = hits.Values.Max();
+            Corner pick = null;
+            Point3d? target = seam != null ? SeamTarget(seam, layers[first], options[0].P) : null;
+            foreach (var c in options)
+            {
+                if (target.HasValue)
+                {
+                    if (pick == null || c.P.DistanceTo(target.Value) < pick.P.DistanceTo(target.Value)) pick = c;
+                    continue;
+                }
+                // the corners that last (nearly) longest; of these the sharpest
+                if (hits[c] < 0.9 * most) continue;
+                if (pick == null || Math.Abs(c.Turn) > Math.Abs(pick.Turn)) pick = c;
+            }
+            sc.StartLayer = first; sc.StartPoint = pick.P; sc.Concave = pick.Turn < 0;
+            if (mode == SeamMode.InnerCorner && !sc.Concave)
+                log?.Add("Seam: the outer wall has no inner corner, so the seam is in its sharpest outer corner.");
+            return sc;
+        }
+
+        /// <summary>
+        /// The corner the seam of layer i goes to, or null to keep the usual rule. A corner never
+        /// costs a travel move: the very first layer may start anywhere; a layer that climbs over
+        /// the ramp of the layer below takes the corner within half a bead of that ramp; a layer
+        /// the nozzle reaches from elsewhere (after a bottom fill) takes a corner only within the
+        /// short printed step of three bead widths from the nozzle.
+        /// </summary>
+        private static Point3d? CornerFor(SeamCorners sc, int i, Point3d rampAbove, Point3d nozzle, bool empty, Vector3d n, double w)
+        {
+            if (sc == null || sc.Cand[i] == null || i < sc.StartLayer) return null;
+            if (empty) return i == sc.StartLayer ? sc.StartPoint : (Point3d?)null;
+            Corner c;
+            if (rampAbove.IsValid) c = NearestCorner(sc.Cand[i], rampAbove, n, sc.Concave, 0.5 * w);
+            else if (i == sc.StartLayer && nozzle.DistanceTo(sc.StartPoint) <= 3 * w) return sc.StartPoint;
+            else c = NearestCorner(sc.Cand[i], nozzle, n, sc.Concave, 3 * w);
+            return c != null ? c.P : (Point3d?)null;
         }
 
         /// <summary>
@@ -613,7 +833,7 @@ namespace LARGERslicer.Toolpaths
         /// Open contours are printed back and forth.
         /// </summary>
         private static void BuildLayered(Toolpath tp, List<SliceLayer> layers, List<List<Loop>> loops,
-            GeometryBase seam, double rampLength, bool alternate, double w, int fromLayer, int toLayer)
+            GeometryBase seam, double rampLength, bool alternate, double w, int fromLayer, int toLayer, SeamCorners corners = null)
         {
             bool first = tp.Count == 0;
             Point3d rampStart = Point3d.Unset; // where the layer below began (the next ramp starts above it)
@@ -709,12 +929,25 @@ namespace LARGERslicer.Toolpaths
                                 if (ds < bestStart) { bestStart = ds; target = up; }
                             }
                         }
+                        // seam in a corner: the corner right above the seam below, on every flat wall layer
+                        bool cornerLayer = corners != null && firstOfLayer && !hasFill && !multi && corners.Cand[i] != null && i >= corners.StartLayer;
+                        bool inCorner = false;
+                        if (cornerLayer)
+                        {
+                            Point3d? c = CornerFor(corners, i, rampStart.IsValid ? rampStart + n * h : Point3d.Unset, from, tp.Count == 0, n, w);
+                            if (c.HasValue) { target = c.Value; inCorner = true; }
+                        }
                         var cur = new Loop(StartAt(pts, target), true);
 // the ramp, the closing pass and the move to the next contour run along the plain
                         // wall, never inside a rib or support fin (the move would cut through its legs)
                         double maxRamp = double.MaxValue;
                         if (!usedHint && rampLength > 0) cur = OffExcursions(cur, layer, firstOfLayer, rampLength, tp.Settings.BeadSpacing, w, out maxRamp);
                         curStarts.Add(cur.P[0]);
+                        if (cornerLayer)
+                        {
+                            if (corners.Last.IsValid) corners.MaxStep = Math.Max(corners.MaxStep, Sideways(cur.P[0], corners.Last, n));
+                            corners.Last = cur.P[0]; corners.Eligible++; if (inCorner) corners.Hits++;
+                        }
 
                         bool ramp = firstOfLayer && !usedHint && !hasFill && rampLength > 0 && tp.Count > 0 && i > 0;
                         double lr = ramp ? Math.Min(Math.Min(rampLength, maxRamp), cur.Len * 0.5) : 0;
@@ -764,6 +997,10 @@ namespace LARGERslicer.Toolpaths
                                 height = h * (1 - (pos - cur.Len) / lr);
                                 role = PathRole.Seam;
                             }
+                            // a seam in a corner: the ramp starts where the layer below ended; no doubled
+                            // point there, so Round sees the inner corner and rounds it like every other one
+                            // (a sharp outer tip stays as it is: rounded, it would cut into the layers)
+                            if (inCorner && corners.Concave && pos <= 0 && tp.Count > 0 && p.DistanceTo(tp.Points[tp.Count - 1]) < 1e-6) continue;
                             tp.Add(p, n, height, w, 1, role, layer.Index);
                         }
                         if (firstOfLayer)
@@ -1115,6 +1352,16 @@ namespace LARGERslicer.Toolpaths
             public List<double> Extrusion = new List<double>(); // per point: amount for the move that ends here
             public List<double> Speed = new List<double>();     // mm/min for the move that ends here
             public double Length, PrintLength, Volume, Minutes;
+            /// <summary>Seconds per layer (path layer index), skirt left out; from the same speeds as Minutes.</summary>
+            public SortedDictionary<int, double> LayerSeconds = new SortedDictionary<int, double>();
+            /// <summary>Of LayerSeconds: the part spent on printing moves (scales with the print speed).</summary>
+            public SortedDictionary<int, double> LayerPrintSeconds = new SortedDictionary<int, double>();
+            /// <summary>Print speed of the layers slowed down to reach Min Layer Time (mm/min); other layers run at Speed.</summary>
+            public SortedDictionary<int, double> LayerFeed = new SortedDictionary<int, double>();
+            /// <summary>Highest volume the extruder has to deliver (mm3/s).</summary>
+            public double MaxVolumeRate;
+            /// <summary>Moves slowed by Max Volume Rate, and of these the ones that would need less than Min Speed (they run at Min Speed and stay over the limit).</summary>
+            public int VolumeCapped, VolumeOverLimit;
         }
 
         /// <summary>
@@ -1123,7 +1370,43 @@ namespace LARGERslicer.Toolpaths
         /// compensateWithSpeed = true: the extruder keeps its nominal output and the speed changes
         /// instead (thin layer = faster), which suits slow-reacting pellet extruders.
         /// </summary>
+        /// <remarks>
+        /// Two optional limits from the Print Settings, both off at 0:
+        /// MinLayerTime: a layer that would be done sooner is printed slower, F_layer =
+        /// min(F, printed length x 60 / (MinLayerTime - travel time)), never below Min Speed. F
+        /// stays constant within the layer.
+        /// MaxVolumeRate: no move asks the extruder for more than this (mm3/s): F = min(F_layer,
+        /// MaxVolumeRate x 60 / (bead section x Flow)), never below Min Speed.
+        /// </remarks>
         public static ProcessResult Process(Toolpath tp, bool compensateWithSpeed)
+        {
+            var st = tp.Settings;
+            if (st.MinLayerTime <= 0 || tp.Count < 2) return Process(tp, compensateWithSpeed, null);
+            // slow down the short layers; a few rounds, as travel moves and the volume cap do not scale
+            var feed = new Dictionary<int, double>();
+            ProcessResult r = Process(tp, compensateWithSpeed, null);
+            for (int round = 0; round < 4; round++)
+            {
+                bool changed = false;
+                foreach (var kv in r.LayerSeconds)
+                {
+                    if (kv.Value >= st.MinLayerTime - 0.05) continue;
+                    double f = feed.TryGetValue(kv.Key, out double had) ? had : st.Speed;
+                    if (f <= st.MinSpeed + 1e-9) continue;
+                    r.LayerPrintSeconds.TryGetValue(kv.Key, out double printing);
+                    double other = kv.Value - printing;
+                    if (printing <= 1e-9) continue;
+                    double want = st.MinLayerTime > other + 1e-3 ? f * printing / (st.MinLayerTime - other) : st.MinSpeed;
+                    feed[kv.Key] = Math.Max(st.MinSpeed, Math.Min(st.Speed, want));
+                    changed = true;
+                }
+                if (!changed) break;
+                r = Process(tp, compensateWithSpeed, feed);
+            }
+            return r;
+        }
+
+        private static ProcessResult Process(Toolpath tp, bool compensateWithSpeed, Dictionary<int, double> feed)
         {
             var r = new ProcessResult();
             var st = tp.Settings;
@@ -1159,6 +1442,7 @@ namespace LARGERslicer.Toolpaths
                     r.Extrusion.Add(0);
                     r.Speed.Add(travel);
                     r.Minutes += len / travel;
+                    AddLayerTime(r, tp, i, 60.0 * len / travel, false);
                     continue;
                 }
 
@@ -1171,16 +1455,47 @@ namespace LARGERslicer.Toolpaths
                 if (tp.Layers[i] == firstLayer) e *= m.FirstLayerFactor;
 
                 double speed = st.Speed;
+                if (feed != null && tp.Roles[i] != PathRole.Skirt && feed.TryGetValue(tp.Layers[i], out double fl)) speed = fl;
                 if (compensateWithSpeed)
-                    speed = area > 1e-9 ? Math.Max(st.MinSpeed, Math.Min(st.MaxSpeed, nominalRate / area)) : st.MaxSpeed;
+                    speed = area > 1e-9 ? Math.Max(st.MinSpeed, Math.Min(st.MaxSpeed, nominalRate * speed / st.Speed / area)) : st.MaxSpeed;
+                if (st.MaxVolumeRate > 0 && area > 1e-9)
+                {
+                    double cap = st.MaxVolumeRate * 60.0 / area;
+                    if (cap < speed - 1e-9)
+                    {
+                        r.VolumeCapped++;
+                        if (cap < st.MinSpeed) r.VolumeOverLimit++;
+                        speed = Math.Max(st.MinSpeed, cap);
+                    }
+                }
+                if (speed <= 0) speed = st.Speed > 0 ? st.Speed : 1; // never F0
+                r.MaxVolumeRate = Math.Max(r.MaxVolumeRate, area * speed / 60.0);
 
                 r.Extrusion.Add(e / filament);
                 r.Speed.Add(speed);
                 r.PrintLength += len;
                 r.Volume += volume;
                 r.Minutes += len / speed;
+                AddLayerTime(r, tp, i, 60.0 * len / speed, true);
             }
+            // the moves after the last printed point (the exit) belong to no layer
+            int lastPrint = tp.Count - 1;
+            while (lastPrint > 0 && tp.Flows[lastPrint] <= 0) lastPrint--;
+            for (int i = lastPrint + 1; i < tp.Count; i++)
+                if (r.LayerSeconds.ContainsKey(tp.Layers[i]))
+                    r.LayerSeconds[tp.Layers[i]] -= 60.0 * tp.Points[i].DistanceTo(tp.Points[i - 1]) / r.Speed[i];
+            if (feed != null) foreach (var kv in feed) if (kv.Value < st.Speed - 1e-9) r.LayerFeed[kv.Key] = kv.Value;
             return r;
+        }
+
+        private static void AddLayerTime(ProcessResult r, Toolpath tp, int i, double seconds, bool printing)
+        {
+            // the skirt runs before the part, and the way in before the first printed point is no layer time
+            if (tp.Roles[i] == PathRole.Skirt) return;
+            if (!printing && r.LayerSeconds.Count == 0) return;
+            int layer = tp.Layers[i];
+            r.LayerSeconds.TryGetValue(layer, out double t); r.LayerSeconds[layer] = t + seconds;
+            if (printing) { r.LayerPrintSeconds.TryGetValue(layer, out double p); r.LayerPrintSeconds[layer] = p + seconds; }
         }
     }
 }
