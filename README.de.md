@@ -52,33 +52,49 @@ Jede Zeichnung ist eine echte Lage aus dem Slicer (Bauteil 300 × 190 mm, Bahn 5
 
 Neu hier? `Easy Slicer` ist ein einzelner Baustein vom Modell bis zur geprüften Druckbahn; die Seite [Erste Schritte](https://parametricsolutions.de/larger-slicer/erste-schritte/) führt hindurch. Für alle Optionen werden die Komponenten in dieser Reihenfolge verbunden. `Quick Start` legt die ganze Kette samt Beispielteilen auf die Leinwand.
 
-Die Einstellungen sitzen auf den Komponenten selbst: Die Zeilen unter einer Komponente sind Auswahlen, Zahlen, Schalter und Knöpfe (`Save G-code`, `Save KRL`, `Play`). Ein Klick auf die Zeile ändert sie: Eine Auswahl öffnet ein Menü, eine Zahl bietet runde Werte oder ein Feld zum Eintippen. Ein Knopf schreibt seine Datei einmal pro Klick und springt von selbst zurück. Der Wert geht in den Eingang, als wäre er dort eingetippt, die Datei behält ihn also. Ein Draht in denselben Eingang hat weiterhin Vorrang (die Zeile zeigt dann „connected“).
+Die Einstellungen sitzen auf den Komponenten selbst: Die Zeilen unter einer Komponente sind Auswahlen, Zahlen, Schalter und Knöpfe (`Save G-code`, `Save KRL`, `Play`). Ein Klick auf die Zeile ändert sie: Eine Auswahl öffnet ein Menü. Eine Zahl zieht man nach links oder rechts (mit Shift feiner; der Balken zeigt, wo sie in ihrem Bereich liegt), klickt sie an, um einen beliebigen Wert einzutippen, oder wählt über den Pfeil rechts einen runden Wert (Winkel 0, 15, 30, 45, 60, 75, 90°). Ein Knopf schreibt seine Datei einmal pro Klick und springt von selbst zurück. Der Wert geht in den Eingang, als wäre er dort eingetippt, die Datei behält ihn also. Ein Draht in denselben Eingang hat weiterhin Vorrang (die Zeile zeigt dann „connected“).
+
+**Lange Berechnungen laufen im Hintergrund.** `Slice`, `Continuous Path`, `Surface Pattern`, `Material Field`, `Self Support Check`, `Non-Planar Check` und `Robot Program` rechnen neben der Leinwand, die bedienbar bleibt; die Komponente zeigt „computing 3.2 s“ und gibt ihr Ergebnis aus, sobald es fertig ist. Ändert sich ein Eingang währenddessen, beginnt sie neu. Die Zeile `Background: on` (oder der Menüpunkt „Calculate in the background“) schaltet das pro Komponente ab; die Datei behält die Einstellung.
 
 **Geschwindigkeiten in mm/s.** `Print Settings` und `Easy Slicer` nehmen standardmäßig Speed 50, Min Speed 5 und Max Speed 200 mm/s. Die Bahn und die Maschinendateien bleiben in mm/min, dem F von G-Code und DXR: 50 mm/s = F3000. Definitionen, die mit einer älteren Version gespeichert wurden, werden als mm/min gelesen, mit einem Hinweis an der Komponente.
 
-| Schritt | Komponente | Aufgabe |
+Der Tab hat sechs Gruppen, in der Reihenfolge, in der du verbindest (das Ausklappmenü des Slicer-Panels trennt sie durch Linien):
+
+| Gruppe | Komponente | Aufgabe |
 |---|---|---|
-| 1 | `Machine Profile` | Wie dein Drucker die Extrusionswerte erwartet: Volumen, Filamentlänge oder Faktor für die Steuerung. Aufgelistet als Hersteller und Maschine, z. B. „Generic · Pellet extruder“ |
-| 2 | `Print Settings` | Bahnbreite, Lagenhöhe, Überlappung, Geschwindigkeit (mm/s), kleinster Radius. `Nozzle` wählt Bahnbreite und Lagenhöhe passend zur eingeschraubten Düse |
+| **1 Start** | `Quick Start` · `Easy Slicer` | Die ganze Kette mit Beispielteilen; oder ein Baustein vom Modell bis zur geprüften Druckbahn |
+| | `Print Settings` | Bahnbreite, Lagenhöhe, Überlappung, Geschwindigkeit (mm/s), kleinster Radius. `Nozzle` wählt Bahnbreite und Lagenhöhe passend zur eingeschraubten Düse |
+| | `Machine Profile` | Wie dein Drucker die Extrusionswerte erwartet: Volumen, Filamentlänge oder Faktor für die Steuerung. Aufgelistet als Hersteller und Maschine, z. B. „Generic · Pellet extruder“ |
 | | `Material` · `Material Factor` | Startwerte für ein Granulat (Temperaturen, Trocknung, Dichte); ein neuer Extrusionsfaktor aus gemessenen Bahnbreiten |
-| 3 | `Slice` | Breps, Flächen, SubDs, Meshes. Flach, gekippt, non-planar (Führungsfläche, „Follow the part“ oder „Follow the surface“) oder multiaxial (Führungskurve) |
-| | `Self Support Check` · `Self Supporting Envelope` · `Best Angle` | Wo das Bauteil zu weit überhängt, das wenigste Material, das es selbsttragend macht, und der Schnittwinkel mit dem kleinsten Überhang |
-| 4 | `Walls` | Bahn innen, mittig oder außen an der Geometrie |
-| 5 | `Bottom Fill` | Geschlossener Boden als eine Linie: Zickzack oder Kontur |
-| 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill, in die Wandlinie eingebunden |
+| | `Design Rules` · `Print Bed` | Vor dem Modellieren: Bereich der Lagenhöhe, Überlappung, Wandstärke für zwei Bahnen; das Druckbett deiner Maschine und ob die Bahnen darauf liegen |
+| **2 Lagen** | `Slice` | Breps, Flächen, SubDs, Meshes. Flach, gekippt, non-planar (Führungsfläche, „Follow the part“ oder „Follow the surface“) oder multiaxial (Führungskurve) |
+| | `Best Angle` · `Self Support Check` · `Self Supporting Envelope` | Der Schnittwinkel mit dem kleinsten Überhang, wo das Bauteil zu weit überhängt, und das wenigste Material, das es selbsttragend macht |
+| **3 Wände und Füllung** | `Walls` | Bahn innen, mittig oder außen an der Geometrie |
+| | `Bottom Fill` | Geschlossener Boden als eine Linie: Zickzack oder Kontur |
+| | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill, in die Wandlinie eingebunden |
 | | `Support Fins` | Dünne Stützrippen außen am Bauteil, die Überhänge tragen, als Teil derselben Linie |
-| 7 | `Continuous Path` | Flache Lagen mit offener Naht (Lücke von einer Bahnbreite) oder Spirale für einfache Wände. Seam Mode, Min Layer Time, Max Volume Rate |
+| **4 Bahn** | `Continuous Path` | Flache Lagen mit offener Naht (Lücke von einer Bahnbreite) oder Spirale für einfache Wände. Seam Mode, Min Layer Time, Max Volume Rate |
+| | `Round Corners` | Jede Ecke wird ein Bogen |
+| | `Start and End` | Anfahrt von 30 mm oberhalb, Skirt zuerst, Brim außen, innen oder beidseitig, am Ende vom Bauteil wegfahren |
 | | `Surface Pattern` | Texturen in der Wand: Strick, Pixel, Rippen, Wellen, Zickzack, Punkte, hängende Schlaufen oder ein Bild, am ganzen Bauteil oder in einer gezeichneten Region |
-| 8 | `Round Corners` | Jede Ecke wird ein Bogen |
-| 9 | `Start and End` | Anfahrt von 30 mm oberhalb, Skirt zuerst, Brim außen, innen oder beidseitig, am Ende vom Bauteil wegfahren |
-| 10 | `Path Check` | Auflage, Selbstkreuzung, Bahnform, Leerfahrten, Lagenzeiten |
+| **5 Prüfen** | `Path Check` | Auflage, Selbstkreuzung, Bahnform, Leerfahrten, Lagenzeiten |
 | | `Non-Planar Check` | Bahnhöhe und Freiraum des Druckkopfs bei non-planaren Lagen mit senkrechter Düse |
-| 11 | `Extrusion and Speed` | Ebene, E und F pro Punkt für DXR Generator oder G-Code |
-| | `Desktop Test Print` | Derselbe Pfad verkleinert als G-Code für einen Filamentdrucker |
-| | `Ginger G-code` | Der Pfad in Originalgröße als G-Code für den Ginger One, mit dessen Start- und End-Sequenz |
-| | `Machine` · `Machine G-code` | Eingebaute G-Code-Maschinen (z. B. „Ginger Additive · Ginger One (Klipper)“) oder eigene: Start-, Lagen- und Endcode und E-Faktor als `.machine`-Datei in Dokumente/LARGER/Machines |
-| | `Import G-code` | Liest G-Code anderer Slicer oder eine .dxr-Datei als Bahn ein, zur Prüfung mit `Path Check` |
+| | `Extrusion and Speed` | Ebene, E und F pro Punkt für DXR Generator oder G-Code |
 | | `Material Field` | Bringt die Bahn als richtungsabhängiges Materialfeld zurück aufs Bauteil, für FE oder IGA |
+| **6 Ausgabe** | `Machine` · `Machine G-code` | Eingebaute G-Code-Maschinen (z. B. „Ginger Additive · Ginger One (Klipper)“) oder eigene: Start-, Lagen- und Endcode und E-Faktor als `.machine`-Datei in Dokumente/LARGER/Machines |
+| | `Ginger G-code` | Der Pfad in Originalgröße als G-Code für den Ginger One, mit dessen Start- und End-Sequenz |
+| | `Desktop Test Print` | Derselbe Pfad verkleinert als G-Code für einen Filamentdrucker |
+| | `Printer Simulation` | Der Druckkopf fährt die Bahn auf der Maschine ab, mit Schieberegler oder Play |
+| | `Toolpath to Robot Lines` | PTP-Zeilen für den DXR Generator (Weber DXR) |
+| | `Import G-code` | Liest G-Code anderer Slicer oder eine .dxr-Datei als Bahn ein, zur Prüfung mit `Path Check` |
+
+**Slicer · Curves** ist ein eigenes Panel direkt nach Slicer: Werkzeuge für eigene Kurven statt eines Modells.
+
+| Gruppe | Komponente | Aufgabe |
+|---|---|---|
+| **1 Lagen und Kurven** | `Layers to Curves` · `Curves to Layers` | Öffnet Lagen als einfache Kurven und macht aus eigenen Kurven wieder Lagen für `Continuous Path` |
+| **2 Eine Kurve füllen** | `Curve Fill Zigzag` · `Curve Fill Contour` · `Curve Fill Cells` · `Curve Fill Euler` · `Curve Fill Cross Lines` · `Curve Continuous Infill` · `Curve Wall and Zigzag` | Eine geschlossene Umrandung als eine Linie gefüllt |
+| **3 Zur Bahn verbinden** | `Curve Continuous Path` · `Curve Join and Order` · `Curve Bridge` · `Curve Uncross` · `Align Curves` · `Alternate Curves` · `Join Open Contours` | Kurven verbunden, sortiert und überbrückt zu einer Bahn ohne Kreuzungen |
 
 `Quick Start` legt sieben Beispiele an: 01 flache Lagen, 02 non-planar, 03 multiaxial, 04 ein Teil mit Öffnung, 05 schräge Lagen, 06 `Easy Slicer` (eine Vase als Spirale) und 07 ein non-planarer Druckkopf am Ginger One (Klipper), mit Lagen, die dem Bauteil folgen.
 
@@ -225,7 +241,7 @@ Für das Drucken mit dem Roboter: Die Zelle wird einmal beschrieben, danach wird
 
 </details>
 
-Die kurvenbasierten Werkzeuge des früheren Tabs „Toolpaths“ liegen jetzt unter **Slicer Curves** und heißen wie ihre Gegenstücke im Slicer (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
+Die kurvenbasierten Werkzeuge des früheren Tabs „Toolpaths“ liegen jetzt im Panel **Slicer · Curves** (siehe oben) und heißen wie ihre Gegenstücke im Slicer (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
 
 ## Maschinen
 
