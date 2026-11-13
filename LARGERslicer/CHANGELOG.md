@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (support fins, materials, G-code import)
+- **Support Fins** (Slicer, next to Infill; also Grasshopper 2): thin fins outside the part hold up overhangs. Each stands square to the outer wall from the bed up to just under the overhang, exactly on the fin below, and is part of the one continuous line: a hairpin out of the wall and back, touching the part through a narrow neck so it cuts off easily. Contact "Neck + gap" prints the top fin layer 0.3 mm lower so the overhang breaks off. Spacing and reach in bead widths.
+- Continuous Path: the seam ramp stays off ribs and support fins, so the move to the next wall never cuts through a hairpin.
+- **Material** (Slicer): start values for pellet materials - feed zone, heat zones, nozzle, bed, drying, residual moisture, density. Built in: Carbon-P PETG, rPETG and PLA with the start values of the Weber quick guide (densities typical). Own materials as `.material` files in Documents/LARGER/Materials.
+- **Material Factor**: new extrusion factor from measured bead widths (new = target / measured x current), with a warning for uneven measurements.
+- **Import G-code**: reads G-code from Cura, Simplify3D, PrusaSlicer, AiSync / Ai Build and scripts, and Weber .dxr, as a Toolpath, and checks it with the same Path Check: starts and stops, travel moves, retractions, F changes and F0, extrusion into the bed, unsupported beads, crossings, time and weight. Leaning layers and A/B/C tool axes are recognised. On the Weber examples: Hopper 3 lines, 3DBenchy 2268 separate lines; it also found that the 45 degree cube .dxr of the start package has Z values without their decimal point (Z.566 became Z566).
+
 ### Added (external axes: rail and turntable)
 - New **External Axis** component (Robot, Grasshopper 1 and 2): a rail the robot stands on, or a turntable the part stands on - range, top speed, KUKA name (E1 to E6), endless table, offset, smoothing, coupled base, drawing size. Robot Cell has a new optional input External Axes (at the end, old files still open).
 - Robot Program moves rail and table along the print: the rail keeps the robot beside the point being printed, the table turns that point towards the robot; smooth, below top speed, inside the range, never a jump of a full turn. The report lists per axis the range used, the speed needed and points beyond the range. KRL writes E1/E2 on every line; a turntable in the fixed base or a coupled base (EK).
