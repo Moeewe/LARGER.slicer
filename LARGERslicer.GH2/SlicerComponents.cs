@@ -178,7 +178,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddNumber("Angle", "A", "Tilts the layers around the X axis, in degrees. 45 = 45 degree slicing.").Set(0.0);
             inputs.AddGeneric("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it. A curve: the layers stand square to it.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddInteger("Guide Mode", "GM", "0 = with a guide surface: flat bottom, top follows the guide.\n1 = with a guide surface: all layers follow the guide (curved base or mould).\n2 = follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical.").Set(0);
+            inputs.AddInteger("Guide Mode", "GM", "0 = with a guide surface: flat bottom, top follows the guide.\n1 = with a guide surface: all layers follow the guide (curved base or mould).\n2 = follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical.\n3 = follow the surface (no guide): leave Guide empty; for closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, under chin and nose as well, closing the top. Use Continuous Path in Spiral mode. The bead height follows the law of the printed head of 2024. The nozzle stays vertical.").Set(0);
             inputs.AddInteger("Tool Axis", "TA", "Only with a guide: 0 = tool square to the layer (robot). 1 = tool stays vertical.").Set(0);
             inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away afterwards (about 5 for angled printing). The start feature stands on the bed. 0 = none.").Set(0);
         }
@@ -221,20 +221,23 @@ namespace LARGERslicer.GH2
             }
 
             // a bent layer needs a fine mesh, or long flat faces would stay straight
-            bool followPart = guide == null && guideMode == 2;
+            bool followPart = guide == null && (guideMode == 2 || guideMode == 3);
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), tol, log, warp != null || followPart ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
             if (followPart)
             {
                 // non-planar layers from the part itself (meridians), nozzle vertical
-                var mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth);
+                string what = guideMode == 3 ? "Follow the surface" : "Follow the part";
+                var mw = guideMode == 3
+                    ? new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth, new SurfaceField(mesh), 240)
+                    : new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth);
                 if (mw.Valid)
                 {
                     warp = mw; plane = Plane.WorldXY;
                     log.Add(mw.Summary(settings.BeadWidth)); log.AddRange(mw.Notes);
-                    if (mw.ThickMeridians > 0) access.AddWarning("Follow the part", mw.Summary(settings.BeadWidth));
+                    if (mw.ThickMeridians > 0 && guideMode == 2) access.AddWarning(what, mw.Summary(settings.BeadWidth));
                 }
-                else access.AddWarning("Follow the part", mw.Problem + ". Slicing flat.");
+                else access.AddWarning(what, mw.Problem + ". Slicing flat.");
             }
             int extra; access.GetItem(6, out extra);
             var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);

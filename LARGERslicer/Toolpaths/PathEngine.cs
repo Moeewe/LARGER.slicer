@@ -381,7 +381,7 @@ namespace LARGERslicer.Toolpaths
                     var lp = new Loop(pts, closed);
                     // A closed loop shorter than three bead widths is smaller than the bead itself
                     // (the slivers where a tilted layer just touches the part): it cannot be printed.
-                    if (closed && lp.Len < 3.0 * w) { slivers++; continue; }
+                    if (closed && lp.Len < (warp?.MinLoopFactor ?? 3.0) * w) { slivers++; continue; }
                     if (layer.ContourRoles != null && ci < layer.ContourRoles.Count) lp.Role = layer.ContourRoles[ci];
                     list.Add(lp);
                 }
@@ -450,7 +450,14 @@ namespace LARGERslicer.Toolpaths
                          (corners.Hits < corners.Eligible ? " (on the others it stays above the seam below)" : "") +
                          Inv.F($"; from layer to layer it moves at most {corners.MaxStep:0.0} mm sideways (allowed {0.5 * w:0.0} mm)."));
             TagInfill(tp, layers);
-            return warp != null ? ToReal(tp, warp) : tp;
+            if (warp == null) return tp;
+            var real = ToReal(tp, warp);
+            if (warp.UseBeadLaw)
+            {
+                BeadLaw.Apply(real, out double lo, out double hi, out int set);
+                if (set > 0) log?.Add(Inv.F($"Bead height by the law of the printed head on {set} points: {lo:0.##} to {hi:0.##} mm (the vertical gap to the lap below where it lies underneath, less where it lies to the side)."));
+            }
+            return real;
         }
 
         // ------------------------------------------------------------------ seam in a corner
@@ -762,9 +769,13 @@ namespace LARGERslicer.Toolpaths
 
                 if (i == from)
                 {
-                    // flat first loop (on the bed or on the bottom layers)
+                    // flat first loop (on the bed or on the bottom layers). It stops one bead before its own
+                    // start, as the foot ring of the printed head of 2024 did (4.0 mm with a 4 mm bead), so its
+                    // end does not pile onto its start, where the brim or skirt also comes in; the first
+                    // climbing loop starts there with nearly no height.
                     int startIndex = tp.Count;
-                    foreach (var kv in Traverse(cur, 0, cur.Len))
+                    double firstEnd = cur.Len > 6 * w ? cur.Len - w : cur.Len;
+                    foreach (var kv in Traverse(cur, 0, firstEnd))
                         tp.Add(kv.Key, n, h, w, 1, from == 0 ? PathRole.Bottom : PathRole.Wall, layer.Index);
                     if (startIndex > 0 && tp.Points[startIndex].DistanceTo(tp.Points[startIndex - 1]) > 3 * w)
                     {
@@ -800,7 +811,9 @@ namespace LARGERslicer.Toolpaths
                     }
                 }
 
-                if (i == to - 1 && i > from)
+                // (not on a ring smaller than three beads round: the crown of a closed part, which the bead
+                // covers already; a second pass there would run across the first)
+                if (i == to - 1 && i > from && cur.Len >= 3 * w)
                 {
                     // flat last loop: fills the wedge left by the spiral, height fades to 0
                     foreach (var kv in Traverse(cur, 0, cur.Len))
@@ -1391,7 +1404,8 @@ namespace LARGERslicer.Toolpaths
                 foreach (var kv in r.LayerSeconds)
                 {
                     if (kv.Value >= st.MinLayerTime - 0.05) continue;
-                    double f = feed.TryGetValue(kv.Key, out double had) ? had : st.Speed;
+                    // the first layer starts from its own speed (First Layer Speed), every other one from Speed
+                    double f = feed.TryGetValue(kv.Key, out double had) ? had : kv.Key == FirstPrinted(tp) && st.FirstLayerSpeed > 0 ? st.FirstLayerSpeed : st.Speed;
                     if (f <= st.MinSpeed + 1e-9) continue;
                     r.LayerPrintSeconds.TryGetValue(kv.Key, out double printing);
                     double other = kv.Value - printing;
@@ -1491,12 +1505,19 @@ namespace LARGERslicer.Toolpaths
 
         private static void AddLayerTime(ProcessResult r, Toolpath tp, int i, double seconds, bool printing)
         {
-            // the skirt runs before the part, and the way in before the first printed point is no layer time
-            if (tp.Roles[i] == PathRole.Skirt) return;
+            // The way in before the first printed point is no layer time. Skirt and brim lie on the first
+            // layer and are printed just before it: their time counts for that layer (the layer below the
+            // second one has that long to cool), but they never run slower themselves.
             if (!printing && r.LayerSeconds.Count == 0) return;
             int layer = tp.Layers[i];
             r.LayerSeconds.TryGetValue(layer, out double t); r.LayerSeconds[layer] = t + seconds;
-            if (printing) { r.LayerPrintSeconds.TryGetValue(layer, out double p); r.LayerPrintSeconds[layer] = p + seconds; }
+            if (printing && tp.Roles[i] != PathRole.Skirt) { r.LayerPrintSeconds.TryGetValue(layer, out double p); r.LayerPrintSeconds[layer] = p + seconds; }
+        }
+
+        private static int FirstPrinted(Toolpath tp)
+        {
+            for (int i = 0; i < tp.Count; i++) if (tp.Flows[i] > 0) return tp.Layers[i];
+            return int.MinValue;
         }
     }
 }

@@ -20,6 +20,11 @@ namespace LARGERslicer.Toolpaths
         /// <summary>True: Slice keeps the layer height as the step in flat space, even where the real
         /// layers lie further apart (the warp has chosen its layer count itself).</summary>
         public virtual bool KeepLayerStep => false;
+        /// <summary>True: after mapping back, the bead height of every point is set from the lap below
+        /// it in the path by the law of the printed head (BeadLaw) instead of from Scale.</summary>
+        public virtual bool UseBeadLaw => false;
+        /// <summary>Closed loops shorter than this many bead widths are left out as slivers.</summary>
+        public virtual double MinLoopFactor => 3.0;
 
         /// <summary>Called once with the bounding box of the model, before anything is mapped.</summary>
         public virtual void Prepare(BoundingBox model) { }

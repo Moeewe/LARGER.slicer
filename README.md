@@ -61,7 +61,7 @@ Settings sit on the components themselves: the rows under a component are choice
 | 1 | `Machine Profile` | How your printer wants its extrusion values: volume, filament length, or a factor for the controller. Listed as manufacturer and machine, e.g. "Generic · Pellet extruder" |
 | 2 | `Print Settings` | Bead width, layer height, overlap, speed (mm/s), minimum radius. `Nozzle` picks bead width and layer height for the nozzle that is screwed in |
 | | `Material` · `Material Factor` | Start values for a pellet material (temperatures, drying, density); a new extrusion factor from measured bead widths |
-| 3 | `Slice` | Breps, surfaces, SubDs, meshes. Flat, tilted, non-planar (guide surface or "Follow the part") or multi-axis (guide curve) |
+| 3 | `Slice` | Breps, surfaces, SubDs, meshes. Flat, tilted, non-planar (guide surface, "Follow the part" or "Follow the surface") or multi-axis (guide curve) |
 | | `Self Support Check` · `Self Supporting Envelope` · `Best Angle` | Where the part hangs over too far, the least material that makes it self-supporting, and the slice angle with the least overhang |
 | 4 | `Walls` | Bead inside, centred on or outside the geometry |
 | 5 | `Bottom Fill` | Closed bottom as one line: zigzag or contour |
@@ -165,9 +165,11 @@ The overhang limit comes from the bead: a bead may lie `Factor` × bead width be
 </details>
 
 <details>
-<summary><b>Slice "Follow the part", Non-Planar Check, Continuous Path and Path Check options</b></summary>
+<summary><b>Slice "Follow the part" and "Follow the surface", Non-Planar Check, Continuous Path and Path Check options</b></summary>
 
 **`Slice`, Guide Mode "Follow the part (no guide)".** Leave `Guide` empty. The non-planar layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness without a guide surface. The nozzle stays vertical, and the extrusion follows the vertical gap to the layer below. A warning appears when a layer gets thicker than 0.8 × bead width along the wall. If the part does not suit it, `Slice` says so and slices flat.
+
+**`Slice`, Guide Mode "Follow the surface (no guide)".** Leave `Guide` empty and use `Continuous Path` in Spiral mode. Made for closed parts such as a head, the way the head "UNIKAT HEAD V2" was printed on the Ginger One in 2024: rings on the part's own surface from the ring it stands on to the crown (the way along the surface, a third pulled towards the level of the height on the wall), under chin and nose as well, closing the top. The first two layers lie flat (first layer height, then one layer height higher). The nozzle stays vertical. The bead height of every point follows the law of that print, measured from the ring below: the vertical gap where it lies underneath, less where it lies to the side (t = dz + (h - dz) x dxy / w), and E follows it. Path Check and Non-Planar Check accept the leaning rings under the chin and on the crown as far as the 2024 print proved printable (up to one bead width beside the ring below at 2.5 % of the points; bead heights up to 1.1 x bead width at 0.5 % and below 0.4 x layer height at 1 %; nozzle grazes up to 0.6 mm), and say so in their reports. Example: [`LARGERslicer - Head (Ginger One, non-planar).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One, non-planar).gh>).
 
 **`Non-Planar Check`** (Slicer, next to `Path Check`). For printers whose nozzle stays vertical. It measures the real bead height at every point against bead width, layer height and extrusion, and checks the head against everything printed before.
 - Inputs: `Toolpath`, `Tip Radius` (mm, default 4), `Cone Angle` (half angle from vertical, degrees, default 30), `Cone Length` (mm, default 60), `Head Radius` (mm, default 40), `Pose` (0 = start, 1 = end).
@@ -311,6 +313,7 @@ More: [SETUP guide](SETUP/README.md)
 |---|---|---|---|
 | **Weber DXR25** | KUKA robot, multiaxial | `LARGERslicer Weber Robot and Ginger.gh` | [English](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) · [Deutsch](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) |
 | **Ginger One** | Large-format pellet printer | `LARGERslicer Weber Robot and Ginger.gh` | [Quick Start](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
+| **Ginger One (Marlin), non-planar head** | Pellet printer, vertical nozzle | [`LARGERslicer - Head (Ginger One, non-planar).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One, non-planar).gh>): the 2024 head placed as printed, "Follow the surface", one spiral, brim, `Path Check`, `Non-Planar Check`, G-code | The comparison with the 2024 G-code is on the canvas |
 | **Ginger One (Klipper), non-planar** | Pellet printer, vertical nozzle | [`LARGERslicer - Non Planar Head (Ginger).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Non Planar Head (Ginger).gh>): layers that follow the part, one spiral, `Path Check`, `Non-Planar Check`, G-code | Like Quick Start example 07 |
 | **Universal Robots UR5** | Collaborative robot | `UR5slicer.gh` | [Quick Start](<EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/README UR5 00 QUICK START GUIDE.md>) |
 | **Zünd G3 L-2500** | CNC milling / cutting | `ZündHGPL PLT MSA.gh` | [Quick Start](<EXAMPLE FILES/00 - ZUENDT - 3D CNC MILLING/README Zünd G3 L-2500 CNC MILLING QUICK START GUIDE.md>) |

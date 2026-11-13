@@ -99,6 +99,13 @@ namespace LARGERslicer.Toolpaths
                 // a flat-bottomed non-planar part keeps its first layer flat at the first layer height
                 bool flatFirst = warp is SurfaceWarp sw && sw.Morph;
                 if (flatFirst) ((SurfaceWarp)warp).FlatBand = first;
+                // following the part or its surface: the first layer lies flat on the bed too (Follow the
+                // surface: also the second one, as on the printed head of 2024: 0.9 mm, then 2.0 mm)
+                if (warp is MeridianWarp mw && mw.Valid)
+                {
+                    if (mw.FlatBand <= 0) mw.FlatBand = mw.FollowSurface ? first + layerHeight : first;
+                    flatFirst = true;
+                }
                 warp.Prepare(mesh.GetBoundingBox(true));
                 var scale = new double[verts.Length];
                 Parallel.For(0, verts.Length, i => { verts[i] = warp.ToFlat(verts[i]); scale[i] = warp.Scale(verts[i]); });

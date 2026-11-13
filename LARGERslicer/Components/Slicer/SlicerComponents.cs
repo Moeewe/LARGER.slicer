@@ -909,7 +909,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddPlaneParameter("Plane", "P", "Layer plane. Its normal is the build direction and the tool axis", GH_ParamAccess.item, Plane.WorldXY);
             p.AddNumberParameter("Angle", "A", "Tilts the layers around the plane's X axis (degrees). 45 = 45 degree slicing", GH_ParamAccess.item, 0.0);
             p.AddGenericParameter("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it (non-planar). A curve: the layers stand square to it (multi-axis, for parts that grow along a bent axis). Empty = flat layers.", GH_ParamAccess.item);
-            p.AddIntegerParameter("Guide Mode", "GM", "Only with a guide surface:\n0 = Flat bottom, top follows the guide: the first layer lies flat on the bed and the layers bend gradually\n1 = All layers follow the guide: for printing on a curved base or mould\n2 = Follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical", GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Guide Mode", "GM", "Only with a guide surface:\n0 = Flat bottom, top follows the guide: the first layer lies flat on the bed and the layers bend gradually\n1 = All layers follow the guide: for printing on a curved base or mould\n2 = Follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical\n3 = Follow the surface (no guide): leave Guide empty; for closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, under chin and nose as well, closing the top. Use Continuous Path in Spiral mode. The bead height follows the law of the printed head of 2024 (vertical gap, less where the lap below lies to the side). The nozzle stays vertical", GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Tool Axis", "TA", "Only with a guide:\n0 = Tool square to the layer (robot)\n1 = Tool stays vertical (3-axis printer)", GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Start/End Layers", "SE", "Sacrificial layers before the part's first and after its last layer, milled away afterwards (CEAD recommends about 5 for angled printing). The start feature stands on the bed and gives the first leaning layer a full layer to lie on; flat layers get only the end feature. 0 = none", GH_ParamAccess.item, 0);
             p[1].Optional = true;
@@ -920,7 +920,7 @@ namespace LARGERslicer.Components.Slicer
         {
             AddSlider(doc, 3, "Angle", 0, 60, 0, 0);
             AddSlider(doc, 7, "Start/End Layers", 0, 10, 0, 0);
-            AddValueList(doc, 5, "Guide Mode", "Flat bottom, top follows guide", "All layers follow guide", "Follow the part (no guide)");
+            AddValueList(doc, 5, "Guide Mode", "Flat bottom, top follows guide", "All layers follow guide", "Follow the part (no guide)", "Follow the surface (no guide)");
             AddValueList(doc, 6, "Tool Axis", "Square to the layer (robot)", "Stays vertical (3-axis)");
         }
 
@@ -977,7 +977,7 @@ namespace LARGERslicer.Components.Slicer
             }
 
             // a bent layer needs a fine mesh, or long flat faces would stay straight
-            bool followPart = guideGoo == null && guideMode == 2;
+            bool followPart = guideGoo == null && (guideMode == 2 || guideMode == 3);
             Mesh mesh = SliceEngine.ToMesh(geo, tol, log, warp != null || followPart ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
             if (mesh == null)
             {
@@ -987,14 +987,21 @@ namespace LARGERslicer.Components.Slicer
             if (followPart)
             {
                 // non-planar layers from the part itself (meridians), nozzle vertical
-                var mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth);
+                MeridianWarp mw;
+                if (guideMode == 3)
+                {
+                    // Follow the surface: the way along the surface from the bottom ring to the crown
+                    var field = new SurfaceField(mesh);
+                    mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth, field, 240);
+                }
+                else mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth);
                 if (mw.Valid)
                 {
                     warp = mw; plane = Plane.WorldXY;
                     log.Add(mw.Summary(settings.BeadWidth)); log.AddRange(mw.Notes);
-                    if (mw.ThickMeridians > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, mw.Summary(settings.BeadWidth));
+                    if (mw.ThickMeridians > 0 && guideMode == 2) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, mw.Summary(settings.BeadWidth));
                 }
-                else AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Follow the part: " + mw.Problem + ". Slicing flat.");
+                else AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, (guideMode == 3 ? "Follow the surface: " : "Follow the part: ") + mw.Problem + ". Slicing flat.");
             }
             long meshMs = sw.ElapsedMilliseconds;
             int extra = 0; if (Params.Input.Count > 7) da.GetData(7, ref extra);
@@ -1550,7 +1557,7 @@ namespace LARGERslicer.Components.Slicer
             var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
             sw.Stop();
             // slivers left out are a note, not a problem: they are where a layer just touches the part
-            foreach (var l in log) AddRuntimeMessage(l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
+            foreach (var l in log) AddRuntimeMessage(l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") || l.StartsWith("Bead height by the law") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
             if (tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty path."); return; }
 
             int travels = tp.Roles.Count(r => r == PathRole.Travel);
