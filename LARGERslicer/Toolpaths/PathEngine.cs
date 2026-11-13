@@ -1366,6 +1366,10 @@ namespace LARGERslicer.Toolpaths
                 double radius = thin ? Math.Min(minRadius, ribRadius) : minRadius;
                 bool sharp = angle > 0.26; // ~15 degrees
                 if (!sharp && Math.Min(la, lb) / (2 * Math.Tan(angle * 0.5)) >= radius) continue;
+                // the step to the next layer: on a leaning wall the path jogs sideways by the lean of
+                // one layer (2.9 mm at 55 degrees and 2 mm layers). That S-bend is no wall corner, so
+                // a smaller arc there is not reported as one.
+                bool layerStep = tp.Layers[i - 1] != tp.Layers[i + 1];
 
                 // corners that belong together: the two corners of a zigzag turn or rib tip lie one
                 // bead spacing apart, wall corners count as one within two radii
@@ -1376,8 +1380,9 @@ namespace LARGERslicer.Toolpaths
                     c[1] = s[i];
                     c[2] = Math.Min(c[2], radius);
                     if (thin) c[3] = 1;
+                    if (layerStep) c[5] = 1;
                 }
-                else clusters.Add(new[] { s[i], s[i], radius, thin ? 1.0 : 0.0, kind });
+                else clusters.Add(new[] { s[i], s[i], radius, thin ? 1.0 : 0.0, kind, layerStep ? 1.0 : 0.0 });
             }
             if (clusters.Count == 0) return tp.Duplicate();
             corners = clusters.Count(c => c[4] == 0);
@@ -1390,6 +1395,8 @@ namespace LARGERslicer.Toolpaths
                 double first = clusters[c][0], last = clusters[c][1], radius = clusters[c][2];
                 bool thinCluster = clusters[c][3] > 0;
                 bool slope = clusters[c][4] > 0;
+                // only wall corners are counted: not fill turns, not slope changes, not the step to the next layer
+                bool counted = !thinCluster && !slope && clusters[c][5] == 0;
                 // a corner is rounded in the plane of its layer (tool axis in the middle of the corner)
                 Vector3d axis = Vector3d.Zero;
                 if (!slope) { axis = tp.Normals[SegmentAt(s, 0.5 * (first + last))]; if (!axis.Unitize()) axis = Vector3d.Zero; }
@@ -1397,7 +1404,7 @@ namespace LARGERslicer.Toolpaths
                 double lo = c == 0 ? 0 : 0.5 * (clusters[c - 1][1] + first);
                 double hi = c == clusters.Count - 1 ? total : 0.5 * (last + clusters[c + 1][0]);
                 double tMax = Math.Min(Math.Min(first - lo, hi - last), 4 * radius);
-                if (tMax < 1e-3) { tooSharp++; continue; }
+                if (tMax < 1e-3) { if (counted) tooSharp++; continue; }
 
                 // A U-turn (the path comes back beside itself, one bead away) gets a half circle
                 // whose top touches the turn. Its cut follows from the distance of the two lines
@@ -1438,7 +1445,7 @@ namespace LARGERslicer.Toolpaths
                 {
                     double half = 0.5 * probe[0].DistanceTo(probe[3]) / Math.Sin(turn * 0.5);
                     t = Math.Min(tMax, half);
-                    if (!thinCluster) tooSharp++;
+                    if (counted) tooSharp++;
                 }
                 else if (t < 0)
                 {
@@ -1447,7 +1454,7 @@ namespace LARGERslicer.Toolpaths
                         if (tried[k] >= 0.9 * bestR) { bestT = tMax * k / steps; break; }
                     // radius not reachable: the largest arc that fits
                     t = bestT;
-                    if (!thinCluster) tooSharp++;
+                    if (counted) tooSharp++;
                 }
 
                 double sA = first - t, sB = last + t;
