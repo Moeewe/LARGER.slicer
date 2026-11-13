@@ -864,7 +864,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddPlaneParameter("Plane", "P", "Layer plane. Its normal is the build direction and the tool axis", GH_ParamAccess.item, Plane.WorldXY);
             p.AddNumberParameter("Angle", "A", "Tilts the layers around the plane's X axis (degrees). 45 = 45 degree slicing", GH_ParamAccess.item, 0.0);
             p.AddGenericParameter("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it (non-planar). A curve: the layers stand square to it (multi-axis, for parts that grow along a bent axis). Empty = flat layers.", GH_ParamAccess.item);
-            p.AddIntegerParameter("Guide Mode", "GM", "Only with a guide surface:\n0 = Flat bottom, top follows the guide: the first layer lies flat on the bed and the layers bend gradually\n1 = All layers follow the guide: for printing on a curved base or mould", GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Guide Mode", "GM", "Only with a guide surface:\n0 = Flat bottom, top follows the guide: the first layer lies flat on the bed and the layers bend gradually\n1 = All layers follow the guide: for printing on a curved base or mould\n2 = Follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical", GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Tool Axis", "TA", "Only with a guide:\n0 = Tool square to the layer (robot)\n1 = Tool stays vertical (3-axis printer)", GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Start/End Layers", "SE", "Sacrificial layers before the part's first and after its last layer, milled away afterwards (CEAD recommends about 5 for angled printing). The start feature stands on the bed and gives the first leaning layer a full layer to lie on; flat layers get only the end feature. 0 = none", GH_ParamAccess.item, 0);
             p[1].Optional = true;
@@ -875,7 +875,7 @@ namespace LARGERslicer.Components.Slicer
         {
             AddSlider(doc, 3, "Angle", 0, 60, 0, 0);
             AddSlider(doc, 7, "Start/End Layers", 0, 10, 0, 0);
-            AddValueList(doc, 5, "Guide Mode", "Flat bottom, top follows guide", "All layers follow guide");
+            AddValueList(doc, 5, "Guide Mode", "Flat bottom, top follows guide", "All layers follow guide", "Follow the part (no guide)");
             AddValueList(doc, 6, "Tool Axis", "Square to the layer (robot)", "Stays vertical (3-axis)");
         }
 
@@ -932,11 +932,24 @@ namespace LARGERslicer.Components.Slicer
             }
 
             // a bent layer needs a fine mesh, or long flat faces would stay straight
-            Mesh mesh = SliceEngine.ToMesh(geo, tol, log, warp != null ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
+            bool followPart = guideGoo == null && guideMode == 2;
+            Mesh mesh = SliceEngine.ToMesh(geo, tol, log, warp != null || followPart ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
             if (mesh == null)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No usable geometry. Connect Breps, surfaces, SubDs or meshes.");
                 return;
+            }
+            if (followPart)
+            {
+                // non-planar layers from the part itself (meridians), nozzle vertical
+                var mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth);
+                if (mw.Valid)
+                {
+                    warp = mw; plane = Plane.WorldXY;
+                    log.Add(mw.Summary(settings.BeadWidth)); log.AddRange(mw.Notes);
+                    if (mw.ThickMeridians > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, mw.Summary(settings.BeadWidth));
+                }
+                else AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Follow the part: " + mw.Problem + ". Slicing flat.");
             }
             long meshMs = sw.ElapsedMilliseconds;
             int extra = 0; if (Params.Input.Count > 7) da.GetData(7, ref extra);
@@ -2058,7 +2071,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
-            p.AddIntegerParameter("Machine", "M", "Which machine: 0 = Ginger One, 1 = Generic G-code machine (Marlin), then your own machines from Documents/LARGER/Machines in the order of their file names", GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Machine", "M", "Which machine: 0 = Ginger One, 1 = Generic G-code machine (Marlin), 2 = Ginger One (Klipper), then your own machines from Documents/LARGER/Machines in the order of their file names", GH_ParamAccess.item, 0);
             p.AddTextParameter("File", "File", "Optional. A .machine file anywhere on the computer: used instead of the list", GH_ParamAccess.item);
             p.AddTextParameter("Name", "N", "Optional. Name of your own machine: everything you do not set below is taken from the machine chosen above", GH_ParamAccess.item);
             p.AddTextParameter("Start Code", "Start", "Optional. Your start code, one line per item", GH_ParamAccess.list);
@@ -2068,8 +2081,10 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Filament Diameter", "Fil", "Optional. 0 = E is a volume (pellet extruder). Larger = E is the length of filament of this diameter (mm)", GH_ParamAccess.item);
             p.AddBooleanParameter("Save", "Save", "True = write this machine as a .machine file into Documents/LARGER/Machines, so it is in the list next time and you can pass it on", GH_ParamAccess.item, false);
             p.AddGenericParameter("Model", "3D", "Optional. Your machine in 3D for the preview (frame, bed, gantry: meshes, Breps or surfaces), drawn in the machine's coordinates: its 0, 0, 0 is the origin. Save writes it next to the .machine file as a .3dm of the same name. Empty = the model of the machine chosen above, or its bed", GH_ParamAccess.list);
+            p.AddTextParameter("Material", "Mat", "Optional. The material, written where the codes say {material} (Ginger One (Klipper): START_PRINT MATERIAL=...). Empty = the machine's own (PLA)", GH_ParamAccess.item);
+            p.AddNumberParameter("Bed Temperature", "Bed", "Optional. Bed temperature in degrees C, written where the codes say {bed}. Empty = the machine's own (90)", GH_ParamAccess.item);
             for (int i = 1; i <= 7; i++) p[i].Optional = true;
-            p[9].Optional = true;
+            p[9].Optional = true; p[10].Optional = true; p[11].Optional = true;
         }
 
         protected override void CreateAutoInputs(GH_Document doc)
@@ -2133,6 +2148,9 @@ namespace LARGERslicer.Components.Slicer
             if (hasEnd) m.End = end.SelectMany(t => (t ?? "").Replace("\r", "").Split('\n')).ToList();
             if (hasFactor) { if (factor <= 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The extrusion factor must be greater than 0."); return; } m.Profile.Factor = factor; }
             if (hasFilament && filament >= 0) m.Profile.FilamentDiameter = filament;
+            string material = null; double bedTemp = 0;
+            if (Params.Input.Count > 10 && da.GetData(10, ref material) && !string.IsNullOrWhiteSpace(material)) m.Material = material.Trim();
+            if (Params.Input.Count > 11 && da.GetData(11, ref bedTemp)) m.BedTemperature = bedTemp;
             m.Profile.Name = m.Name;
             if (own) m.Source = "made here";
             if (own && string.IsNullOrWhiteSpace(name)) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Give your machine a Name, so its files and its entry in the list are not called " + m.Name + ".");
@@ -2154,7 +2172,7 @@ namespace LARGERslicer.Components.Slicer
             if (Params.Output.Count > 3) da.SetDataList(3, preview);
             da.SetData(0, new GH_ObjectWrapper(m));
             da.SetDataList(1, m.ToText());
-            da.SetData(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}. 3D: {(ownModel != null ? "your model" : !string.IsNullOrWhiteSpace(m.Model) ? System.IO.Path.GetFileName(m.Model) : m.BedX > 0 ? $"bed {m.BedX:0} x {m.BedY:0} mm" : "none")}. Your own machines: {MachineDefinition.Folder}");
+            da.SetData(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}, {m.Material}, bed {m.BedTemperature:0} C.{(m.AfterLayer.Count > 0 ? " After layer " + string.Join(", ", m.AfterLayer.Keys) + ": " + string.Join(" / ", m.AfterLayer.Values.Select(v => string.Join(" ", v))) + "." : "")}{(string.IsNullOrWhiteSpace(m.Note) ? "" : " " + m.Note)} 3D: {(ownModel != null ? "your model" : !string.IsNullOrWhiteSpace(m.Model) ? System.IO.Path.GetFileName(m.Model) : m.BedX > 0 ? $"bed {m.BedX:0} x {m.BedY:0} mm" : "none")}. Your own machines: {MachineDefinition.Folder}");
         }
     }
 
