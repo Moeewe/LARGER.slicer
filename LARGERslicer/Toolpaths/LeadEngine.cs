@@ -134,6 +134,7 @@ namespace LARGERslicer.Toolpaths
 
             // ---- skirt
             double linkLength = -1, skirtUsed = skirtDistance;
+            bool skirtClear = false; // the skirt ends where a free straight line leads to the start (see below)
             if (skirtLoops > 0)
             {
                 int firstLayer = tp.Layers[0];
@@ -172,8 +173,34 @@ namespace LARGERslicer.Toolpaths
                     skirtUsed = skirtDistance;
                     var path = new PathD(hull.Count);
                     foreach (var p in hull) path.Add(new PointD(p.X, p.Y));
-                    Point2d start2 = startOnPlane;
+                    Point2d start2 = startOnPlane, aim = startOnPlane;
                     Point3d last = Point3d.Unset;
+                    // A part that starts in a hollow of its outline (an inner corner) lies further from
+                    // the skirt. Then the skirt ends at the nearest point from which a straight line
+                    // reaches the start without touching the first layer, and that line prints: skirt
+                    // and wall stay one bead.
+                    if (tp.Warp != null || Math.Abs(n.Z) >= 0.999)
+                    {
+                        PathsD inner = Clipper.InflatePaths(new PathsD { path }, skirtDistance, JoinType.Round, EndType.Polygon, 2.0, 3, 0.05);
+                        if (inner != null && inner.Count > 0 && inner[0].Count >= 3)
+                        {
+                            var ring0 = inner[0].Select(p => new Point2d(p.x, p.y)).ToList();
+                            FillEngine.ClosestS(ring0, FillEngine.Cumulative(ring0), start2, out double away0);
+                            if (away0 > skirtDistance + 0.75 * w)
+                            {
+                                double bestD = double.MaxValue;
+                                var cum0 = FillEngine.Cumulative(ring0);
+                                double len0 = cum0[ring0.Count];
+                                foreach (var q in Enumerable.Range(0, (int)(len0 / (0.5 * w))).Select(k => FillEngine.PointAt(ring0, cum0, k * 0.5 * w)))
+                                {
+                                    double d = q.DistanceTo(start2);
+                                    if (d >= bestD) continue;
+                                    if (LinkClear(plane.Origin + plane.XAxis * q.X + plane.YAxis * q.Y, tp, lastOfFirst, w)) { bestD = d; aim = q; }
+                                }
+                                if (bestD < double.MaxValue) skirtClear = true;
+                            }
+                        }
+                    }
                     // outermost loop first, so the skirt ends on the loop nearest to the part
                     for (int k = skirtLoops - 1; k >= 0; k--)
                     {
@@ -187,7 +214,7 @@ namespace LARGERslicer.Toolpaths
                         var cum = FillEngine.Cumulative(loop);
                         double len = cum[loop.Count];
                         if (len < 4 * w) continue;
-                        double s0 = FillEngine.ClosestS(loop, cum, start2, out double away);
+                        double s0 = FillEngine.ClosestS(loop, cum, aim, out double away);
                         if (k == 0) linkLength = away;
                         foreach (Point2d q in FillEngine.Sub(loop, cum, s0 + w, s0 + len))
                         {
@@ -416,6 +443,28 @@ namespace LARGERslicer.Toolpaths
             return hull;
         }
 
+        /// <summary>True if the straight line from the skirt to the start of the part keeps half a bead clear of the first layer (up to one bead before the start) and is at most 30 bead widths long.</summary>
+        private static bool LinkClear(Point3d from, Toolpath tp, int lastOfFirst, double w)
+        {
+            Point3d to = tp.Points[0];
+            double len = from.DistanceTo(to);
+            if (len > 30 * w || len < 1e-6) return false;
+            Vector3d dir = (to - from) / len;
+            for (double t = 0; t <= len - w; t += 0.5 * w)
+            {
+                Point3d p = from + dir * t;
+                for (int i = 1; i <= lastOfFirst && i < tp.Count; i++)
+                {
+                    if (tp.Flows[i] <= 0) continue;
+                    Point3d a = tp.Points[i - 1], b = tp.Points[i];
+                    Vector3d ab = b - a; double l2 = ab.SquareLength;
+                    double u = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((p - a) * ab) / l2));
+                    if ((a + ab * u).DistanceTo(p) < 0.5 * w) return false;
+                }
+            }
+            return true;
+        }
+
         // ------------------------------------------------------------------ check
 
         public class CheckResult
@@ -423,6 +472,9 @@ namespace LARGERslicer.Toolpaths
             public List<Point3d> Unsupported = new List<Point3d>();
             public List<double> Offsets = new List<double>(); // per path point: sideways distance to the layer below
             public List<Point3d> Crossings = new List<Point3d>(); // where the path crosses itself within a layer
+            public List<double> LayerTimes = new List<double>();   // seconds per layer, in print order
+            /// <summary>Print speed (mm/min) at which the shortest layer reaches Min Layer Time; 0 = not needed or not checked.</summary>
+            public double SuggestedSpeed;
             public List<string> Report = new List<string>();
             public double MaxOffset;
             public bool Ok = true;
@@ -436,7 +488,7 @@ namespace LARGERslicer.Toolpaths
         /// most half a bead width beside the path of the layer below. Points further out hang in
         /// the air. The first layer lies on the bed and is not checked.
         /// </summary>
-        public static CheckResult Check(Toolpath tp, double maxOffset)
+        public static CheckResult Check(Toolpath tp, double maxOffset, double minLayerTime = 0)
         {
             var r = new CheckResult();
             Toolpath real = tp;
@@ -682,7 +734,90 @@ namespace LARGERslicer.Toolpaths
                 r.Ok = false;
                 r.Report.Add("Speed is 0. A move with F0 never finishes, the machine would stop at that line.");
             }
+            else LayerTime(real, minLayerTime, r);
             return r;
+        }
+
+        /// <summary>
+        /// Layer time and extruder output. A layer printed too fast lands on a layer that is still
+        /// soft, so overhangs sag and the part warps (Weber). The time per layer comes from the
+        /// speeds the machine gets (Process: constant F, short layers slowed down when Min Layer
+        /// Time is set in the Print Settings, capped by Max Volume Rate). Below the minimum the
+        /// report says what to do: print slower, print several parts side by side, or, as a last
+        /// resort, wait on every short layer. minSeconds = 0: the value of the Print Settings; both
+        /// 0 = only the times are reported.
+        /// </summary>
+        private static void LayerTime(Toolpath tp, double minSeconds, CheckResult r)
+        {
+            var st = tp.Settings;
+            var pr = PathEngine.Process(tp, false);
+            if (pr.LayerSeconds.Count == 0) return;
+            if (minSeconds <= 0) minSeconds = st.MinLayerTime;
+            r.LayerTimes.AddRange(pr.LayerSeconds.Values);
+            int shortLayer = pr.LayerSeconds.First().Key, longLayer = shortLayer;
+            foreach (var kv in pr.LayerSeconds)
+            {
+                if (kv.Value < pr.LayerSeconds[shortLayer]) shortLayer = kv.Key;
+                if (kv.Value > pr.LayerSeconds[longLayer]) longLayer = kv.Key;
+            }
+            double shortest = pr.LayerSeconds[shortLayer];
+
+            // ---- extruder output
+            if (st.MaxVolumeRate > 0)
+            {
+                if (pr.VolumeOverLimit > 0)
+                    r.Report.Add($"VOLUME RATE: {pr.VolumeOverLimit} move(s) need more than the extruder's {st.MaxVolumeRate:0} mm3/s even at Min Speed F{st.MinSpeed:0} (up to {pr.MaxVolumeRate:0} mm3/s): the bead gets thin there. Use a lower layer height or bead width, or a lower Min Speed.");
+                else
+                    r.Report.Add($"Volume rate OK: at most {pr.MaxVolumeRate:0} mm3/s, the extruder gives {st.MaxVolumeRate:0} mm3/s" + (pr.VolumeCapped > 0 ? $" ({pr.VolumeCapped} move(s) run slower to stay below it)." : "."));
+            }
+            else
+                r.Report.Add($"Volume rate: at most {pr.MaxVolumeRate:0} mm3/s. Set Max Volume Rate (Continuous Path) to what your extruder delivers, and moves that ask for more run slower.");
+
+            string slowed = "";
+            if (pr.LayerFeed.Count > 0)
+            {
+                var low = pr.LayerFeed.OrderBy(kv => kv.Value).First();
+                slowed = $"{pr.LayerFeed.Count} short layer(s) are printed slower to reach {st.MinLayerTime:0} s (down to F{low.Value:0} at layer {low.Key + 1}). ";
+            }
+            if (minSeconds <= 0)
+            {
+                r.Report.Add($"Layer time: {shortest:0} s (layer {shortLayer + 1}) to {pr.LayerSeconds[longLayer]:0} s per layer at F{st.Speed:0}. " +
+                             "Set Min Layer Time (for example 60 s for a large pellet print) to check that every layer has cooled enough before the next one lands on it.");
+                return;
+            }
+            int tooShort = pr.LayerSeconds.Count(kv => kv.Value < minSeconds - 0.5);
+            if (tooShort == 0)
+            {
+                r.Report.Add($"Layer time OK: {slowed}Every layer takes at least {minSeconds:0} s (shortest {shortest:0} s at layer {shortLayer + 1}).");
+                return;
+            }
+
+            var s = new System.Text.StringBuilder();
+            s.Append($"LAYER TIME: {slowed}{tooShort} layer(s) take less than {minSeconds:0} s (shortest {shortest:0} s at layer {shortLayer + 1}). " +
+                     "The layer below is still soft there: overhangs can sag and the part can warp. What helps, best first: ");
+            // 1) slower: the printing moves take longer, travel moves stay as they are
+            pr.LayerPrintSeconds.TryGetValue(shortLayer, out double printing);
+            double other = shortest - printing;
+            double now = pr.LayerFeed.TryGetValue(shortLayer, out double f0) ? f0 : st.Speed;
+            double need = printing > 1e-9 && minSeconds > other ? now * printing / (minSeconds - other) : 0;
+            if (need > 0)
+            {
+                double feed = Math.Max(st.MinSpeed, Math.Floor(need / 10) * 10); // rounded down: then the layer is at least that long
+                double reached = other + printing * now / feed;
+                r.SuggestedSpeed = feed;
+                if (need < st.MinSpeed || now <= st.MinSpeed + 1e-9)
+                    s.Append($"(1) Slower helps only in part: even at the lowest speed F{st.MinSpeed:0} (Min Speed in the Print Settings) the shortest layer takes {reached:0} s. Combine it with (2) or (3). ");
+                else if (st.MinLayerTime <= 0)
+                    s.Append($"(1) Slower: set Min Layer Time to {minSeconds:0} s in Continuous Path, and only the short layers are printed slower (the shortest at F{feed:0} instead of F{st.Speed:0}, then {reached:0} s); or print everything at F{feed:0}. ");
+                else
+                    s.Append($"(1) Slower: print the short layers at F{feed:0}; the shortest then takes {reached:0} s. ");
+            }
+            // 2) more parts at once: the nozzle prints the others while one cools
+            int copies = (int)Math.Ceiling(minSeconds / Math.Max(1e-3, shortest));
+            s.Append($"(2) Print {copies} parts side by side in one path: each layer then takes about {copies * shortest:0} s, and you get {copies} parts in that time. ");
+            // 3) pause: last resort
+            s.Append($"(3) Last resort: wait {minSeconds - shortest:0} s on the short layers (a dwell, G4). On a pellet extruder the screw stops during the wait: the melt keeps oozing, so the bead gets thin where it stops and a thread or blob is left at the seam when it starts again.");
+            r.Report.Add(s.ToString());
         }
 
         private static double Cross(Point2d a, Point2d b, Point2d c) => (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);

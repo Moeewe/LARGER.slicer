@@ -1438,6 +1438,9 @@ namespace LARGERslicer.Components.Slicer
             p.AddGeometryParameter("Seam", "Seam", "Optional point or curve: where the seam is. Every layer starts at the place on its contour nearest to it. Without it the seam stays where the first layer started", GH_ParamAccess.item);
             p.AddNumberParameter("Seam Gap", "Gap", "Layered only: the gap at the seam in mm. Every layer ends this far before its own start, so the end never runs into the beginning; the path crosses the gap on a short incline up to the next layer, at the same place on every layer. 0 = one bead width (default). Longer = softer seam, but more of the layer is inclined", GH_ParamAccess.item, 0.0);
             p.AddBooleanParameter("Bridge", "Br", "True (default) = a contour that lies inside another (inner shell, the wall of an opening) is joined to it by a bridge of two lines one bead spacing apart, at the same place on every layer, so they stack into a rib: one line without travel moves, as in 45-degree printing of double shells. False = the nozzle moves between them without extrusion", GH_ParamAccess.item, true);
+            p.AddIntegerParameter("Seam Mode", "Sm", "Layered only: where the seam goes\n0 = Fixed point (default): at the Seam point, or where the first layer starts\n1 = Inner corner: in an inner corner of the outer wall, where it shows least and milling does not run over it (no inner corner: the sharpest outer corner)\n2 = Sharpest corner: the sharpest corner of the outer wall\nThe corner is followed from layer to layer, at most half a bead to the side. A Seam point picks which corner", GH_ParamAccess.item, 0);
+            p.AddNumberParameter("Min Layer Time", "Tmin", "Shortest time a layer may take (s). A layer that would be done sooner is printed slower, so the layer below can cool: F stays constant within the layer and never goes below Min Speed. 0 = off (default). About 60 s suits many large pellet prints", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Max Volume Rate", "Vmax", "Most the extruder can deliver (mm3/s). Moves that would ask for more run slower, never below Min Speed. 0 = off (default). The Ginger gives about 330 mm3/s", GH_ParamAccess.item, 0.0);
             p[1].Optional = true; p[3].Optional = true;
         }
 
@@ -1445,6 +1448,7 @@ namespace LARGERslicer.Components.Slicer
         {
             AddToggle(doc, 5, "Bridge", true);
             AddValueListAt(doc, 2, "Mode", 1, "Spiral (vase, single wall only)", "Layered (flat layers)");
+            AddValueList(doc, 6, "Seam", "Fixed point", "Inner corner", "Sharpest corner");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -1476,10 +1480,19 @@ namespace LARGERslicer.Components.Slicer
             var log = new List<string>();
             var sw = Stopwatch.StartNew();
             bool bridge = true; if (Params.Input.Count > 5) da.GetData(5, ref bridge);
-            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log, bridge);
+            int seamMode = 0; if (Params.Input.Count > 6) da.GetData(6, ref seamMode);
+            double minTime = 0, maxRate = 0;
+            if (Params.Input.Count > 8) { da.GetData(7, ref minTime); da.GetData(8, ref maxRate); }
+            if (minTime > 0 || maxRate > 0)
+            {
+                // the limits travel with the path, so every machine output (G-code, DXR, robot) uses them
+                settings = settings.Duplicate();
+                settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
+            }
+            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
             sw.Stop();
             // slivers left out are a note, not a problem: they are where a layer just touches the part
-            foreach (var l in log) AddRuntimeMessage(l.Contains("(slivers") || l.Contains("bridge(s) join") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
+            foreach (var l in log) AddRuntimeMessage(l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
             if (tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty path."); return; }
 
             int travels = tp.Roles.Count(r => r == PathRole.Travel);
@@ -1613,6 +1626,12 @@ namespace LARGERslicer.Components.Slicer
         {
             p.AddGenericParameter("Toolpath", "T", "Print path", GH_ParamAccess.item);
             p.AddNumberParameter("Max Offset", "Max", "Largest allowed sideways offset to the layer below (mm). 0 = half the bead width", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Min Layer Time", "Tmin", "Shortest time a layer may take (s), so the layer below has cooled enough to carry the next one. A layer printed faster lands on soft material: overhangs sag and the part warps. 0 = the Min Layer Time of Continuous Path, or off (the report still lists the times). About 60 s suits many large pellet prints", GH_ParamAccess.item, 0.0);
+        }
+
+        protected override void CreateAutoInputs(GH_Document doc)
+        {
+            AddSlider(doc, 2, "Min Layer Time", 0, 300, 0, 0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -1622,6 +1641,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddPointParameter("Unsupported", "U", "Path points that clearly do not lie on the layer below (more than 1.5 x the allowed offset). Smaller overshoots are counted in the report and visible in Offset", GH_ParamAccess.list);
             p.AddNumberParameter("Offset", "Off", "Sideways offset to the layer below for every path point (mm). Use it to colour the path", GH_ParamAccess.list);
             p.AddPointParameter("Crossings", "X", "Places where the path crosses itself within a layer. Must be empty", GH_ParamAccess.list);
+            p.AddNumberParameter("Layer Times", "Lt", "Time of every layer at the print speed (s), from the first layer up", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -1629,14 +1649,18 @@ namespace LARGERslicer.Components.Slicer
             var tp = SlicerIO.Get<Toolpath>(da, 0);
             if (tp == null || tp.Count < 2) return;
             double max = 0; da.GetData(1, ref max);
-            var r = LeadEngine.Check(tp, max);
+            double minTime = 0; if (Params.Input.Count > 2) da.GetData(2, ref minTime);
+            var r = LeadEngine.Check(tp, max, Math.Max(0, minTime));
             Message = r.Ok ? "OK" : "Check!";
             if (!r.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.First(l => l.StartsWith("CROSSES") || l.StartsWith("NOT") || l.StartsWith("Bead shape:") || l.StartsWith("Speed")));
+            // too short layers and an extruder over its limit: the path can be printed, but say it
+            foreach (var l in r.Report.Where(l => l.StartsWith("LAYER TIME") || l.StartsWith("VOLUME RATE"))) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
             da.SetData(0, r.Ok);
             da.SetDataList(1, r.Report);
             da.SetDataList(2, r.Unsupported);
             da.SetDataList(3, r.Offsets);
             da.SetDataList(4, r.Crossings);
+            if (Params.Output.Count > 5) da.SetDataList(5, r.LayerTimes);
         }
     }
 

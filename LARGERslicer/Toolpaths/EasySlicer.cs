@@ -36,6 +36,12 @@ namespace LARGERslicer.Toolpaths
             public int TopLayers = 0;
             /// <summary>Walls: 0 = inside the geometry, 1 = centred on it, 2 = outside.</summary>
             public int WallPosition = 0;
+            /// <summary>Seam: 0 = fixed point (where the first layer starts), 1 = inner corner, 2 = sharpest corner.</summary>
+            public int Seam = 0;
+            /// <summary>Shortest time per layer (s): shorter layers are printed slower, and the check reports it. 0 = off.</summary>
+            public double MinLayerTime = 0;
+            /// <summary>Most the extruder delivers (mm3/s); moves that ask for more run slower. 0 = off.</summary>
+            public double MaxVolumeRate = 0;
         }
 
         public class Result
@@ -115,7 +121,8 @@ namespace LARGERslicer.Toolpaths
 
             bool spiral = o.Spiral && infill == 0 && o.BottomLayers == 0 && o.TopLayers == 0;
             if (o.Spiral && !spiral) r.Notes.Add("Spiral only works for walls without infill and bottom; printed as flat layers instead.");
-            var tp = PathEngine.Build(layers, st, spiral ? ContinuousMode.Spiral : ContinuousMode.Layered, null, 0, false, log, o.Bridge);
+            if (o.MinLayerTime > 0 || o.MaxVolumeRate > 0) { st = st.Duplicate(); st.MinLayerTime = Math.Max(0, o.MinLayerTime); st.MaxVolumeRate = Math.Max(0, o.MaxVolumeRate); }
+            var tp = PathEngine.Build(layers, st, spiral ? ContinuousMode.Spiral : ContinuousMode.Layered, null, 0, false, log, o.Bridge, (SeamMode)Math.Max(0, Math.Min(2, o.Seam)));
             if (tp.Count < 2) { r.Notes.Add("No printable contour was found."); r.Notes.AddRange(log); return r; }
             tp = PathEngine.Round(tp, st.EffectiveMinRadius, 0, out int corners, out _);
             tp = LeadEngine.StartEnd(tp, Math.Max(0, o.SkirtLoops), 0, Math.Max(0, o.BrimLoops), o.BrimSide, 10 * st.BeadWidth, 4 * st.BeadWidth, null, 0, log);
