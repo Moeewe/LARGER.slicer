@@ -52,7 +52,7 @@ namespace LARGERslicer.Components.CNC
             pManager.AddIntegerParameter("Tool List", "Tools", "Optional: List of tools (11, 21, 31) for each path segment. If empty, uses single Tool parameter for all segments.", GH_ParamAccess.list);
             pManager[22].Optional = true;
             pManager.AddNumberParameter("Tool Spindle Speeds", "ToolRPM", "Optional: List of spindle speeds (RPM) for each tool. If empty, uses single Spindle Speed for all tools.", GH_ParamAccess.list);
-            pManager[20].Optional = true;
+            pManager[23].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)

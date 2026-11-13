@@ -86,6 +86,42 @@ namespace LARGERslicer.Toolpaths
             return loft[0].CapPlanarHoles(0.01) ?? loft[0];
         }
 
+        /// <summary>
+        /// Example 7: a small head, closed like the head of the 2024 Ginger print: it stands on a
+        /// flat neck ring, the chin juts forward (-Y) over the neck, the skull closes in a crown.
+        /// About 118 x 134 x 171 mm, for Slice with "Follow the surface".
+        /// </summary>
+        public static Brep Head(Point3d c)
+        {
+            // z, half width (X), half depth (Y), shift towards the face (-Y)
+            double[,] rings =
+            {
+                { 0, 30, 30, 0 }, { 22, 31, 32, 2 }, { 40, 37, 41, 6 }, { 58, 46, 53, 8 },
+                { 80, 55, 63, 7 }, { 104, 59, 67, 4 }, { 128, 56, 63, 2 }, { 146, 47, 53, 1 }, { 158, 36, 41, 0 }, { 166, 20, 23, 0 },
+            };
+            var curves = new List<Curve>();
+            for (int k = 0; k < rings.GetLength(0); k++)
+            {
+                var pl = new Plane(new Point3d(c.X, c.Y - rings[k, 3], c.Z + rings[k, 0]), Vector3d.XAxis, Vector3d.YAxis);
+                curves.Add(new Ellipse(pl, rings[k, 1], rings[k, 2]).ToNurbsCurve());
+            }
+            var loft = Brep.CreateFromLoft(curves, Point3d.Unset, new Point3d(c.X, c.Y, c.Z + 171), LoftType.Normal, false);
+            if (loft == null || loft.Length == 0) return null;
+            return loft[0].CapPlanarHoles(0.01) ?? loft[0];
+        }
+
+        /// <summary>Example 8: a vase for a surface pattern, round, 160 mm high, waisted in the middle.</summary>
+        public static Brep Vase(Point3d c)
+        {
+            double[,] rings = { { 0, 42 }, { 40, 46 }, { 80, 38 }, { 125, 44 }, { 160, 48 } };
+            var curves = new List<Curve>();
+            for (int k = 0; k < rings.GetLength(0); k++)
+                curves.Add(new Circle(new Plane(new Point3d(c.X, c.Y, c.Z + rings[k, 0]), Vector3d.ZAxis), rings[k, 1]).ToNurbsCurve());
+            var loft = Brep.CreateFromLoft(curves, Point3d.Unset, Point3d.Unset, LoftType.Normal, false);
+            if (loft == null || loft.Length == 0) return null;
+            return loft[0].CapPlanarHoles(0.01) ?? loft[0];
+        }
+
         /// <summary>Example 4: a plate with a round opening, 220 x 220 x 50 mm.</summary>
         public static Brep Plate(Point3d c)
         {
