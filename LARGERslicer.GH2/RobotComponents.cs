@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -17,6 +18,7 @@ namespace LARGERslicer.GH2
     {
         public RobotArmComponent() : base(Io.Name("Robot", "The robot arm. Empty inputs give the KUKA KR120 R2700-2 of the FH Münster cell. For any other six-axis arm connect a file of the Robots plug-in library (.xml).", Io.Robot, 0)) { }
         public RobotArmComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotArmIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -60,8 +62,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4002")]
     public sealed class RobotToolComponent : Component
     {
-        public RobotToolComponent() : base(Io.Name("Robot Tool", "The tool on the flange: where its tip is and what it weighs. The TCP plane is given relative to the flange; its Z axis points out of the nozzle.", Io.Robot, 1)) { }
+        public RobotToolComponent() : base(Io.Name("Robot Tool", "The tool on the flange: where its tip is and what it weighs. The TCP plane is given relative to the flange; its Z axis points out of the nozzle.", Io.Robot, 0)) { }
         public RobotToolComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotToolIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -95,8 +98,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4003")]
     public sealed class RobotCellComponent : Component
     {
-        public RobotCellComponent() : base(Io.Name("Robot Cell", "Robot, tool and the place of the work. The Work Base is the frame the program counts from (KUKA: $BASE), usually a corner of the print bed.", Io.Robot, 2)) { }
+        public RobotCellComponent() : base(Io.Name("Robot Cell", "Robot, tool and the place of the work. The Work Base is the frame the program counts from (KUKA: $BASE), usually a corner of the print bed.", Io.Robot, 0)) { }
         public RobotCellComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotCellIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -140,8 +144,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4004")]
     public sealed class RobotProgramComponent : Component
     {
-        public RobotProgramComponent() : base(Io.Name("Robot Program", "Turns the toolpath into robot moves: the tool tip on every path point, the tool along the path's tool axis. Checks reach, axis ranges and the wrist, and writes the moves for the DXR Generator and as a KRL program.", Io.Robot, 3)) { }
+        public RobotProgramComponent() : base(Io.Name("Robot Program", "Turns the toolpath into robot moves: the tool tip on every path point, the tool along the path's tool axis. Checks reach, axis ranges and the wrist, and writes the moves for the DXR Generator and as a KRL program.", Io.Robot, 1)) { }
         public RobotProgramComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotProgramIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -228,8 +233,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4005")]
     public sealed class RobotSimulationComponent : Component
     {
-        public RobotSimulationComponent() : base(Io.Name("Robot Simulation", "Plays the robot program: the robot with its tool at any moment of the print. Time runs from 0 (start) to 1 (end) and follows the real time of the print, slower where an axis cannot turn faster. Moving the slider only places the robot: the program is not calculated again.", Io.Robot, 4)) { }
+        public RobotSimulationComponent() : base(Io.Name("Robot Simulation", "Plays the robot program: the robot with its tool at any moment of the print. Time runs from 0 (start) to 1 (end) and follows the real time of the print, slower where an axis cannot turn faster. Moving the slider only places the robot: the program is not calculated again.", Io.Robot, 1)) { }
         public RobotSimulationComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotSimulationIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -303,8 +309,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4007")]
     public sealed class ExternalAxisComponent : Component
     {
-        public ExternalAxisComponent() : base(Io.Name("External Axis", "A rail (linear track) the robot stands on, or a turntable the part stands on. Connect it to External Axes of Robot Cell. Robot Program then moves it along the print: the rail keeps the robot beside the point being printed, the turntable turns the part so that point faces the robot.", Io.Robot, 6)) { }
+        public ExternalAxisComponent() : base(Io.Name("External Axis", "A rail (linear track) the robot stands on, or a turntable the part stands on. Connect it to External Axes of Robot Cell. Robot Program then moves it along the print: the rail keeps the robot beside the point being printed, the turntable turns the part so that point faces the robot.", Io.Robot, 0)) { }
         public ExternalAxisComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotExternalAxisIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -349,8 +356,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4006")]
     public sealed class CellGeometryComponent : Component
     {
-        public CellGeometryComponent() : base(Io.Name("Cell Geometry", "The print cell in 3D and where the robot stands in it, in the coordinates of the print bed. The cell of the FH Muenster is built in; your own cells are .3dm files in Documents/LARGER/Cells, one part per layer: Bed, Robot Base (a point and a line along the robot's X axis), Work Base (optional) and any other layer for the collision check. Export writes the chosen cell there as a start.", Io.Robot, 5)) { }
+        public CellGeometryComponent() : base(Io.Name("Cell Geometry", "The print cell in 3D and where the robot stands in it, in the coordinates of the print bed. The cell of the FH Muenster is built in; your own cells are .3dm files in Documents/LARGER/Cells, one part per layer: Bed, Robot Base (a point and a line along the robot's X axis), Work Base (optional) and any other layer for the collision check. Export writes the chosen cell there as a start.", Io.Robot, 0)) { }
         public CellGeometryComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotCellGeometryIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {

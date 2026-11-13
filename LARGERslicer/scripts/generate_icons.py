@@ -12,6 +12,10 @@ the edge and the shadow and scales to 24 px.
 
 Run from anywhere:  python3 scripts/generate_icons.py
 Writes Resources/*.png, icon.png (256 px logo for Yak/GitHub) and the 24 px tab icon.
+
+Grasshopper 2 draws icons larger and on high-resolution screens. For it the same drawings are
+finished at a larger size, with the edge and the shadow scaled along, and nothing else written:
+    ICON_SIZE=48 ICON_OUT=../../LARGERslicer.GH2/Icons/48 python3 scripts/generate_icons.py
 """
 import math, os
 from PIL import Image, ImageDraw, ImageFilter
@@ -19,6 +23,7 @@ from PIL import Image, ImageDraw, ImageFilter
 S = 16
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get('ICON_OUT') or os.path.join(HERE, '..', 'Resources')
+SIZE = int(os.environ.get('ICON_SIZE') or 24)   # final size of the component icons in px
 
 INK = (38, 44, 58, 255)        # dark slate, not black
 SOFT = (38, 44, 58, 90)        # same ink, light: secondary lines
@@ -126,18 +131,19 @@ def finish(src, scale=0.92):
     small = px.resize((m, m), Image.LANCZOS)
     canvas = Image.new('RGBA', (n, n), (0, 0, 0, 0))
     canvas.alpha_composite(small, ((n - m) // 2, (n - m) // 2))
-    k = 96                                         # work at 4x for a clean edge
+    f = SIZE / 24.0                                # edge, shadow and offset scale with the size
+    k = int(96 * f)                                # work at 4x for a clean edge
     fill = canvas.resize((k, k), Image.LANCZOS)
     a = fill.split()[3].point(lambda v: 255 if v > 50 else 0)
-    edge_a = a.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.GaussianBlur(0.7))
-    shadow_a = edge_a.point(lambda v: v * 30 // 100).filter(ImageFilter.GaussianBlur(2.5))
+    edge_a = a.filter(ImageFilter.MaxFilter(2 * int(round(3 * f)) + 1)).filter(ImageFilter.GaussianBlur(0.7 * f))
+    shadow_a = edge_a.point(lambda v: v * 30 // 100).filter(ImageFilter.GaussianBlur(2.5 * f))
     out = Image.new('RGBA', (k, k), (0, 0, 0, 0))
     sh = Image.new('RGBA', (k, k), (0, 0, 0, 255)); sh.putalpha(shadow_a)
-    out.alpha_composite(sh, (0, 3))
+    out.alpha_composite(sh, (0, int(round(3 * f))))
     ed = Image.new('RGBA', (k, k), EDGE + (255,)); ed.putalpha(edge_a)
     out.alpha_composite(ed)
     out.alpha_composite(fill)
-    return out.resize((24, 24), Image.LANCZOS)
+    return out.resize((SIZE, SIZE), Image.LANCZOS)
 
 
 def arc(cx, cy, r, a0, a1, n=28, ry=None):
@@ -738,8 +744,12 @@ def tab_icon():
 
 
 if __name__ == '__main__':
+    os.makedirs(OUT, exist_ok=True)
     for name, fn in ICONS.items():
         g = G(); fn(g); g.save(name + '.png')
+    if SIZE != 24:
+        print(len(ICONS), f'icons written at {SIZE} px')   # Grasshopper 2 sizes: no logo, no tab icon
+        raise SystemExit
     logo(256).save(os.path.join(HERE, '..', 'icon.png'))
     logo(256).save(os.path.join(OUT, 'plugin-icon.png'))
     logo(1024).save(os.path.join(HERE, '..', '..', 'docs', 'logo-1024.png'))

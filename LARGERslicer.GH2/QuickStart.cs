@@ -7,6 +7,7 @@ using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Standard;
 using Grasshopper2.SpecialObjects;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -23,13 +24,14 @@ namespace LARGERslicer.GH2
     {
         private bool _done;
 
-        public QuickStartComponent() : base(Io.Name("Quick Start", "Place this on the canvas to get five complete, working examples, each in its own group: 1 flat layers from the part to the file for the machine (G-code for the Ginger One, DXR for a robot with the Weber DXR, a small test print for a desktop printer), 2 non-planar layers along a guide surface, 3 multi-axis layers along a guide curve, 4 a part with an opening and wave infill, 5 angled layers. Replace the demo parts with your own geometry.", Io.Slicer, 0))
+        public QuickStartComponent() : base(Io.Name("Quick Start", "Place this on the canvas to get five complete, working examples, each in its own group: 1 flat layers from the part to the file for the machine (G-code for the Ginger One, DXR for a robot with the Weber DXR, a small test print for a desktop printer), 2 non-planar layers along a guide surface, 3 multi-axis layers along a guide curve, 4 a part with an opening and wave infill, 5 angled layers. Replace the demo parts with your own geometry.", Io.Slicer, Group.Start))
         {
             DocumentChanged += Placed;
         }
 
         // read from a file: the examples were built long ago
         public QuickStartComponent(IReader reader) : base(reader) { _done = true; }
+        protected override IIcon IconInternal => Io.Icon("SlicerQuickStartIcon");
 
         protected override void AddInputs(InputAdder inputs) { }
         protected override void AddOutputs(OutputAdder outputs) { }

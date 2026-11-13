@@ -5,6 +5,7 @@ using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -15,8 +16,9 @@ namespace LARGERslicer.GH2
     [IoId("96f34d47-7f6b-4a02-80d3-e409c7ecec57")]
     public sealed class SurfacePatternComponent : Component
     {
-        public SurfacePatternComponent() : base(Io.Name("Surface Pattern", "Textures in the wall: knit, pixels, ribs, waves, zigzag, dots, loops or a picture. Every layer is a row of points; they are pulled out of the wall in a rhythm that moves on from layer to layer. Use it after Continuous Path. The path stays one line.", Io.Slicer, 3)) { }
+        public SurfacePatternComponent() : base(Io.Name("Surface Pattern", "Textures in the wall: knit, pixels, ribs, waves, zigzag, dots, loops or a picture. Every layer is a row of points; they are pulled out of the wall in a rhythm that moves on from layer to layer. Use it after Continuous Path. The path stays one line.", Io.Slicer, Group.Path)) { }
         public SurfacePatternComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerPatternIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
