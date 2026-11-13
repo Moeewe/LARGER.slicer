@@ -127,7 +127,9 @@ namespace LARGERslicer.Components
             if (!_deliver) return false;
             AsyncJob job;
             lock (_lock) _done.TryGetValue(da.Iteration, out job);
-            if (job != null) Hand(job, da);
+            // no result for this iteration: it stopped before Run (e.g. a missing input) and does so again
+            if (job == null) return false;
+            Hand(job, da);
             return true;
         }
 
@@ -135,7 +137,7 @@ namespace LARGERslicer.Components
         /// Grasshopper or the component: everything goes through the job.</summary>
         public void Run(IGH_DataAccess da, Action<AsyncJob> work)
         {
-            if (!Enabled || _cts == null)
+            if (!Enabled || _cts == null || _deliver)
             {
                 var now = new AsyncJob(CancellationToken.None);
                 try { work(now); } catch (Exception e) { now.Error = e; }
