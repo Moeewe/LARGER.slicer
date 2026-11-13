@@ -21,6 +21,21 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Documents/RobotSystems, where the Robots plug-in keeps its library.</summary>
         public static string LibraryFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "RobotSystems");
 
+        /// <summary>
+        /// Every folder a robot library may be in: Documents/RobotSystems (the Robots plug-in's own place),
+        /// Documents/Robots (where the installers in SETUP copy it) and ~/Robots (Rhino 7 installs).
+        /// </summary>
+        public static IEnumerable<string> LibraryFolders
+        {
+            get
+            {
+                string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                var all = new List<string> { LibraryFolder, Path.Combine(docs, "Robots"), Path.Combine(home, "Robots") };
+                return all.Where(f => !string.IsNullOrEmpty(f)).Distinct().ToList();
+            }
+        }
+
         /// <summary>The pose the library meshes are drawn in: the home position of a KUKA arm (A2 -90, A3 90).</summary>
         public static readonly double[] HomePose = { 0, -90, 90, 0, 0, 0 };
 
@@ -39,12 +54,15 @@ namespace LARGERslicer.Toolpaths
             if (!string.IsNullOrWhiteSpace(libraryFile)) candidates.Add(Path.ChangeExtension(Expand(libraryFile), ".3dm"));
             try
             {
-                if (Directory.Exists(LibraryFolder))
-                    foreach (string xml in Directory.GetFiles(LibraryFolder, "*.xml"))
+                foreach (string folder in LibraryFolders)
+                {
+                    if (!Directory.Exists(folder)) continue;
+                    foreach (string xml in Directory.GetFiles(folder, "*.xml"))
                     {
                         string text; try { text = File.ReadAllText(xml); } catch { continue; }
                         if (text.IndexOf("\"" + arm.Name + "\"", StringComparison.OrdinalIgnoreCase) >= 0) candidates.Add(Path.ChangeExtension(xml, ".3dm"));
                     }
+                }
             }
             catch { /* the folder is a convenience */ }
 
@@ -69,7 +87,7 @@ namespace LARGERslicer.Toolpaths
                 return file;
             }
             if (why == null)
-                why = "No 3D model of " + arm.Name + " was found. Put the robot library of the Robots plug-in (the .xml and the .3dm of the same name) into " + LibraryFolder + ", or give the .3dm file at Geometry File.";
+                why = "No 3D model of " + arm.Name + " was found. Put the robot library of the Robots plug-in (the .xml and the .3dm of the same name) into " + string.Join(" or ", LibraryFolders) + ", or give the .3dm file at Geometry File.";
             return null;
         }
 

@@ -181,12 +181,12 @@ into the bed at every pose means it is not.
 Robot arms come from the library of the
 [Robots plug-in](https://github.com/visose/Robots) (no `.machine` file needed for the arm):
 
-1. Put the robot library into `Documents/RobotSystems`: an `.xml` file (the arm: its axes,
+1. Put the robot library into `Documents/RobotSystems` (`Documents/Robots` and `~/Robots`, where the installers copy it, are searched as well): an `.xml` file (the arm: its axes,
    ranges, speeds) and a `.3dm` of the **same name** next to it with a layer
    `RobotArm.MANUFACTURER.MODEL` that holds seven meshes – the base and the six links, in the
    home pose of the arm (A2 -90, A3 90) – in that order, or on sublayers named `0` ... `6`.
 2. `Robot`: `Library` = the path of the `.xml` (or its text), `Cell Name` = the name of the cell
-   in it. The 3D model is found beside the `.xml`, in `Documents/RobotSystems`, or at
+   in it. The 3D model is found beside the `.xml`, in one of these library folders, or at
    `Geometry File`.
 3. `Robot Tool`: TCP plane (origin at the nozzle tip, Z from the tip back into the tool), weight,
    and your extruder as a mesh at `Mesh`, drawn where it sits on the flange (the flange is world
