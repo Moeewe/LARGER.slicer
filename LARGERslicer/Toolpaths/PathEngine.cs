@@ -884,9 +884,26 @@ namespace LARGERslicer.Toolpaths
                     }
                 }
 
+                // Follow the surface on a closed part: the last lap runs from the last ring into its middle
+                // (as the stand-alone app and the printed head close the crown), so no hole stays open on
+                // top. It runs over the open middle, so it keeps half a layer height (the app's value) and
+                // the law of the printed head leaves it alone (role Seam).
+                bool crown = i == to - 1 && i > from && layer.Warp is MeridianWarp mw && mw.ClosedTop && cur.Len < 4 * Math.PI * w;
+                if (crown)
+                {
+                    Point3d mid = Point3d.Origin;
+                    foreach (var q in cur.P) mid += q;
+                    mid /= cur.P.Count;
+                    foreach (var kv in Traverse(cur, 0, cur.Len))
+                    {
+                        double t = kv.Value / cur.Len;
+                        if (t <= 0) continue;
+                        tp.Add(kv.Key + (mid - kv.Key) * t, n, 0.5 * h, w, 1, PathRole.Seam, layer.Index);
+                    }
+                }
                 // (not on a ring smaller than three beads round: the crown of a closed part, which the bead
                 // covers already; a second pass there would run across the first)
-                if (i == to - 1 && i > from && cur.Len >= 3 * w)
+                else if (i == to - 1 && i > from && cur.Len >= 3 * w)
                 {
                     // flat last loop: fills the wedge left by the spiral, height fades to 0
                     foreach (var kv in Traverse(cur, 0, cur.Len))

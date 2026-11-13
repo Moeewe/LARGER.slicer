@@ -217,6 +217,8 @@ namespace LARGERslicer.Toolpaths
                 // the first lap lies on the bed, and the first climbing lap rises from it with its own ramp (from
                 // nothing over the seam gap of the first lap, as on the printed head): both keep their heights
                 if (tp.Flows[i] <= 0 || tp.Layers[i] <= firstLayer + 1) continue;
+                // the pass that closes the crown (role Seam) runs over the open middle: it keeps its own height
+                if (tp.Roles[i] == PathRole.Seam) continue;
                 // the lap below sets the window (the last lap and its closing pass share one index)
                 if (!lapLen.TryGetValue(tp.Layers[i] - 1, out double lap)) lap = lapLen[tp.Layers[i]];
                 lap = Math.Max(3 * w, lap);
