@@ -16,7 +16,8 @@ namespace LARGERslicer.Toolpaths
     /// 2. Head clearance. The head is a cone (tip radius r0, half angle theta, length Lc) and above
     ///    it a cylinder (radius R). Every point q printed earlier that lies more than half a layer
     ///    above the nozzle tip must stay outside the head: r_xy >= (dz &lt; Lc ? r0 + dz tan theta : R)
-    ///    + half a bead width. Within a layer the path may climb at most as steeply as the cone's flank:
+    ///    + half a bead width (the stretch printed just before, within twice the head radius along the path,
+    ///    is left to the next test). Within a layer the path may climb at most as steeply as the cone's flank:
     ///    |dz/ds| &lt;= tan(90 - theta).
     /// </summary>
     public static class NonPlanarCheck
@@ -38,7 +39,7 @@ namespace LARGERslicer.Toolpaths
             /// <summary>Path points where the measured bead height is out of range.</summary>
             public List<Point3d> BadHeights = new List<Point3d>();
             public double MinHeight = double.MaxValue, MaxHeight, MaxDeviation, MeanDeviation;
-            public int Measured, TooHigh, TooThin, Deviating, CollisionMoves, SteepMoves;
+            public int Measured, TooHigh, TooThin, Deviating, CollisionMoves, SteepMoves, Ramp;
             public double MaxSlope;
         }
 
@@ -63,42 +64,55 @@ namespace LARGERslicer.Toolpaths
                 list.Add(i);
             }
             double cell = Math.Max(2 * w, 5);
+            // path length up to every point: an earlier stretch of the same layer counts as "below" only
+            // when it is at least two bead widths back along the path (the last flat turn of a spiral
+            // lies on the climbing turn of the same layer)
+            var along = new double[n];
+            for (int i = 1; i < n; i++) along[i] = along[i - 1] + tp.Points[i].DistanceTo(tp.Points[i - 1]);
             Dictionary<long, List<int>> below = null; // segments of the layer below (end point index), by XY cell
             double sumDev = 0; int notMeasured = 0;
+            int secondLayer = byLayer.Count > 1 ? byLayer.Keys.ElementAt(1) : int.MinValue, lastLayer = byLayer.Count > 0 ? byLayer.Keys.Last() : int.MinValue;
             foreach (var kv in byLayer)
             {
                 var idx = kv.Value;
-                if (below != null)
-                    foreach (int i in idx)
-                    {
-                        if (tp.Roles[i] == PathRole.Seam) continue; // the ramp between two layers climbs on purpose
-                        Point3d p = tp.Points[i];
-                        if (!ClosestBelow(tp, below, cell, p, 2 * w, out double zq)) { notMeasured++; continue; }
-                        double dz = p.Z - zq;
-                        r.BeadHeights[i] = dz;
-                        r.Measured++;
-                        if (dz < r.MinHeight) r.MinHeight = dz;
-                        if (dz > r.MaxHeight) r.MaxHeight = dz;
-                        bool bad = false;
-                        if (dz > 0.8 * w) { r.TooHigh++; bad = true; }
-                        if (dz < 0.4 * h) { r.TooThin++; bad = true; }
-                        double used = tp.Heights[i];
-                        if (used > 1e-9)
-                        {
-                            double dev = Math.Abs(dz - used) / used;
-                            sumDev += dev;
-                            if (dev > r.MaxDeviation) r.MaxDeviation = dev;
-                            if (dev > 0.10) r.Deviating++;
-                        }
-                        if (bad) r.BadHeights.Add(p);
-                    }
-                // this layer is what the next one lies on
-                var grid = new Dictionary<long, List<int>>();
-                for (int k = 1; k < idx.Count; k++)
+                var grid = new Dictionary<long, List<int>>(); // this layer, filled while it is printed
+                for (int k = 0; k < idx.Count; k++)
                 {
-                    int b = idx[k];
-                    if (idx[k - 1] != b - 1) continue;
-                    Point3d p0 = tp.Points[b - 1], p1 = tp.Points[b];
+                    int i = idx[k];
+                    if (below != null && tp.Roles[i] != PathRole.Seam) // the ramp between two layers climbs on purpose
+                    {
+                        Point3d p = tp.Points[i];
+                        if (!ClosestBelow(tp, below, grid, along, along[i], cell, p, 2 * w, 0.25 * w, 0.25 * h, 2 * w, out double zq)) notMeasured++;
+                        else
+                        {
+                            double dz = p.Z - zq;
+                            double used = tp.Heights[i];
+                            // the start and end of a spiral run out to nothing on purpose, and the extrusion with them
+                            bool ramp = (kv.Key == secondLayer || kv.Key == lastLayer) && used < 0.4 * h && Math.Abs(dz - used) <= 0.05 * h;
+                            r.BeadHeights[i] = dz;
+                            if (ramp) r.Ramp++;
+                            else
+                            {
+                                r.Measured++;
+                                if (dz < r.MinHeight) r.MinHeight = dz;
+                                if (dz > r.MaxHeight) r.MaxHeight = dz;
+                                bool bad = false;
+                                if (dz > 0.8 * w) { r.TooHigh++; bad = true; }
+                                if (dz < 0.4 * h) { r.TooThin++; bad = true; }
+                                if (used > 1e-9)
+                                {
+                                    double dev = Math.Abs(dz - used) / used;
+                                    sumDev += dev;
+                                    if (dev > r.MaxDeviation) r.MaxDeviation = dev;
+                                    if (dev > 0.10) r.Deviating++;
+                                }
+                                if (bad) r.BadHeights.Add(p);
+                            }
+                        }
+                    }
+                    // this move is now material that later beads may lie on
+                    if (k == 0 || idx[k - 1] != i - 1) continue;
+                    Point3d p0 = tp.Points[i - 1], p1 = tp.Points[i];
                     int x0 = (int)Math.Floor(Math.Min(p0.X, p1.X) / cell), x1 = (int)Math.Floor(Math.Max(p0.X, p1.X) / cell);
                     int y0 = (int)Math.Floor(Math.Min(p0.Y, p1.Y) / cell), y1 = (int)Math.Floor(Math.Max(p0.Y, p1.Y) / cell);
                     if ((x1 - x0 + 1) * (y1 - y0 + 1) > 400) { x1 = x0; y1 = y0; }
@@ -107,7 +121,7 @@ namespace LARGERslicer.Toolpaths
                         {
                             long key = Key(gx, gy);
                             if (!grid.TryGetValue(key, out var l)) grid[key] = l = new List<int>();
-                            l.Add(b);
+                            l.Add(i);
                         }
                 }
                 if (grid.Count > 0) below = grid;
@@ -121,8 +135,8 @@ namespace LARGERslicer.Toolpaths
                 if (r.TooHigh > 0 || r.TooThin > 0)
                 {
                     r.Ok = false;
-                    r.Report.Add($"BEAD HEIGHT OUT OF RANGE: {tooHigh:0.#} % of the points above 0.8 x bead width (the bead does not squash and bonds poorly), " +
-                                 $"{tooThin:0.#} % below 0.4 x layer height (pressed flat). See Bad Heights.");
+                    r.Report.Add($"BEAD HEIGHT OUT OF RANGE: {r.TooHigh} points ({tooHigh:0.#} %) above 0.8 x bead width (the bead does not squash and bonds poorly), " +
+                                 $"{r.TooThin} points ({tooThin:0.#} %) below 0.4 x layer height (pressed flat). See Bad Heights.");
                 }
                 else r.Report.Add("Bead height OK at every point.");
                 if (r.MeanDeviation > 0.10 || r.Deviating > 0.05 * r.Measured)
@@ -131,6 +145,7 @@ namespace LARGERslicer.Toolpaths
                     r.Report.Add($"EXTRUSION DOES NOT FIT: at {dev:0.#} % of the points the bead height used for E differs by more than 10 % from the measured one (mean {100 * r.MeanDeviation:0.#} %, largest {100 * r.MaxDeviation:0} %).");
                 }
                 else r.Report.Add($"Extrusion fits the measured bead height: mean difference {100 * r.MeanDeviation:0.#} %, {dev:0.#} % of the points more than 10 % off (largest {100 * r.MaxDeviation:0} %).");
+                if (r.Ramp > 0) r.Report.Add($"{r.Ramp} point(s) lie where the spiral starts or ends (second and last layer) and the bead runs out to nothing on purpose; the extrusion follows them. Not counted above.");
                 if (notMeasured > 0) r.Report.Add($"{notMeasured} point(s) have no layer below within two bead widths (first bead of an overhang or a bridge): not measured. Path Check tests their support.");
             }
             else r.Report.Add("Bead height: only one layer, nothing to measure.");
@@ -163,7 +178,8 @@ namespace LARGERslicer.Toolpaths
                             if (dz <= 0.5 * h) continue;
                             double dx = q.X - p.X, dy = q.Y - p.Y;
                             double rxy = Math.Sqrt(dx * dx + dy * dy);
-                            if (tp.Layers[j] == tp.Layers[i] && rxy < w) continue; // the bead just laid, under the nozzle
+                            // the bead just laid behind the nozzle (also across a layer change): the in-layer slope test below covers it
+                            if (along[i] - along[j] < 2 * reach) continue;
                             double need = (dz < head.ConeLength ? head.TipRadius + dz * tan : R) + 0.5 * w;
                             if (rxy >= need) continue;
                             hit = true;
@@ -213,29 +229,54 @@ namespace LARGERslicer.Toolpaths
 
         private static long Key(int gx, int gy) => ((long)gx << 32) ^ (uint)gy;
 
-        /// <summary>The closest point in plan on the layer below, within maxDist; its Z.</summary>
-        private static bool ClosestBelow(Toolpath tp, Dictionary<long, List<int>> grid, double cell, Point3d p, double maxDist, out double z)
+        /// <summary>The material the bead rests on: among the moves that lie within slack of the closest one
+        /// (in plan, at most maxDist away), the highest one that is not above p. Candidates are the layer below
+        /// (up to "above" higher than p: a collapsed gap is measured, not skipped) and stretches of this layer
+        /// at least gap back along the path that lie clearly lower. (Where a spiral turn ends above its own
+        /// start, both lie under the nozzle.)</summary>
+        private static bool ClosestBelow(Toolpath tp, Dictionary<long, List<int>> below, Dictionary<long, List<int>> same, double[] along, double alongP,
+            double cell, Point3d p, double maxDist, double slack, double above, double gap, out double z)
         {
             z = 0;
             int cx = (int)Math.Floor(p.X / cell), cy = (int)Math.Floor(p.Y / cell);
             int ring = (int)Math.Ceiling(maxDist / cell);
-            double best = maxDist * maxDist; bool found = false;
-            for (int gx = cx - ring; gx <= cx + ring; gx++)
-                for (int gy = cy - ring; gy <= cy + ring; gy++)
-                {
-                    if (!grid.TryGetValue(Key(gx, gy), out var list)) continue;
-                    foreach (int b in list)
+            var cand = new List<KeyValuePair<double, double>>(); // distance, z
+            double best = maxDist;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                var grid = pass == 0 ? below : same;
+                if (grid == null) continue;
+                for (int gx = cx - ring; gx <= cx + ring; gx++)
+                    for (int gy = cy - ring; gy <= cy + ring; gy++)
                     {
-                        Point3d a = tp.Points[b - 1], c = tp.Points[b];
-                        double ex = c.X - a.X, ey = c.Y - a.Y;
-                        double l2 = ex * ex + ey * ey;
-                        double t = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((p.X - a.X) * ex + (p.Y - a.Y) * ey) / l2));
-                        double qx = a.X + ex * t - p.X, qy = a.Y + ey * t - p.Y;
-                        double d2 = qx * qx + qy * qy;
-                        if (d2 < best) { best = d2; z = a.Z + (c.Z - a.Z) * t; found = true; }
+                        if (!grid.TryGetValue(Key(gx, gy), out var list)) continue;
+                        foreach (int b in list)
+                        {
+                            Point3d a = tp.Points[b - 1], c = tp.Points[b];
+                            double ex = c.X - a.X, ey = c.Y - a.Y;
+                            double l2 = ex * ex + ey * ey;
+                            double t = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((p.X - a.X) * ex + (p.Y - a.Y) * ey) / l2));
+                            double qx = a.X + ex * t - p.X, qy = a.Y + ey * t - p.Y;
+                            double d = Math.Sqrt(qx * qx + qy * qy);
+                            if (d > maxDist) continue;
+                            double zq = a.Z + (c.Z - a.Z) * t;
+                            // the moves just before p (also across a layer change) are not what it lies on
+                            if (alongP - along[b] < gap) continue;
+                            if (d < best) best = d;
+                            cand.Add(new KeyValuePair<double, double>(d, zq));
+                        }
                     }
-                }
-            return found;
+            }
+            bool found = false; double zBest = double.MinValue, zAny = 0, dAny = double.MaxValue;
+            foreach (var kv in cand)
+            {
+                if (kv.Key > best + slack) continue;
+                if (kv.Key < dAny) { dAny = kv.Key; zAny = kv.Value; }
+                if (kv.Value <= p.Z + above && kv.Value > zBest) { zBest = kv.Value; found = true; }
+            }
+            if (found) { z = zBest; return true; }
+            if (dAny < double.MaxValue) { z = zAny; return true; }
+            return false;
         }
     }
 }

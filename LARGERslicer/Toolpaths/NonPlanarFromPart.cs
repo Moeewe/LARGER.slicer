@@ -43,9 +43,9 @@ namespace LARGERslicer.Toolpaths
         public override bool KeepLayerStep => true;
 
         private const int Bins = 720; // half a degree
-        private readonly double _cx, _cy, _z0, _zTop, _h;
-        private readonly double[] _zs; // Z of every row
-        private readonly double[] _u;  // rows x Bins, u at (row, angle bin)
+        private double _cx, _cy, _z0, _zTop, _h;
+        private double[] _zs; // Z of every row
+        private double[] _u;  // rows x Bins, u at (row, angle bin)
 
         /// <param name="mesh">The part, meshed.</param>
         /// <param name="layerHeight">Nominal layer height h.</param>
@@ -54,11 +54,8 @@ namespace LARGERslicer.Toolpaths
         public MeridianWarp(Mesh mesh, double layerHeight, double beadWidth, int m = 200)
         {
             TiltTool = false;
-            _h = layerHeight;
             if (mesh == null || layerHeight <= 0) { Problem = "no part or no layer height"; return; }
-            m = Math.Max(16, m);
             BoundingBox bb = mesh.GetBoundingBox(true);
-            _z0 = bb.Min.Z;
             double q = 0.25 * layerHeight;
 
             // 1. planar contours every h/4 (the slicer cuts in the middle of each step and lifts the contour by half a step)
@@ -80,9 +77,27 @@ namespace LARGERslicer.Toolpaths
                 if (layer.Contours.Count > 1 && Notes.Count == 0) Notes.Add("Some heights have more than one contour; only the outer one sets the layers.");
                 levels.Add(pl);
             }
+            Build(levels, bb.Min.Z, bb.Max.Z, layerHeight, beadWidth, m);
+        }
+
+        /// <summary>From planar contours given by hand (closed, one per height, from bottom to top, about a
+        /// quarter layer height apart) between the bottom and the top of the part.</summary>
+        public MeridianWarp(List<Polyline> levels, double bottom, double top, double layerHeight, double beadWidth, int m = 200)
+        {
+            TiltTool = false;
+            if (levels == null || layerHeight <= 0) { Problem = "no contours or no layer height"; return; }
+            Build(levels, bottom, top, layerHeight, beadWidth, m);
+        }
+
+        private void Build(List<Polyline> levels, double bottom, double top, double layerHeight, double beadWidth, int m)
+        {
+            _h = layerHeight;
+            _z0 = bottom;
+            m = Math.Max(16, m);
+            double q = 0.25 * layerHeight;
             if (levels.Count < 3) { Problem = "the part has no closed wall to follow"; return; }
             _zTop = levels[levels.Count - 1][0].Z;
-            if (bb.Max.Z - _zTop < q + 1e-3) _zTop = bb.Max.Z;
+            if (top - _zTop < q + 1e-3) _zTop = top;
             else Notes.Add($"The closed wall ends at Z {_zTop:0.#}; the layers follow the part up to there.");
 
             // one centre for all heights: the mean of the contour centres
