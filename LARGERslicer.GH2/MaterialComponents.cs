@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -15,8 +16,9 @@ namespace LARGERslicer.GH2
     [IoId("107e5be8-8283-47d4-b596-6194b031c92c")]
     public sealed class MaterialComponent : Component
     {
-        public MaterialComponent() : base(Io.Name("Material", "Start values for a pellet material: temperatures of the feed zone, the three heat zones, the nozzle and the bed, drying and density. The built-in materials use the start values of the Weber DXR quick guide; the densities are typical values. Add your own material as a .material text file in Documents/LARGER/Materials, or fill in the inputs and set Save once. Wire Density into the Density input of Print Settings.", Io.Slicer, 0)) { }
+        public MaterialComponent() : base(Io.Name("Material", "Start values for a pellet material: temperatures of the feed zone, the three heat zones, the nozzle and the bed, drying and density. The built-in materials use the start values of the Weber DXR quick guide; the densities are typical values. Add your own material as a .material text file in Documents/LARGER/Materials, or fill in the inputs and set Save once. Wire Density into the Density input of Print Settings.", Io.Slicer, Group.Start)) { }
         public MaterialComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerMaterialIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -108,8 +110,9 @@ namespace LARGERslicer.GH2
     [IoId("d547afea-d03e-4e35-abd9-265d6e01a846")]
     public sealed class MaterialFactorComponent : Component
     {
-        public MaterialFactorComponent() : base(Io.Name("Material Factor", "Finds the material factor from a test print: new factor = target width / measured width x current factor, with the mean of all measurements. A single-wall test (the Weber Calibration part with one wall) gives the bead width as the wall thickness.", Io.Slicer, 0)) { }
+        public MaterialFactorComponent() : base(Io.Name("Material Factor", "Finds the material factor from a test print: new factor = target width / measured width x current factor, with the mean of all measurements. A single-wall test (the Weber Calibration part with one wall) gives the bead width as the wall thickness.", Io.Slicer, Group.Start)) { }
         public MaterialFactorComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerMaterialFactorIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -145,8 +148,9 @@ namespace LARGERslicer.GH2
     [IoId("7d9428d9-918a-458d-9dea-338d37918d20")]
     public sealed class ImportGCodeComponent : Component
     {
-        public ImportGCodeComponent() : base(Io.Name("Import G-code", "Reads G-code from Cura, Simplify3D, PrusaSlicer, AiSync / Ai Build or a Grasshopper script, or a Weber .dxr file, and checks it with the same Path Check as our own paths: starts and stops, travel moves, retractions, feedrate changes and F0, extrusion into the bed, unsupported beads, crossings, time and weight.", Io.Slicer, 5)) { }
+        public ImportGCodeComponent() : base(Io.Name("Import G-code", "Reads G-code from Cura, Simplify3D, PrusaSlicer, AiSync / Ai Build or a Grasshopper script, or a Weber .dxr file, and checks it with the same Path Check as our own paths: starts and stops, travel moves, retractions, feedrate changes and F0, extrusion into the bed, unsupported beads, crossings, time and weight.", Io.Slicer, Group.Curves)) { }
         public ImportGCodeComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerImportGCodeIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {

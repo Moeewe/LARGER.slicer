@@ -15,6 +15,8 @@ namespace LARGERslicer.GH2
         public override string Author => "Moritz Wesseler, FH Münster";
         public override string Website => "https://github.com/Moeewe/LARGER.slicer";
         public override Version Version => new Version(0, 1, 0);
+        /// <summary>The tab icon of Grasshopper 1 when small, the logo (one line climbing in loops) when large.</summary>
+        public override Grasshopper2.UI.Icon.IIcon Icon => Io.Icon("LARGERslicer");
     }
 
     /// <summary>Rhino loads an .rhp as a Rhino plug-in; this makes it a valid one.</summary>
