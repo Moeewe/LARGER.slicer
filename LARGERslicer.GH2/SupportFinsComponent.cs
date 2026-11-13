@@ -13,7 +13,7 @@ namespace LARGERslicer.GH2
     [IoId("d784c265-d941-4bb2-9cb6-c7fa37067ad2")]
     public sealed class SupportFinsComponent : Component
     {
-        public SupportFinsComponent() : base(Io.Name("Support Fins", "Thin fins outside the part that hold up overhangs. Each fin stands square to the outer wall, from the bed up to just under the overhang, and is part of the one continuous line. It touches the part through a narrow neck, so it is easy to cut off. Use it right before Continuous Path.", Io.Slicer, 4)) { }
+        public SupportFinsComponent() : base(Io.Name("Support Fins", "Thin fins outside the part that hold up overhangs. Each fin stands square to the outer wall, from the bed up to just under the overhang, and is part of the one continuous line. It touches the part through a narrow neck, so it is easy to cut off. Use it right before Continuous Path.", Io.Slicer, 2)) { }
         public SupportFinsComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)

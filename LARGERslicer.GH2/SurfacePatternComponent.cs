@@ -15,7 +15,7 @@ namespace LARGERslicer.GH2
     [IoId("96f34d47-7f6b-4a02-80d3-e409c7ecec57")]
     public sealed class SurfacePatternComponent : Component
     {
-        public SurfacePatternComponent() : base(Io.Name("Surface Pattern", "Textures in the wall: knit, pixels, ribs, waves, zigzag, dots, loops or a picture. Every layer is a row of points; they are pulled out of the wall in a rhythm that moves on from layer to layer. Use it after Continuous Path. The path stays one line.", Io.Slicer, 5)) { }
+        public SurfacePatternComponent() : base(Io.Name("Surface Pattern", "Textures in the wall: knit, pixels, ribs, waves, zigzag, dots, loops or a picture. Every layer is a row of points; they are pulled out of the wall in a rhythm that moves on from layer to layer. Use it after Continuous Path. The path stays one line.", Io.Slicer, 3)) { }
         public SurfacePatternComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)
@@ -68,6 +68,7 @@ namespace LARGERslicer.GH2
                 if (o.Image == null) access.AddWarning("Image", problem);
             }
             var log = new List<string>();
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var r = SurfacePattern.Apply(tp, o, log);
             foreach (var l in log) access.AddWarning("Surface Pattern", l);
             access.SetItem(0, r.Path);

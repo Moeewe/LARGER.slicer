@@ -65,9 +65,11 @@ namespace LARGERslicer.GH2
             Warp warp = SelfSupportIo.Guide(guide, guideMode, tol);
             if (guide != null && warp == null) access.AddWarning("Guide not usable", "Checking with the plane.");
             var log = new List<string>();
+            if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), tol, log, warp != null ? Math.Max(4.0, settings.BeadWidth * 3) : 0);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
             Io.Remarks(access, log);
+            if (Io.Step(access, 40)) return; // progress; stop if the inputs changed meanwhile
             var r = SelfSupport.Check(mesh, plane, warp, settings, factor, true);
             if (!r.Ok) access.AddWarning("Not self-supporting", string.Join("\n", r.Report));
             access.SetItem(0, r.Analysis);

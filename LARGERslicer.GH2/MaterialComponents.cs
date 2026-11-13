@@ -145,7 +145,7 @@ namespace LARGERslicer.GH2
     [IoId("7d9428d9-918a-458d-9dea-338d37918d20")]
     public sealed class ImportGCodeComponent : Component
     {
-        public ImportGCodeComponent() : base(Io.Name("Import G-code", "Reads G-code from Cura, Simplify3D, PrusaSlicer, AiSync / Ai Build or a Grasshopper script, or a Weber .dxr file, and checks it with the same Path Check as our own paths: starts and stops, travel moves, retractions, feedrate changes and F0, extrusion into the bed, unsupported beads, crossings, time and weight.", Io.Slicer, 13)) { }
+        public ImportGCodeComponent() : base(Io.Name("Import G-code", "Reads G-code from Cura, Simplify3D, PrusaSlicer, AiSync / Ai Build or a Grasshopper script, or a Weber .dxr file, and checks it with the same Path Check as our own paths: starts and stops, travel moves, retractions, feedrate changes and F0, extrusion into the bed, unsupported beads, crossings, time and weight.", Io.Slicer, 5)) { }
         public ImportGCodeComponent(IReader reader) : base(reader) { }
 
         protected override void AddInputs(InputAdder inputs)

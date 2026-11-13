@@ -185,10 +185,12 @@ namespace LARGERslicer.GH2
             if (!access.GetItem(7, out collide)) collide = true;
             if (!access.GetItem(8, out clearance)) clearance = 10;
             if (!access.GetItem(9, out poses)) poses = 500;
+            if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             var r = RobotProgram.Build(tp, cell, turn, name, true);
             if (!r.Ok) access.AddWarning("Not runnable", string.Join("\n", r.Report.Where(l => l.StartsWith("NOT"))));
             if (collide && poses != 0)
             {
+                if (Io.Step(access, 50)) return; // progress; stop if the inputs changed meanwhile
                 var col = r.CheckCollisions(tp, cell, new CollisionOptions { Clearance = Math.Max(0, clearance), Poses = poses });
                 if (col.Hits > 0)
                 {
