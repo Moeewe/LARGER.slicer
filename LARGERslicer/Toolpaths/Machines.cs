@@ -55,6 +55,8 @@ namespace LARGERslicer.Toolpaths
         public double TravelSpeed = 0;
         /// <summary>Optional: a Rhino file with the machine in 3D (frame, bed, gantry), drawn in the preview. In the coordinates of the machine: the origin is its 0, 0, 0.</summary>
         public string Model = "";
+        /// <summary>A 3D model that comes with the plug-in (GingerOne), used when Model is empty. See PrinterModel.</summary>
+        public string BuiltInModel = "";
         public MachineProfile Profile = new MachineProfile { RectangleSection = true };
         public List<string> Start = new List<string>(), Layer = new List<string>(), End = new List<string>();
         /// <summary>Code written once when layer n (1, 2, 3 ...) is finished, e.g. to switch the fan on.</summary>
@@ -87,7 +89,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Ginger One (Marlin on the Ginger board): start and end as in the FH Muenster definition.</summary>
         public static MachineDefinition GingerOne() => new MachineDefinition
         {
-            Name = "Ginger One (Marlin)", Manufacturer = "Ginger Additive", Prefix = "GIN", BedX = 1000, BedY = 1000,
+            Name = "Ginger One (Marlin)", Manufacturer = "Ginger Additive", Prefix = "GIN", BedX = 1000, BedY = 1000, BuiltInModel = "GingerOne",
             Profile = MachineProfile.Preset(4),
             Start = GingerGCode.Start.ToList(), End = GingerGCode.End.ToList(),
             // Ginger handbook: no cooling on layers 1 to 4 (adhesion), then 60 % (100 % for heavy overhangs)
@@ -107,7 +109,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Ginger One on Klipper firmware: the START_PRINT and END_PRINT macros of its Klipper config.</summary>
         public static MachineDefinition GingerKlipper() => new MachineDefinition
         {
-            Name = "Ginger One (Klipper)", Manufacturer = "Ginger Additive", Prefix = "GIK", BedX = 1000, BedY = 1000,
+            Name = "Ginger One (Klipper)", Manufacturer = "Ginger Additive", Prefix = "GIK", BedX = 1000, BedY = 1000, BuiltInModel = "GingerOne",
             // E as a volume (mm3) with factor 1.0, as the Klipper script did ("klipper 1")
             Profile = new MachineProfile { Name = "Ginger One (Klipper)", Factor = 1.0, RectangleSection = true, Unit = "mm3" },
             Material = "PLA", BedTemperature = 90,
@@ -290,24 +292,47 @@ namespace LARGERslicer.Toolpaths
                 string mp = Path.ChangeExtension(path, ".3dm");
                 File.Copy(Model, mp, true); Model = mp;
             }
+            else if (string.IsNullOrWhiteSpace(Model) && !string.IsNullOrWhiteSpace(BuiltInModel))
+            {
+                // a machine made from a built-in one keeps its model (layers Frame, Bed, Z, Y, X, TCP)
+                string mp = Path.ChangeExtension(path, ".3dm");
+                if (PrinterModel.WriteBuiltIn(BuiltInModel, mp)) Model = mp;
+            }
             File.WriteAllLines(path, ToText());
             return path;
         }
 
         /// <summary>What the preview shows: the 3D model of the machine if it has one, else its bed as a 10 mm plate below Z 0.</summary>
-        public List<Mesh> Preview(out string note)
+        public List<Mesh> Preview(out string note) => PreviewParts(out note).Select(p => p.Mesh).ToList();
+
+        /// <summary>The preview in its colours: the parts of the 3D model as it is drawn, else the bed as a grey plate.</summary>
+        public List<PrinterModel.Part> PreviewParts(out string note)
+        {
+            var printer = Printer(out note);
+            if (printer != null) return printer.Parts.Select(p => new PrinterModel.Part { Group = p.Group, Mesh = p.Mesh.DuplicateMesh(), Color = p.Color }).ToList();
+            var list = new List<PrinterModel.Part>();
+            if (BedX > 0 && BedY > 0)
+                list.Add(new PrinterModel.Part { Group = "Bed", Mesh = Mesh.CreateFromBox(new BoundingBox(0, 0, -10, BedX, BedY, 0), 1, 1, 1), Color = System.Drawing.Color.FromArgb(120, 124, 132) });
+            return list;
+        }
+
+        /// <summary>The 3D model that can be posed: the file at Model, else the one that comes with the plug-in. Null if there is none.</summary>
+        public PrinterModel Printer(out string note)
         {
             note = null;
-            var list = new List<Mesh>();
             if (!string.IsNullOrWhiteSpace(Model))
             {
-                var c = ModelFile.Read(Model, out string error);
-                if (c != null) { list.AddRange(c.Meshes.Values); return list; }
+                var m = PrinterModel.FromFile(Model, out string error);
+                if (m != null) return m;
                 note = "The 3D model could not be read: " + error;
             }
-            if (BedX > 0 && BedY > 0)
-                list.Add(Mesh.CreateFromBox(new BoundingBox(0, 0, -10, BedX, BedY, 0), 1, 1, 1));
-            return list;
+            if (!string.IsNullOrWhiteSpace(BuiltInModel))
+            {
+                var b = PrinterModel.BuiltIn(BuiltInModel);
+                if (b != null) return b;
+                note = (note == null ? "" : note + " ") + "The built-in 3D model " + BuiltInModel + " is missing from the plug-in.";
+            }
+            return null;
         }
     }
 
