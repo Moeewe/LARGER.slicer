@@ -2227,14 +2227,16 @@ namespace LARGERslicer.Components.Slicer
             p.AddGenericParameter("Model", "3D", "Optional. Your machine in 3D for the preview (frame, bed, gantry: meshes, Breps or surfaces), drawn in the machine's coordinates: its 0, 0, 0 is the origin. Save writes it next to the .machine file as a .3dm of the same name. Empty = the model of the machine chosen above, or its bed", GH_ParamAccess.list);
             p.AddTextParameter("Material", "Mat", "Optional. The material, written where the codes say {material} (Ginger One (Klipper): START_PRINT MATERIAL=...). Empty = the machine's own (PLA)", GH_ParamAccess.item);
             p.AddNumberParameter("Bed Temperature", "Bed", "Optional. Bed temperature in degrees C, written where the codes say {bed}. Empty = the machine's own (90)", GH_ParamAccess.item);
+            p.AddIntegerParameter("Kind", "K", "How the machine moves, which decides what it can print and how Printer Simulation moves its model: 0 = as the machine chosen above, 1 = gantry, 2 = bed slinger (the bed moves in Y), 3 = delta, 4 = belt printer (45 degrees), 5 = robot", GH_ParamAccess.item, 0);
             for (int i = 1; i <= 7; i++) p[i].Optional = true;
-            p[9].Optional = true; p[10].Optional = true; p[11].Optional = true;
+            p[9].Optional = true; p[10].Optional = true; p[11].Optional = true; p[12].Optional = true;
         }
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
             AddButton(doc, 8, "Save machine");
             AddValueList(doc, 0, "Machine", MachineDefinition.All().Select(m => m.Title).ToArray());
+            AddValueList(doc, 12, "Kind", "as the machine", "Gantry", "Bed slinger", "Delta", "Belt 45", "Robot");
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -2246,16 +2248,13 @@ namespace LARGERslicer.Components.Slicer
             p.HideParameter(3); // drawn by the component in its own colour
         }
 
-        private readonly List<Mesh> _model = new List<Mesh>();
-        private readonly List<System.Drawing.Color> _colors = new List<System.Drawing.Color>();
-        private static readonly Rhino.Display.DisplayMaterial ModelMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(120, 124, 132), 0.35);
-        protected override void BeforeSolveInstance() { _model.Clear(); _colors.Clear(); base.BeforeSolveInstance(); }
-        public override BoundingBox ClippingBox { get { var b = base.ClippingBox; foreach (var m in _model) b.Union(m.GetBoundingBox(false)); return b; } }
+        private readonly LARGERslicer.Components.MachinePreview _preview = new LARGERslicer.Components.MachinePreview();
+        protected override void BeforeSolveInstance() { _preview.Clear(); base.BeforeSolveInstance(); }
+        public override BoundingBox ClippingBox => _preview.Box(base.ClippingBox);
         public override void DrawViewportMeshes(IGH_PreviewArgs args)
         {
             base.DrawViewportMeshes(args);
-            if (Hidden) return;
-            for (int i = 0; i < _model.Count; i++) args.Display.DrawMeshShaded(_model[i], i < _colors.Count ? PrinterSimulationComponent.Material(_colors[i]) : ModelMaterial);
+            if (!Hidden) _preview.Draw(args);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -2271,7 +2270,7 @@ namespace LARGERslicer.Components.Slicer
             if (Params.Input.Count > 9 && da.GetDataList(9, modelIn) && modelIn.Count > 0)
             {
                 var mesh = SliceEngine.ToMesh(modelIn.Select(g => g.ScriptVariable()), 0.5, null);
-                if (mesh != null) ownModel = new List<Mesh> { mesh };
+                if (mesh != null) ownModel = new List<Mesh> { MachineLook.Prepare(mesh) };
                 else AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Model: connect meshes, Breps, surfaces or SubDs.");
             }
 
@@ -2301,6 +2300,8 @@ namespace LARGERslicer.Components.Slicer
             string material = null; double bedTemp = 0;
             if (Params.Input.Count > 10 && da.GetData(10, ref material) && !string.IsNullOrWhiteSpace(material)) m.Material = material.Trim();
             if (Params.Input.Count > 11 && da.GetData(11, ref bedTemp)) m.BedTemperature = bedTemp;
+            int kind = 0;
+            if (Params.Input.Count > 12 && da.GetData(12, ref kind) && kind >= 1 && kind <= MachineKinds.All.Length) { m.Kind = MachineKinds.All[kind - 1]; own = true; }
             m.Profile.Name = m.Name;
             if (own) m.Source = "made here";
             if (own && string.IsNullOrWhiteSpace(name)) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Give your machine a Name, so its files and its entry in the list are not called " + m.Name + ".");
@@ -2317,19 +2318,18 @@ namespace LARGERslicer.Components.Slicer
             Message = m.Name;
             string note = null;
             List<Mesh> preview;
-            if (ownModel != null) preview = ownModel;
+            if (ownModel != null) { preview = ownModel; foreach (var om in ownModel) _preview.Add(om, System.Drawing.Color.FromArgb(120, 124, 132)); }
             else
             {
                 var parts = m.PreviewParts(out note);
                 preview = parts.Select(pp => pp.Mesh).ToList();
-                _colors.AddRange(parts.Select(pp => pp.Color));
+                foreach (var pp in parts) _preview.Add(pp.Mesh, pp.Color);
             }
             if (ownModel == null && note != null) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, note);
-            _model.AddRange(preview);
             if (Params.Output.Count > 3) da.SetDataList(3, preview);
             da.SetData(0, new GH_ObjectWrapper(m));
             da.SetDataList(1, m.ToText());
-            da.SetData(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}, {m.Material}, bed {m.BedTemperature:0} C.{(m.AfterLayer.Count > 0 ? " After layer " + string.Join(", ", m.AfterLayer.Keys) + ": " + string.Join(" / ", m.AfterLayer.Values.Select(v => string.Join(" ", v))) + "." : "")}{(string.IsNullOrWhiteSpace(m.Note) ? "" : " " + m.Note)} 3D: {(ownModel != null ? "your model" : !string.IsNullOrWhiteSpace(m.Model) ? System.IO.Path.GetFileName(m.Model) : !string.IsNullOrWhiteSpace(m.BuiltInModel) ? m.BuiltInModel + " (built in: layers Frame, Bed, Z, Y, X; play it with Printer Simulation)" : m.BedX > 0 ? $"bed {m.BedX:0} x {m.BedY:0} mm" : "none")}. Your own machines: {MachineDefinition.Folder}");
+            da.SetData(2, $"{m.Name} ({m.Source}), {MachineKinds.Label(m.Kind, m.BeltAngle)}: prints {MachineKinds.Can(m.Kind)}. {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}, {m.Material}, bed {m.BedTemperature:0} C.{(m.AfterLayer.Count > 0 ? " After layer " + string.Join(", ", m.AfterLayer.Keys) + ": " + string.Join(" / ", m.AfterLayer.Values.Select(v => string.Join(" ", v))) + "." : "")}{(string.IsNullOrWhiteSpace(m.Note) ? "" : " " + m.Note)} 3D: {(ownModel != null ? "your model" : !string.IsNullOrWhiteSpace(m.Model) ? System.IO.Path.GetFileName(m.Model) : !string.IsNullOrWhiteSpace(m.BuiltInModel) ? m.BuiltInModel + " (built in: layers Frame, Bed, Z, Y, X; play it with Printer Simulation)" : m.BedX > 0 ? $"bed {m.BedX:0} x {m.BedY:0} mm" : "none")}. Your own machines: {MachineDefinition.Folder}");
         }
     }
 
@@ -2364,16 +2364,17 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("Info", "I", "Layers, length, extrusion, time and weight", GH_ParamAccess.item);
             p.AddTextParameter("File Name", "Fn", "The name the file gets on the Desktop", GH_ParamAccess.item);
             p.AddMeshParameter("Model", "3D", "The machine in 3D with the nozzle at the start of the path (Ginger One built in). Play the whole print with Printer Simulation", GH_ParamAccess.list);
+            p.AddGenericParameter("Simulation", "Sim", "The print with its machine and the times of the G-code: connect to Printer Simulation to play it (as Program of Robot Program goes to Robot Simulation)", GH_ParamAccess.item);
             p.HideParameter(3); // drawn by the component in the colours of the model
         }
 
-        private readonly List<PrinterModel.Part> _parts = new List<PrinterModel.Part>();
-        protected override void BeforeSolveInstance() { _parts.Clear(); base.BeforeSolveInstance(); }
-        public override BoundingBox ClippingBox { get { var b = base.ClippingBox; foreach (var p in _parts) b.Union(p.Mesh.GetBoundingBox(false)); return b; } }
+        private readonly LARGERslicer.Components.MachinePreview _preview = new LARGERslicer.Components.MachinePreview();
+        protected override void BeforeSolveInstance() { _preview.Clear(); base.BeforeSolveInstance(); }
+        public override BoundingBox ClippingBox => _preview.Box(base.ClippingBox);
         public override void DrawViewportMeshes(IGH_PreviewArgs args)
         {
             base.DrawViewportMeshes(args);
-            if (!Hidden) foreach (var p in _parts) args.Display.DrawMeshShaded(p.Mesh, PrinterSimulationComponent.Material(p.Color));
+            if (!Hidden) _preview.Draw(args);
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
@@ -2383,8 +2384,12 @@ namespace LARGERslicer.Components.Slicer
             var machine = SlicerIO.Get<MachineDefinition>(da, 1) ?? MachineDefinition.GingerOne();
             string part = "Print", file = null; bool save = false;
             da.GetData(2, ref part); da.GetData(3, ref file); da.GetData(4, ref save);
-            var r = MachineGCode.Build(tp, machine);
-            foreach (var wmsg in r.Warnings) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, wmsg);
+            var r = MachineGCode.Build(tp, machine, out PrinterRun run);
+            // what the kind of machine cannot print is an error (angled layers on a gantry); the G-code is written all the same
+            foreach (var wmsg in r.Warnings) AddRuntimeMessage(wmsg.StartsWith("NOT PRINTABLE") ? GH_RuntimeMessageLevel.Error : GH_RuntimeMessageLevel.Warning, wmsg);
+            if (Params.Output.Count > 4 && run != null) da.SetData(4, new GH_ObjectWrapper(run));
+            // with a Printer Simulation connected, that one shows the machine
+            bool simulated = Params.Output.Count > 4 && Params.Output[4].Recipients.Count > 0;
             var named = tp.Duplicate(); named.Settings = tp.Settings.Duplicate(); named.Settings.Machine = machine.Profile.Duplicate();
             string fileName = OutputFile.Name(machine.Prefix, part, named, machine.Extension);
             if (save)
@@ -2401,8 +2406,8 @@ namespace LARGERslicer.Components.Slicer
                 var printer = machine.Printer(out _);
                 if (printer != null)
                 {
-                    var posed = printer.Pose(tp.Points[0]);
-                    _parts.AddRange(posed);
+                    var posed = printer.Pose(tp.Points[0], machine.Kind, out _);
+                    if (!simulated) foreach (var pp in posed) _preview.Add(pp.Mesh, pp.Color);
                     da.SetDataList(3, posed.Select(pp => pp.Mesh));
                 }
             }

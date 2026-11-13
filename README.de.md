@@ -253,13 +253,15 @@ Kein Code nötig. Alles ist eine Textdatei oder eine Rhino-Datei in `Dokumente/L
 | Was | Wo | Wie |
 |---|---|---|
 | G-Code-Maschine | `Machines/Mein Drucker.machine` | Start-, Lagen- und Endcode, Bettgröße und E-Faktor als Text (siehe `Machine`). Am einfachsten: in `Machine` eintragen und `Save` setzen. |
-| 3D-Modell für die Vorschau | `Machines/Mein Drucker.3dm` | Rahmen, Bett und Portal in Rhino in den Koordinaten der Maschine zeichnen (ihr 0, 0, 0 im Ursprung), oder an `Model` von `Machine` anschließen und `Save` setzen. Ohne Modell wird das Bett aus der Bettgröße gezeichnet. |
+| 3D-Modell, animiert | `Machines/Mein Drucker.3dm` | In Rhino in den Koordinaten der Maschine zeichnen (ihr 0, 0, 0 im Ursprung), eine Ebene pro Achse: `Frame`, `Bed`, `Z`, `Y`, `X` und ein Punkt auf `TCP` an der Düsenspitze. `Printer Simulation` bewegt es dann entlang des Drucks und prüft Kopf, Brücke und Rahmen auf Kollision. `kind = gantry / bedslinger / delta / belt 45 / robot` sagt, was die Maschine drucken kann. Ohne Modell wird das Bett aus der Bettgröße gezeichnet. |
 | Granulat | `Materials/Mein Material.material` | Temperaturen, Trocknung, Dichte und Faktor als Text (siehe `Material`). Am einfachsten: die Eingänge von `Material` ausfüllen und `Save material` drücken. |
 | Roboter-Druckzelle | `Cells/Meine Zelle.3dm` | In Millimetern in den Koordinaten des Betts zeichnen, ein Teil pro Ebene: `Bed` (gezeichnet, nicht auf Kollision geprüft), `Robot Base` (ein Punkt, wo der Roboter steht, und eine Linie von dort entlang seiner X-Achse), `Work Base` (optional) und jede weitere Ebene (Floor, Fence, Table ...) für die Kollisionsprüfung. `Export` an `Cell Geometry` liefert die mitgelieferte Zelle in dieser Form als Start. |
 | Roboterarm | `Dokumente/RobotSystems` | Die Bibliothek des Robots-Plug-ins; `Robot` liest Arm und 3D-Modell von dort (`Geometry File`). |
 | Werkzeug | `Robot Tool` | TCP-Ebene, Gewicht und Schwerpunkt wie in Robots; den eigenen Extruder als Mesh an `Mesh` anschließen. |
 
 Neue Dateien erscheinen in den Listen von `Machine`, `Material` und `Cell Geometry`, sobald die Komponente das nächste Mal platziert wird. Den Ordner unverändert weitergeben: Die `.3dm` neben einer `.machine`-Datei wird über ihren Namen gefunden.
+
+Schritt für Schritt, mit vollständiger Beispieldatei, der Ebenen-Konvention des Modells, Bed-Slingern, Deltas und Roboterarmen (englisch): **[docs/OWN_MACHINES.md](docs/OWN_MACHINES.md)**. Eine Vorlage zum Kopieren: `EXAMPLE FILES/Machines/My Gantry.machine` + `My Gantry.3dm`.
 
 Alle genannten Marken gehören ihren jeweiligen Inhabern. LARGER.slicer ist ein unabhängiges Projekt und steht in keiner Verbindung zu diesen Herstellern.
 

@@ -322,6 +322,7 @@ namespace LARGERslicer.GH2
             outputs.AddText("Info", "I", "Layers, length, extrusion, time and weight.");
             outputs.AddText("File Name", "Fn", "The name the file gets on the Desktop.");
             outputs.AddMesh("Model", "3D", "The machine in 3D with the nozzle at the start of the path (Ginger One built in). Play the whole print with Printer Simulation.", Access.Twig);
+            outputs.AddGeneric("Simulation", "Sim", "The print with its machine and the times of the G-code: connect to Printer Simulation to play it.");
         }
 
         protected override void Process(IDataAccess access)
@@ -329,8 +330,12 @@ namespace LARGERslicer.GH2
             var tp = Io.Path(access, 0); if (tp == null) return;
             var machine = Io.Get<MachineDefinition>(access, 1) ?? MachineDefinition.GingerOne();
             string part, file; bool save; access.GetItem(2, out part); access.GetItem(3, out file); access.GetItem(4, out save);
-            var r = MachineGCode.Build(tp, machine);
-            foreach (var w in r.Warnings) access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
+            var r = MachineGCode.Build(tp, machine, out PrinterRun run);
+            // what the kind of machine cannot print (angled layers on a gantry) is an error; the G-code is written all the same
+            foreach (var w in r.Warnings)
+                if (w.StartsWith("NOT PRINTABLE")) access.AddError("Not printable on this machine", w);
+                else access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
+            if (run != null) access.SetItem(4, run);
             var named = tp.Duplicate(); named.Settings = tp.Settings.Duplicate(); named.Settings.Machine = machine.Profile.Duplicate();
             string fileName = OutputFile.Name(machine.Prefix, part, named, machine.Extension);
             Files.Save(access, save, file, r.Lines, fileName);
@@ -338,7 +343,7 @@ namespace LARGERslicer.GH2
             access.SetItem(1, r.Info);
             access.SetItem(2, fileName);
             var printer = machine.Printer(out _);
-            if (printer != null) access.SetTwig(3, printer.Pose(tp.Points[0]).Select(pp => pp.Mesh).ToArray(), null, null);
+            if (printer != null) access.SetTwig(3, printer.Pose(tp.Points[0], machine.Kind, out _).Select(pp => pp.Mesh).ToArray(), null, null);
         }
     }
 }

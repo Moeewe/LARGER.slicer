@@ -241,6 +241,7 @@ namespace LARGERslicer.GH2
         {
             inputs.AddGeneric("Program", "Prg", "Program of Robot Program.");
             inputs.AddNumber("Time", "T", "Where in the print: 0 = start, 1 = end.").Set(0.0);
+            inputs.AddBoolean("Show Cell", "Cell", "True = put the cell around the robot (floor, fence, glass, walls) into Environment, so it is drawn with the simulation. False = only the robot and its tool. The collision check always uses the cell.").Set(false);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -254,7 +255,7 @@ namespace LARGERslicer.GH2
             outputs.AddNumber("External", "E", "Values of the external axes at that moment (rail in mm, turntable in degrees).", Access.Twig);
             outputs.AddPolyline("Printed", "Pr", "The path printed up to that moment, where it is in the room: it turns with a turntable.");
             outputs.AddMesh("Axes Model", "AM", "The rail with its carriage and the turntable at that moment.", Access.Twig);
-            outputs.AddMesh("Environment", "Env", "What stands around the robot (the Environment of the cell), to see it in the simulation.", Access.Twig);
+            outputs.AddMesh("Environment", "Env", "What stands around the robot (the Environment of the cell), when Show Cell is on.", Access.Twig);
             outputs.AddMesh("Colliding", "Col", "What collides at this moment: robot links, tool, rail, table, environment, and a ball where it touches. Empty = clear.", Access.Twig);
         }
 
@@ -276,7 +277,8 @@ namespace LARGERslicer.GH2
             access.SetTwig(6, ext ?? new double[0], null, null);
             var printed = run.PrintedAt(seconds); if (printed.Count > 1) access.SetItem(7, printed);
             access.SetTwig(8, ExternalAxisGeometry.Pose(run.Cell, ext).ToArray(), null, null);
-            if (run.Cell.Environment != null) access.SetTwig(9, run.Cell.Environment.ToArray(), null, null);
+            bool showCell; if (!access.GetItem(2, out showCell)) showCell = false;
+            if (showCell && run.Cell.Environment != null) access.SetTwig(9, run.Cell.Environment.ToArray(), null, null);
             string collision = "";
             if (run.Collider != null)
             {
