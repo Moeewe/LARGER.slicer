@@ -268,6 +268,24 @@ def _(g):
     g.line([(5, 20), (5, 5), (20, 5)], SOFT, 1.6)
     g.line([(9, 20), (9, 15)] + arc(15, 15, 6, 180, 270) + [(20, 9)], BLUE, 2.2)
 
+@icon('SlicerPatternIcon')
+def _(g):
+    # a wall seen from the side: layers pulled out in a rhythm that moves on every row (knit)
+    for k, y in enumerate((5.5, 12, 18.5)):
+        x0 = 3.5 + (2.8 if k % 2 else 0)
+        pts = [(x0 + 5.6 * i, y + (-1.8 if i % 2 == 0 else 1.8)) for i in range(4) if x0 + 5.6 * i < 21]
+        if k % 2: pts = [(3.5, y + 0.0)] + pts + [(20.5, y)]
+        g.line(pts, BLUE if k == 1 else INK, 2)
+
+@icon('SlicerFinsIcon')
+def _(g):
+    # an overhanging wall and thin fins under it that break off at a narrow neck
+    g.line([(3.5, 20.5), (20.5, 20.5)], SOFT, 1.5)
+    g.line([(5, 20.5), (5, 10), (8.5, 5.5), (20.5, 5.5)], INK, 2.2)
+    for x in (10.5, 14.5, 18.5):
+        g.line([(x, 20.5), (x, 9.2)], BLUE, 1.5)
+        g.dot(x, 8.0, 0.75, BLUE)
+
 @icon('SlicerStartEndIcon')
 def _(g):
     g.line(arc(11, 13, 8, 60, 335, 40), SOFT, 1.8)

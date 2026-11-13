@@ -68,6 +68,7 @@ Die Einstellungen sitzen auf den Komponenten selbst: Die Zeilen unter einer Komp
 | 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill, in die Wandlinie eingebunden |
 | | `Support Fins` | Dünne Stützrippen außen am Bauteil, die Überhänge tragen, als Teil derselben Linie |
 | 7 | `Continuous Path` | Flache Lagen mit offener Naht (Lücke von einer Bahnbreite) oder Spirale für einfache Wände. Seam Mode, Min Layer Time, Max Volume Rate |
+| | `Surface Pattern` | Texturen in der Wand: Strick, Pixel, Rippen, Wellen, Zickzack, Punkte, hängende Schlaufen oder ein Bild, am ganzen Bauteil oder in einer gezeichneten Region |
 | 8 | `Round Corners` | Jede Ecke wird ein Bogen |
 | 9 | `Start and End` | Anfahrt von 30 mm oberhalb, Skirt zuerst, Brim außen, innen oder beidseitig, am Ende vom Bauteil wegfahren |
 | 10 | `Path Check` | Auflage, Selbstkreuzung, Bahnform, Leerfahrten, Lagenzeiten |
@@ -135,6 +136,31 @@ Die Grenze für Überhänge ergibt sich aus der Bahn: Eine Bahn darf um `Factor`
 - Eingänge: `Layers` (nach `Walls`, `Bottom Fill` und Infill), `Settings`, `Overhang Angle` (Grad gegen die Senkrechte, 0 = eine halbe Bahn pro Lage), `Spacing` (Bahnbreiten, Standard 15), `Reach` (Bahnbreiten, Standard 1), `Contact` (Neck, Neck + gap, Full), `Gap` (mm, Standard 0,3, für Neck + gap).
 - Verbindung: direkt vor `Continuous Path`. Die Nahtrampe hält sich von den Rippen fern.
 - Achtung: „Full“ ist die festeste Verbindung, aber am schwersten zu entfernen. „Neck + gap“ druckt die oberste Rippenlage tiefer, sodass der Überhang abbricht.
+
+</details>
+
+<details>
+<summary><b>Surface Pattern: Strick, Rippen, Wellen, Schlaufen, Bilder</b></summary>
+
+**`Surface Pattern`** (Slicer, Gruppe Toolpaths, nach `Continuous Path`, vor `Start and End`; arbeitet an jedem Toolpath). Jede Lage ist eine Reihe von Punkten. Die Punkte werden im Rhythmus entlang der Wandnormalen nach außen gezogen, und der Rhythmus wandert von Lage zu Lage weiter. Kleine Auslenkungen ergeben feinen Strick oder Pixel; große lassen die Bahn zwischen den Punkten, die auf der Lage darunter liegen, überhängen, und mit `Z Droop` und `Extra Flow` hängt sie zu Schlaufen durch.
+- Eingänge: `Toolpath`, `Pattern` (Knit, Ribs, Waves, Zigzag, Dots, Loops, Image), `Amplitude` (mm, wie weit nach außen), `Pitch` (mm, eine Wiederholung entlang der Lage; so angepasst, dass eine ganze Zahl von Wiederholungen um eine geschlossene Wand passt), `Layer Period` (Lagen pro Reihe), `Phase Shift` (Anteil des Pitch pro Reihe: 0 übereinander, 0.5 verwoben, 0.05 diagonal), `Z Droop` (mm), `Extra Flow` (Anteil), `Side` (außen oder innen), `Region` (geschlossene Kurven auf dem Bauteil, Breps oder Meshes) und `Falloff` (mm, weicher Rand), `Attractors` (Punkte oder Kurven) und `Reach` (mm), `Image` (Dateipfad eines Graustufenbilds, dunkel = Muster; ein bloßer Dateiname wird neben der .gh-Datei gesucht) und `Invert`.
+- Ausgänge: `Toolpath`, `Preview` (eine Polylinie pro Lage), `Hanging` (Punkte mehr als eine halbe Bahn neben der Lage darunter), `Info`.
+- Regionen: Eine geschlossene Kurve wird mit der Wand abgewickelt (Bogenlänge quer, Höhe nach oben); ein Bahnpunkt bekommt das Muster, wenn er dort innerhalb der Kurve liegt. Ein geschlossener Brep oder ein Mesh: Punkte darin. Eine offene Fläche auf der Wand: Punkte darauf.
+- Die Bahn bleibt eine Linie: Nur Wandpunkte bewegen sich, Nahtrampen, Brücken, Rippen und Infill bleiben, das Muster läuft an der Naht aus, und wo eine Auslenkung die Bahn kreuzen würde, wird sie kleiner. Die erste Lage bleibt glatt.
+- Achtung: Bis zur halben Bahnbreite liegt jede Bahn auf der darunter. Mehr ist absichtlich erlaubt (Pixel, Schlaufen); `Info` zählt diese Punkte und `Path Check` listet sie als nicht gestützt, also mit dem Auge beurteilen. Die Extrusion folgt der längeren Bahn von selbst; `Extra Flow` gibt an den Spitzen mehr dazu, und `Max Volume Rate` in `Continuous Path` begrenzt den Extruder weiterhin.
+- Beispiel: `EXAMPLE FILES/LARGERslicer - Surface Patterns.gh` (sechs Vasen: Strick, Rippen, Wellen, Schlaufen, ein Gitterbild, eine Region).
+
+| Wirkung | Pattern | Amplitude | Pitch | Phase Shift | Layer Period | Z Droop / Extra Flow |
+|---|---|---|---|---|---|---|
+| Feiner Strick, Pixel | Knit | 0.4 bis 0.6 x Bahn | 2 x Bahn | 0 | 1 | 0 / 0 |
+| Senkrechte Rippen | Ribs | 0.5 bis 1 x Bahn | 3 x Bahn | 0 | 1 | 0 / 0 |
+| Tiefe Sinuswände (übereinander) | Waves | 2 bis 4 x Bahn | 6 bis 10 x Bahn | 0 | 1 | 0 / 0 |
+| Verwobene Wellen, Lagen versetzt | Waves | 1.5 bis 2 x Bahn | 6 x Bahn | 0.5 | 1 | 0 / 0 |
+| Diagonale Bänder | Waves oder Knit | 1 x Bahn | 3 bis 6 x Bahn | 0.03 bis 0.08 | 1 | 0 / 0 |
+| Schuppen, Noppen | Dots | 0.8 x Bahn | 3 x Bahn | 0 | 2 | 0 / 0 |
+| Hängende Schlaufen | Loops | 2 bis 4 x Bahn | 4 bis 5 x Bahn | 0.5 | 2 | 1 Lage / 0.3 |
+| Bild oder Gitter | Image + Bild | 0.6 x Bahn | 1.5 x Bahn | 0 | 1 | 0 / 0 |
+| Textur nur in einem Feld | beliebig + Region-Kurve | | | | | |
 
 </details>
 
