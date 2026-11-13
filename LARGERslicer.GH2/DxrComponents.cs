@@ -147,6 +147,7 @@ namespace LARGERslicer.GH2
                 // empty = the Desktop; a bare name (File Name of Robot Program) goes to the Desktop too
                 try { string written = OutputFile.Write(file, OutputFile.Name("DXR", "Print", null, ".dxr"), result); info.Add("Saved: " + written); access.AddRemark("Saved", written); }
                 catch (Exception ex) { access.AddError("Could not save", ex.Message); }
+                Files.Reset(this, 6);
             }
             access.SetTwig(0, result.ToArray(), null, null);
             access.SetTwig(1, info.ToArray(), null, null);

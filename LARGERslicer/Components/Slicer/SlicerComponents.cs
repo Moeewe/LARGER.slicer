@@ -1178,8 +1178,11 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("Info", "I", "Statistics", GH_ParamAccess.item);
         }
 
+        protected override bool CanRunInBackground => true;
+
         protected override void SolveInstance(IGH_DataAccess da)
         {
+            if (Async.Deliver(da)) return;
             var goos = new List<IGH_Goo>();
             if (!da.GetDataList(0, goos)) return;
             var layers = goos.OfType<GH_SliceLayer>().Select(g => g.Value).Where(l => l != null).ToList();
@@ -1188,16 +1191,21 @@ namespace LARGERslicer.Components.Slicer
             int count = 1, position = 0;
             da.GetData(2, ref count); da.GetData(3, ref position);
 
-            var log = new List<string>();
-            var sw = Stopwatch.StartNew();
-            var result = FillEngine.Walls(layers, settings, count, position, log);
-            Message = (count == 1 ? "1 wall" : count + " walls") + (position == 1 ? ", centred" : position == 2 ? ", outside" : ", inside");
-            sw.Stop();
-            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
+            // long stacks run in the background (Background row); a change of the inputs stops the old work
+            Async.Run(da, job =>
+            {
+                var log = new List<string>();
+                var sw = Stopwatch.StartNew();
+                var result = FillEngine.Walls(layers, settings, count, position, log, job.Token, null);
+                if (result == null) return; // cancelled: the inputs changed meanwhile
+                job.Message = (count == 1 ? "1 wall" : count + " walls") + (position == 1 ? ", centred" : position == 2 ? ", outside" : ", inside");
+                sw.Stop();
+                foreach (var l in log) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
 
-            da.SetDataList(0, result.Select(l => new GH_SliceLayer(l)));
-            da.SetDataList(1, result.SelectMany(l => l.RealContours()).Select(c => new PolylineCurve(c)));
-            da.SetData(2, $"{result.Count} layers, {result.Sum(l => l.Contours.Count)} wall paths, spacing {settings.BeadSpacing:0.##} mm, {sw.ElapsedMilliseconds} ms");
+                job.SetDataList(0, result.Select(l => new GH_SliceLayer(l)));
+                job.SetDataList(1, result.SelectMany(l => l.RealContours()).Select(c => new PolylineCurve(c)));
+                job.SetData(2, $"{result.Count} layers, {result.Sum(l => l.Contours.Count)} wall paths, spacing {settings.BeadSpacing:0.##} mm, {sw.ElapsedMilliseconds} ms");
+            });
         }
     }
 
@@ -2070,7 +2078,7 @@ namespace LARGERslicer.Components.Slicer
             Message = "1 : " + (1.0 / (scale > 0 ? scale : r.SuggestedScale)).ToString("0.#");
             if (save)
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, OutputFile.Name("TEST", TestName(da), null, ".gcode"), r.Lines)); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, OutputFile.Name("TEST", TestName(da), r.Grams, r.Minutes, ".gcode"), r.Lines)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             da.SetDataList(0, r.Lines);

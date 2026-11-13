@@ -213,7 +213,8 @@ namespace LARGERslicer.Components
             var job = new AsyncJob(token);
             Task.Run(() =>
             {
-                try { if (!token.IsCancellationRequested) work(job); }
+                // the slicer core checks the token in its long loops and stops early (OperationCanceledException)
+                try { if (!token.IsCancellationRequested) using (LARGERslicer.Toolpaths.Cancel.Use(token)) work(job); }
                 catch (Exception e) { job.Error = e; }
                 Finished(generation, iteration, job);
             });

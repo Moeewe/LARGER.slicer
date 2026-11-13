@@ -32,6 +32,20 @@ namespace LARGERslicer.GH2
             return p;
         }
 
+        /// <summary>An angle in degrees: the quick picks of Grasshopper 1, 0 / 15 / 30 / 45 / 60 / 75 / 90.</summary>
+        public static Grasshopper2.Parameters.Parameter<double> Angles(this Grasshopper2.Parameters.Parameter<double> p)
+        {
+            foreach (var v in new[] { 0, 15, 30, 45, 60, 75, 90 }) p.Presets?.Add(v + "°", "", v);
+            return p;
+        }
+
+        /// <summary>A count (walls, layers, loops): the whole numbers of the Grasshopper 1 row as presets.</summary>
+        public static Grasshopper2.Parameters.Parameter<int> Counts(this Grasshopper2.Parameters.Parameter<int> p, params int[] values)
+        {
+            foreach (var v in values) p.Presets?.Add(v.ToString(System.Globalization.CultureInfo.InvariantCulture), "", v);
+            return p;
+        }
+
         /// <summary>The icon of that name (file name without .png), or null if there is none.</summary>
         public static IIcon Icon(string name)
         {

@@ -206,8 +206,14 @@ namespace LARGERslicer.Toolpaths
 
         public static List<MachineDefinition> BuiltIn() => new List<MachineDefinition> { GingerOne(), GenericMarlin(), GingerKlipper() };
 
-        /// <summary>The folder for your own machines: Documents/LARGER/Machines.</summary>
-        public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LARGER", "Machines");
+        /// <summary>The folder for your own machines: Documents/LARGER/Machines. Set it to use another
+        /// folder (a shared folder of a lab, or a test folder); null = the default.</summary>
+        public static string Folder
+        {
+            get => _folder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LARGER", "Machines");
+            set => _folder = string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        private static string _folder;
 
         /// <summary>Built-in machines first, then every .machine file of the folder, by name.</summary>
         public static List<MachineDefinition> All(List<string> log = null)

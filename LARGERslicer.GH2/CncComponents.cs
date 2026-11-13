@@ -464,26 +464,10 @@ namespace LARGERslicer.GH2
             if (selectedCutter != null)
             {
                 // Use Cutter object specifications
-                // Check 1: Material thickness vs. max cutting depth (for through-cutting)
-                if (materialThickness > selectedCutter.MaxCuttingDepth)
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, 
-                        $"Cutter '{selectedCutter.Name}' cannot cut through material thickness of {materialThickness:F2} mm. " +
-                        $"Maximum cutting depth: {selectedCutter.MaxCuttingDepth:F2} mm. " +
-                        $"Material thickness exceeds limit by {materialThickness - selectedCutter.MaxCuttingDepth:F2} mm. " +
-                        $"Please use a different cutter or reduce material thickness.");
-                }
-                
-                // Check 2: Actual cutting depth vs. max cutting depth (for through-cutting)
-                if (cuttingDepth > selectedCutter.MaxCuttingDepth)
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                        $"Cutter '{selectedCutter.Name}' cannot cut to depth of {cuttingDepth:F2} mm. " +
-                        $"Maximum cutting depth: {selectedCutter.MaxCuttingDepth:F2} mm. " +
-                        $"Cutting depth exceeds limit by {cuttingDepth - selectedCutter.MaxCuttingDepth:F2} mm. " +
-                        $"Please use a different cutter or adjust geometry Z coordinates.");
-                }
-                
+                // Through-cut limit (MaxCuttingDepth) and depth limit (MaxSurfaceDepth) of the cutter: a cut that
+                // leaves material (deeper than the through-cut limit, within the surface limit) is a warning (check 3),
+                // cutting through thicker material (check 5) or deeper than the surface limit (check 4) an error.
+                // (Before, checks here made every cut deeper than the through-cut limit an error, against check 3.)
                 // Check 3: Actual cutting depth vs. max surface depth (for surface cutting)
                 // If cutting depth is within MaxCuttingDepth but exceeds MaxSurfaceDepth, it's still a warning
                 // (surface cutting is possible but may not be ideal)

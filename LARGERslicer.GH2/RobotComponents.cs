@@ -142,11 +142,24 @@ namespace LARGERslicer.GH2
 
     // ============================================================== program
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4004")]
-    public sealed class RobotProgramComponent : Component
+    public sealed class RobotProgramComponent : PreviewComponent
     {
         public RobotProgramComponent() : base(Io.Name("Robot Program", "Turns the toolpath into robot moves: the tool tip on every path point, the tool along the path's tool axis. Checks reach, axis ranges and the wrist, and writes the moves for the DXR Generator and as a KRL program.", Io.Robot, 1)) { }
         public RobotProgramComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("RobotProgramIcon");
+        // the robot in its own colours: base dark, arm KUKA orange, tool steel blue (as in Grasshopper 1)
+        protected override int[] OwnOutputs => new[] { 9 };
+        internal static readonly System.Drawing.Color BaseColor = System.Drawing.Color.FromArgb(60, 60, 64), ArmColor = System.Drawing.Color.FromArgb(240, 110, 20),
+            ToolColor = System.Drawing.Color.FromArgb(90, 120, 150), AxisColor = System.Drawing.Color.FromArgb(150, 152, 158);
+
+        /// <summary>Robot bodies (0 base, 1-6 links, 7 and on the tool) and axis models in their colours, what collides red.</summary>
+        internal static void Paint(ShadedPreview.Frame f, IList<Mesh> robot, IList<Mesh> axes, ICollection<int> hitRobot = null, ICollection<int> hitAxes = null)
+        {
+            for (int i = 0; robot != null && i < robot.Count; i++)
+                if (hitRobot != null && hitRobot.Contains(i)) f.Hit(robot[i]); else f.Mesh(robot[i], i == 0 ? BaseColor : i >= 7 ? ToolColor : ArmColor);
+            for (int i = 0; axes != null && i < axes.Count; i++)
+                if (hitAxes != null && hitAxes.Contains(i)) f.Hit(axes[i]); else f.Mesh(axes[i], AxisColor);
+        }
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -182,6 +195,7 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
+            Picture.Clear();
             var tp = Io.Path(access, 0); if (tp == null) return;
             var cell = Io.Get<RobotCell>(access, 1) ?? new RobotCell();
             double turn, pose; string name, file; bool save;
@@ -208,7 +222,7 @@ namespace LARGERslicer.GH2
             }
             else r.Report.Add("Collisions were not checked (Check Collisions is off).");
             access.SetItem(10, RobotRun.Make(r, cell, tp));
-            Files.Save(access, save, file, r.Krl, RobotProgram.ProgramName(name) + ".src");
+            Files.Save(access, this, 6, save, file, r.Krl, () => RobotProgram.ProgramName(name) + ".src");
             access.SetItem(8, OutputFile.Name("DXR", name, tp, ""));
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             access.SetTwig(1, r.Extrusion.ToArray(), null, null);
@@ -223,19 +237,26 @@ namespace LARGERslicer.GH2
                 var pts = cell.Arm.Skeleton(r.Moves[at].Axes, r.Moves[at].RobotBase);
                 pts.Add(r.Moves[at].Part.Pt(tp.Points[at]));
                 access.SetItem(7, new Polyline(pts));
-                var model = (RobotGeometry.Pose(cell, r.Moves[at].Axes, r.Moves[at].External) ?? new List<Mesh>()).Concat(ExternalAxisGeometry.Pose(cell, r.Moves[at].External)).ToArray();
+                var robot = RobotGeometry.Pose(cell, r.Moves[at].Axes, r.Moves[at].External) ?? new List<Mesh>();
+                var axesModel = ExternalAxisGeometry.Pose(cell, r.Moves[at].External);
+                var model = robot.Concat(axesModel).ToArray();
                 if (model.Length > 0) access.SetTwig(9, model, null, null);
+                var frame = new ShadedPreview.Frame();
+                Paint(frame, robot, axesModel);
+                Picture.Show(frame);
             }
         }
     }
 
     // ============================================================== simulation
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4005")]
-    public sealed class RobotSimulationComponent : Component
+    public sealed class RobotSimulationComponent : PreviewComponent
     {
         public RobotSimulationComponent() : base(Io.Name("Robot Simulation", "Plays the robot program: the robot with its tool at any moment of the print. Time runs from 0 (start) to 1 (end) and follows the real time of the print, slower where an axis cannot turn faster. Moving the slider only places the robot: the program is not calculated again.", Io.Robot, 1)) { }
         public RobotSimulationComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("RobotSimulationIcon");
+        // robot, axes and cell in their colours, what collides red (as in Grasshopper 1)
+        protected override int[] OwnOutputs => new[] { 0, 8, 9, 10 };
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -261,6 +282,7 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
+            Picture.Clear();
             var run = Io.Get<RobotRun>(access, 0);
             if (run == null || run.Points.Count == 0) { access.AddError("No program", "Connect Program of Robot Program."); return; }
             double time; access.GetItem(1, out time);
@@ -280,6 +302,8 @@ namespace LARGERslicer.GH2
             bool showCell; if (!access.GetItem(2, out showCell)) showCell = false;
             if (showCell && run.Cell.Environment != null) access.SetTwig(9, run.Cell.Environment.ToArray(), null, null);
             string collision = "";
+            var frame = new ShadedPreview.Frame();
+            HashSet<int> hitRobot = new HashSet<int>(), hitAxes = new HashSet<int>(), hitEnv = new HashSet<int>();
             if (run.Collider != null)
             {
                 PoseCollision pc = null;
@@ -292,12 +316,19 @@ namespace LARGERslicer.GH2
                     foreach (int i in pc.Axes) if (i < axesModel.Count) colliding.Add(axesModel[i]);
                     var env = run.Collider.Cell.Environment;
                     if (env != null) foreach (int i in pc.Environment) if (i < env.Count) colliding.Add(env[i]);
-                    foreach (var w in pc.Where) { var ball = Mesh.CreateFromSphere(new Sphere(w, 12), 12, 8); if (ball != null) colliding.Add(ball); }
+                    foreach (var w in pc.Where) { var ball = Mesh.CreateFromSphere(new Sphere(w, 12), 12, 8); if (ball != null) { colliding.Add(ball); frame.Hit(ball); } }
+                    hitRobot.UnionWith(pc.Robot); hitAxes.UnionWith(pc.Axes); hitEnv.UnionWith(pc.Environment);
+                    if (!showCell && env != null) foreach (int i in pc.Environment) if (i < env.Count) frame.Hit(env[i]);
                     access.SetTwig(10, colliding.ToArray(), null, null);
                     collision = " - COLLISION: " + string.Join(", ", pc.Robot.OrderBy(i => i).Select(CollisionModel.RobotName));
                     access.AddWarning("Collision", "Collision at this moment: see Colliding.");
                 }
             }
+            RobotProgramComponent.Paint(frame, model, ExternalAxisGeometry.Pose(run.Cell, ext), hitRobot, hitAxes);
+            if (showCell && run.Cell.Environment != null)
+                for (int i = 0; i < run.Cell.Environment.Count; i++)
+                    if (hitEnv.Contains(i)) frame.Hit(run.Cell.Environment[i]); else frame.Mesh(run.Cell.Environment[i], MachineLook.Cell, 0.55);
+            Picture.Show(frame);
             Frame tip = run.Cell.RobotBaseAt(ext).Times(arm.Forward(axes)).Times(Frame.World.TurnedAboutZ(Math.PI)).Times(run.Cell.Tool.Tcp);
             access.SetTwig(1, axes, null, null);
             access.SetItem(2, tip.ToPlane());

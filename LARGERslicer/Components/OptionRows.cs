@@ -404,9 +404,16 @@ namespace LARGERslicer.Components
                             {
                                 if (!GetBool(p, true)) return;
                                 doc.SolutionEnd -= back;
-                                QuietReset = true;
-                                try { Set(comp, r.Input, new GH_Boolean(false), false); }
-                                finally { QuietReset = false; }
+                                // only the value goes back: the stored one and the one the input holds now. The
+                                // component keeps its results (expiring it here left it blank until the next
+                                // solution, e.g. the DXR Generator without DXR and Info after Save).
+                                if (p is Param_Boolean pb)
+                                {
+                                    pb.PersistentData.Clear(); pb.PersistentData.Append(new GH_Boolean(false));
+                                    pb.ClearData();
+                                    pb.AddVolatileData(new Grasshopper.Kernel.Data.GH_Path(0), 0, new GH_Boolean(false));
+                                    comp.OnDisplayExpired(false);
+                                }
                             };
                             doc.SolutionEnd += back;
                         }

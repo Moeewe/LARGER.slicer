@@ -23,7 +23,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Toolpath", "T", "The finished path.");
             inputs.AddGeneric("Geometry", "G", "Optional. The part as Breps (NURBS). Samples are a grid in each face's UV. Empty = samples inside the beads.", Access.Twig, Requirement.MayBeMissing);
             inputs.AddPoint("Sample Points", "Pts", "Optional. Your own points, e.g. the Gauss points of the analysis. They replace the grid.", Access.Twig, Requirement.MayBeMissing);
-            inputs.AddNumber("Sample Spacing", "D", "Distance of the samples in mm. 0 = half the layer height, so every layer interface shows.").Set(0.0);
+            inputs.AddNumber("Sample Spacing", "D", "Distance of the samples in mm. 0 = half the layer height, so every layer interface shows.").Set(0.0).Values(0, 1, 2, 5, 10, 20, 50);
             inputs.AddNumber("E Bead", "E1", "Young's modulus along the bead in MPa. Placeholder: measure it.").Set(3000.0);
             inputs.AddNumber("E Across", "E2", "Young's modulus across the beads, in the layer, in MPa. Placeholder.").Set(2400.0);
             inputs.AddNumber("E Layers", "E3", "Young's modulus across the layers in MPa. Placeholder.").Set(1800.0);
@@ -77,6 +77,7 @@ namespace LARGERslicer.GH2
             {
                 try { access.AddRemark("Saved", string.Join(", ", MaterialField.Write(r, file, Math.Max(0, Math.Min(3, format))))); }
                 catch (Exception ex) { access.AddError("Could not save", ex.Message); }
+                Files.Reset(this, 14);
             }
 
             double len = Math.Max(1.0, 0.8 * Math.Max(r.Spacing, tp.Settings.LayerHeight));

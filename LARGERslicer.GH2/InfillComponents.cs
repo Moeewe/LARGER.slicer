@@ -55,15 +55,16 @@ namespace LARGERslicer.GH2
             InfillIo.Inputs(inputs);
             inputs.AddInteger("Pattern", "P", "0 = Honeycomb\n1 = Grid").Set(0).Choices("Honeycomb", "Grid");
             inputs.AddNumber("Cell Size", "Sz", "Distance between the middles of two neighbouring cells (mm). At least four bead spacings.").Set(60.0).Values(20, 40, 60, 80, 100, 150, 200, 300);
-            inputs.AddNumber("Angle", "A", "Turns the pattern (degrees).").Set(0.0);
+            inputs.AddNumber("Angle", "A", "Turns the pattern (degrees).").Set(0.0).Angles();
             inputs.AddPoint("Origin", "O", "Fixed point of the pattern: the middle of one cell. Move it to shift the whole pattern. The cells stand exactly above each other in all layers. Empty = world origin.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddNumber("Stretch", "St", "Stretches the cells along the pattern direction (1 = regular, 2 = twice as long). Turn the direction with Angle.").Set(1.0);
+            inputs.AddNumber("Stretch", "St", "Stretches the cells along the pattern direction (1 = regular, 2 = twice as long). Turn the direction with Angle.").Set(1.0).Values(1, 1.5, 2, 3);
         }
 
         protected override void AddOutputs(OutputAdder outputs) => InfillIo.Outputs(outputs, "Layers with the cells joined into the wall path.");
 
         protected override void Process(IDataAccess access)
         {
+            using var cancel = Io.Cancellable(access); // stop the core loops when this solution is cancelled
             var layers = Io.Layers(access, 0); if (layers == null) return;
             var settings = Io.Settings(access, 1);
             int pattern; double size, angle, stretch;
@@ -101,6 +102,7 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
+            using var cancel = Io.Cancellable(access); // stop the core loops when this solution is cancelled
             var layers = Io.Layers(access, 0); if (layers == null) return;
             var settings = Io.Settings(access, 1);
             int shape; double wavelength, depth; bool meet;
@@ -133,13 +135,14 @@ namespace LARGERslicer.GH2
             InfillIo.Inputs(inputs);
             inputs.AddCurve("Sketch", "Sk", "Curves drawn in top view (flat, at any height). Each one should cross the part from wall to wall. Keep bends wider than the bead width.", Access.Twig, Requirement.MayBeMissing);
             inputs.AddBoolean("Meet", "Meet", "False = one rib along the whole curve\nTrue = two ribs, one from each wall, that meet on the curve; the joint changes sides every layer so the ribs interlock", ("On", "Two ribs meet on the curve"), ("Off", "One rib along the curve")).Set(false);
-            inputs.AddNumber("Stagger", "St", "Meet only: how far the joint moves off the middle, alternating every layer (0-0.35).").Set(0.15);
+            inputs.AddNumber("Stagger", "St", "Meet only: how far the joint moves off the middle, alternating every layer (0-0.35).").Set(0.15).Values(0, 0.1, 0.15, 0.25, 0.35);
         }
 
         protected override void AddOutputs(OutputAdder outputs) => InfillIo.Outputs(outputs, "Layers with the sketched ribs joined into the wall path.");
 
         protected override void Process(IDataAccess access)
         {
+            using var cancel = Io.Cancellable(access); // stop the core loops when this solution is cancelled
             var layers = Io.Layers(access, 0); if (layers == null) return;
             var settings = Io.Settings(access, 1);
             access.ItemArray(2, out Curve[] curves);
@@ -183,6 +186,7 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
+            using var cancel = Io.Cancellable(access); // stop the core loops when this solution is cancelled
             var layers = Io.Layers(access, 0); if (layers == null) return;
             var settings = Io.Settings(access, 1);
             int shape; double length, depth; access.GetItem(2, out shape); access.GetItem(3, out length); access.GetItem(4, out depth);
@@ -207,16 +211,17 @@ namespace LARGERslicer.GH2
         {
             InfillIo.Inputs(inputs, "Layers from Walls (or Slice).");
             inputs.AddGeneric("Locations", "Loc", "Where ribs go:\nCurve drawn in top view = the rib follows the curve from wall to wall (draw your infill)\nPoint = straight rib at the nearest wall point in every layer\nCurve running upwards = rib where the curve crosses each layer\nPlane = rib where the plane cuts the wall", Access.Twig, Requirement.MayBeMissing);
-            inputs.AddNumber("Spacing", "Sp", "Additionally distribute ribs evenly along the wall at about this distance (mm). 0 = only the given locations.").Set(0.0);
+            inputs.AddNumber("Spacing", "Sp", "Additionally distribute ribs evenly along the wall at about this distance (mm). 0 = only the given locations.").Set(0.0).Values(0, 50, 80, 100, 150, 200, 300);
             inputs.AddNumber("Depth", "D", "Rib length (mm). 0 = across to the opposite wall.").Set(0.0);
             inputs.AddBoolean("Meet", "Meet", "True = two ribs, one from each wall, meet inside the part. False = one rib across.", ("On", "Two ribs meet inside"), ("Off", "One rib across")).Set(false);
-            inputs.AddNumber("Stagger", "St", "Meet only: how far the joint of the two ribs is moved off the middle, alternating every layer (0-0.35 of the wall distance). The ribs then overlap from layer to layer and lock together.").Set(0.15);
+            inputs.AddNumber("Stagger", "St", "Meet only: how far the joint of the two ribs is moved off the middle, alternating every layer (0-0.35 of the wall distance). The ribs then overlap from layer to layer and lock together.").Set(0.15).Values(0, 0.1, 0.15, 0.25, 0.35);
         }
 
         protected override void AddOutputs(OutputAdder outputs) => InfillIo.Outputs(outputs, "Layers with ribs spliced into the wall path.");
 
         protected override void Process(IDataAccess access)
         {
+            using var cancel = Io.Cancellable(access); // stop the core loops when this solution is cancelled
             var layers = Io.Layers(access, 0); if (layers == null) return;
             var settings = Io.Settings(access, 1);
             access.ItemArray(2, out object[] raw);

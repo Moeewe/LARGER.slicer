@@ -413,7 +413,15 @@ namespace LARGERslicer.Toolpaths
         // ------------------------------------------------------------------ build
 
         public static Toolpath Build(List<SliceLayer> layers, PrintSettings settings, ContinuousMode mode,
-            GeometryBase seam, double rampLength, bool alternate, List<string> log, bool bridge = true, SeamMode seamMode = SeamMode.Fixed)
+            GeometryBase seam, double rampLength, bool alternate, List<string> log, bool bridge = true, SeamMode seamMode = SeamMode.Fixed,
+            System.Threading.CancellationToken token = default)
+        {
+            // token: stops early (OperationCanceledException) when the result is not needed any more
+            using (Cancel.Use(token)) return BuildCore(layers, settings, mode, seam, rampLength, alternate, log, bridge, seamMode);
+        }
+
+        private static Toolpath BuildCore(List<SliceLayer> layers, PrintSettings settings, ContinuousMode mode,
+            GeometryBase seam, double rampLength, bool alternate, List<string> log, bool bridge, SeamMode seamMode)
         {
             var tp = new Toolpath { Settings = settings };
             if (layers == null || layers.Count == 0) return tp;
@@ -438,6 +446,7 @@ namespace LARGERslicer.Toolpaths
             var outers = seamMode != SeamMode.Fixed && mode == ContinuousMode.Layered ? new Loop[layers.Count] : null;
             for (int li = 0; li < layers.Count; li++)
             {
+                Cancel.Check();
                 var layer = layers[li];
                 var list = new List<Loop>();
                 for (int ci = 0; ci < layer.Contours.Count; ci++)
@@ -650,6 +659,7 @@ namespace LARGERslicer.Toolpaths
             int first = -1;
             for (int li = 0; li < layers.Count; li++)
             {
+                Cancel.Check();
                 var layer = layers[li];
                 Vector3d n = layer.Plane.ZAxis;
                 bool fill = layer.EntryHints != null && layer.EntryHints.Count > 0;
@@ -831,6 +841,7 @@ namespace LARGERslicer.Toolpaths
 
             for (int i = from; i < to; i++)
             {
+                Cancel.Check();
                 var layer = layers[i];
                 Vector3d n = layer.Plane.Normal;
                 double h = layer.Height;
@@ -949,6 +960,7 @@ namespace LARGERslicer.Toolpaths
             var prevStarts = new List<Point3d>(); var curStarts = new List<Point3d>(); // where the closed walls of a layer begin
             for (int i = fromLayer; i < toLayer; i++)
             {
+                Cancel.Check();
                 var layer = layers[i];
                 Vector3d n = layer.Plane.Normal;
                 double h = layer.Height;

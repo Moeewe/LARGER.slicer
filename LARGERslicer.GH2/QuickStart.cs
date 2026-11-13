@@ -101,7 +101,32 @@ namespace LARGERslicer.GH2
             set(settings, 3, 4);     // Machine Profile: the demo is set up for the Ginger One
             set(settings, 9, 25.0);  // First Layer Speed: the Ginger prints the first layer at 25 mm/s
             var bed = put(new PrintBedComponent(), 2 * col, 130);
-            group("PRINT SETTINGS AND PRINT BED", Family.Gray, new IDocumentObject[] { settings, bed });
+            // Grasshopper 2 has no relays: the settings are passed wirelessly instead, so no wire crosses
+            // the canvas. A Shout named "Settings" takes them here; a Listen of that name sits at the left
+            // of every example and feeds its components. The finished paths go back to the bed the same
+            // way: every example shouts "Finished path", the bed listens to all of them.
+            var shoutSettings = new Grasshopper2.Parameters.Special.Shout { UserName = "Settings" };
+            place(shoutSettings, col, 330);
+            Connections.Connect(settings.Parameters.Output(0), shoutSettings, null);
+            var listenPaths = new Grasshopper2.Parameters.Special.Listen { UserName = "Finished path" };
+            place(listenPaths, col + 20, 230);
+            feed(listenPaths, bed, 3);
+            group("PRINT SETTINGS AND PRINT BED  -  passed to every example wirelessly (Shout 'Settings', Listen 'Finished path')", Family.Gray, new IDocumentObject[] { settings, bed, shoutSettings, listenPaths });
+            // a Listen "Settings" at the left of an example
+            Func<float, float, IParameter> listen = (dx, dy) =>
+            {
+                var l = new Grasshopper2.Parameters.Special.Listen { UserName = "Settings" };
+                place(l, dx, dy);
+                return l;
+            };
+            // a Shout "Finished path" right of the last component of an example
+            Func<Component, float, float, IParameter> shoutPath = (c, dx, dy) =>
+            {
+                var sh = new Grasshopper2.Parameters.Special.Shout { UserName = "Finished path" };
+                place(sh, dx, dy);
+                Connections.Connect(c.Parameters.Output(0), sh, null);
+                return sh;
+            };
 
             // ---- 1 flat layers, with the files for the machines
             float y1 = 880; // below the tall Print Settings
@@ -120,12 +145,14 @@ namespace LARGERslicer.GH2
             wire(slice, 0, walls, 0); wire(walls, 0, bottom, 0); wire(bottom, 0, ribs, 0); wire(ribs, 0, path, 0);
             wire(path, 0, round, 0); wire(round, 0, finish, 0);
             wire(finish, 0, check, 0); wire(finish, 0, values, 0);
-            foreach (var c in new[] { slice, walls, bottom, ribs, path }) wire(settings, 0, c, 1);
+            var listen1 = listen(0, y1 + 110);
+            foreach (var c in new[] { slice, walls, bottom, ribs, path }) feed(listen1, c, 1);
+            var shout1 = shoutPath(finish, 7 * col, y1 + 150);
             set(ribs, 3, 150.0); // ribs every 150 mm
             set(ribs, 5, true);  // two ribs, one from each wall, meeting in the middle
             finished.Add(finish);
             hide.AddRange(new IDocumentObject[] { part1, slice, walls, bottom, ribs, path, round, values });
-            group("INPUT GEOMETRY AND SLICER", Family.Blue, new IDocumentObject[] { part1, slice, walls, bottom, ribs, path, round, finish });
+            group("INPUT GEOMETRY AND SLICER", Family.Blue, new IDocumentObject[] { part1, listen1, slice, walls, bottom, ribs, path, round, finish, shout1 });
             group("CHECK AND VALUES FOR THE MACHINE", Family.Green, new IDocumentObject[] { check, values });
 
             float xo = 10 * col + 100; // right of the checks
@@ -183,16 +210,18 @@ namespace LARGERslicer.GH2
                 var ro = put(new RoundCornersComponent(), 4 * col + dx, y);
                 var en = put(new StartEndComponent(), 5 * col + dx, y);
                 var ch = put(new PathCheckComponent(), 6 * col + dx + 40, y);
+                var li = listen(0, y + (guide != null ? 160 : 110));
+                var sh = shoutPath(en, 5 * col + dx, y + 150);
                 feed(part, sl, 0);
                 if (guide != null) feed(guide, sl, 3);
                 if (Math.Abs(angle) > 1e-9) set(sl, 2, angle);
                 wire(sl, 0, wa, 0);
                 Component last = wa;
-                if (infill != null) { wire(wa, 0, infill, 0); wire(settings, 0, infill, 1); last = infill; }
+                if (infill != null) { wire(wa, 0, infill, 0); feed(li, infill, 1); last = infill; }
                 wire(last, 0, pa, 0); wire(pa, 0, ro, 0); wire(ro, 0, en, 0); wire(en, 0, ch, 0);
-                foreach (var c in new[] { sl, wa, pa }) wire(settings, 0, c, 1);
+                foreach (var c in new[] { sl, wa, pa }) feed(li, c, 1);
                 finished.Add(en);
-                var members = new List<IDocumentObject> { part, sl, wa, pa, ro, en, ch };
+                var members = new List<IDocumentObject> { part, li, sl, wa, pa, ro, en, ch, sh };
                 if (guide != null) members.Add(guide);
                 if (infill != null) members.Add(infill);
                 hide.AddRange(new IDocumentObject[] { part, sl, wa, pa, ro });
@@ -238,9 +267,10 @@ namespace LARGERslicer.GH2
             set(easy, 11, true); // Spiral: one line that climbs all the time
             set(easy, 12, 1);    // Nozzle: 3 mm flat nozzle, wide bead (tested)
             wire(easy, 0, check6, 0);
+            var shout6 = shoutPath(easy, 2 * col + 60, y6 + 150);
             finished.Add(easy);
             hide.Add(part6);
-            group("EASY SLICER  -  set nozzle, infill, walls, angle on its inputs", Family.Lime, new IDocumentObject[] { part6, easy, check6 });
+            group("EASY SLICER  -  set nozzle, infill, walls, angle on its inputs", Family.Lime, new IDocumentObject[] { part6, easy, check6, shout6 });
 
             // ---- 7 non-planar head on the Ginger One: layers that follow the surface, as the head of 2024
             float y7 = y6 + 820; // Easy Slicer is tall: the next example starts below it
@@ -275,10 +305,11 @@ namespace LARGERslicer.GH2
             wire(finish7, 0, check7, 0); wire(finish7, 0, np7, 0);
             wire(gcode7, 4, sim7, 1); // Simulation: the print with its machine and times
             set(sim7, 2, 0.6);
+            var shout7 = shoutPath(finish7, 5 * col + 40, r7 + 170);
             finished.Add(finish7);
             // one Ginger in the viewport: the one of Printer Simulation
             hide.AddRange(new IDocumentObject[] { part7, slice7, walls7, path7, machine7, gcode7, np7 });
-            group("HEAD SLICED ALONG ITS SURFACE, ONE SPIRAL, CHECKS  -  own settings as the head of 2024; then set Save on Machine G-code", Family.Indigo, new IDocumentObject[] { part7, settings7, slice7, walls7, path7, finish7, machine7, gcode7, check7, np7 });
+            group("HEAD SLICED ALONG ITS SURFACE, ONE SPIRAL, CHECKS  -  own settings as the head of 2024; then set Save on Machine G-code", Family.Indigo, new IDocumentObject[] { part7, settings7, slice7, walls7, path7, finish7, shout7, machine7, gcode7, check7, np7 });
             group("PRINTER SIMULATION  -  set Play, or move Pose", Family.Orange, new IDocumentObject[] { sim7 });
 
             // ---- 8 surface pattern: a vase with waves in its wall
@@ -292,8 +323,10 @@ namespace LARGERslicer.GH2
             var pattern8 = put(new SurfacePatternComponent(), 4 * col, r8);
             var finish8 = put(new StartEndComponent(), 5 * col, r8);
             var check8 = put(new PathCheckComponent(), 6 * col + 40, r8);
+            var listen8 = listen(0, r8 + 110);
+            var shout8 = shoutPath(finish8, 5 * col, r8 + 150);
             feed(part8, slice8, 0);
-            foreach (var c in new[] { slice8, walls8, path8 }) wire(settings, 0, c, 1);
+            foreach (var c in new[] { slice8, walls8, path8 }) feed(listen8, c, 1);
             wire(slice8, 0, walls8, 0); wire(walls8, 0, path8, 0); wire(path8, 0, pattern8, 0);
             set(pattern8, 1, 2);     // Waves
             set(pattern8, 2, 2.5);   // Amplitude: half a bead, so every bead rests on the one below
@@ -302,10 +335,9 @@ namespace LARGERslicer.GH2
             wire(pattern8, 0, finish8, 0); wire(finish8, 0, check8, 0);
             finished.Add(finish8);
             hide.AddRange(new IDocumentObject[] { part8, slice8, walls8, path8, pattern8 });
-            group("VASE, SLICER AND SURFACE PATTERN  -  try Knit, Ribs or Loops on Pattern", Family.Pink, new IDocumentObject[] { part8, slice8, walls8, path8, pattern8, finish8, check8 });
+            group("VASE, SLICER AND SURFACE PATTERN  -  try Knit, Ribs or Loops on Pattern", Family.Pink, new IDocumentObject[] { part8, listen8, slice8, walls8, path8, pattern8, finish8, check8, shout8 });
 
-            // every finished path on the one bed: the examples must not touch each other
-            foreach (var f in finished) wire(f, 0, bed, 3);
+            // every finished path reaches the one bed through its Shout "Finished path" (the examples must not touch each other)
 
             // ---- read me first
             var note = new ScribbleObject(

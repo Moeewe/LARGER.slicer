@@ -164,7 +164,31 @@ Print Settings, Slice, Walls, Continuous Path, Round Corners, Start and End, Pat
 Non-Planar Check, Surface Pattern, Machine, Machine G-code, Printer Simulation (Play runs),
 Robot, Robot Tool, Robot Cell, Robot Program, Robot Simulation (Show Cell off), Material,
 Material Factor, Easy Slicer; the icons of all 70 visible components; the presets; progress on
-Slice and Walls. Not tried: saving files, Windows, a real print.
+Slice and Walls. Not tried: Windows, a real print.
+
+Tested on the canvas in November 2026 (second round):
+
+- **Presets** were picked the way a user picks them: the input's value control (the "Choose
+  preset…" link of `CreateValueControl`) was created and the item of its menu clicked (Nozzle,
+  Machine Profile, Guide Mode, Mode, Seam Mode, Brim, Pattern, Machine, Material, Pose, Film
+  Length, Angle, Count, Speed); the value of the input changed and the solution ran with it.
+  Boolean inputs (Play, Save) are a check box in Grasshopper 2; ticking it plays and stops the
+  simulation. Number and count inputs offer the quick picks of the Grasshopper 1 rows (bead and
+  layer in mm, speeds in mm/s, angles 0/15/30/45/60/75/90, counts).
+- **Save**: Ginger G-code, Machine G-code, Desktop Test Print, Robot Program (KRL), DXR Generator,
+  Material Field, Material and Machine wrote into a test folder; every file read back (G-code and
+  DXR through Import G-code, KRL with DEF and END, .material and .machine loaded again), names
+  `PREFIX_date_part_weight_time`, decimal points only. Save works like the button of Grasshopper 1:
+  after the solution that wrote the file it goes back to false (a wire into Save is left alone).
+- **Cancel**: a new value during a long Slice, Walls or Continuous Path stops the old work; the core
+  loops check the solution's token (Continuous Path stopped within 0.25 s on a 2000-layer tower).
+- **Viewport**: Print Bed draws a shaded plate with its grid and origin; Machine, Machine G-code,
+  Printer Simulation, Robot Program and Robot Simulation draw their meshes in their own colours,
+  what collides red; DXR Variable Width draws coloured segments. The short text under a
+  component of Grasshopper 1 (Layered, 1 wall, inside, Fits, OK ...) is its label here.
+- **Quick Start** has no wires across the canvas: Print Settings goes to the examples through a
+  Shout "Settings" and a Listen of that name at every example, the finished paths come back to
+  Print Bed through Shouts "Finished path" (Grasshopper 2 merges all shouts of one name).
 
 A definition saved with an earlier build of this plug-in can show Print Settings and Round and Lead as faulted, because they have more inputs now: place them again.
 

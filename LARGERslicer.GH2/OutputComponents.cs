@@ -13,12 +13,47 @@ namespace LARGERslicer.GH2
 {
     internal static class Files
     {
-        /// <summary>Writes the lines if Save is on; reports what happened on the component.</summary>
-        public static void Save(IDataAccess access, bool save, string file, List<string> lines, string defaultName = "larger_print.gcode")
+        /// <summary>
+        /// Writes the lines if Save is on; reports what happened on the component, then turns Save back
+        /// off (see Reset). The name is only worked out when the file is written (it needs the whole
+        /// path processed for weight and time).
+        /// </summary>
+        public static void Save(IDataAccess access, Component owner, int saveInput, bool save, string file, List<string> lines, Func<string> defaultName)
         {
             if (!save) return;
-            try { access.AddRemark("Saved", OutputFile.Write(file, defaultName, lines)); }
+            try { access.AddRemark("Saved", OutputFile.Write(file, defaultName != null ? defaultName() : "larger_print.gcode", lines)); }
             catch (Exception ex) { access.AddError("Could not save", ex.Message); }
+            Reset(owner, saveInput);
+        }
+
+        private static readonly HashSet<IParameter> Pending = new HashSet<IParameter>();
+
+        /// <summary>
+        /// Save works like a button, as in Grasshopper 1: after the solution that wrote the file, the
+        /// Save input goes back to false (only its own value; a wire into it is left alone), so a later
+        /// change upstream does not write one file after the other. The component then solves once more
+        /// with Save off; that writes nothing.
+        /// </summary>
+        public static void Reset(Component owner, int saveInput)
+        {
+            var p = owner?.Parameters.Input(saveInput) as Parameter<bool>;
+            var doc = owner?.Document;
+            if (p == null || doc == null || p.Inputs.Count > 0) return;
+            lock (Pending) if (!Pending.Add(p)) return;
+            EventHandler<Grasshopper2.Doc.SolutionEventArgs> done = null;
+            done = (s, e) =>
+            {
+                doc.Solution.SolutionCompleted -= done;
+                Rhino.RhinoApp.InvokeOnUiThread((Action)(() =>
+                {
+                    lock (Pending) Pending.Remove(p);
+                    if (!p.PersistentData.NonNullItems.Any(v => v)) return;
+                    p.Set(false);
+                    p.Expire();
+                    doc.Solution.Start();
+                }));
+            };
+            doc.Solution.SolutionCompleted += done;
         }
     }
 
@@ -50,7 +85,7 @@ namespace LARGERslicer.GH2
             string file, part; bool save; access.GetItem(1, out file); access.GetItem(2, out save); access.GetItem(3, out part);
             var r = GingerGCode.Build(tp);
             foreach (var w in r.Warnings) access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
-            Files.Save(access, save, file, r.Lines, OutputFile.Name("GIN", part, tp, ".gcode"));
+            Files.Save(access, this, 2, save, file, r.Lines, () => OutputFile.Name("GIN", part, tp, ".gcode"));
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             access.SetItem(1, r.Info);
         }
@@ -68,12 +103,12 @@ namespace LARGERslicer.GH2
         {
             inputs.AddGeneric("Toolpath", "T", "The finished path.");
             inputs.AddInteger("Printer", "P", string.Join("\n", DesktopPrinter.Presets.Select((x, i) => i + " = " + x.Name))).Set(0).Choices(DesktopPrinter.Presets.Select(x => x.Name).ToArray());
-            inputs.AddNumber("Scale", "Sc", "Scale of the test print (0.1 = one tenth). 0 = automatic: the bead becomes 1.2 times the nozzle diameter.").Set(0.0);
-            inputs.AddNumber("Nozzle", "Nz", "Nozzle diameter of the desktop printer in mm.").Set(0.4);
+            inputs.AddNumber("Scale", "Sc", "Scale of the test print (0.1 = one tenth). 0 = automatic: the bead becomes 1.2 times the nozzle diameter.").Set(0.0).Values(0, 0.05, 0.1, 0.2, 0.25, 0.5);
+            inputs.AddNumber("Nozzle", "Nz", "Nozzle diameter of the desktop printer in mm.").Set(0.4).Values(0.25, 0.4, 0.6, 0.8);
             inputs.AddNumber("Filament Diameter", "Fil", "Filament diameter in mm.").Set(1.75);
             inputs.AddNumber("Nozzle Temperature", "Tn", "Degrees C.").Set(215.0);
             inputs.AddNumber("Bed Temperature", "Tb", "Degrees C.").Set(60.0);
-            inputs.AddNumber("Speed", "V", "Print speed in mm/s. The first layer runs at half of it.").Set(40.0);
+            inputs.AddNumber("Speed", "V", "Print speed in mm/s. The first layer runs at half of it.").Set(40.0).Values(20, 30, 40, 50, 60);
             inputs.AddText("File", "File", "Optional: file or folder. Empty = the Desktop.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Save", "Save", "True writes the file.").Set(false);
             inputs.AddText("Name", "N", "Name of the part, for the file name.").Set("Print");
@@ -99,7 +134,7 @@ namespace LARGERslicer.GH2
             printer = Math.Max(0, Math.Min(DesktopPrinter.Presets.Length - 1, printer));
             var r = DesktopGCode.Build(tp, DesktopPrinter.Presets[printer], scale, nozzle, filament, tn, tb, speed, flow);
             foreach (var w in r.Warnings) access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
-            Files.Save(access, save, file, r.Lines, OutputFile.Name("TEST", part, null, ".gcode"));
+            Files.Save(access, this, 9, save, file, r.Lines, () => OutputFile.Name("TEST", part, r.Grams, r.Minutes, ".gcode"));
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             if (r.Preview.Count > 1) access.SetItem(1, r.Preview);
             access.SetItem(2, r.Info);
@@ -117,23 +152,23 @@ namespace LARGERslicer.GH2
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Geometry", "G", "Your part: Breps, surfaces, SubDs or meshes, standing on the XY plane.", Access.Twig, Requirement.MayBeMissing); // empty: a remark instead of an error, as in GH1
-            inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm. Every dimension follows from it.").Set(5.0);
-            inputs.AddNumber("Layer Height", "H", "Layer height in mm: a third to a half of the bead width.").Set(2.0);
-            inputs.AddNumber("Speed", "V", "Print speed in mm/s, the same for every move (50 mm/s = F3000 in G-code).").Set(50.0);
+            inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm. Every dimension follows from it.").Set(5.0).Values(3, 4, 5, 6, 8, 10, 12, 15, 20);
+            inputs.AddNumber("Layer Height", "H", "Layer height in mm: a third to a half of the bead width.").Set(2.0).Values(1, 1.5, 2, 2.5, 3, 4, 5);
+            inputs.AddNumber("Speed", "V", "Print speed in mm/s, the same for every move (50 mm/s = F3000 in G-code).").Set(50.0).Values(10, 25, 30, 50, 80, 100, 150);
             inputs.AddInteger("Machine Profile", "MP", string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0).Choices(MachineProfile.PresetNames);
-            inputs.AddInteger("Walls", "N", "Number of walls.").Set(1);
-            inputs.AddInteger("Bottom Layers", "B", "Solid layers at the bottom. 0 = open.").Set(0);
+            inputs.AddInteger("Walls", "N", "Number of walls.").Set(1).Counts(1, 2, 3, 4);
+            inputs.AddInteger("Bottom Layers", "B", "Solid layers at the bottom. 0 = open.").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
             inputs.AddInteger("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n))).Set(0).Choices(EasySlicer.Infills);
             inputs.AddNumber("Infill Size", "Sz", "Rib distance, wavelength or cell size in mm. 0 = chosen from the bead width.").Set(0.0);
             inputs.AddInteger("Brim", "Br", "Three beads right against the first layer, so the part holds on to the bed.\n0 = none\n1 = outside\n2 = inside\n3 = both sides").Set(0).Choices("None", "Outside", "Inside", "Both sides");
-            inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed. 0 = the layer height.").Set(0.0);
+            inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed. 0 = the layer height.").Set(0.0).Values(0, 1, 2, 3, 4, 5);
             // the inputs of Grasshopper 1 that this component did not have yet: added at the end, so older files keep their wires
             inputs.AddBoolean("Spiral", "Sp", "Vase mode: the path climbs all the time. Only for walls without infill and bottom.").Set(false);
             inputs.AddInteger("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values from Bead Width and Layer Height:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0).Choices(Nozzles.Names);
             inputs.AddInteger("Solid Pattern", "SP", "Pattern of the bottom and top layers:\n0 = auto\n1 = zigzag\n2 = contour (rings along the wall)").Set(0).Choices("Auto", "Zigzag", "Contour (follows the wall)");
-            inputs.AddInteger("Top Layers", "T", "Solid layers that close the top of the part. They need something to lie on: infill (ribs, cells, waves) below them, or a top that narrows slowly.").Set(0);
-            inputs.AddNumber("Angle", "A", "Slice angle in degrees: 0 = flat layers, 45 = layers leaning 45 degrees (robot or tilted bed).").Set(0.0);
-            inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away later (about 5 when printing at an angle).").Set(0);
+            inputs.AddInteger("Top Layers", "T", "Solid layers that close the top of the part. They need something to lie on: infill (ribs, cells, waves) below them, or a top that narrows slowly.").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
+            inputs.AddNumber("Angle", "A", "Slice angle in degrees: 0 = flat layers, 45 = layers leaning 45 degrees (robot or tilted bed).").Set(0.0).Angles();
+            inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away later (about 5 when printing at an angle).").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
             inputs.AddInteger("Wall Position", "WP", "Where the walls lie:\n0 = inside the geometry\n1 = centred on it\n2 = outside").Set(0).Choices("Inside the geometry", "Centred on the geometry", "Outside the geometry");
             inputs.AddBoolean("Bridge", "Bg", "Join contours that lie inside others (openings, inner shells) to them, so the line never stops.").Set(true);
         }
@@ -149,6 +184,7 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
+            using var cancel = Io.Cancellable(access); // stop the core loops when this solution is cancelled
             object[] geo;
             if (!access.ItemArray(0, out geo) || geo == null || geo.Length == 0) { access.AddRemark("Connect a part", "Connect your part to Geometry: a Brep, surface, SubD or mesh that stands on the XY plane."); return; }
             double w, h, f, size; int machine, walls, bottom, infill;
@@ -205,11 +241,13 @@ namespace LARGERslicer.GH2
 
     // ============================================================== machines
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3004")]
-    public sealed class MachineComponent : Component
+    public sealed class MachineComponent : PreviewComponent
     {
         public MachineComponent() : base(Io.Name("Machine", "A machine that prints from G-code: its start code, end code, layer code and how it wants the extrusion. The Ginger One is built in. Add your own machine as a .machine text file in Documents/LARGER/Machines, or type its codes into the inputs here and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot has its own components.", Io.Slicer, Group.Output)) { }
         public MachineComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SlicerGantryIcon");
+        // the machine in its own colours (frame, bed, gantry, head), as in Grasshopper 1
+        protected override int[] OwnOutputs => new[] { 3 };
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -238,6 +276,7 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
+            Picture.Clear();
             int index; string file, name; double factor; bool save; string[] start, layer, end;
             access.GetItem(0, out index); access.GetItem(1, out file); access.GetItem(2, out name);
             bool hasStart = access.ItemArray(3, out start) && start != null && start.Length > 0;
@@ -289,23 +328,35 @@ namespace LARGERslicer.GH2
                     try { string path = m.Save(ownModel); m.Source = path; access.AddRemark("Saved", path); }
                     catch (Exception ex) { access.AddError("Could not save", ex.Message); }
                 }
+                Files.Reset(this, 7);
             }
             string note = null;
-            var preview = ownModel ?? m.Preview(out note);
+            var frame = new ShadedPreview.Frame();
+            List<Mesh> preview;
+            if (ownModel != null) { preview = ownModel; foreach (var om in ownModel) frame.Mesh(om, System.Drawing.Color.FromArgb(120, 124, 132)); }
+            else
+            {
+                var parts = m.PreviewParts(out note);
+                preview = parts.Select(pp => pp.Mesh).ToList();
+                foreach (var pp in parts) frame.Mesh(pp.Mesh, pp.Color);
+            }
+            Picture.Show(frame);
             if (ownModel == null && note != null) access.AddWarning("3D model", note);
             access.SetTwig(3, preview.ToArray(), null, null);
             access.SetItem(0, m);
+            Io.Label(this, m.Name);
             access.SetTwig(1, m.ToText().ToArray(), null, null);
             access.SetItem(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}, {m.Material}, bed {m.BedTemperature:0} C. Your own machines: {MachineDefinition.Folder}");
         }
     }
 
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3005")]
-    public sealed class MachineGCodeComponent : Component
+    public sealed class MachineGCodeComponent : PreviewComponent
     {
         public MachineGCodeComponent() : base(Io.Name("Machine G-code", "Writes the toolpath as G-code for the machine you connect: its start code, the moves with one constant feedrate that is never 0, its layer code at every layer change, its end code.", Io.Slicer, Group.Output)) { }
         public MachineGCodeComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SlicerMachineGCodeIcon");
+        protected override int[] OwnOutputs => new[] { 3 };
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -327,6 +378,7 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
+            Picture.Clear();
             var tp = Io.Path(access, 0); if (tp == null) return;
             var machine = Io.Get<MachineDefinition>(access, 1) ?? MachineDefinition.GingerOne();
             string part, file; bool save; access.GetItem(2, out part); access.GetItem(3, out file); access.GetItem(4, out save);
@@ -339,12 +391,20 @@ namespace LARGERslicer.GH2
             if (run != null) access.SetItem(4, run);
             var named = tp.Duplicate(); named.Settings = tp.Settings.Duplicate(); named.Settings.Machine = machine.Profile.Duplicate();
             string fileName = OutputFile.Name(machine.Prefix, part, named, machine.Extension);
-            Files.Save(access, save, file, r.Lines, fileName);
+            Files.Save(access, this, 4, save, file, r.Lines, () => fileName);
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             access.SetItem(1, r.Info);
             access.SetItem(2, fileName);
+            Io.Label(this, machine.Name);
             var printer = machine.Printer(out _);
-            if (printer != null) access.SetTwig(3, printer.Pose(tp.Points[0], machine.Kind, out _).Select(pp => pp.Mesh).ToArray(), null, null);
+            var frame = new ShadedPreview.Frame();
+            if (printer != null)
+            {
+                var posed = printer.Pose(tp.Points[0], machine.Kind, out _);
+                foreach (var pp in posed) frame.Mesh(pp.Mesh, pp.Color);
+                access.SetTwig(3, posed.Select(pp => pp.Mesh).ToArray(), null, null);
+            }
+            Picture.Show(frame);
         }
     }
 }
