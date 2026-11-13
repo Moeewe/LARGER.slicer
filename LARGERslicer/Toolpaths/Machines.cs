@@ -34,7 +34,7 @@ namespace LARGERslicer.Toolpaths
     ///   [layer]
     ///   ; layer {layer} at Z {z}
     ///   [after layer 2]              (optional: written once, when layer 2 is finished - e.g. the fan on)
-    ///   M106 S140
+    ///   M106 S153
     ///   [end]
     ///   M84
     ///
@@ -90,6 +90,8 @@ namespace LARGERslicer.Toolpaths
             Name = "Ginger One (Marlin)", Manufacturer = "Ginger Additive", Prefix = "GIN", BedX = 1000, BedY = 1000,
             Profile = MachineProfile.Preset(4),
             Start = GingerGCode.Start.ToList(), End = GingerGCode.End.ToList(),
+            // Ginger handbook: no cooling on layers 1 to 4 (adhesion), then 60 % (100 % for heavy overhangs)
+            AfterLayer = new SortedDictionary<int, List<string>> { [4] = new List<string> { "M106 S153 ; fan 60 % after layer 4" } },
         };
 
         /// <summary>A plain start and end for a Marlin or Klipper machine, as a base for your own.</summary>
@@ -118,7 +120,8 @@ namespace LARGERslicer.Toolpaths
                 "; end of start code",
             },
             Layer = new List<string>(),
-            AfterLayer = new SortedDictionary<int, List<string>> { [1] = new List<string> { "M106 S140 ; fan on" } },
+            // Ginger handbook: no cooling on layers 1 to 4 (adhesion), then 60 % (100 % for heavy overhangs)
+            AfterLayer = new SortedDictionary<int, List<string>> { [4] = new List<string> { "M106 S153 ; fan 60 % after layer 4" } },
             End = new List<string> { "; END CODE", "G91", "G1 F2000 Z30 ; lift", "G90", "M107 ; fan off", "END_PRINT", "; end of end code" },
         };
 
