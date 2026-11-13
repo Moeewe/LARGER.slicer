@@ -324,88 +324,100 @@ namespace LARGERslicer.Components.Robot
             foreach (var w in pc.Where) { var ball = Mesh.CreateFromSphere(new Sphere(w, 12), 12, 8); if (ball != null) other.Add(ball); }
         }
 
+        protected override bool CanRunInBackground => true;
+
         protected override void SolveInstance(IGH_DataAccess da)
         {
+            if (Async.Deliver(da)) return;
             var tp = SlicerIO.Get<Toolpath>(da, 0);
             if (tp == null || tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect a Toolpath."); return; }
             var cell = SlicerIO.Get<RobotCell>(da, 1) ?? new RobotCell();
             double turn = 0, pose = 0; string name = "LARGER_PRINT", file = null; bool check = true, save = false;
             da.GetData(2, ref turn); da.GetData(3, ref name); da.GetData(4, ref check); da.GetData(5, ref pose); da.GetData(6, ref file); da.GetData(7, ref save);
-
-            var r = RobotProgram.Build(tp, cell, turn, name, check);
-            if (!r.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.FirstOrDefault(l => l.StartsWith("NOT")) ?? "The robot cannot run this path.");
-            else if (r.Singular > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, r.Report.First(l => l.StartsWith("Wrist")));
-            if (r.Speed.Any(v => v <= 0)) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A move has speed 0; the machine would stop there.");
-            if (save)
+            var env = new List<Mesh>(); int poses = 500; bool collide = true; double clearance = 10;
+            bool collisionIO = Params.Input.Count > 9 && Params.Output.Count > 10;
+            if (collisionIO)
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, RobotProgram.ProgramName(name) + ".src", r.Krl)); }
-                catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
+                da.GetDataList(8, env); da.GetData(9, ref poses);
+                if (Params.Input.Count > 10) da.GetData(10, ref collide);
+                if (Params.Input.Count > 11) da.GetData(11, ref clearance);
             }
-            Message = r.Ok ? r.Moves.Count + " moves" : "not reachable";
-
-            var e = new List<double>(r.Extrusion) { 0 };
-            var f = new List<double>(r.Speed) { r.Speed.Count > 0 ? r.Speed[r.Speed.Count - 1] : tp.Settings.Speed };
-            if (Params.Output.Count > 11) da.SetData(11, OutputFile.Name("DXR", name, tp, ""));
-            if (Params.Output.Count > 12) da.SetData(12, new GH_ObjectWrapper(RobotRun.Make(r, cell, tp)));
+            env = env.Where(m => m != null && m.IsValid).Select(m => m.DuplicateMesh()).ToList(); // copies for the background
+            int outputs = Params.Output.Count;
             // with a Robot Simulation connected, that one shows the robot
-            bool simulated = Params.Output.Count > 12 && Params.Output[12].Recipients.Count > 0;
-            da.SetDataList(0, r.Lines);
-            da.SetDataList(1, e);
-            da.SetDataList(2, f);
-            da.SetDataList(3, r.Krl);
-            if (check)
+            bool simulated = outputs > 12 && Params.Output[12].Recipients.Count > 0;
+
+            Async.Run(da, job =>
             {
-                da.SetDataList(6, r.Moves.Select(m => m.Axes == null ? "" : string.Join(", ", m.Axes.Select((v, i) => "A" + (i + 1) + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)))
-                    + (m.External == null ? "" : string.Concat(m.External.Select((v, i) => ", " + cell.ExternalAxes[i].Name + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))))));
-                da.SetDataList(7, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => r.Moves[i].Part.Pt(tp.Points[i])));
-                int at = Math.Max(0, Math.Min(r.Moves.Count - 1, (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (r.Moves.Count - 1))));
-                if (r.Moves[at].Axes != null)
+                var r = RobotProgram.Build(tp, cell, turn, name, check);
+                if (!r.Ok) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.FirstOrDefault(l => l.StartsWith("NOT")) ?? "The robot cannot run this path.");
+                else if (r.Singular > 0) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, r.Report.First(l => l.StartsWith("Wrist")));
+                if (r.Speed.Any(v => v <= 0)) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A move has speed 0; the machine would stop there.");
+                if (save)
                 {
-                    var pts = cell.Arm.Skeleton(r.Moves[at].Axes, r.Moves[at].RobotBase);
-                    pts.Add(r.Moves[at].Part.Pt(tp.Points[at])); // flange to tool tip
-                    da.SetData(8, new PolylineCurve(pts));
-                    if (Params.Output.Count > 9)
+                    try { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, RobotProgram.ProgramName(name) + ".src", r.Krl)); }
+                    catch (Exception ex) { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
+                }
+                job.Message = r.Ok ? r.Moves.Count + " moves" : "not reachable";
+
+                var e = new List<double>(r.Extrusion) { 0 };
+                var f = new List<double>(r.Speed) { r.Speed.Count > 0 ? r.Speed[r.Speed.Count - 1] : tp.Settings.Speed };
+                if (outputs > 11) job.SetData(11, OutputFile.Name("DXR", name, tp, ""));
+                if (outputs > 12) job.SetData(12, new GH_ObjectWrapper(RobotRun.Make(r, cell, tp)));
+                job.SetDataList(0, r.Lines);
+                job.SetDataList(1, e);
+                job.SetDataList(2, f);
+                job.SetDataList(3, r.Krl);
+                if (check)
+                {
+                    job.SetDataList(6, r.Moves.Select(m => m.Axes == null ? "" : string.Join(", ", m.Axes.Select((v, i) => "A" + (i + 1) + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)))
+                        + (m.External == null ? "" : string.Concat(m.External.Select((v, i) => ", " + cell.ExternalAxes[i].Name + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))))));
+                    job.SetDataList(7, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => r.Moves[i].Part.Pt(tp.Points[i])));
+                    int at = Math.Max(0, Math.Min(r.Moves.Count - 1, (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (r.Moves.Count - 1))));
+                    if (r.Moves[at].Axes != null)
                     {
-                        var model = RobotGeometry.Pose(cell, r.Moves[at].Axes, r.Moves[at].External);
-                        var axesModel = ExternalAxisGeometry.Pose(cell, r.Moves[at].External);
-                        if (model != null) { da.SetDataList(9, model.Concat(axesModel)); if (!simulated) _robot.AddRange(model); }
-                        else if (axesModel.Count > 0) da.SetDataList(9, axesModel);
-                        if (!simulated) _axes.AddRange(axesModel);
+                        var pts = cell.Arm.Skeleton(r.Moves[at].Axes, r.Moves[at].RobotBase);
+                        pts.Add(r.Moves[at].Part.Pt(tp.Points[at])); // flange to tool tip
+                        job.SetData(8, new PolylineCurve(pts));
+                        if (outputs > 9)
+                        {
+                            var model = RobotGeometry.Pose(cell, r.Moves[at].Axes, r.Moves[at].External);
+                            var axesModel = ExternalAxisGeometry.Pose(cell, r.Moves[at].External);
+                            if (model != null) { job.SetDataList(9, model.Concat(axesModel)); if (!simulated) job.OnApply(() => _robot.AddRange(model)); }
+                            else if (axesModel.Count > 0) job.SetDataList(9, axesModel);
+                            if (!simulated) job.OnApply(() => _axes.AddRange(axesModel));
+                        }
+                    }
+                    if (collisionIO)
+                    {
+                        if (collide && poses != 0)
+                        {
+                            // the meshes given here are checked as well as those of the cell
+                            var checkCell = cell;
+                            if (env.Count > 0)
+                            {
+                                checkCell = new RobotCell { Arm = cell.Arm, Tool = cell.Tool, WorkBase = cell.WorkBase, BaseName = cell.BaseName, ExternalAxes = cell.ExternalAxes, Environment = new List<Mesh>() };
+                                if (cell.Environment != null) checkCell.Environment.AddRange(cell.Environment);
+                                checkCell.Environment.AddRange(env);
+                            }
+                            var col = r.CheckCollisions(tp, checkCell, new CollisionOptions { Poses = poses, Clearance = Math.Max(0, clearance) });
+                            if (col.Hits > 0)
+                            {
+                                job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, string.Join("\n", col.Lines.Take(4)));
+                                job.SetDataList(10, col.Moves.Select(i => r.Moves[i].Part.Pt(tp.Points[i])));
+                                job.Message = "collision";
+                            }
+                            else if (col.Checked) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, col.Summary);
+                            if (outputs > 14) { job.SetDataList(13, col.Moves); job.SetDataList(14, col.Bodies); }
+                            int atPose = Math.Max(0, Math.Min(r.Moves.Count - 1, (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (r.Moves.Count - 1))));
+                            if (!simulated && r.Moves[atPose].Axes != null) job.OnApply(() => MarkHits(col.Model, r.Moves[atPose].Axes, r.Moves[atPose].External, atPose, _hitRobot, _hitAxes, _hitOther));
+                        }
+                        else r.Report.Add(collide ? "Collisions were not checked (Collision Poses is 0)." : "Collisions were not checked (Check Collisions is off).");
                     }
                 }
-                if (Params.Input.Count > 9 && Params.Output.Count > 10)
-                {
-                    var env = new List<Mesh>(); int poses = 500; bool collide = true; double clearance = 10;
-                    da.GetDataList(8, env); da.GetData(9, ref poses);
-                    if (Params.Input.Count > 10) da.GetData(10, ref collide);
-                    if (Params.Input.Count > 11) da.GetData(11, ref clearance);
-                    if (collide && poses != 0)
-                    {
-                        // the meshes given here are checked as well as those of the cell
-                        var checkCell = cell;
-                        if (env.Count > 0)
-                        {
-                            checkCell = new RobotCell { Arm = cell.Arm, Tool = cell.Tool, WorkBase = cell.WorkBase, BaseName = cell.BaseName, ExternalAxes = cell.ExternalAxes, Environment = new List<Mesh>() };
-                            if (cell.Environment != null) checkCell.Environment.AddRange(cell.Environment);
-                            checkCell.Environment.AddRange(env.Where(m => m != null && m.IsValid));
-                        }
-                        var col = r.CheckCollisions(tp, checkCell, new CollisionOptions { Poses = poses, Clearance = Math.Max(0, clearance) });
-                        if (col.Hits > 0)
-                        {
-                            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, string.Join("\n", col.Lines.Take(4)));
-                            da.SetDataList(10, col.Moves.Select(i => r.Moves[i].Part.Pt(tp.Points[i])));
-                            Message = "collision";
-                        }
-                        else if (col.Checked) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, col.Summary);
-                        if (Params.Output.Count > 14) { da.SetDataList(13, col.Moves); da.SetDataList(14, col.Bodies); }
-                        int atPose = Math.Max(0, Math.Min(r.Moves.Count - 1, (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (r.Moves.Count - 1))));
-                        if (!simulated && r.Moves[atPose].Axes != null) MarkHits(col.Model, r.Moves[atPose].Axes, r.Moves[atPose].External, atPose, _hitRobot, _hitAxes, _hitOther);
-                    }
-                    else r.Report.Add(collide ? "Collisions were not checked (Collision Poses is 0)." : "Collisions were not checked (Check Collisions is off).");
-                }
-            }
-            da.SetData(4, r.Ok);
-            da.SetDataList(5, r.Report);
+                job.SetData(4, r.Ok);
+                job.SetDataList(5, r.Report);
+            });
         }
     }
 

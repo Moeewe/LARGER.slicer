@@ -977,109 +977,118 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("Info", "I", "Statistics", GH_ParamAccess.item);
         }
 
+        protected override bool CanRunInBackground => true;
+
         protected override void SolveInstance(IGH_DataAccess da)
         {
-            var geo = new List<object>();
-            if (!da.GetDataList(0, geo) || geo.Count == 0) return;
+            if (Async.Deliver(da)) return;
+            var geoIn = new List<object>();
+            if (!da.GetDataList(0, geoIn) || geoIn.Count == 0) return;
             var settings = SlicerIO.Get<PrintSettings>(da, 1) ?? new PrintSettings();
             Plane plane = Plane.WorldXY; double angle = 0;
             da.GetData(2, ref plane); da.GetData(3, ref angle);
             if (Math.Abs(angle) > 1e-9) plane.Rotate(Rhino.RhinoMath.ToRadians(angle), plane.XAxis, plane.Origin);
-
-            var log = new List<string>();
-            var sw = Stopwatch.StartNew();
-            double tol = Math.Max(0.01, settings.Preview ? settings.Resolution * 0.25 : settings.Resolution * 0.025);
-            // optional guide: surface -> non-planar, curve -> multi-axis
-            Warp warp = null;
             IGH_Goo guideGoo = null;
             int guideMode = 0, toolMode = 0;
             da.GetData(4, ref guideGoo); da.GetData(5, ref guideMode); da.GetData(6, ref toolMode);
-            if (guideGoo != null)
+            int extra = 0; if (Params.Input.Count > 7) da.GetData(7, ref extra);
+            // copies for the background: the geometry stays untouched where it came from
+            var geo = LARGERslicer.Components.AsyncSolve.Copy(geoIn);
+            object guideCopy = guideGoo == null ? null : LARGERslicer.Components.AsyncSolve.Copy(guideGoo);
+
+            Async.Run(da, job =>
             {
-                object guide = guideGoo.ScriptVariable();
-                if (guide is Line gl) guide = new LineCurve(gl);
-                if (guide is Curve gc)
+                var log = new List<string>();
+                var sw = Stopwatch.StartNew();
+                double tol = Math.Max(0.01, settings.Preview ? settings.Resolution * 0.25 : settings.Resolution * 0.025);
+                // optional guide: surface -> non-planar, curve -> multi-axis
+                Warp warp = null;
+                if (guideGoo != null)
                 {
-                    var cw = new CurveWarp(gc, toolMode == 0);
-                    if (cw.Valid) warp = cw;
-                }
-                else
-                {
-                    Mesh gm = SliceEngine.ToMesh(new[] { guide }, tol, null);
-                    if (gm != null)
+                    object guide = guideCopy;
+                    if (guide is Line gl) guide = new LineCurve(gl);
+                    if (guide is Curve gc)
                     {
-                        var sw2 = new SurfaceWarp(gm, guideMode == 0, toolMode == 0);
-                        if (sw2.Valid) warp = sw2;
+                        var cw = new CurveWarp(gc, toolMode == 0);
+                        if (cw.Valid) warp = cw;
+                    }
+                    else
+                    {
+                        Mesh gm = SliceEngine.ToMesh(new[] { guide }, tol, null);
+                        if (gm != null)
+                        {
+                            var sw2 = new SurfaceWarp(gm, guideMode == 0, toolMode == 0);
+                            if (sw2.Valid) warp = sw2;
+                        }
+                    }
+                    if (warp == null)
+                        job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The guide could not be used. Connect a surface, Brep or mesh (non-planar) or a curve (multi-axis). Slicing flat.");
+                    else
+                    {
+                        if (Math.Abs(plane.Normal.Z) < 0.9999 || Math.Abs(angle) > 1e-9)
+                            job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "With a guide the layers are defined by the guide; Plane and Angle are ignored.");
+                        plane = Plane.WorldXY;
                     }
                 }
-                if (warp == null)
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The guide could not be used. Connect a surface, Brep or mesh (non-planar) or a curve (multi-axis). Slicing flat.");
-                else
-                {
-                    if (Math.Abs(plane.Normal.Z) < 0.9999 || Math.Abs(angle) > 1e-9)
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "With a guide the layers are defined by the guide; Plane and Angle are ignored.");
-                    plane = Plane.WorldXY;
-                }
-            }
 
-            // a bent layer needs a fine mesh, or long flat faces would stay straight
-            bool followPart = guideGoo == null && (guideMode == 2 || guideMode == 3);
-            Mesh mesh = SliceEngine.ToMesh(geo, tol, log, warp != null || followPart ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
-            if (mesh == null)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No usable geometry. Connect Breps, surfaces, SubDs or meshes.");
-                return;
-            }
-            if (followPart)
-            {
-                // non-planar layers from the part itself (meridians), nozzle vertical
-                MeridianWarp mw;
-                if (guideMode == 3)
+                // a bent layer needs a fine mesh, or long flat faces would stay straight
+                bool followPart = guideGoo == null && (guideMode == 2 || guideMode == 3);
+                Mesh mesh = SliceEngine.ToMesh(geo, tol, log, warp != null || followPart ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
+                if (mesh == null)
                 {
-                    // Follow the surface: the way along the surface from the bottom ring to the crown
-                    var field = new SurfaceField(mesh);
-                    mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth, field, 240);
+                    job.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No usable geometry. Connect Breps, surfaces, SubDs or meshes.");
+                    return;
                 }
-                else mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth);
-                if (mw.Valid)
+                if (followPart)
                 {
-                    warp = mw; plane = Plane.WorldXY;
-                    log.Add(mw.Summary(settings.BeadWidth)); log.AddRange(mw.Notes);
-                    if (mw.ThickMeridians > 0 && guideMode == 2) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, mw.Summary(settings.BeadWidth));
+                    // non-planar layers from the part itself (meridians), nozzle vertical
+                    MeridianWarp mw;
+                    if (guideMode == 3)
+                    {
+                        // Follow the surface: the way along the surface from the bottom ring to the crown
+                        var field = new SurfaceField(mesh);
+                        mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth, field, 240);
+                    }
+                    else mw = new MeridianWarp(mesh, settings.LayerHeight, settings.BeadWidth);
+                    if (mw.Valid)
+                    {
+                        warp = mw; plane = Plane.WorldXY;
+                        log.Add(mw.Summary(settings.BeadWidth)); log.AddRange(mw.Notes);
+                        if (mw.ThickMeridians > 0 && guideMode == 2) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, mw.Summary(settings.BeadWidth));
+                    }
+                    else job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, (guideMode == 3 ? "Follow the surface: " : "Follow the part: ") + mw.Problem + ". Slicing flat.");
                 }
-                else AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, (guideMode == 3 ? "Follow the surface: " : "Follow the part: ") + mw.Problem + ". Slicing flat.");
-            }
-            long meshMs = sw.ElapsedMilliseconds;
-            int extra = 0; if (Params.Input.Count > 7) da.GetData(7, ref extra);
-            var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
-            if (extra > 0 && warp == null)
-            {
-                // sacrificial layers before and after the part (CEAD: about 5 for angled printing)
-                int before = layers.Count;
-                layers = StartEndFeature.AddStart(layers, extra, 0.0, log);
-                int startMade = layers.Count - before;
-                layers = StartEndFeature.AddEnd(layers, extra, log);
-                log.Add(startMade > 0
-                    ? $"Start and end feature: {startMade} layer(s) in front of the part, standing on the bed, and {extra} on top of its last layer. They are sacrificial: mill them away."
-                    : $"End feature: {extra} layer(s) on top of the last one{(Math.Abs(plane.Normal.Z) > 0.999 ? " (flat layers start on the bed and need no start feature)" : "")}. Mill them away.");
-            }
-            else if (extra > 0) log.Add("Start and end feature: only for flat or angled layers, not with a guide.");
-            sw.Stop();
+                long meshMs = sw.ElapsedMilliseconds;
+                var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
+                if (extra > 0 && warp == null)
+                {
+                    // sacrificial layers before and after the part (CEAD: about 5 for angled printing)
+                    int before = layers.Count;
+                    layers = StartEndFeature.AddStart(layers, extra, 0.0, log);
+                    int startMade = layers.Count - before;
+                    layers = StartEndFeature.AddEnd(layers, extra, log);
+                    log.Add(startMade > 0
+                        ? $"Start and end feature: {startMade} layer(s) in front of the part, standing on the bed, and {extra} on top of its last layer. They are sacrificial: mill them away."
+                        : $"End feature: {extra} layer(s) on top of the last one{(Math.Abs(plane.Normal.Z) > 0.999 ? " (flat layers start on the bed and need no start feature)" : "")}. Mill them away.");
+                }
+                else if (extra > 0) log.Add("Start and end feature: only for flat or angled layers, not with a guide.");
+                sw.Stop();
 
-            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
-            if (layers.Count == 0)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No layers. Check layer height and plane.");
-                return;
-            }
+                foreach (var l in log) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
+                if (layers.Count == 0)
+                {
+                    job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No layers. Check layer height and plane.");
+                    return;
+                }
 
-            Message = layers.Count + " layers" + (warp is CurveWarp ? "\nmulti-axis" : warp != null ? "\nnon-planar" : "");
-            int open = layers.Sum(l => l.Contours.Count(c => !Geo.Closed(c)));
-            int total = layers.Sum(l => l.Contours.Count);
-            da.SetDataList(0, layers.Select(l => new GH_SliceLayer(l)));
-            da.SetDataList(1, layers.SelectMany(l => l.RealContours()).Select(c => new PolylineCurve(c)));
-            da.SetData(2, $"{layers.Count} layers{(warp != null ? ", " + warp.Name : "")}, {total} contours ({open} open), meshing {meshMs} ms, slicing {sw.ElapsedMilliseconds - meshMs} ms" +
-                          (settings.Preview ? " [preview]" : ""));
+                job.Message = layers.Count + " layers" + (warp is CurveWarp ? "\nmulti-axis" : warp != null ? "\nnon-planar" : "");
+                int open = layers.Sum(l => l.Contours.Count(c => !Geo.Closed(c)));
+                int total = layers.Sum(l => l.Contours.Count);
+                job.SetDataList(0, layers.Select(l => new GH_SliceLayer(l)));
+                job.SetDataList(1, layers.SelectMany(l => l.RealContours()).Select(c => new PolylineCurve(c)));
+                job.SetData(2, $"{layers.Count} layers{(warp != null ? ", " + warp.Name : "")}, {total} contours ({open} open), meshing {meshMs} ms, slicing {sw.ElapsedMilliseconds - meshMs} ms" +
+                              (settings.Preview ? " [preview]" : ""));
+            });
         }
     }
 
@@ -1568,8 +1577,11 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("Info", "I", "Statistics", GH_ParamAccess.item);
         }
 
+        protected override bool CanRunInBackground => true;
+
         protected override void SolveInstance(IGH_DataAccess da)
         {
+            if (Async.Deliver(da)) return;
             var goos = new List<IGH_Goo>();
             if (!da.GetDataList(0, goos)) return;
             var layers = goos.OfType<GH_SliceLayer>().Select(g => g.Value).Where(l => l != null).OrderBy(l => l.Index).ToList();
@@ -1585,32 +1597,35 @@ namespace LARGERslicer.Components.Slicer
             if (da.GetData(3, ref seamGoo) && seamGoo != null)
             {
                 object sv = seamGoo.ScriptVariable();
-                if (sv is Point3d pt) seam = new Point(pt); else seam = sv as GeometryBase;
+                if (sv is Point3d pt) seam = new Point(pt); else seam = (sv as GeometryBase)?.Duplicate();
             }
-
-            var log = new List<string>();
-            var sw = Stopwatch.StartNew();
             bool bridge = true; if (Params.Input.Count > 5) da.GetData(5, ref bridge);
             int seamMode = 0; if (Params.Input.Count > 6) da.GetData(6, ref seamMode);
             double minTime = 0, maxRate = 0;
             if (Params.Input.Count > 8) { da.GetData(7, ref minTime); da.GetData(8, ref maxRate); }
-            if (minTime > 0 || maxRate > 0)
-            {
-                // the limits travel with the path, so every machine output (G-code, DXR, robot) uses them
-                settings = settings.Duplicate();
-                settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
-            }
-            var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
-            sw.Stop();
-            // slivers left out are a note, not a problem: they are where a layer just touches the part
-            foreach (var l in log) AddRuntimeMessage(l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") || l.StartsWith("Bead height by the law") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
-            if (tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty path."); return; }
 
-            int travels = tp.Roles.Count(r => r == PathRole.Travel);
-            bool spiral = mode == 0 && !log.Any(l => l.StartsWith("Spiral needs"));
-            Message = spiral ? "Spiral" : "Layered";
-            da.SetData(0, new GH_Toolpath(tp));
-            da.SetData(1, $"{tp.Count} points, {tp.Length() / 1000.0:0.00} m, {travels} travel move(s), {sw.ElapsedMilliseconds} ms");
+            Async.Run(da, job =>
+            {
+                var log = new List<string>();
+                var sw = Stopwatch.StartNew();
+                if (minTime > 0 || maxRate > 0)
+                {
+                    // the limits travel with the path, so every machine output (G-code, DXR, robot) uses them
+                    settings = settings.Duplicate();
+                    settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
+                }
+                var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
+                sw.Stop();
+                // slivers left out are a note, not a problem: they are where a layer just touches the part
+                foreach (var l in log) job.AddRuntimeMessage(l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") || l.StartsWith("Bead height by the law") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
+                if (tp.Count < 2) { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty path."); return; }
+
+                int travels = tp.Roles.Count(r => r == PathRole.Travel);
+                bool spiral = mode == 0 && !log.Any(l => l.StartsWith("Spiral needs"));
+                job.Message = spiral ? "Spiral" : "Layered";
+                job.SetData(0, new GH_Toolpath(tp));
+                job.SetData(1, $"{tp.Count} points, {tp.Length() / 1000.0:0.00} m, {travels} travel move(s), {sw.ElapsedMilliseconds} ms");
+            });
         }
     }
 

@@ -66,32 +66,42 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Percent", "%", "Unsupported area in % of the surface", GH_ParamAccess.item);
         }
 
+        protected override bool CanRunInBackground => true;
+
         protected override void SolveInstance(IGH_DataAccess da)
         {
-            var geo = new List<object>();
-            if (!da.GetDataList(0, geo) || geo.Count == 0) return;
+            if (Async.Deliver(da)) return;
+            var geoIn = new List<object>();
+            if (!da.GetDataList(0, geoIn) || geoIn.Count == 0) return;
             var settings = SlicerIO.Get<PrintSettings>(da, 1) ?? new PrintSettings();
             Plane plane = Plane.WorldXY; double angle = 0, factor = SelfSupport.DefaultFactor; int guideMode = 0;
             IGH_Goo guideGoo = null;
             da.GetData(2, ref plane); da.GetData(3, ref angle); da.GetData(4, ref guideGoo); da.GetData(5, ref guideMode); da.GetData(6, ref factor);
             if (Math.Abs(angle) > 1e-9) plane.Rotate(Rhino.RhinoMath.ToRadians(angle), plane.XAxis, plane.Origin);
-            double tol = Math.Max(0.01, settings.Resolution * 0.1);
-            Warp warp = SelfSupportIO.Guide(guideGoo, guideMode, tol);
-            if (guideGoo != null && warp == null) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The guide could not be used. Checking with the plane.");
+            // copies for the background
+            var geo = LARGERslicer.Components.AsyncSolve.Copy(geoIn);
+            IGH_Goo guideCopy = guideGoo == null ? null : new GH_ObjectWrapper(LARGERslicer.Components.AsyncSolve.Copy(guideGoo));
 
-            var log = new List<string>();
-            Mesh mesh = SliceEngine.ToMesh(geo, tol, log, warp != null ? Math.Max(4.0, settings.BeadWidth * 3) : 0);
-            if (mesh == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No usable geometry. Connect Breps, surfaces, SubDs or meshes."); return; }
-            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
-            var r = SelfSupport.Check(mesh, plane, warp, settings, factor, true);
-            Message = r.UnsupportedArea > 0 ? $"{r.Percent:0.0} % hangs over" : (r.Starts.Count > 0 ? "mid-air start" : "self-supporting");
-            if (!r.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.FirstOrDefault(l => l.StartsWith("NOT") || l.Contains("mid air")) ?? "Not self-supporting.");
-            da.SetData(0, r.Analysis);
-            da.SetData(1, r.UnsupportedArea);
-            da.SetDataList(2, r.Report);
-            da.SetDataList(3, r.Regions);
-            da.SetDataList(4, r.Starts);
-            da.SetData(5, r.Percent);
+            Async.Run(da, job =>
+            {
+                double tol = Math.Max(0.01, settings.Resolution * 0.1);
+                Warp warp = SelfSupportIO.Guide(guideCopy, guideMode, tol);
+                if (guideGoo != null && warp == null) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The guide could not be used. Checking with the plane.");
+
+                var log = new List<string>();
+                Mesh mesh = SliceEngine.ToMesh(geo, tol, log, warp != null ? Math.Max(4.0, settings.BeadWidth * 3) : 0);
+                if (mesh == null) { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No usable geometry. Connect Breps, surfaces, SubDs or meshes."); return; }
+                foreach (var l in log) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
+                var r = SelfSupport.Check(mesh, plane, warp, settings, factor, true);
+                job.Message = r.UnsupportedArea > 0 ? $"{r.Percent:0.0} % hangs over" : (r.Starts.Count > 0 ? "mid-air start" : "self-supporting");
+                if (!r.Ok) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.FirstOrDefault(l => l.StartsWith("NOT") || l.Contains("mid air")) ?? "Not self-supporting.");
+                job.SetData(0, r.Analysis);
+                job.SetData(1, r.UnsupportedArea);
+                job.SetDataList(2, r.Report);
+                job.SetDataList(3, r.Regions);
+                job.SetDataList(4, r.Starts);
+                job.SetData(5, r.Percent);
+            });
         }
     }
 

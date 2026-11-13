@@ -65,8 +65,11 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("Info", "I", "What was done", GH_ParamAccess.item);
         }
 
+        protected override bool CanRunInBackground => true;
+
         protected override void SolveInstance(IGH_DataAccess da)
         {
+            if (Async.Deliver(da)) return;
             var tp = SlicerIO.Get<Toolpath>(da, 0);
             if (tp == null || tp.Count < 3) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect the Toolpath output of Continuous Path."); return; }
             var o = new PatternOptions();
@@ -79,8 +82,10 @@ namespace LARGERslicer.Components.Slicer
             o.Inside = side == 1; o.Falloff = falloff; o.Reach = reach; o.Invert = invert;
             var region = new List<IGH_GeometricGoo>(); da.GetDataList(9, region);
             var attr = new List<IGH_GeometricGoo>(); da.GetDataList(11, attr);
-            o.Regions = region.Where(g => g != null).Select(g => g.ScriptVariable()).Where(v => v != null).ToList();
-            o.Attractors = attr.Where(g => g != null).Select(g => g.ScriptVariable()).Where(v => v != null).ToList();
+            // copies for the background
+            o.Regions = region.Where(g => g != null).Select(g => LARGERslicer.Components.AsyncSolve.Copy(g)).Where(v => v != null).ToList();
+            o.Attractors = attr.Where(g => g != null).Select(g => LARGERslicer.Components.AsyncSolve.Copy(g)).Where(v => v != null).ToList();
+            string imageProblem = null;
             if (!string.IsNullOrWhiteSpace(file))
             {
                 string path = file.Trim().Trim('"');
@@ -88,23 +93,27 @@ namespace LARGERslicer.Components.Slicer
                 string docPath = OnPingDocument()?.FilePath;
                 if (!Path.IsPathRooted(path) && !string.IsNullOrEmpty(docPath)) path = Path.Combine(Path.GetDirectoryName(docPath), path);
                 o.Image = LoadImage(path, out string problem);
-                if (o.Image == null) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, problem);
+                if (o.Image == null) imageProblem = problem;
             }
-            if (pitch < tp.Settings.BeadWidth)
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The pitch is shorter than one bead width: the bead fills the pattern in and it hardly shows.");
 
-            var log = new List<string>();
-            var sw = Stopwatch.StartNew();
-            var r = SurfacePattern.Apply(tp, o, log);
-            sw.Stop();
-            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
-            if (r.Hanging.Count > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"{r.Hanging.Count} point(s) hang over the layer below on purpose (the texture). Path Check will list them.");
-            string name = SurfacePattern.Names[(int)o.Kind]; int cut = name.IndexOf(" ("); if (cut > 0) name = name.Substring(0, cut);
-            Message = name + " " + amp.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm";
-            da.SetData(0, new GH_Toolpath(r.Path));
-            da.SetDataList(1, r.Preview.Select(c => new PolylineCurve(c)));
-            da.SetDataList(2, r.Hanging);
-            da.SetData(3, r.Info + $"\n{r.Path.Count} points ({tp.Count} before), {sw.ElapsedMilliseconds} ms");
+            Async.Run(da, job =>
+            {
+                var log = new List<string>();
+                if (imageProblem != null) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, imageProblem);
+                if (pitch < tp.Settings.BeadWidth)
+                    job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The pitch is shorter than one bead width: the bead fills the pattern in and it hardly shows.");
+                var sw = Stopwatch.StartNew();
+                var r = SurfacePattern.Apply(tp, o, log);
+                sw.Stop();
+                foreach (var l in log) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
+                if (r.Hanging.Count > 0) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"{r.Hanging.Count} point(s) hang over the layer below on purpose (the texture). Path Check will list them.");
+                string name = SurfacePattern.Names[(int)o.Kind]; int cut = name.IndexOf(" ("); if (cut > 0) name = name.Substring(0, cut);
+                job.Message = name + " " + amp.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " mm";
+                job.SetData(0, new GH_Toolpath(r.Path));
+                job.SetDataList(1, r.Preview.Select(c => new PolylineCurve(c)));
+                job.SetDataList(2, r.Hanging);
+                job.SetData(3, r.Info + $"\n{r.Path.Count} points ({tp.Count} before), {sw.ElapsedMilliseconds} ms");
+            });
         }
 
         /// <summary>A picture as grey values, at most 600 px wide.</summary>
