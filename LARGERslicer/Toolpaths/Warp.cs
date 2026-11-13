@@ -17,6 +17,9 @@ namespace LARGERslicer.Toolpaths
         /// <summary>False: the tool stays vertical (3-axis machines). True: the tool is square to the layer.</summary>
         public bool TiltTool = true;
         public abstract string Name { get; }
+        /// <summary>True: Slice keeps the layer height as the step in flat space, even where the real
+        /// layers lie further apart (the warp has chosen its layer count itself).</summary>
+        public virtual bool KeepLayerStep => false;
 
         /// <summary>Called once with the bounding box of the model, before anything is mapped.</summary>
         public virtual void Prepare(BoundingBox model) { }

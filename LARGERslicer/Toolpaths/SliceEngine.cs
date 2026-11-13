@@ -105,6 +105,7 @@ namespace LARGERslicer.Toolpaths
                 double maxScale = 1.0;
                 foreach (double s in scale) if (s > maxScale) maxScale = s;
                 maxScale = Math.Min(maxScale, 2.0);
+                if (warp.KeepLayerStep) maxScale = 1.0; // the warp has fixed the layer count itself
                 layerHeight /= maxScale;
                 if (!flatFirst) first /= maxScale; // (the flat first layer is not stretched)
                 if (maxScale > 1.02) log?.Add($"Layers are up to {maxScale:0.00}x further apart on the outside of the bend; the step along the guide is {layerHeight:0.00} mm so no layer is higher than set.");

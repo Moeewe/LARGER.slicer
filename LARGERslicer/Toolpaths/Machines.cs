@@ -24,6 +24,8 @@ namespace LARGERslicer.Toolpaths
     ///   filament diameter = 0        (0 = E is a volume; else E is a length of filament)
     ///   section = rectangle          (rectangle = width x height; bead = squashed bead with round sides)
     ///   travel speed = 0             (mm/min; 0 = the highest speed of the print settings)
+    ///   material = PLA               (optional: replaces {material} in the codes)
+    ///   bed temperature = 90         (optional: replaces {bed} in the codes)
     ///   model = My printer.3dm       (optional: a Rhino file with the machine in 3D, for the preview;
     ///                                 a .3dm of the same name next to the .machine file is found by itself)
     ///   [start]
@@ -31,11 +33,14 @@ namespace LARGERslicer.Toolpaths
     ///   G28
     ///   [layer]
     ///   ; layer {layer} at Z {z}
+    ///   [after layer 2]              (optional: written once, when layer 2 is finished - e.g. the fan on)
+    ///   M106 S140
     ///   [end]
     ///   M84
     ///
     /// Lines that begin with # are comments of the file and are not written into the G-code.
     /// In [layer], {layer} is the number of the layer (1, 2, 3 ...) and {z} its height.
+    /// In every block, {material} is the material and {bed} the bed temperature.
     /// </summary>
     public class MachineDefinition
     {
@@ -48,6 +53,13 @@ namespace LARGERslicer.Toolpaths
         public string Model = "";
         public MachineProfile Profile = new MachineProfile { RectangleSection = true };
         public List<string> Start = new List<string>(), Layer = new List<string>(), End = new List<string>();
+        /// <summary>Code written once when layer n (1, 2, 3 ...) is finished, e.g. to switch the fan on.</summary>
+        public SortedDictionary<int, List<string>> AfterLayer = new SortedDictionary<int, List<string>>();
+        /// <summary>Fill {material} and {bed} in the codes.</summary>
+        public string Material = "PLA";
+        public double BedTemperature = 90;
+        /// <summary>Something to know about this machine, shown in the Machine component's info.</summary>
+        public string Note = "";
         /// <summary>Where the definition comes from: "built in", or the path of its file.</summary>
         public string Source = "built in";
 
@@ -58,8 +70,13 @@ namespace LARGERslicer.Toolpaths
             var d = (MachineDefinition)MemberwiseClone();
             d.Profile = Profile.Duplicate();
             d.Start = new List<string>(Start); d.Layer = new List<string>(Layer); d.End = new List<string>(End);
+            d.AfterLayer = new SortedDictionary<int, List<string>>();
+            foreach (var kv in AfterLayer) d.AfterLayer[kv.Key] = new List<string>(kv.Value);
             return d;
         }
+
+        /// <summary>A line of code with {material} and {bed} filled in.</summary>
+        public string Fill(string line) => (line ?? "").Replace("{material}", Material ?? "").Replace("{bed}", Num(BedTemperature));
 
         // ---------------------------------------------------------------- the machines of the house
 
@@ -81,7 +98,27 @@ namespace LARGERslicer.Toolpaths
             End = new List<string> { "; END CODE", "G91", "G1 F200 Z30 ; lift", "G90", "M84 ; motors off", "; end of end code" },
         };
 
-        public static List<MachineDefinition> BuiltIn() => new List<MachineDefinition> { GingerOne(), GenericMarlin() };
+        /// <summary>Ginger One on Klipper firmware: the START_PRINT and END_PRINT macros of its Klipper config.</summary>
+        public static MachineDefinition GingerKlipper() => new MachineDefinition
+        {
+            Name = "Ginger One (Klipper)", Prefix = "GIK", BedX = 1000, BedY = 1000,
+            // E as a volume (mm3) with factor 1.0, as the Klipper script did ("klipper 1")
+            Profile = new MachineProfile { Name = "Ginger One (Klipper)", Factor = 1.0, RectangleSection = true, Unit = "mm3" },
+            Material = "PLA", BedTemperature = 90,
+            Note = "E is the volume in mm3 x 1.0: confirm with the Ginger's Klipper rotation_distance.",
+            Start = new List<string>
+            {
+                "; START CODE (Klipper macro). E = volume in mm3 x 1.0: confirm with the Ginger's Klipper rotation_distance",
+                "START_PRINT MATERIAL={material} BED_TEMPERATURE={bed} BED_TEMPERATURE_MIN=80 BED_TEMPERATURE_MAX=110 KAMP_LEVELING=0 PURGE_LAYER_HEIGHT=2 PURGE_PARKING_SPEED=12000 PURGE_LENGHT=300 PURGE_SPEED=500 PURGE_MATERIAL_QUANTITY=3000",
+                "M83 ; extrusion as relative distances",
+                "; end of start code",
+            },
+            Layer = new List<string>(),
+            AfterLayer = new SortedDictionary<int, List<string>> { [1] = new List<string> { "M106 S140 ; fan on" } },
+            End = new List<string> { "; END CODE", "G91", "G1 F2000 Z30 ; lift", "G90", "M107 ; fan off", "END_PRINT", "; end of end code" },
+        };
+
+        public static List<MachineDefinition> BuiltIn() => new List<MachineDefinition> { GingerOne(), GenericMarlin(), GingerKlipper() };
 
         /// <summary>The folder for your own machines: Documents/LARGER/Machines.</summary>
         public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LARGER", "Machines");
@@ -121,10 +158,14 @@ namespace LARGERslicer.Toolpaths
                 "filament diameter = " + Num(Profile.FilamentDiameter),
                 "section = " + (Profile.RectangleSection ? "rectangle" : "bead"),
                 "travel speed = " + Num(TravelSpeed),
+                "material = " + Material,
+                "bed temperature = " + Num(BedTemperature),
             };
             if (!string.IsNullOrWhiteSpace(Model)) t.Add("model = " + Path.GetFileName(Model));
             t.Add(""); t.Add("[start]");
-            t.AddRange(Start); t.Add(""); t.Add("[layer]"); t.AddRange(Layer); t.Add(""); t.Add("[end]"); t.AddRange(End);
+            t.AddRange(Start); t.Add(""); t.Add("[layer]"); t.AddRange(Layer); t.Add("");
+            foreach (var kv in AfterLayer) { t.Add("[after layer " + kv.Key.ToString(CultureInfo.InvariantCulture) + "]"); t.AddRange(kv.Value); t.Add(""); }
+            t.Add("[end]"); t.AddRange(End);
             return t;
         }
 
@@ -162,7 +203,11 @@ namespace LARGERslicer.Toolpaths
                 {
                     string key = t.Substring(1, t.Length - 2).Trim().ToLowerInvariant();
                     if (key == "start") block = m.Start; else if (key == "layer") block = m.Layer; else if (key == "end") block = m.End;
-                    else { error = $"line {n}: unknown block [{key}]. Use [start], [layer] and [end]."; return null; }
+                    else if (key.StartsWith("after layer") && int.TryParse(key.Substring(11).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int after) && after >= 1)
+                    {
+                        if (!m.AfterLayer.TryGetValue(after, out block)) m.AfterLayer[after] = block = new List<string>();
+                    }
+                    else { error = $"line {n}: unknown block [{key}]. Use [start], [layer], [after layer 2] and [end]."; return null; }
                     continue;
                 }
                 if (block != null) { block.Add(line.TrimEnd()); continue; }
@@ -188,6 +233,8 @@ namespace LARGERslicer.Toolpaths
                     case "filament diameter": if (!isNumber) goto bad; m.Profile.FilamentDiameter = d; break;
                     case "travel speed": if (!isNumber) goto bad; m.TravelSpeed = d; break;
                     case "model": m.Model = v.Trim('"'); break;
+                    case "material": m.Material = v; break;
+                    case "bed temperature": if (!isNumber) goto bad; m.BedTemperature = d; break;
                     case "section":
                         if (v.ToLowerInvariant() == "rectangle") m.Profile.RectangleSection = true;
                         else if (v.ToLowerInvariant() == "bead") m.Profile.RectangleSection = false;
@@ -201,6 +248,7 @@ namespace LARGERslicer.Toolpaths
             if (string.IsNullOrWhiteSpace(m.Name)) { error = "The machine has no name (name = ...)."; return null; }
             if (m.Profile.Factor <= 0) { error = "The extrusion factor must be larger than 0."; return null; }
             Trim(m.Start); Trim(m.Layer); Trim(m.End);
+            foreach (var l in m.AfterLayer.Values) Trim(l);
             m.Profile.Name = m.Name;
             m.Profile.Unit = m.Profile.FilamentDiameter > 0 ? "mm filament" : "E";
             if (string.IsNullOrWhiteSpace(m.Prefix)) m.Prefix = OutputFile.Clean(m.Name).ToUpperInvariant();
@@ -282,7 +330,7 @@ namespace LARGERslicer.Toolpaths
             L.Add("; LARGER.slicer - " + machine.Name);
             L.Add("; bead " + N(st.BeadWidth, 2) + " x " + N(st.LayerHeight, 2) + " mm, F" + N(st.Speed, 0) + " constant, " + st.Machine);
             L.Add("; path " + N(pr.Length / 1000.0, 2) + " m, about " + N(pr.Minutes, 0) + " min, " + N(OutputFile.Grams(pr.Volume, st), 0) + " g");
-            L.AddRange(machine.Start);
+            foreach (string code in machine.Start) L.Add(machine.Fill(code));
 
             double travel = machine.TravelSpeed > 0 ? machine.TravelSpeed : Math.Max(st.Speed, st.MaxSpeed);
             Point3d p0 = tp.Points[0];
@@ -294,8 +342,14 @@ namespace LARGERslicer.Toolpaths
                 if (tp.Layers[i] != layer)
                 {
                     layer = tp.Layers[i]; number++;
+                    // the hook of the layer just finished (e.g. the fan on after layer 1)
+                    if (number > 1 && machine.AfterLayer.TryGetValue(number - 1, out var after))
+                    {
+                        L.Add("; after layer " + (number - 1).ToString(CultureInfo.InvariantCulture));
+                        foreach (string code in after) L.Add(machine.Fill(code));
+                    }
                     L.Add(";LAYER:" + number);
-                    foreach (string code in machine.Layer) L.Add(code.Replace("{layer}", number.ToString(CultureInfo.InvariantCulture)).Replace("{z}", N(tp.Points[i].Z, 3)));
+                    foreach (string code in machine.Layer) L.Add(machine.Fill(code.Replace("{layer}", number.ToString(CultureInfo.InvariantCulture)).Replace("{z}", N(tp.Points[i].Z, 3))));
                 }
                 Point3d p = tp.Points[i];
                 if (p.DistanceTo(tp.Points[i - 1]) < 1e-6) continue;
@@ -307,7 +361,7 @@ namespace LARGERslicer.Toolpaths
                 total += pr.Extrusion[i];
             }
             if (zero > 0) r.Warnings.Add($"{zero} move(s) had speed 0 and got the print speed instead.");
-            L.AddRange(machine.End);
+            foreach (string code in machine.End) L.Add(machine.Fill(code));
             r.Info = $"{machine.Name}: {number} layers, {pr.PrintLength / 1000.0:0.00} m printed, E total {total:0.0}, about {pr.Minutes:0} min, {OutputFile.Grams(pr.Volume, st):0} g, {L.Count} lines";
             return r;
         }
