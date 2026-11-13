@@ -62,4 +62,12 @@ The tip then lies exactly on (x, y, z). Travel: X 0..1000, Y 0..1000, Z 0..1000.
 ## Your own machine
 
 Draw it the same way (layers Frame, Bed, Z, Y, X and a point on TCP, in the machine's coordinates)
-and save it as a .3dm next to your .machine file: Printer Simulation then moves it too.
+and save it as a .3dm next to your .machine file: Printer Simulation then moves it too and checks
+its head, beam and frame for collisions. Step by step: `docs/OWN_MACHINES.md`; a template:
+`EXAMPLE FILES/Machines/My Gantry.3dm`.
+
+## How the plug-in draws it
+
+The meshes in this file are welded (a box has 8 corners) and carry averaged vertex normals. The
+plug-in splits them along edges sharper than 35 degrees and gives each side its own normals
+(`MachineLook.Prepare`), then draws them matte in their object colours, as it draws the robot.

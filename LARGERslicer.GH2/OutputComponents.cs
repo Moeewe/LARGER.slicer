@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -25,8 +26,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3001")]
     public sealed class GingerGCodeComponent : Component
     {
-        public GingerGCodeComponent() : base(Io.Name("Ginger G-code", "G-code for the Ginger One in full size: the machine's start and end sequence, absolute positions, relative extrusion, one constant feedrate. Choose the Ginger machine in Print Settings so the E values fit the pellet extruder.", Io.Slicer, 9)) { }
+        public GingerGCodeComponent() : base(Io.Name("Ginger G-code", "G-code for the Ginger One in full size: the machine's start and end sequence, absolute positions, relative extrusion, one constant feedrate. Choose the Ginger machine in Print Settings so the E values fit the pellet extruder.", Io.Slicer, Group.Output)) { }
         public GingerGCodeComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerGingerIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -58,13 +60,14 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3002")]
     public sealed class DesktopTestPrintComponent : Component
     {
-        public DesktopTestPrintComponent() : base(Io.Name("Desktop Test Print", "The same path scaled down as G-code for a desktop filament printer, with that printer's own start, layer change and end. A check of the path before the large print; material behaviour does not scale.", Io.Slicer, 10)) { }
+        public DesktopTestPrintComponent() : base(Io.Name("Desktop Test Print", "The same path scaled down as G-code for a desktop filament printer, with that printer's own start, layer change and end. A check of the path before the large print; material behaviour does not scale.", Io.Slicer, Group.Output)) { }
         public DesktopTestPrintComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerDesktopIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Toolpath", "T", "The finished path.");
-            inputs.AddInteger("Printer", "P", string.Join("\n", DesktopPrinter.Presets.Select((x, i) => i + " = " + x.Name))).Set(0);
+            inputs.AddInteger("Printer", "P", string.Join("\n", DesktopPrinter.Presets.Select((x, i) => i + " = " + x.Name))).Set(0).Choices(DesktopPrinter.Presets.Select(x => x.Name).ToArray());
             inputs.AddNumber("Scale", "Sc", "Scale of the test print (0.1 = one tenth). 0 = automatic: the bead becomes 1.2 times the nozzle diameter.").Set(0.0);
             inputs.AddNumber("Nozzle", "Nz", "Nozzle diameter of the desktop printer in mm.").Set(0.4);
             inputs.AddNumber("Filament Diameter", "Fil", "Filament diameter in mm.").Set(1.75);
@@ -74,6 +77,7 @@ namespace LARGERslicer.GH2
             inputs.AddText("File", "File", "Optional: file or folder. Empty = the Desktop.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Save", "Save", "True writes the file.").Set(false);
             inputs.AddText("Name", "N", "Name of the part, for the file name.").Set("Print");
+            inputs.AddNumber("Flow", "Fl", "Extrusion multiplier (1 = calculated amount).").Set(1.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -90,9 +94,10 @@ namespace LARGERslicer.GH2
             access.GetItem(1, out printer); access.GetItem(2, out scale); access.GetItem(3, out nozzle); access.GetItem(4, out filament);
             access.GetItem(5, out tn); access.GetItem(6, out tb); access.GetItem(7, out speed); access.GetItem(8, out file); access.GetItem(9, out save);
             string part; access.GetItem(10, out part);
-            if (nozzle <= 0 || filament <= 0) { access.AddError("Invalid values", "Nozzle and filament diameter must be larger than 0."); return; }
+            double flow; access.GetItem(11, out flow);
+            if (nozzle <= 0 || filament <= 0 || flow <= 0) { access.AddError("Invalid values", "Nozzle, Filament and Flow must be greater than 0."); return; }
             printer = Math.Max(0, Math.Min(DesktopPrinter.Presets.Length - 1, printer));
-            var r = DesktopGCode.Build(tp, DesktopPrinter.Presets[printer], scale, nozzle, filament, tn, tb, speed, 1.0);
+            var r = DesktopGCode.Build(tp, DesktopPrinter.Presets[printer], scale, nozzle, filament, tn, tb, speed, flow);
             foreach (var w in r.Warnings) access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
             Files.Save(access, save, file, r.Lines, OutputFile.Name("TEST", part, null, ".gcode"));
             access.SetTwig(0, r.Lines.ToArray(), null, null);
@@ -105,22 +110,32 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3003")]
     public sealed class EasySlicerComponent : Component
     {
-        public EasySlicerComponent() : base(Io.Name("Easy Slicer", "Model in, checked print path out: slices, builds walls, bottom and infill, joins everything into one continuous line, rounds the corners, adds skirt and exit and checks the result. For every option use the single components.", Io.Slicer, 0)) { }
+        public EasySlicerComponent() : base(Io.Name("Easy Slicer", "Model in, checked print path out: slices, builds walls, bottom and infill, joins everything into one continuous line, rounds the corners, adds skirt and exit and checks the result. For every option use the single components.", Io.Slicer, Group.Start)) { }
         public EasySlicerComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerEasyIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
-            inputs.AddGeneric("Geometry", "G", "Your part: Breps, surfaces, SubDs or meshes, standing on the XY plane.", Access.Twig);
+            inputs.AddGeneric("Geometry", "G", "Your part: Breps, surfaces, SubDs or meshes, standing on the XY plane.", Access.Twig, Requirement.MayBeMissing); // empty: a remark instead of an error, as in GH1
             inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm. Every dimension follows from it.").Set(5.0);
             inputs.AddNumber("Layer Height", "H", "Layer height in mm: a third to a half of the bead width.").Set(2.0);
             inputs.AddNumber("Speed", "V", "Print speed in mm/s, the same for every move (50 mm/s = F3000 in G-code).").Set(50.0);
-            inputs.AddInteger("Machine Profile", "MP", string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0);
+            inputs.AddInteger("Machine Profile", "MP", string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0).Choices(MachineProfile.PresetNames);
             inputs.AddInteger("Walls", "N", "Number of walls.").Set(1);
             inputs.AddInteger("Bottom Layers", "B", "Solid layers at the bottom. 0 = open.").Set(0);
-            inputs.AddInteger("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n))).Set(0);
+            inputs.AddInteger("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n))).Set(0).Choices(EasySlicer.Infills);
             inputs.AddNumber("Infill Size", "Sz", "Rib distance, wavelength or cell size in mm. 0 = chosen from the bead width.").Set(0.0);
-            inputs.AddInteger("Brim", "Br", "Three beads right against the first layer, so the part holds on to the bed.\n0 = none\n1 = outside\n2 = inside\n3 = both sides").Set(0);
+            inputs.AddInteger("Brim", "Br", "Three beads right against the first layer, so the part holds on to the bed.\n0 = none\n1 = outside\n2 = inside\n3 = both sides").Set(0).Choices("None", "Outside", "Inside", "Both sides");
             inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed. 0 = the layer height.").Set(0.0);
+            // the inputs of Grasshopper 1 that this component did not have yet: added at the end, so older files keep their wires
+            inputs.AddBoolean("Spiral", "Sp", "Vase mode: the path climbs all the time. Only for walls without infill and bottom.").Set(false);
+            inputs.AddInteger("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values from Bead Width and Layer Height:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0).Choices(Nozzles.Names);
+            inputs.AddInteger("Solid Pattern", "SP", "Pattern of the bottom and top layers:\n0 = auto\n1 = zigzag\n2 = contour (rings along the wall)").Set(0).Choices("Auto", "Zigzag", "Contour (follows the wall)");
+            inputs.AddInteger("Top Layers", "T", "Solid layers that close the top of the part. They need something to lie on: infill (ribs, cells, waves) below them, or a top that narrows slowly.").Set(0);
+            inputs.AddNumber("Angle", "A", "Slice angle in degrees: 0 = flat layers, 45 = layers leaning 45 degrees (robot or tilted bed).").Set(0.0);
+            inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away later (about 5 when printing at an angle).").Set(0);
+            inputs.AddInteger("Wall Position", "WP", "Where the walls lie:\n0 = inside the geometry\n1 = centred on it\n2 = outside").Set(0).Choices("Inside the geometry", "Centred on the geometry", "Outside the geometry");
+            inputs.AddBoolean("Bridge", "Bg", "Join contours that lie inside others (openings, inner shells) to them, so the line never stops.").Set(true);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -129,26 +144,46 @@ namespace LARGERslicer.GH2
             outputs.AddPolyline("Path", "P", "The path as a polyline.");
             outputs.AddBoolean("OK", "OK", "True if the path can be printed.");
             outputs.AddText("Report", "R", "What was done, what the check found and what to do next.", Access.Twig);
+            outputs.AddGeneric("Layers", "L", "The layers with walls and infill, for the single components.");
         }
 
         protected override void Process(IDataAccess access)
         {
             object[] geo;
-            if (!access.GetItemArray(0, out geo) || geo == null || geo.Length == 0) return;
+            if (!access.GetItemArray(0, out geo) || geo == null || geo.Length == 0) { access.AddRemark("Connect a part", "Connect your part to Geometry: a Brep, surface, SubD or mesh that stands on the XY plane."); return; }
             double w, h, f, size; int machine, walls, bottom, infill;
             access.GetItem(1, out w); access.GetItem(2, out h); access.GetItem(3, out f); access.GetItem(4, out machine);
             access.GetItem(5, out walls); access.GetItem(6, out bottom); access.GetItem(7, out infill); access.GetItem(8, out size);
             int brim; access.GetItem(9, out brim);
             if (w <= 0 || h <= 0 || f <= 0) { access.AddError("Invalid values", "Bead width, layer height and speed must be larger than 0."); return; }
+            if (h > 0.6 * w) access.AddWarning("Layer too high", $"The layer height is {h / w * 100:0} % of the bead width. Stay below half the bead width or the beads bond poorly.");
             machine = Math.Max(0, Math.Min(MachineProfile.PresetNames.Length - 1, machine));
             double h1; access.GetItem(10, out h1);
+            bool spiral, bridge; int nozzle, solidPattern, top, extra, wallPos; double angle;
+            access.GetItem(11, out spiral); access.GetItem(12, out nozzle); access.GetItem(13, out solidPattern); access.GetItem(14, out top);
+            access.GetItem(15, out angle); access.GetItem(16, out extra); access.GetItem(17, out wallPos); access.GetItem(18, out bridge);
             f = f > 1000 ? f : f * 60; // mm/s; a value above 1000 is an older definition in mm/min
             var st = new PrintSettings { BeadWidth = w, LayerHeight = h, FirstLayerHeight = Math.Max(0, h1), Speed = f, Machine = MachineProfile.Preset(machine) };
+            string nozzleNote = Nozzles.Apply(st, nozzle);
+            if (nozzleNote != null) foreach (var note in Nozzles.Check(st.Nozzle, st.NozzleShape, st.BeadWidth, st.LayerHeight)) access.AddWarning("Nozzle", note);
             var log = new List<string>();
+            if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), Math.Max(0.01, st.Resolution * 0.025), log);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
-            var layers = SliceEngine.Slice(mesh, Plane.WorldXY, st.LayerHeight, st.PointSpacing, log, null, st.FirstLayerHeight);
-            var r = EasySlicer.Run(layers, st, new EasySlicer.Options { Walls = walls, BottomLayers = Math.Max(0, bottom), Infill = infill, InfillSize = size, BrimSide = Math.Max(0, Math.Min(3, brim)) });
+            if (Io.Step(access, 30)) return; // progress; stop if the inputs changed meanwhile
+            var plane = Plane.WorldXY;
+            if (Math.Abs(angle) > 1e-9) plane.Rotate(Rhino.RhinoMath.ToRadians(angle), plane.XAxis, plane.Origin);
+            var layers = SliceEngine.Slice(mesh, plane, st.LayerHeight, st.PointSpacing, log, null, st.FirstLayerHeight);
+            if (extra > 0 && layers.Count > 0)
+            {
+                layers = StartEndFeature.AddStart(layers, extra, 0.0, log);
+                layers = StartEndFeature.AddEnd(layers, extra, log);
+                log.Add($"Start and end feature: {extra} sacrificial layer(s) before and after the part. Mill them away.");
+            }
+            var r = EasySlicer.Run(layers, st, new EasySlicer.Options { Walls = walls, BottomLayers = Math.Max(0, bottom), Infill = infill, InfillSize = size, Spiral = spiral, BrimSide = Math.Max(0, Math.Min(3, brim)),
+                BottomPattern = solidPattern, TopLayers = Math.Max(0, top), WallPosition = wallPos, Bridge = bridge });
+            if (nozzleNote != null) r.Notes.Insert(0, nozzleNote);
+            if (Math.Abs(angle) > 1e-9) r.Notes.Add($"Layers lean {angle:0.#} degrees: print with a robot (Robot Program) or a tilted bed. Weber: the first beads very slowly (about 10 mm/s) with much more material, set the static tilt and the automatic nozzle offset on the machine.");
             var report = new List<string> { "DONE: " + string.Join(" > ", r.Steps) };
             if (r.Check != null) report.AddRange(r.Check.Report);
             foreach (var note in r.Notes.Concat(log).Distinct()) report.Add("Note: " + note);
@@ -164,6 +199,7 @@ namespace LARGERslicer.GH2
             access.SetItem(1, r.Path.ToPolyline());
             access.SetItem(2, r.Ok);
             access.SetTwig(3, report.ToArray(), null, null);
+            access.SetItem(4, new LayerStack(r.Layers));
         }
     }
 
@@ -171,8 +207,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3004")]
     public sealed class MachineComponent : Component
     {
-        public MachineComponent() : base(Io.Name("Machine", "A machine that prints from G-code: its start code, end code, layer code and how it wants the extrusion. The Ginger One is built in. Add your own machine as a .machine text file in Documents/LARGER/Machines, or type its codes into the inputs here and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot has its own components.", Io.Slicer, 11)) { }
+        public MachineComponent() : base(Io.Name("Machine", "A machine that prints from G-code: its start code, end code, layer code and how it wants the extrusion. The Ginger One is built in. Add your own machine as a .machine text file in Documents/LARGER/Machines, or type its codes into the inputs here and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot has its own components.", Io.Slicer, Group.Output)) { }
         public MachineComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerGantryIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -185,6 +222,10 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Extrusion Factor", "Ef", "E = bead width x layer height x length x flow x this factor. 0 = as the machine chosen above.").Set(0.0);
             inputs.AddBoolean("Save", "Save", "True writes this machine as a .machine file into Documents/LARGER/Machines.").Set(false);
             inputs.AddGeneric("Model", "3D", "Optional. Your machine in 3D for the preview (frame, bed, gantry), in the machine's coordinates. Save writes it next to the .machine file as a .3dm of the same name. Empty = the model of the machine chosen above, or its bed.", Access.Twig, Requirement.MayBeMissing);
+            // the inputs of Grasshopper 1 that this component did not have yet: added at the end, so older files keep their wires
+            inputs.AddNumber("Filament Diameter", "Fil", "Optional. 0 = E is a volume (pellet extruder). Larger = E is the length of filament of this diameter (mm).", Access.Item, Requirement.MayBeMissing);
+            inputs.AddText("Material", "Mat", "Optional. The material, written where the codes say {material} (Ginger One (Klipper): START_PRINT MATERIAL=...). Empty = the machine's own (PLA).", Access.Item, Requirement.MayBeMissing);
+            inputs.AddNumber("Bed Temperature", "Bed", "Optional. Bed temperature in degrees C, written where the codes say {bed}. Empty = the machine's own (90).", Access.Item, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -227,12 +268,16 @@ namespace LARGERslicer.GH2
                 m = all[index].Duplicate();
             }
             Func<string[], List<string>> lines = t => t.SelectMany(x => (x ?? "").Replace("\r", "").Split('\n')).ToList();
-            bool own = !string.IsNullOrWhiteSpace(name) || hasStart || hasLayer || hasEnd || factor > 0;
+            bool hasFilament = access.GetItem(9, out double filament);
+            bool own = !string.IsNullOrWhiteSpace(name) || hasStart || hasLayer || hasEnd || factor > 0 || hasFilament;
             if (!string.IsNullOrWhiteSpace(name)) { m.Name = name.Trim(); m.Prefix = OutputFile.Clean(m.Name).Replace(" ", "").ToUpperInvariant(); if (m.Prefix.Length > 4) m.Prefix = m.Prefix.Substring(0, 4); }
             if (hasStart) m.Start = lines(start);
             if (hasLayer) m.Layer = lines(layer);
             if (hasEnd) m.End = lines(end);
             if (factor > 0) m.Profile.Factor = factor;
+            if (hasFilament && filament >= 0) m.Profile.FilamentDiameter = filament;
+            if (access.GetItem(10, out string material) && !string.IsNullOrWhiteSpace(material)) m.Material = material.Trim();
+            if (access.GetItem(11, out double bedTemp)) m.BedTemperature = bedTemp;
             m.Profile.Name = m.Name;
             if (own) m.Source = "made here";
             if (m.Start.Count == 0) access.AddWarning("No start code", "The G-code begins with the first move.");
@@ -251,15 +296,16 @@ namespace LARGERslicer.GH2
             access.SetTwig(3, preview.ToArray(), null, null);
             access.SetItem(0, m);
             access.SetTwig(1, m.ToText().ToArray(), null, null);
-            access.SetItem(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}. Your own machines: {MachineDefinition.Folder}");
+            access.SetItem(2, $"{m.Name} ({m.Source}): {m.Start.Count} lines of start code, {m.Layer.Count} per layer, {m.End.Count} of end code, {m.Profile}, {m.Material}, bed {m.BedTemperature:0} C. Your own machines: {MachineDefinition.Folder}");
         }
     }
 
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3005")]
     public sealed class MachineGCodeComponent : Component
     {
-        public MachineGCodeComponent() : base(Io.Name("Machine G-code", "Writes the toolpath as G-code for the machine you connect: its start code, the moves with one constant feedrate that is never 0, its layer code at every layer change, its end code.", Io.Slicer, 12)) { }
+        public MachineGCodeComponent() : base(Io.Name("Machine G-code", "Writes the toolpath as G-code for the machine you connect: its start code, the moves with one constant feedrate that is never 0, its layer code at every layer change, its end code.", Io.Slicer, Group.Output)) { }
         public MachineGCodeComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerMachineGCodeIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -275,6 +321,8 @@ namespace LARGERslicer.GH2
             outputs.AddText("G-code", "G", "G-code, line by line.", Access.Twig);
             outputs.AddText("Info", "I", "Layers, length, extrusion, time and weight.");
             outputs.AddText("File Name", "Fn", "The name the file gets on the Desktop.");
+            outputs.AddMesh("Model", "3D", "The machine in 3D with the nozzle at the start of the path (Ginger One built in). Play the whole print with Printer Simulation.", Access.Twig);
+            outputs.AddGeneric("Simulation", "Sim", "The print with its machine and the times of the G-code: connect to Printer Simulation to play it.");
         }
 
         protected override void Process(IDataAccess access)
@@ -282,14 +330,20 @@ namespace LARGERslicer.GH2
             var tp = Io.Path(access, 0); if (tp == null) return;
             var machine = Io.Get<MachineDefinition>(access, 1) ?? MachineDefinition.GingerOne();
             string part, file; bool save; access.GetItem(2, out part); access.GetItem(3, out file); access.GetItem(4, out save);
-            var r = MachineGCode.Build(tp, machine);
-            foreach (var w in r.Warnings) access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
+            var r = MachineGCode.Build(tp, machine, out PrinterRun run);
+            // what the kind of machine cannot print (angled layers on a gantry) is an error; the G-code is written all the same
+            foreach (var w in r.Warnings)
+                if (w.StartsWith("NOT PRINTABLE")) access.AddError("Not printable on this machine", w);
+                else access.AddWarning(w.Length > 50 ? w.Substring(0, 50) + "…" : w, w);
+            if (run != null) access.SetItem(4, run);
             var named = tp.Duplicate(); named.Settings = tp.Settings.Duplicate(); named.Settings.Machine = machine.Profile.Duplicate();
             string fileName = OutputFile.Name(machine.Prefix, part, named, machine.Extension);
             Files.Save(access, save, file, r.Lines, fileName);
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             access.SetItem(1, r.Info);
             access.SetItem(2, fileName);
+            var printer = machine.Printer(out _);
+            if (printer != null) access.SetTwig(3, printer.Pose(tp.Points[0], machine.Kind, out _).Select(pp => pp.Mesh).ToArray(), null, null);
         }
     }
 }

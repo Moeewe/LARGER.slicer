@@ -6,6 +6,7 @@ using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -21,14 +22,34 @@ namespace LARGERslicer.GH2
         public override string ToString() => Layers.Count + " layers";
     }
 
-    internal static class Io
+    /// <summary>
+    /// The groups of the Slicer section, in the order of the Grasshopper 1 tab (its exposure groups):
+    /// a slot is a group of its own in the section, as an exposure is in Grasshopper 1.
+    /// </summary>
+    internal static class Group
+    {
+        public const int Start = 0;      // settings, machine, material, Easy Slicer, Quick Start
+        public const int Layers = 1;     // Slice and the self-support tools
+        public const int Walls = 2;      // Walls & fill: walls, bottom, infill, support fins
+        public const int Path = 3;       // the one continuous line, corners, start and end, patterns
+        public const int Check = 4;      // checks and the values for the machine
+        public const int Output = 5;     // files and simulation
+        public const int Curves = 6;     // curve tools: own curves, imported G-code, analysis
+    }
+
+    internal static partial class Io
     {
         public const string Chapter = "LARGER";
         public const string Slicer = "Slicer";
         public const string Dxr = "DXR";
         public const string Robot = "Robot";
+        public const string Utilities = "Utilities";
+        public const string Cnc = "CNC";
 
         public static Nomen Name(string name, string info, string section, int slot) => new Nomen(name, info, Chapter, section, slot, Rank.Normal);
+
+        /// <summary>Loads old files, but is not offered on the tab: replaced by the components of Grasshopper 1.</summary>
+        public static Nomen HiddenName(string name, string info, string section, int slot) => new Nomen(name, info, Chapter, section, slot, Rank.Hidden);
 
         public static T Get<T>(IDataAccess access, int index) where T : class
         {
@@ -68,6 +89,14 @@ namespace LARGERslicer.GH2
             return o;
         }
 
+        /// <summary>Long calculations: shows how far it is (0 to 100 %) and returns true when Grasshopper
+        /// has cancelled this solution (the inputs changed meanwhile), so the component stops early.</summary>
+        public static bool Step(IDataAccess access, int percent)
+        {
+            access.SetProgress(Math.Max(0, Math.Min(100, percent)));
+            return access.Solution != null && access.Solution.Token.IsCancellationRequested;
+        }
+
         public static void Remarks(IDataAccess access, IEnumerable<string> log)
         {
             foreach (var l in log) access.AddRemark(l.Length > 60 ? l.Substring(0, 60) + "…" : l, l);
@@ -78,8 +107,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1010")]
     public sealed class DesignRulesComponent : Component
     {
-        public DesignRulesComponent() : base(Io.Name("Design Rules", "Before you model: layer height range, overlap, how thick to model a wall of two beads (CO90, and CO45 at 45 degrees), the layer width for a finished wall at 45 degrees (LW45), corner radius, start and end feature. From the CEAD 45-degree sheets and the Ginger handbook.", Io.Slicer, 0)) { }
+        public DesignRulesComponent() : base(Io.Name("Design Rules", "Before you model: layer height range, overlap, how thick to model a wall of two beads (CO90, and CO45 at 45 degrees), the layer width for a finished wall at 45 degrees (LW45), corner radius, start and end feature. From the CEAD 45-degree sheets and the Ginger handbook.", Io.Slicer, Group.Start)) { }
         public DesignRulesComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerDesignRulesIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -98,6 +128,7 @@ namespace LARGERslicer.GH2
             outputs.AddNumber("CO90", "CO90", "Wall of two beads, layers square to it: model it this thick (mm).");
             outputs.AddNumber("CO45", "CO45", "Wall of two beads, layers crossing it at 45 degrees: model it this thick (mm).");
             outputs.AddNumber("LW45", "LW45", "Layer width for the finished wall thickness at 45 degrees (mm).");
+            outputs.AddInterval("Layer Height", "H", "Layer heights the nozzle allows (mm).");
         }
 
         protected override void Process(IDataAccess access)
@@ -109,6 +140,7 @@ namespace LARGERslicer.GH2
             if (!r.Ok) access.AddWarning("Rule not met", r.Report.Find(l => l.Contains("TOO")) ?? "See Report.");
             access.SetItem(0, r.Ok); access.SetTwig(1, r.Report.ToArray(), null, null);
             access.SetItem(2, r.CO90); access.SetItem(3, r.CO45); access.SetItem(4, r.LW45);
+            access.SetItem(5, new Interval(r.LayerMin, r.LayerMax));
         }
     }
 
@@ -116,21 +148,30 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1001")]
     public sealed class PrintSettingsComponent : Component
     {
-        public PrintSettingsComponent() : base(Io.Name("Print Settings", "Bead width, layer height and speed for all slicer components. The bead width drives every generated dimension: wall spacing, infill spacing, smallest radius.", Io.Slicer, 0)) { }
+        public PrintSettingsComponent() : base(Io.Name("Print Settings", "Bead width, layer height and speed for all slicer components. The bead width drives every generated dimension: wall spacing, infill spacing, smallest radius.", Io.Slicer, Group.Start)) { }
         public PrintSettingsComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerSettingsIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm.").Set(5.0);
             inputs.AddNumber("Layer Height", "H", "Layer height in mm. A third to a half of the bead width.").Set(2.0);
             inputs.AddNumber("Speed", "V", "Print speed in mm/s, the same for every move (50 mm/s = F3000 in G-code).").Set(50.0);
-            inputs.AddInteger("Machine Profile", "MP", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0);
+            inputs.AddInteger("Machine Profile", "MP", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n)) + "\nA Machine Profile component connected to Machine wins.").Set(0).Choices(MachineProfile.PresetNames);
             inputs.AddNumber("Flow", "Fl", "Extrusion multiplier (1 = 100 %).").Set(1.0);
             inputs.AddBoolean("Preview", "P", "Fast and coarse, for trying things out.").Set(false);
             inputs.AddNumber("Density", "D", "Density of the printed material in g/cm3, for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9.").Set(1.25);
             inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed, so the first bead is not pressed into it. 0 = the layer height.").Set(0.0);
-            inputs.AddInteger("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0);
+            inputs.AddInteger("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0).Choices(Nozzles.Names);
             inputs.AddNumber("First Layer Speed", "V1", "Speed of the first layer in mm/s, for adhesion (the Ginger prints it at about 25 mm/s). 0 = the same as Speed.").Set(0.0);
+            // the inputs of Grasshopper 1 that this component did not have yet: added at the end, so older files keep their wires
+            inputs.AddNumber("Overlap", "Ov", "Sideways overlap of neighbouring beads, 0-1 (used by walls and infill).").Set(0.15);
+            inputs.AddNumber("Min Radius", "R", "Smallest corner radius of the path (mm). 0 = bead width.").Set(0.0);
+            inputs.AddNumber("Resolution", "Res", "Smallest point spacing of the path (mm).").Set(2.0);
+            inputs.AddNumber("Filament Diameter", "Fil", "0 = extrusion as volume in mm3 (pellet extruder). >0 = extrusion as filament length.").Set(0.0);
+            inputs.AddNumber("Min Speed", "Vmin", "Lowest speed when speed compensates the layer height, in mm/s.").Set(5.0);
+            inputs.AddNumber("Max Speed", "Vmax", "Highest speed and travel speed, in mm/s.").Set(200.0);
+            inputs.AddGeneric("Machine", "M", "Optional Machine Profile (from the Machine Profile component): how your printer wants the extrusion values. Wins over the Machine Profile number. Empty = the Machine Profile number.", Access.Item, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -152,10 +193,23 @@ namespace LARGERslicer.GH2
             double first; access.GetItem(7, out first); s.FirstLayerHeight = Math.Max(0, first);
             if (first > 0 && (first < 0.5 * h || first > 1.5 * h)) access.AddWarning("First layer", $"The first layer is {first:0.##} mm, the others {h:0.##} mm. Stay between half and one and a half layer heights, or the first bead is crushed or does not stick.");
             double v1; access.GetItem(9, out v1); s.FirstLayerSpeed = v1 > 0 ? (v1 > 1000 ? v1 : v1 * 60) : 0;
+            double overlap, minRadius, resolution, filament, vmin, vmax;
+            access.GetItem(10, out overlap); access.GetItem(11, out minRadius); access.GetItem(12, out resolution);
+            access.GetItem(13, out filament); access.GetItem(14, out vmin); access.GetItem(15, out vmax);
+            s.Overlap = overlap; s.MinRadius = minRadius; s.Resolution = Math.Max(0.05, resolution); s.FilamentDiameter = Math.Max(0, filament);
+            // speeds in mm/s; the path keeps mm/min (the F of the machine)
+            if (vmin > 0) s.MinSpeed = vmin > 1000 ? vmin : vmin * 60;
+            if (vmax > 0) s.MaxSpeed = vmax > 1000 ? vmax : vmax * 60;
+            var own = Io.Get<MachineProfile>(access, 16);
+            if (own != null) s.Machine = own.Duplicate();
+            if (s.Machine.FilamentDiameter <= 0 && s.FilamentDiameter > 0) { s.Machine.FilamentDiameter = s.FilamentDiameter; s.Machine.Unit = "mm filament"; }
+            s.MaxSpeed = Math.Max(s.MaxSpeed, s.Speed);
+            s.MinSpeed = Math.Min(Math.Max(1, s.MinSpeed), s.Speed);
             int nozzle; access.GetItem(8, out nozzle);
             if (nozzle > 0)
             {
-                Nozzles.Apply(s, nozzle); w = s.BeadWidth; h = s.LayerHeight;
+                string applied = Nozzles.Apply(s, nozzle); if (applied != null) access.AddRemark("Nozzle", applied);
+                w = s.BeadWidth; h = s.LayerHeight;
                 foreach (var note in Nozzles.Check(s.Nozzle, s.NozzleShape, w, h)) access.AddWarning("Nozzle", note);
             }
             double ratio = h / w;
@@ -169,8 +223,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1002")]
     public sealed class SliceComponent : Component
     {
-        public SliceComponent() : base(Io.Name("Slice", "Cuts geometry (Breps, surfaces, SubDs, meshes; open or closed) into layers. Flat by default, tilted with an angle. With a guide surface the layers follow it (non-planar); with a guide curve they stand square to it (multi-axis).", Io.Slicer, 1)) { }
+        public SliceComponent() : base(Io.Name("Slice", "Cuts geometry (Breps, surfaces, SubDs, meshes; open or closed) into layers. Flat by default, tilted with an angle. With a guide surface the layers follow it (non-planar); with a guide curve they stand square to it (multi-axis).", Io.Slicer, Group.Layers)) { }
         public SliceComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerSliceIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -178,9 +233,11 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddNumber("Angle", "A", "Tilts the layers around the X axis, in degrees. 45 = 45 degree slicing.").Set(0.0);
             inputs.AddGeneric("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it. A curve: the layers stand square to it.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddInteger("Guide Mode", "GM", "0 = with a guide surface: flat bottom, top follows the guide.\n1 = with a guide surface: all layers follow the guide (curved base or mould).\n2 = follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical.\n3 = follow the surface (no guide): leave Guide empty; for closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, under chin and nose as well, closing the top. Use Continuous Path in Spiral mode. The bead height follows the law of the printed head of 2024. The nozzle stays vertical.").Set(0);
-            inputs.AddInteger("Tool Axis", "TA", "Only with a guide: 0 = tool square to the layer (robot). 1 = tool stays vertical.").Set(0);
+            inputs.AddInteger("Guide Mode", "GM", "0 = with a guide surface: flat bottom, top follows the guide.\n1 = with a guide surface: all layers follow the guide (curved base or mould).\n2 = follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical.\n3 = follow the surface (no guide): leave Guide empty; for closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, under chin and nose as well, closing the top. Use Continuous Path in Spiral mode. The bead height follows the law of the printed head of 2024. The nozzle stays vertical.").Set(0)
+                .Choices("Flat bottom, top follows guide", "All layers follow guide", "Follow the part (no guide)", "Follow the surface (no guide)");
+            inputs.AddInteger("Tool Axis", "TA", "Only with a guide: 0 = tool square to the layer (robot). 1 = tool stays vertical.").Set(0).Choices("Square to the layer (robot)", "Stays vertical (3-axis)");
             inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away afterwards (about 5 for angled printing). The start feature stands on the bed. 0 = none.").Set(0);
+            inputs.AddPlane("Plane", "P", "Layer plane. Its normal is the build direction and the tool axis; Angle tilts it around its X axis. Empty = World XY.", Access.Item, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -199,7 +256,8 @@ namespace LARGERslicer.GH2
             object guide; access.GetItem(3, out guide);
             int guideMode, toolMode; access.GetItem(4, out guideMode); access.GetItem(5, out toolMode);
 
-            Plane plane = Plane.WorldXY;
+            Plane plane;
+            if (!access.GetItem(7, out plane) || !plane.IsValid) plane = Plane.WorldXY;
             if (Math.Abs(angle) > 1e-9) plane.Rotate(Rhino.RhinoMath.ToRadians(angle), plane.XAxis, plane.Origin);
             var log = new List<string>();
             double tol = Math.Max(0.01, settings.Preview ? settings.Resolution * 0.25 : settings.Resolution * 0.025);
@@ -217,11 +275,16 @@ namespace LARGERslicer.GH2
                     if (gm != null) { var sw = new SurfaceWarp(gm, guideMode == 0, toolMode == 0); if (sw.Valid) warp = sw; }
                 }
                 if (warp == null) access.AddWarning("Guide not usable", "Connect a surface, Brep or mesh (non-planar) or a curve (multi-axis). Slicing flat.");
-                else plane = Plane.WorldXY;
+                else
+                {
+                    if (Math.Abs(plane.Normal.Z) < 0.9999 || Math.Abs(angle) > 1e-9) access.AddRemark("Plane and Angle ignored", "With a guide the layers are defined by the guide; Plane and Angle are ignored.");
+                    plane = Plane.WorldXY;
+                }
             }
 
             // a bent layer needs a fine mesh, or long flat faces would stay straight
             bool followPart = guide == null && (guideMode == 2 || guideMode == 3);
+            if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             Mesh mesh = SliceEngine.ToMesh(geo.Where(g => g != null).Select(Io.Solid), tol, log, warp != null || followPart ? Math.Max(4.0, settings.BeadWidth * 1.5) : 0);
             if (mesh == null) { access.AddError("No usable geometry", "Connect Breps, surfaces, SubDs or meshes."); return; }
             if (followPart)
@@ -240,6 +303,7 @@ namespace LARGERslicer.GH2
                 else access.AddWarning(what, mw.Problem + ". Slicing flat.");
             }
             int extra; access.GetItem(6, out extra);
+            if (Io.Step(access, 40)) return; // progress; stop if the inputs changed meanwhile
             var layers = SliceEngine.Slice(mesh, plane, settings.LayerHeight, settings.PointSpacing, log, warp, settings.FirstLayerHeight);
             if (extra > 0 && warp == null)
             {
@@ -266,21 +330,23 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1003")]
     public sealed class WallsComponent : Component
     {
-        public WallsComponent() : base(Io.Name("Walls", "Turns the layer contours into walls: the centre lines of the beads, one bead spacing apart.", Io.Slicer, 2)) { }
+        public WallsComponent() : base(Io.Name("Walls", "Turns the layer contours into walls: the centre lines of the beads, one bead spacing apart.", Io.Slicer, Group.Walls)) { }
         public WallsComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerWallsIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Layers", "L", "Layers from Slice.");
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddInteger("Count", "N", "Number of walls.").Set(1);
-            inputs.AddInteger("Position", "P", "0 = the outer bead lies inside the model surface. 1 = centred on it. 2 = outside.").Set(0);
+            inputs.AddInteger("Position", "P", "0 = the outer bead lies inside the model surface. 1 = centred on it. 2 = outside.").Set(0).Choices("Inside the geometry", "Centred on the geometry", "Outside the geometry");
         }
 
         protected override void AddOutputs(OutputAdder outputs)
         {
             outputs.AddGeneric("Layers", "L", "Layers with walls.");
             outputs.AddPolyline("Contours", "C", "Wall centre lines.", Access.Twig);
+            outputs.AddText("Info", "I", "Statistics.");
         }
 
         protected override void Process(IDataAccess access)
@@ -289,10 +355,13 @@ namespace LARGERslicer.GH2
             var settings = Io.Settings(access, 1);
             int count, position; access.GetItem(2, out count); access.GetItem(3, out position);
             var log = new List<string>();
+            var sw = Stopwatch.StartNew();
             var result = FillEngine.Walls(layers, settings, Math.Max(1, count), Math.Max(0, Math.Min(2, position)), log);
+            sw.Stop();
             Io.Remarks(access, log);
             access.SetItem(0, new LayerStack(result));
             Io.Contours(access, 1, result);
+            access.SetItem(2, $"{(count <= 1 ? "1 wall" : count + " walls")}{(position == 1 ? ", centred" : position == 2 ? ", outside" : ", inside")}: {result.Count} layers, {result.Sum(l => l.Contours.Count)} wall paths, spacing {settings.BeadSpacing:0.##} mm, {sw.ElapsedMilliseconds} ms");
         }
     }
 
@@ -300,21 +369,25 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1004")]
     public sealed class BottomFillComponent : Component
     {
-        public BottomFillComponent() : base(Io.Name("Bottom Fill", "Closes the first layers with a solid bottom printed as one line.", Io.Slicer, 3)) { }
+        public BottomFillComponent() : base(Io.Name("Bottom Fill", "Closes the first layers with a solid bottom printed as one line.", Io.Slicer, Group.Walls)) { }
         public BottomFillComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerBottomIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Layers", "L", "Layers with walls.");
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddInteger("Count", "N", "Number of solid bottom layers. 0 = none.").Set(1);
-            inputs.AddInteger("Pattern", "P", "0 = automatic. 1 = zigzag. 2 = contour (follows the wall inward).").Set(0);
+            inputs.AddInteger("Pattern", "P", "0 = automatic. 1 = zigzag. 2 = contour (follows the wall inward).").Set(0).Choices("Auto", "Zigzag", "Contour (follows the wall)");
+            inputs.AddNumber("Angle", "A", "Zigzag direction in the layer plane (degrees).").Set(0.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
         {
             outputs.AddGeneric("Layers", "L", "Layers with bottom.");
             outputs.AddPolyline("Contours", "C", "All contours.", Access.Twig);
+            outputs.AddText("Info", "I", "Statistics.");
+            outputs.AddPolyline("Fill", "F", "Fill lines only (for checking).", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
@@ -323,10 +396,23 @@ namespace LARGERslicer.GH2
             var settings = Io.Settings(access, 1);
             int count, pattern; access.GetItem(2, out count); access.GetItem(3, out pattern);
             var log = new List<string>();
-            var result = count > 0 ? FillEngine.Bottom(layers, settings, count, Math.Max(0, Math.Min(2, pattern)), 0, log, out _) : layers;
+            double angle; access.GetItem(4, out angle);
+            int filled = 0;
+            var sw = Stopwatch.StartNew();
+            var result = count > 0 ? FillEngine.Bottom(layers, settings, count, Math.Max(0, Math.Min(2, pattern)), angle, log, out filled) : layers;
+            sw.Stop();
             Io.Remarks(access, log);
+            var fills = new List<Polyline>();
+            foreach (var l in result)
+            {
+                if (l.ContourRoles == null) continue;
+                for (int c = 0; c < l.Contours.Count && c < l.ContourRoles.Count; c++)
+                    if (l.ContourRoles[c] == PathRole.Bottom) fills.Add(l.Contours[c]);
+            }
             access.SetItem(0, new LayerStack(result));
             Io.Contours(access, 1, result);
+            access.SetItem(2, $"{(count <= 0 ? "Off" : pattern == 1 ? "Zigzag" : pattern == 2 ? "Contour" : "Auto")}: {filled} solid layer(s) filled with {fills.Count} continuous line(s), line spacing {settings.BeadSpacing:0.##} mm, {sw.ElapsedMilliseconds} ms");
+            access.SetTwig(3, fills.ToArray(), null, null);
         }
     }
 
@@ -336,14 +422,15 @@ namespace LARGERslicer.GH2
     {
         private static readonly string[] Patterns = { "Ribs (even spacing)", "Honeycomb", "Grid", "Wave", "Truss", "Meander", "Chamber wall", "Truss wall" };
 
-        public InfillComponent() : base(Io.Name("Infill", "Adds an infill that is part of the wall line: one closed line per layer, no travel moves. Ribs, cells, waves that meet in the middle, or a chamber wall.", Io.Slicer, 4)) { }
+        public InfillComponent() : base(Io.HiddenName("Infill", "Adds an infill that is part of the wall line: one closed line per layer, no travel moves. Ribs, cells, waves that meet in the middle, or a chamber wall.", Io.Slicer, Group.Walls)) { }
         public InfillComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerRibsIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Layers", "L", "Layers with walls (and bottom).");
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddInteger("Pattern", "P", string.Join("\n", Patterns.Select((n, i) => i + " = " + n))).Set(1);
+            inputs.AddInteger("Pattern", "P", string.Join("\n", Patterns.Select((n, i) => i + " = " + n))).Set(1).Choices(Patterns);
             inputs.AddNumber("Size", "Sz", "Rib spacing, cell size, wavelength or chamber length in mm.").Set(80.0);
             inputs.AddNumber("Depth", "D", "Waves and chambers: how far the pattern reaches into the part in mm. 0 = as far as the part allows.").Set(0.0);
         }
@@ -384,18 +471,19 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1006")]
     public sealed class ContinuousPathComponent : Component
     {
-        public ContinuousPathComponent() : base(Io.Name("Continuous Path", "Joins all layers into one continuous print path. Layered: every layer is flat and the path climbs over a short ramp at one fixed place. Spiral: the path climbs all the time (single walls only).", Io.Slicer, 5)) { }
+        public ContinuousPathComponent() : base(Io.Name("Continuous Path", "Joins all layers into one continuous print path. Layered: every layer is flat and the path climbs over a short ramp at one fixed place. Spiral: the path climbs all the time (single walls only).", Io.Slicer, Group.Path)) { }
         public ContinuousPathComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerPathIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Layers", "L", "Layers.");
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddInteger("Mode", "M", "1 = layered (default). 0 = spiral (vase mode).").Set(1);
+            inputs.AddInteger("Mode", "M", "1 = layered (default). 0 = spiral (vase mode).").Set(1).Choices("Spiral (vase, single wall only)", "Layered (flat layers)");
             inputs.AddNumber("Seam Gap", "G", "Layered: the gap at the seam in mm. Every layer ends this far before its own start; the path crosses the gap on a short incline up to the next layer. 0 = one bead width.").Set(0.0);
             inputs.AddGeneric("Seam", "Seam", "Optional. A point or a curve: where the seam is. Every layer starts at the place on its contour nearest to it. Empty = the seam stays where the first layer started.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Bridge", "Br", "True = a contour inside another (inner shell, opening) is joined to it by a bridge of two lines one bead spacing apart, stacked on every layer: one line without travel moves.").Set(true);
-            inputs.AddInteger("Seam Mode", "Sm", "Layered only: where the seam goes.\n0 = fixed point (default): at the Seam point, or where the first layer starts.\n1 = inner corner: in an inner corner of the outer wall, where it shows least and milling does not run over it (no inner corner: the sharpest outer corner).\n2 = sharpest corner of the outer wall.\nThe corner is followed from layer to layer, at most half a bead to the side. A Seam point picks which corner.").Set(0);
+            inputs.AddInteger("Seam Mode", "Sm", "Layered only: where the seam goes.\n0 = fixed point (default): at the Seam point, or where the first layer starts.\n1 = inner corner: in an inner corner of the outer wall, where it shows least and milling does not run over it (no inner corner: the sharpest outer corner).\n2 = sharpest corner of the outer wall.\nThe corner is followed from layer to layer, at most half a bead to the side. A Seam point picks which corner.").Set(0).Choices("Fixed point", "Inner corner", "Sharpest corner");
             inputs.AddNumber("Min Layer Time", "Tmin", "Shortest time a layer may take in s. A layer that would be done sooner is printed slower, so the layer below can cool: F stays constant within the layer and never goes below Min Speed. 0 = off (default). About 60 s suits many large pellet prints.").Set(0.0);
             inputs.AddNumber("Max Volume Rate", "Qmax", "Most the extruder can deliver in mm3/s. Moves that would ask for more run slower, never below Min Speed. 0 = off (default). The Ginger gives about 330 mm3/s.").Set(0.0);
         }
@@ -428,8 +516,15 @@ namespace LARGERslicer.GH2
                 settings = settings.Duplicate();
                 settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
             }
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, Math.Max(0, ramp), false, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
-            Io.Remarks(access, log);
+            // as in Grasshopper 1: slivers, bridges and the seam are notes, everything else is a warning
+            foreach (var l in log)
+            {
+                string title = l.Length > 60 ? l.Substring(0, 60) + "…" : l;
+                if (l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") || l.StartsWith("Bead height by the law")) access.AddRemark(title, l);
+                else access.AddWarning(title, l);
+            }
             if (tp.Count < 2) { access.AddError("No path", "The layers contain no printable contour."); return; }
             int travels = 0; for (int i = 1; i < tp.Count; i++) if (tp.Roles[i] == PathRole.Travel && tp.Roles[i - 1] != PathRole.Travel) travels++;
             access.SetItem(0, tp);
@@ -442,8 +537,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1007")]
     public sealed class FinishPathComponent : Component
     {
-        public FinishPathComponent() : base(Io.Name("Round and Lead", "Rounds the corners of the path, puts a skirt in front of the part and an exit move behind it. The skirt ends opposite the start, so the way across is short and square to the wall.", Io.Slicer, 6)) { }
+        public FinishPathComponent() : base(Io.HiddenName("Round and Lead", "Rounds the corners of the path, puts a skirt in front of the part and an exit move behind it. The skirt ends opposite the start, so the way across is short and square to the wall.", Io.Slicer, Group.Path)) { }
         public FinishPathComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerRoundIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -484,13 +580,15 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1008")]
     public sealed class PathCheckComponent : Component
     {
-        public PathCheckComponent() : base(Io.Name("Path Check", "Checks whether the path can be printed: it never crosses itself, and every bead lies on the bead below. Read the report before every print.", Io.Slicer, 7)) { }
+        public PathCheckComponent() : base(Io.Name("Path Check", "Checks whether the path can be printed: it never crosses itself, and every bead lies on the bead below. Read the report before every print.", Io.Slicer, Group.Check)) { }
         public PathCheckComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerCheckIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Toolpath", "T", "The path to check.");
             inputs.AddNumber("Min Layer Time", "Tmin", "Shortest time a layer may take in s, so the layer below has cooled enough to carry the next one. A layer printed faster lands on soft material: overhangs sag and the part warps. 0 = the Min Layer Time of Continuous Path, or off (the report still lists the times). About 60 s suits many large pellet prints.").Set(0.0);
+            inputs.AddNumber("Max Offset", "Max", "Largest allowed sideways offset to the layer below (mm). 0 = half the bead width.").Set(0.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -500,13 +598,14 @@ namespace LARGERslicer.GH2
             outputs.AddPoint("Crossings", "X", "Where the path crosses itself.", Access.Twig);
             outputs.AddPoint("Unsupported", "U", "Points that hang in the air.", Access.Twig);
             outputs.AddNumber("Layer Times", "Lt", "Time of every layer at the print speed in s, from the first layer up.", Access.Twig);
+            outputs.AddNumber("Offset", "Off", "Sideways offset to the layer below for every path point (mm). Use it to colour the path.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
         {
             var tp = Io.Path(access, 0); if (tp == null) return;
-            double minTime; access.GetItem(1, out minTime);
-            var r = LeadEngine.Check(tp, 0, Math.Max(0, minTime));
+            double minTime, max; access.GetItem(1, out minTime); access.GetItem(2, out max);
+            var r = LeadEngine.Check(tp, Math.Max(0, max), Math.Max(0, minTime));
             if (!r.Ok) access.AddWarning("Not printable as it is", string.Join("\n", r.Report));
             // too short layers and an extruder over its limit: the path can be printed, but say it
             foreach (var l in r.Report.Where(l => l.StartsWith("LAYER TIME") || l.StartsWith("VOLUME RATE"))) access.AddWarning(l.StartsWith("LAYER TIME") ? "Layer time" : "Volume rate", l);
@@ -515,6 +614,7 @@ namespace LARGERslicer.GH2
             access.SetTwig(2, r.Crossings.ToArray(), null, null);
             access.SetTwig(3, r.Unsupported.ToArray(), null, null);
             access.SetTwig(4, r.LayerTimes.ToArray(), null, null);
+            access.SetTwig(5, r.Offsets.ToArray(), null, null);
         }
     }
 
@@ -522,8 +622,9 @@ namespace LARGERslicer.GH2
     [IoId("c3e7a2d4-6f1b-4a8e-9d25-8e2da5d2c15d")]
     public sealed class NonPlanarCheckComponent : Component
     {
-        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, 7)) { }
+        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, Group.Check)) { }
         public NonPlanarCheckComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerNonPlanarCheckIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -559,6 +660,7 @@ namespace LARGERslicer.GH2
             }
             if (tp.Normals.Any(n => Math.Abs(n.Z) < 0.9998))
                 access.AddRemark("Tilted tool axes", "The path has tilted tool axes. This check is for a vertical nozzle.");
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var r = NonPlanarCheck.Run(tp, head);
             if (!r.Ok) access.AddWarning("Check the path", r.Report.FirstOrDefault(l => l.StartsWith("HEAD") || l.StartsWith("TOO") || l.StartsWith("BEAD") || l.StartsWith("EXTRUSION") || l.StartsWith("Empty")) ?? "Read Report.");
             access.SetItem(0, r.Ok);
@@ -575,12 +677,14 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d1009")]
     public sealed class ExtrusionSpeedComponent : Component
     {
-        public ExtrusionSpeedComponent() : base(Io.Name("Extrusion and Speed", "The values for the machine: one plane, one extrusion amount and one speed per path point. The speed is constant and never 0.", Io.Slicer, 8)) { }
+        public ExtrusionSpeedComponent() : base(Io.Name("Extrusion and Speed", "The values for the machine: one plane, one extrusion amount and one speed per path point. The speed is constant and never 0.", Io.Slicer, Group.Check)) { }
         public ExtrusionSpeedComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerExtrusionIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Toolpath", "T", "The finished path.");
+            inputs.AddInteger("Compensation", "C", "How a changing layer height is handled:\n0 = Flow: speed stays constant, extrusion follows the height\n1 = Speed: extruder output stays constant, thin layers are printed faster").Set(0).Choices("Flow follows height", "Speed follows height");
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -592,19 +696,25 @@ namespace LARGERslicer.GH2
             outputs.AddText("Role", "R", "Wall, Bottom, Infill, Seam, Travel or Skirt.", Access.Twig);
             outputs.AddInteger("Layer", "L", "Layer index.", Access.Twig);
             outputs.AddText("Info", "I", "Length, volume and time.");
+            outputs.AddPolyline("Path", "Pa", "Print path as polyline.");
+            outputs.AddNumber("Layer Height", "H", "Local layer height at each point (mm).", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
         {
             var tp = Io.Path(access, 0); if (tp == null) return;
-            var r = PathEngine.Process(tp, false);
+            int mode; access.GetItem(1, out mode);
+            var r = PathEngine.Process(tp, mode == 1);
             access.SetTwig(0, tp.Points.ToArray(), null, null);
             access.SetTwig(1, r.Frames.ToArray(), null, null);
             access.SetTwig(2, r.Extrusion.ToArray(), null, null);
             access.SetTwig(3, r.Speed.ToArray(), null, null);
             access.SetTwig(4, tp.Roles.Select(x => x.ToString()).ToArray(), null, null);
             access.SetTwig(5, tp.Layers.ToArray(), null, null);
-            access.SetItem(6, $"{r.Length / 1000.0:0.00} m path, {r.PrintLength / 1000.0:0.00} m printed, {r.Volume / 1000.0:0} cm3, about {r.Minutes:0} min");
+            string unit = tp.Settings.Machine != null ? tp.Settings.Machine.Unit : (tp.Settings.FilamentDiameter > 0 ? "mm filament" : "mm3");
+            access.SetItem(6, $"{r.Length / 1000.0:0.00} m path, {r.PrintLength / 1000.0:0.00} m printed, {r.Volume / 1000.0:0.0} cm3, about {r.Minutes:0.0} min, E in {unit}");
+            access.SetItem(7, tp.ToPolyline());
+            access.SetTwig(8, tp.Heights.ToArray(), null, null);
         }
     }
 }

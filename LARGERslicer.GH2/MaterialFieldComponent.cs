@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -13,8 +14,9 @@ namespace LARGERslicer.GH2
     [IoId("4c9e2b71-8a3d-4f56-b0e1-7d2a9c5f3e18")]
     public sealed class MaterialFieldComponent : Component
     {
-        public MaterialFieldComponent() : base(Io.Name("Material Field", "Puts the toolpath back onto the part as a material field for analysis (IGA or FE): per sample point the bead direction (e1), across the bead (e2), the stacking direction (e3), layer, bead, distance to the next layer and bead interface, and how long the layer below had to cool. With the moduli: the rotated stiffness per point. Samples are a grid in each Brep face's UV, so (face, u, v) maps onto the NURBS of the analysis; or give your own points (e.g. Gauss points). The default moduli are placeholders: measure your material.", Io.Slicer, 13)) { }
+        public MaterialFieldComponent() : base(Io.Name("Material Field", "Puts the toolpath back onto the part as a material field for analysis (IGA or FE): per sample point the bead direction (e1), across the bead (e2), the stacking direction (e3), layer, bead, distance to the next layer and bead interface, and how long the layer below had to cool. With the moduli: the rotated stiffness per point. Samples are a grid in each Brep face's UV, so (face, u, v) maps onto the NURBS of the analysis; or give your own points (e.g. Gauss points). The default moduli are placeholders: measure your material.", Io.Slicer, Group.Curves)) { }
         public MaterialFieldComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerMaterialFieldIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -67,6 +69,7 @@ namespace LARGERslicer.GH2
             access.GetItem(11, out tc); access.GetItem(12, out file); access.GetItem(13, out format); access.GetItem(14, out save);
             var m = new OrthotropicMaterial { E1 = e1, E2 = e2, E3 = e3, G12 = g12, G13 = g13, G23 = g13, Nu12 = nu12, Nu13 = nu13, Nu23 = nu13 };
 
+            if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var r = MaterialField.Compute(tp, breps, pts != null ? pts.ToList() : null, new MaterialFieldOptions { Spacing = spacing, Material = m, CoolingTime = tc });
             Io.Remarks(access, r.Log);
             if (r.Samples.Count == 0) { access.AddWarning("No samples", "Nothing to sample."); return; }

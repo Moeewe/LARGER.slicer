@@ -52,33 +52,42 @@ Every drawing is a real layer from the slicer (part 300 × 190 mm, bead 5 mm). S
 
 New here? `Easy Slicer` is one component from the model to the checked print path; the [first-steps page](https://parametricsolutions.de/larger-slicer/erste-schritte/) walks through it. For every option, components connect in this order; `Quick Start` places the whole chain with example parts.
 
-Settings sit on the components themselves: the rows under a component are choices, numbers, switches and buttons (`Save G-code`, `Save KRL`, `Play`). Click a row to change it: a choice opens a menu, a number offers quick picks or a field to type in. A button writes its file once per click and switches back by itself. The value goes into the input as if typed into it, so the file keeps it, and a wire into the same input still wins (the row then says "connected").
+Settings sit on the components themselves: the rows under a component are choices, numbers, switches and buttons (`Save G-code`, `Save KRL`, `Play`). Click a row to change it: a choice opens a menu. A number is dragged left or right (Shift = finer; the bar shows where it sits in its range), clicked to type any value, or set from the arrow on its right with a few round values (angles 0, 15, 30, 45, 60, 75, 90°). A button writes its file once per click and switches back by itself. The value goes into the input as if typed into it, so the file keeps it, and a wire into the same input still wins (the row then says "connected").
+
+**Long calculations run in the background.** `Slice`, `Continuous Path`, `Surface Pattern`, `Material Field`, `Self Support Check`, `Non-Planar Check` and `Robot Program` calculate beside the canvas, which stays usable; the component shows "computing 3.2 s" and hands out its result when it is done. Changing an input meanwhile starts over. The row `Background: on` (or the menu item "Calculate in the background") switches this off per component; the file keeps the setting.
 
 **Speeds are in mm/s.** `Print Settings` and `Easy Slicer` take Speed 50, Min Speed 5 and Max Speed 200 mm/s by default. The path and the machine files keep mm/min, the F of G-code and DXR: 50 mm/s = F3000. Definitions saved with an older version are read as mm/min, with a note on the component.
 
-| Step | Component | What it does |
+The tab has seven groups, in the order you connect them (the dropdown of the Slicer panel shows them separated by lines):
+
+| Group | Component | What it does |
 |---|---|---|
-| 1 | `Machine Profile` | How your printer wants its extrusion values: volume, filament length, or a factor for the controller. Listed as manufacturer and machine, e.g. "Generic · Pellet extruder" |
-| 2 | `Print Settings` | Bead width, layer height, overlap, speed (mm/s), minimum radius. `Nozzle` picks bead width and layer height for the nozzle that is screwed in |
+| **1 Start** | `Quick Start` · `Easy Slicer` | The whole chain with example parts; or one component from the model to the checked print path |
+| | `Print Settings` | Bead width, layer height, overlap, speed (mm/s), minimum radius. `Nozzle` picks bead width and layer height for the nozzle that is screwed in |
+| | `Machine Profile` | How your printer wants its extrusion values: volume, filament length, or a factor for the controller. Listed as manufacturer and machine, e.g. "Generic · Pellet extruder" |
 | | `Material` · `Material Factor` | Start values for a pellet material (temperatures, drying, density); a new extrusion factor from measured bead widths |
-| 3 | `Slice` | Breps, surfaces, SubDs, meshes. Flat, tilted, non-planar (guide surface, "Follow the part" or "Follow the surface") or multi-axis (guide curve) |
-| | `Self Support Check` · `Self Supporting Envelope` · `Best Angle` | Where the part hangs over too far, the least material that makes it self-supporting, and the slice angle with the least overhang |
-| 4 | `Walls` | Bead inside, centred on or outside the geometry |
-| 5 | `Bottom Fill` | Closed bottom as one line: zigzag or contour |
-| 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill spliced into the wall path |
+| | `Design Rules` · `Print Bed` | Before you model: layer height range, overlap, wall thickness for two beads; the bed of your machine and whether the paths lie on it |
+| **2 Layers** | `Slice` | Breps, surfaces, SubDs, meshes. Flat, tilted, non-planar (guide surface, "Follow the part" or "Follow the surface") or multi-axis (guide curve) |
+| | `Best Angle` · `Self Support Check` · `Self Supporting Envelope` | The slice angle with the least overhang, where the part hangs over too far, and the least material that makes it self-supporting |
+| **3 Walls and fill** | `Walls` | Bead inside, centred on or outside the geometry |
+| | `Bottom Fill` | Closed bottom as one line: zigzag or contour |
+| | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill spliced into the wall path |
 | | `Support Fins` | Thin fins outside the part that hold up overhangs, as part of the same line |
-| 7 | `Continuous Path` | Flat layers with an open seam (gap of one bead width), or a spiral for single walls. Seam Mode, Min Layer Time, Max Volume Rate |
+| **4 Path** | `Continuous Path` | Flat layers with an open seam (gap of one bead width), or a spiral for single walls. Seam Mode, Min Layer Time, Max Volume Rate |
+| | `Round Corners` | Every corner becomes an arc |
+| | `Start and End` | Way in from 30 mm above, skirt first, brim outside, inside or both, a move off the part at the end |
 | | `Surface Pattern` | Textures in the wall: knit, pixels, ribs, waves, zigzag, dots, hanging loops or a picture, on the whole part or inside a region you draw |
-| 8 | `Round Corners` | Every corner becomes an arc |
-| 9 | `Start and End` | Way in from 30 mm above, skirt first, brim outside, inside or both, a move off the part at the end |
-| 10 | `Path Check` | Support, self-crossings, bead shape, travel moves, layer times |
+| **5 Check** | `Path Check` | Support, self-crossings, bead shape, travel moves, layer times |
 | | `Non-Planar Check` | Bead height and head clearance for non-planar layers with a vertical nozzle |
-| 11 | `Extrusion and Speed` | Plane, E and F per point for the DXR Generator or G-code |
-| | `Desktop Test Print` | The same path scaled down as G-code for a desktop filament printer |
-| | `Ginger G-code` | The path in full size as G-code for the Ginger One, with its start and end sequence |
-| | `Machine` · `Machine G-code` | Built-in G-code machines (e.g. "Ginger Additive · Ginger One (Klipper)") or your own: start, layer and end code and E factor as a `.machine` file in Documents/LARGER/Machines |
-| | `Import G-code` | Reads G-code from other slicers or a .dxr file as a toolpath, to check it with `Path Check` |
+| | `Extrusion and Speed` | Plane, E and F per point for the DXR Generator or G-code |
 | | `Material Field` | Puts the toolpath back onto the part as a direction-dependent material field for FE or IGA |
+| **6 Output** | `Machine` · `Machine G-code` | Built-in G-code machines (e.g. "Ginger Additive · Ginger One (Klipper)") or your own: start, layer and end code and E factor as a `.machine` file in Documents/LARGER/Machines |
+| | `Ginger G-code` | The path in full size as G-code for the Ginger One, with its start and end sequence |
+| | `Desktop Test Print` | The same path scaled down as G-code for a desktop filament printer |
+| | `Printer Simulation` | The print head running the path on the machine, with a slider or Play |
+| | `Toolpath to Robot Lines` | PTP lines for the DXR Generator (Weber DXR) |
+| | `Import G-code` | Reads G-code from other slicers or a .dxr file as a toolpath, to check it with `Path Check` |
+| **7 Curve tools** | `Layers to Curves` · `Curves to Layers` · `Curve Fill Zigzag` · `Curve Fill Contour` · `Curve Fill Cells` · `Curve Fill Euler` · `Curve Fill Cross Lines` · `Curve Continuous Infill` · `Curve Wall and Zigzag` · `Curve Continuous Path` · `Curve Join and Order` · `Curve Bridge` · `Curve Uncross` | For your own curves instead of a model: layers as curves and back, one outline filled as one line, curves joined into one path without crossings. `Align Curves`, `Alternate Curves` and `Join Open Contours` are in this group too but hidden from the panel: find them by searching (double-click the canvas) |
 
 `Quick Start` places seven examples: 01 flat layers, 02 non-planar, 03 multi-axis, 04 a part with an opening, 05 angled layers, 06 `Easy Slicer` (a vase as a spiral) and 07 a non-planar head on the Ginger One (Klipper), with layers that follow the part.
 
@@ -225,7 +234,7 @@ For printing with a robot: the cell is described once, then every toolpath becom
 
 </details>
 
-The curve-based tools of the former Toolpaths tab are now in **Slicer Curves**, named like their Slicer counterparts (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
+The curve-based tools of the former Toolpaths tab are now the last group of the Slicer tab (see above), named like their Slicer counterparts (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
 
 ## Machines
 
@@ -250,13 +259,15 @@ No code is needed. Everything is a text file or a Rhino file in `Documents/LARGE
 | What | Where | How |
 |---|---|---|
 | G-code machine | `Machines/My printer.machine` | Start, layer and end code, bed size and E factor as text (see `Machine`). Easiest: type them into `Machine` and set `Save`. |
-| Its 3D model for the preview | `Machines/My printer.3dm` | Draw frame, bed and gantry in Rhino in the machine's coordinates (its 0, 0, 0 at the origin), or connect them to `Model` of `Machine` and set `Save`. Without a model the bed is drawn from the bed size. |
+| Its 3D model, animated | `Machines/My printer.3dm` | Draw it in Rhino in the machine's coordinates (its 0, 0, 0 at the origin), one layer per axis: `Frame`, `Bed`, `Z`, `Y`, `X` and a point on `TCP` at the nozzle tip. `Printer Simulation` then moves it along the print and checks head, beam and frame for collisions. `kind = gantry / bedslinger / delta / belt 45 / robot` says what it can print. Without a model the bed is drawn from the bed size. |
 | Pellet material | `Materials/My material.material` | Temperatures, drying, density and factor as text (see `Material`). Easiest: fill in the inputs of `Material` and press `Save material`. |
 | Robot print cell | `Cells/My cell.3dm` | Draw it in millimetres in the coordinates of the bed, one part per layer: `Bed` (drawn, not checked for collisions), `Robot Base` (a point where the robot stands and a line from it along its X axis), `Work Base` (optional), and any other layer (Floor, Fence, Table ...) for the collision check. Set `Export` on `Cell Geometry` to get the cell of the FH Muenster in this form as a start. |
 | Robot arm | `Documents/RobotSystems` | The library of the Robots plug-in; `Robot` reads the arm and its 3D model from there (`Geometry File`). |
 | Tool | `Robot Tool` | TCP plane, weight and centre of mass as in Robots; connect your extruder as a mesh to `Mesh`. |
 
 New files appear in the lists of `Machine`, `Material` and `Cell Geometry` the next time they are placed. Pass the folder on as it is: the `.3dm` next to a `.machine` file is found by its name.
+
+Step by step, with a complete example file, the layer convention of the model, bed slingers, deltas and robot arms: **[docs/OWN_MACHINES.md](docs/OWN_MACHINES.md)**. A template to copy: `EXAMPLE FILES/Machines/My Gantry.machine` + `My Gantry.3dm`.
 
 All brands named belong to their respective owners. LARGER.slicer is an independent project and is not affiliated with these manufacturers.
 

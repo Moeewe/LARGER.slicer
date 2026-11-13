@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using Rhino.Geometry;
@@ -17,6 +18,7 @@ namespace LARGERslicer.GH2
     {
         public RobotArmComponent() : base(Io.Name("Robot", "The robot arm. Empty inputs give the KUKA KR120 R2700-2 of the FH Münster cell. For any other six-axis arm connect a file of the Robots plug-in library (.xml).", Io.Robot, 0)) { }
         public RobotArmComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotArmIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -60,8 +62,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4002")]
     public sealed class RobotToolComponent : Component
     {
-        public RobotToolComponent() : base(Io.Name("Robot Tool", "The tool on the flange: where its tip is and what it weighs. The TCP plane is given relative to the flange; its Z axis points out of the nozzle.", Io.Robot, 1)) { }
+        public RobotToolComponent() : base(Io.Name("Robot Tool", "The tool on the flange: where its tip is and what it weighs. The TCP plane is given relative to the flange; its Z axis points out of the nozzle.", Io.Robot, 0)) { }
         public RobotToolComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotToolIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -95,8 +98,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4003")]
     public sealed class RobotCellComponent : Component
     {
-        public RobotCellComponent() : base(Io.Name("Robot Cell", "Robot, tool and the place of the work. The Work Base is the frame the program counts from (KUKA: $BASE), usually a corner of the print bed.", Io.Robot, 2)) { }
+        public RobotCellComponent() : base(Io.Name("Robot Cell", "Robot, tool and the place of the work. The Work Base is the frame the program counts from (KUKA: $BASE), usually a corner of the print bed.", Io.Robot, 0)) { }
         public RobotCellComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotCellIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -140,8 +144,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4004")]
     public sealed class RobotProgramComponent : Component
     {
-        public RobotProgramComponent() : base(Io.Name("Robot Program", "Turns the toolpath into robot moves: the tool tip on every path point, the tool along the path's tool axis. Checks reach, axis ranges and the wrist, and writes the moves for the DXR Generator and as a KRL program.", Io.Robot, 3)) { }
+        public RobotProgramComponent() : base(Io.Name("Robot Program", "Turns the toolpath into robot moves: the tool tip on every path point, the tool along the path's tool axis. Checks reach, axis ranges and the wrist, and writes the moves for the DXR Generator and as a KRL program.", Io.Robot, 1)) { }
         public RobotProgramComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotProgramIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -185,10 +190,12 @@ namespace LARGERslicer.GH2
             if (!access.GetItem(7, out collide)) collide = true;
             if (!access.GetItem(8, out clearance)) clearance = 10;
             if (!access.GetItem(9, out poses)) poses = 500;
+            if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             var r = RobotProgram.Build(tp, cell, turn, name, true);
             if (!r.Ok) access.AddWarning("Not runnable", string.Join("\n", r.Report.Where(l => l.StartsWith("NOT"))));
             if (collide && poses != 0)
             {
+                if (Io.Step(access, 50)) return; // progress; stop if the inputs changed meanwhile
                 var col = r.CheckCollisions(tp, cell, new CollisionOptions { Clearance = Math.Max(0, clearance), Poses = poses });
                 if (col.Hits > 0)
                 {
@@ -226,13 +233,15 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4005")]
     public sealed class RobotSimulationComponent : Component
     {
-        public RobotSimulationComponent() : base(Io.Name("Robot Simulation", "Plays the robot program: the robot with its tool at any moment of the print. Time runs from 0 (start) to 1 (end) and follows the real time of the print, slower where an axis cannot turn faster. Moving the slider only places the robot: the program is not calculated again.", Io.Robot, 4)) { }
+        public RobotSimulationComponent() : base(Io.Name("Robot Simulation", "Plays the robot program: the robot with its tool at any moment of the print. Time runs from 0 (start) to 1 (end) and follows the real time of the print, slower where an axis cannot turn faster. Moving the slider only places the robot: the program is not calculated again.", Io.Robot, 1)) { }
         public RobotSimulationComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotSimulationIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddGeneric("Program", "Prg", "Program of Robot Program.");
             inputs.AddNumber("Time", "T", "Where in the print: 0 = start, 1 = end.").Set(0.0);
+            inputs.AddBoolean("Show Cell", "Cell", "True = put the cell around the robot (floor, fence, glass, walls) into Environment, so it is drawn with the simulation. False = only the robot and its tool. The collision check always uses the cell.").Set(false);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -246,7 +255,7 @@ namespace LARGERslicer.GH2
             outputs.AddNumber("External", "E", "Values of the external axes at that moment (rail in mm, turntable in degrees).", Access.Twig);
             outputs.AddPolyline("Printed", "Pr", "The path printed up to that moment, where it is in the room: it turns with a turntable.");
             outputs.AddMesh("Axes Model", "AM", "The rail with its carriage and the turntable at that moment.", Access.Twig);
-            outputs.AddMesh("Environment", "Env", "What stands around the robot (the Environment of the cell), to see it in the simulation.", Access.Twig);
+            outputs.AddMesh("Environment", "Env", "What stands around the robot (the Environment of the cell), when Show Cell is on.", Access.Twig);
             outputs.AddMesh("Colliding", "Col", "What collides at this moment: robot links, tool, rail, table, environment, and a ball where it touches. Empty = clear.", Access.Twig);
         }
 
@@ -268,7 +277,8 @@ namespace LARGERslicer.GH2
             access.SetTwig(6, ext ?? new double[0], null, null);
             var printed = run.PrintedAt(seconds); if (printed.Count > 1) access.SetItem(7, printed);
             access.SetTwig(8, ExternalAxisGeometry.Pose(run.Cell, ext).ToArray(), null, null);
-            if (run.Cell.Environment != null) access.SetTwig(9, run.Cell.Environment.ToArray(), null, null);
+            bool showCell; if (!access.GetItem(2, out showCell)) showCell = false;
+            if (showCell && run.Cell.Environment != null) access.SetTwig(9, run.Cell.Environment.ToArray(), null, null);
             string collision = "";
             if (run.Collider != null)
             {
@@ -301,8 +311,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4007")]
     public sealed class ExternalAxisComponent : Component
     {
-        public ExternalAxisComponent() : base(Io.Name("External Axis", "A rail (linear track) the robot stands on, or a turntable the part stands on. Connect it to External Axes of Robot Cell. Robot Program then moves it along the print: the rail keeps the robot beside the point being printed, the turntable turns the part so that point faces the robot.", Io.Robot, 6)) { }
+        public ExternalAxisComponent() : base(Io.Name("External Axis", "A rail (linear track) the robot stands on, or a turntable the part stands on. Connect it to External Axes of Robot Cell. Robot Program then moves it along the print: the rail keeps the robot beside the point being printed, the turntable turns the part so that point faces the robot.", Io.Robot, 0)) { }
         public ExternalAxisComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotExternalAxisIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -347,8 +358,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4006")]
     public sealed class CellGeometryComponent : Component
     {
-        public CellGeometryComponent() : base(Io.Name("Cell Geometry", "The print cell in 3D and where the robot stands in it, in the coordinates of the print bed. The cell of the FH Muenster is built in; your own cells are .3dm files in Documents/LARGER/Cells, one part per layer: Bed, Robot Base (a point and a line along the robot's X axis), Work Base (optional) and any other layer for the collision check. Export writes the chosen cell there as a start.", Io.Robot, 5)) { }
+        public CellGeometryComponent() : base(Io.Name("Cell Geometry", "The print cell in 3D and where the robot stands in it, in the coordinates of the print bed. The cell of the FH Muenster is built in; your own cells are .3dm files in Documents/LARGER/Cells, one part per layer: Bed, Robot Base (a point and a line along the robot's X axis), Work Base (optional) and any other layer for the collision check. Export writes the chosen cell there as a start.", Io.Robot, 0)) { }
         public CellGeometryComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("RobotCellGeometryIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {

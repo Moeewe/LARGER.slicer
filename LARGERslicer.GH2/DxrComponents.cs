@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
+using Grasshopper2.UI.Icon;
 using GrasshopperIO;
 using LARGERslicer.Toolpaths;
 using LARGERslicer.Types;
@@ -19,6 +20,7 @@ namespace LARGERslicer.GH2
     {
         public MachineSettingsComponent() : base(Io.Name("Machine Settings", "Temperatures and cooling for the Weber DXR. They become the start and end sequence of the DXR file.", Io.Dxr, 0)) { }
         public MachineSettingsComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("MachineSettingsIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -48,8 +50,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d2002")]
     public sealed class ToolpathToRobotLinesComponent : Component
     {
-        public ToolpathToRobotLinesComponent() : base(Io.Name("Toolpath to Robot Lines", "Writes the toolpath as robot moves, one PTP line per point, with the matching extrusion and speed. The tool orientation A, B, C is the same for every point: use it for flat layers with a vertical tool, and check it against your own cell before the first run.", Io.Dxr, 1)) { }
+        public ToolpathToRobotLinesComponent() : base(Io.Name("Toolpath to Robot Lines", "Writes the toolpath as robot moves, one PTP line per point, with the matching extrusion and speed. The tool orientation A, B, C is the same for every point: use it for flat layers with a vertical tool, and check it against your own cell before the first run.", Io.Slicer, Group.Output)) { }
         public ToolpathToRobotLinesComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("SlicerRobotLinesIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -63,7 +66,7 @@ namespace LARGERslicer.GH2
         {
             outputs.AddText("Robot Path", "Path", "One PTP line per path point.", Access.Twig);
             outputs.AddNumber("Extrusion", "E", "Extrusion per line.", Access.Twig);
-            outputs.AddNumber("Speed", "F", "Speed in mm/min per line.", Access.Twig);
+            outputs.AddNumber("Feed", "F", "Feed F for the machine, in mm/min (mm/s x 60), per line.", Access.Twig);
         }
 
         protected override void Process(IDataAccess access)
@@ -83,8 +86,9 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d2003")]
     public sealed class DxrGeneratorComponent : Component
     {
-        public DxrGeneratorComponent() : base(Io.Name("DXR Generator", "Translates robot moves with extrusion and speed into a DXR file for the Weber DXR extruder, including the start and end sequence of the machine.", Io.Dxr, 2)) { }
+        public DxrGeneratorComponent() : base(Io.Name("DXR Generator", "Translates robot moves with extrusion and speed into a DXR file for the Weber DXR extruder, including the start and end sequence of the machine.", Io.Dxr, 0)) { }
         public DxrGeneratorComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("DXRGeneratorIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
