@@ -40,7 +40,8 @@
     <EmbeddedResource Include="../LARGERslicer/Resources/plugin-icon.png" LogicalName="LARGERslicer.GH2.Icons.256.LARGERslicer.png" />
   </ItemGroup>
   <ItemGroup>
-    <!-- curve tools (fork B): the GH1-free helpers of the old Toolpaths tab -->
+    <!-- GH1-free helpers of the curve tools (old Toolpaths tab) and of the CNC components -->
     <Compile Include="../LARGERslicer/Utils/PathHelper.cs" LinkBase="Core" />
+    <Compile Include="../LARGERslicer/Types/Cutter.cs" LinkBase="Core" />
   </ItemGroup>
 </Project>
