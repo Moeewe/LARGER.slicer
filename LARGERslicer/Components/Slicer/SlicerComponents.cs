@@ -1620,7 +1620,7 @@ namespace LARGERslicer.Components.Slicer
             int skirt = result.Roles.Count(r => r == PathRole.Skirt);
             Message = (loops > 0 ? "Skirt" : "No skirt") + (brim > 0 && brimLoops > 0 ? " + brim" : "") + (crv != null ? " + curve exit" : (exit > 0 || lift > 0 ? " + exit" : ""));
             da.SetData(0, new GH_Toolpath(result));
-            da.SetData(1, $"{skirt} skirt and brim points, {result.Count - tp.Count - skirt} exit points, path now {result.Length() / 1000.0:0.00} m");
+            da.SetData(1, $"{skirt} skirt and brim points, {result.Count} points in all ({tp.Count} before; points closer than {Math.Max(0.5, 0.2 * tp.Settings.BeadWidth):0.#} mm to the one before are left out), path now {result.Length() / 1000.0:0.00} m");
         }
     }
 

@@ -614,6 +614,11 @@ namespace LARGERslicer.Toolpaths
                                 double zHere = (tp.Points[e] - plane.Origin) * axis, zThere = (tp.Points[o] - plane.Origin) * axis;
                                 if (Math.Abs(zHere - zThere) > 0.25 * h) continue;
                                 Point3d hit = tp.Points[e - 1] + (tp.Points[e] - tp.Points[e - 1]) * (d3 / (d3 - d4));
+                                // both moves end within a few tenths of a millimetre of the hit: they touch end to
+                                // end (the seam closing onto its own start after thinning), no bead is ploughed
+                                double touch = 0.1 * st.BeadWidth;
+                                if (Math.Min(hit.DistanceTo(tp.Points[e - 1]), hit.DistanceTo(tp.Points[e])) < touch
+                                    && Math.Min(hit.DistanceTo(tp.Points[o - 1]), hit.DistanceTo(tp.Points[o])) < touch) continue;
                                 if (r.Crossings.Count == 0 || r.Crossings[r.Crossings.Count - 1].DistanceTo(hit) > 1e-6) r.Crossings.Add(hit);
                             }
                             list.Add(e);

@@ -262,6 +262,9 @@ namespace LARGERslicer.Toolpaths
                             double zq = a.Z + (c.Z - a.Z) * t;
                             // the moves just before p (also across a layer change) are not what it lies on
                             if (alongP - along[b] < gap) continue;
+                            // a bead of this layer carries p only where it lies clearly lower (a spiral turn);
+                            // the wall next to it at the same height does not (fins, the first bead of an overhang)
+                            if (pass == 1 && zq > p.Z - above) continue;
                             if (d < best) best = d;
                             cand.Add(new KeyValuePair<double, double>(d, zq));
                         }
