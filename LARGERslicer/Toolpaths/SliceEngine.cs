@@ -36,6 +36,7 @@ namespace LARGERslicer.Toolpaths
             int used = 0, skipped = 0;
             foreach (var item in geometry)
             {
+                Cancel.Check(); // between parts: a single Brep is meshed by Rhino in one go
                 object o = item;
                 if (o is IGH_Goo goo) o = goo.ScriptVariable();
 
@@ -65,6 +66,7 @@ namespace LARGERslicer.Toolpaths
             if (skipped > 0) log?.Add(Inv.F($"{skipped} input(s) could not be meshed and were skipped."));
             if (used == 0 || joined.Vertices.Count == 0) return null;
 
+            Cancel.Check();
             joined.Faces.ConvertQuadsToTriangles();
             joined.Vertices.CombineIdentical(true, true);
             joined.Weld(Math.PI);
@@ -82,7 +84,14 @@ namespace LARGERslicer.Toolpaths
         /// high above the bottom of the part, never on it, so the first bead is not pressed into
         /// the bed. Every further layer is one layer height higher.
         /// </summary>
-        public static List<SliceLayer> Slice(Mesh mesh, Plane basePlane, double layerHeight, double minSpacing, List<string> log, Warp warp = null, double firstLayerHeight = 0)
+        public static List<SliceLayer> Slice(Mesh mesh, Plane basePlane, double layerHeight, double minSpacing, List<string> log, Warp warp = null, double firstLayerHeight = 0,
+            System.Threading.CancellationToken token = default)
+        {
+            // token: stops early (OperationCanceledException) when the result is not needed any more
+            using (Cancel.Use(token)) return SliceCore(mesh, basePlane, layerHeight, minSpacing, log, warp, firstLayerHeight);
+        }
+
+        private static List<SliceLayer> SliceCore(Mesh mesh, Plane basePlane, double layerHeight, double minSpacing, List<string> log, Warp warp, double firstLayerHeight)
         {
             var layers = new List<SliceLayer>();
             if (mesh == null || layerHeight <= 0) return layers;
@@ -108,7 +117,7 @@ namespace LARGERslicer.Toolpaths
                 }
                 warp.Prepare(mesh.GetBoundingBox(true));
                 var scale = new double[verts.Length];
-                Parallel.For(0, verts.Length, i => { verts[i] = warp.ToFlat(verts[i]); scale[i] = warp.Scale(verts[i]); });
+                Parallel.For(0, verts.Length, new ParallelOptions { CancellationToken = Cancel.Token }, i => { verts[i] = warp.ToFlat(verts[i]); scale[i] = warp.Scale(verts[i]); });
                 double maxScale = 1.0;
                 foreach (double s in scale) if (s > maxScale) maxScale = s;
                 maxScale = Math.Min(maxScale, 2.0);
@@ -155,8 +164,10 @@ namespace LARGERslicer.Toolpaths
             }
             var buckets = new List<int>[count];
             for (int i = 0; i < count; i++) buckets[i] = new List<int>();
+            Cancel.Check();
             for (int t = 0; t < tris.Count; t += 3)
             {
+                if ((t & 0x3FFFF) == 0) Cancel.Check();
                 double a = dist[tris[t]], b = dist[tris[t + 1]], c = dist[tris[t + 2]];
                 double lo = Math.Min(a, Math.Min(b, c)), hi = Math.Max(a, Math.Max(b, c));
                 // the first layer has its own height; from the second on the levels are evenly spaced
@@ -168,8 +179,9 @@ namespace LARGERslicer.Toolpaths
             }
 
             var result = new SliceLayer[count];
-            Parallel.For(0, count, i =>
+            Parallel.For(0, count, new ParallelOptions { CancellationToken = Cancel.Token }, i =>
             {
+                if (Cancel.Requested) return; // Parallel.For then ends with OperationCanceledException
                 double z = level[i];
                 var layer = new SliceLayer
                 {

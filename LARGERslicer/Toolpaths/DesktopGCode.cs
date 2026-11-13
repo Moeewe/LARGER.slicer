@@ -238,6 +238,8 @@ namespace LARGERslicer.Toolpaths
         public List<string> Warnings = new List<string>();
         public string Info = "";
         public double SuggestedScale;
+        /// <summary>Weight of the test print in grams (filament volume x 1.24 g/cm3, PLA) and its time in minutes, for the file name.</summary>
+        public double Grams, Minutes;
     }
 
     /// <summary>
@@ -335,6 +337,8 @@ namespace LARGERslicer.Toolpaths
             }
             L.AddRange(printer.End(sz));
 
+            r.Grams = totalE * filArea / 1000.0 * 1.24;
+            r.Minutes = minutes;
             r.Info = Inv.F($"{printer.Name}: scale {scale:0.###}, part {sx:0} x {sy:0} x {sz:0} mm, bead {w:0.##} x {h:0.##} mm, ") +
                      Inv.F($"{totalE / 1000.0:0.00} m filament, about {minutes:0} min, {L.Count} lines");
             return r;

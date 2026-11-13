@@ -209,14 +209,22 @@ namespace LARGERslicer.Toolpaths
         /// </summary>
         public static string Name(string prefix, string part, Toolpath tp, string extension)
         {
-            string stamp = DateTime.Now.ToString("yyMMddHHmm", System.Globalization.CultureInfo.InvariantCulture);
-            string tail = "";
             if (tp != null && tp.Count > 1)
             {
                 var pr = PathEngine.Process(tp, false);
-                tail = "_" + Math.Round(Grams(pr.Volume, tp.Settings)).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "g_"
-                     + Math.Max(1, Math.Round(pr.Minutes)).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "min";
+                return Name(prefix, part, Grams(pr.Volume, tp.Settings), pr.Minutes, extension);
             }
+            return Name(prefix, part, double.NaN, double.NaN, extension);
+        }
+
+        /// <summary>As above, with weight (g) and time (min) known already (NaN = left out).</summary>
+        public static string Name(string prefix, string part, double grams, double minutes, string extension)
+        {
+            string stamp = DateTime.Now.ToString("yyMMddHHmm", System.Globalization.CultureInfo.InvariantCulture);
+            string tail = "";
+            if (!double.IsNaN(grams) && !double.IsNaN(minutes))
+                tail = "_" + (grams > 0 ? Math.Max(1, Math.Round(grams)) : 0).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "g_"
+                     + Math.Max(1, Math.Round(minutes)).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "min";
             string head = Clean(prefix).ToUpperInvariant() + "_" + stamp + "_";
             extension = extension ?? "";
             if (extension.Length > 0 && !extension.StartsWith(".")) extension = "." + extension;

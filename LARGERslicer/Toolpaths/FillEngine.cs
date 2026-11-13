@@ -125,7 +125,8 @@ namespace LARGERslicer.Toolpaths
             var result = new SliceLayer[layers.Count];
             int openSkipped = 0, vanished = 0, done = 0;
             int every = Math.Max(1, layers.Count / 50);
-            var options = new ParallelOptions { CancellationToken = token };
+            // the token given here, or the one of the calculation this runs in (Cancel.Use)
+            var options = new ParallelOptions { CancellationToken = token.CanBeCanceled ? token : Cancel.Token };
 
             try
             {
@@ -184,7 +185,7 @@ namespace LARGERslicer.Toolpaths
                 result[i] = dst;
             });
             }
-            catch (OperationCanceledException) { return null; }
+            catch (OperationCanceledException) when (token.CanBeCanceled) { return null; } // (an outer calculation's token: the exception goes on)
 
             if (openSkipped > 0) log?.Add("Open contours keep a single wall centred on the surface; extra walls are only added to closed contours.");
             if (vanished > 0) log?.Add(Inv.F($"{vanished} layer(s) are narrower than one bead width and have no wall."));
@@ -232,6 +233,7 @@ namespace LARGERslicer.Toolpaths
 
             foreach (var src in layers.OrderBy(l => l.Index))
             {
+                Cancel.Check();
                 var dst = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp };
                 dst.Rings = src.Rings != null ? new List<int>(src.Rings) : null;
                 dst.Reference = src.Contours.Select(c => new Polyline(c)).ToList();
@@ -810,6 +812,7 @@ namespace LARGERslicer.Toolpaths
 
             for (int li = 0; li < ordered.Count; li++)
             {
+                Cancel.Check();
                 var src = ordered[li];
                 // solid layers: the first 'count' (bottom) and the last 'topCount' (closed top)
                 if (li >= count && li < ordered.Count - topCount) { lastEnd = Point3d.Unset; previousRings = null; result.Add(src); continue; }
