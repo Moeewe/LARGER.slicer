@@ -733,6 +733,9 @@ namespace LARGERslicer.Toolpaths
             {
                 if (pr.Mode == Mode.Skip) continue;
                 var t = TestPair(posed[pr.A], posed[pr.B], R, true);
+                // what stands on something (robot foot, carriage, table) touches it by a few mm while it
+                // slides along: that is the floor or the pedestal carrying it, not a crash
+                if (pr.Standing && t.Hit && t.Depth < StandingTolerance) continue;
                 if (pr.Mode == Mode.CollisionOnly && !t.Hit) continue;
                 record(pr.A, pr.B, t, null);
             }
@@ -749,6 +752,8 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>What the base, link 1, the carriage and the table touch in the first pose they stand on (pedestal, floor): left out.</summary>
+        private const double StandingTolerance = 5.0;
+
         private void DecideStanding(List<Posed> posed, double R)
         {
             _standingDone = true;
