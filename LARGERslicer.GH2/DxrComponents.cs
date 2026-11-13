@@ -86,7 +86,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d2003")]
     public sealed class DxrGeneratorComponent : Component
     {
-        public DxrGeneratorComponent() : base(Io.Name("DXR Generator", "Translates robot moves with extrusion and speed into a DXR file for the Weber DXR extruder, including the start and end sequence of the machine.", Io.Dxr, 1)) { }
+        public DxrGeneratorComponent() : base(Io.Name("DXR Generator", "Translates robot moves with extrusion and speed into a DXR file for the Weber DXR extruder, including the start and end sequence of the machine.", Io.Dxr, 0)) { }
         public DxrGeneratorComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("DXRGeneratorIcon");
 
