@@ -7,6 +7,8 @@ LARGERslicer is a Grasshopper plugin for advanced slicing operations and 3D prin
 
 ## Components by Category
 
+This page covers the CNC, DXR and Utilities subcategories. The **Slicer** and **Robot** subcategories (Easy Slicer, Slice, Walls, Continuous Path, Path Check, Non-Planar Check, Material, Material Factor, Import G-code, Material Field, Self Support Check, Self Supporting Envelope, Best Angle, Support Fins, Robot Program, External Axis and the rest) are described in the repository README: [Slicer tab](../../README.md#the-slicer-tab) and [Robot tab](../../README.md#the-robot-tab). Speeds there are entered in mm/s; the machine files keep mm/min (50 mm/s = F3000).
+
 ### CNC (1 component)
 
 #### 1. CNC Program

@@ -11,14 +11,20 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 | Component | What it does |
 |---|---|
 | Easy Slicer | Model in, checked path out: the whole chain in one component |
-| Print Settings | Bead width, layer height, speed, machine profile |
+| Print Settings | Bead width, layer height, speed (mm/s; 50 mm/s = F3000), nozzle, machine profile |
+| Material | Start values for a pellet material: temperatures, drying, density; own materials as `.material` files |
+| Material Factor | New extrusion factor from measured bead widths |
 | Slice | Flat, angled, non-planar (guide surface) or multi-axis (guide curve) layers |
+| Self Support Check · Self Supporting Envelope · Best Angle | Where the part hangs over too far, the least material that makes it self-supporting, the slice angle with the least overhang |
 | Walls | Wall centre lines, one bead spacing apart |
 | Bottom Fill | Solid bottom as one line |
 | Infill | Ribs, honeycomb, grid, wave, truss, meander, chamber wall, truss wall |
+| Support Fins | Thin fins outside the part that hold up overhangs, as part of the one line |
 | Continuous Path | All layers as one path; layered with a short ramp, or spiral |
 | Round and Lead | Rounded corners, skirt before the part, exit move after it |
 | Path Check | No crossing, every bead supported |
+| Import G-code | G-code from other slicers or a .dxr file as a toolpath, to check it |
+| Material Field | The toolpath as a direction-dependent material field for FE or IGA (CSV, JSON, VTK) |
 | Extrusion and Speed | Points, planes, extrusion, speed, role and layer per point |
 | Ginger G-code | Full-size G-code for the Ginger One with its start and end sequence |
 | Desktop Test Print | The path scaled down for a desktop printer, with that printer's start, layer change and end |
@@ -40,9 +46,10 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 |---|---|
 | Robot | The arm: KUKA KR120 R2700-2 by default, or any six-axis arm from a Robots library file |
 | Robot Tool | Tool centre point and weight |
-| Robot Cell | Robot, tool and the work base the program counts from |
-| Robot Program | Robot moves with the real tool orientation, reach and axis check, lines for the DXR Generator, KRL program |
-| Robot Simulation | The robot with its tool at any moment of the print (slider; no Play switch in Grasshopper 2 yet) |
+| Robot Cell | Robot, tool and the work base the program counts from; optional Environment and External Axes |
+| External Axis | A rail the robot stands on, or a turntable the part stands on |
+| Robot Program | Robot moves with the real tool orientation, reach, axis and collision check (Check Collisions, Clearance in mm), lines for the DXR Generator, KRL program |
+| Robot Simulation | The robot with its tool at any moment of the print (slider; no Play switch in Grasshopper 2 yet); Colliding shows what collides |
 | Cell Geometry | The print cell of the FH Muenster in 3D, the place of the robot and the environment for the collision check |
 
 ## Build
