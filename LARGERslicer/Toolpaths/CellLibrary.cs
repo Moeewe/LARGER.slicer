@@ -113,7 +113,7 @@ namespace LARGERslicer.Toolpaths
         public Dictionary<string, Mesh> Parts = new Dictionary<string, Mesh>(StringComparer.OrdinalIgnoreCase);
         public Plane RobotBase = Plane.WorldXY;
         public Plane WorkBase = Plane.WorldXY;
-        public override string ToString() => $"Cell {Name} ({Source})";
+        public override string ToString() => Inv.F($"Cell {Name} ({Source})");
     }
 
     /// <summary>

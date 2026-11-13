@@ -74,10 +74,10 @@ namespace LARGERslicer.Toolpaths
             if (layers == null || layers.Count == 0) { r.Notes.Add("No layers: the part is lower than one layer, or it does not stand on the slicing plane."); return r; }
             int infill = Math.Max(0, Math.Min(Infills.Length - 1, o.Infill));
             double size = o.InfillSize > 0 ? o.InfillSize : DefaultSize(st, infill);
-            r.Steps.Add($"{layers.Count} layers of {st.LayerHeight:0.##} mm{(layers.Count > 0 && Math.Abs(layers[0].Height - st.LayerHeight) > 1e-6 ? $" (the first {layers[0].Height:0.##} mm)" : "")}, bead {st.BeadWidth:0.##} mm");
+            r.Steps.Add(Inv.F($"{layers.Count} layers of {st.LayerHeight:0.##} mm{(layers.Count > 0 && Math.Abs(layers[0].Height - st.LayerHeight) > 1e-6 ? Inv.F($" (the first {layers[0].Height:0.##} mm)") : "")}, bead {st.BeadWidth:0.##} mm"));
 
             layers = FillEngine.Walls(layers, st, Math.Max(1, o.Walls), Math.Max(0, Math.Min(2, o.WallPosition)), log);
-            r.Steps.Add(o.Walls > 1 ? $"{o.Walls} walls" : "1 wall");
+            r.Steps.Add(o.Walls > 1 ? Inv.F($"{o.Walls} walls") : "1 wall");
             if (layers.Count == 0) { r.Notes.Add("The part is thinner than one bead width everywhere: nothing to print. Use a narrower bead or a thicker part."); r.Notes.AddRange(log); return r; }
 
             int bottomPattern = Math.Max(0, Math.Min(2, o.BottomPattern));
@@ -87,12 +87,12 @@ namespace LARGERslicer.Toolpaths
                 // a solid part: every layer filled with rings along the wall, joined into one line whose
                 // start and end lie at the wall (zigzag would need a move without extrusion between layers)
                 layers = FillEngine.Bottom(layers, st, layers.Count, 2, 0, log, out int filledAll);
-                r.Steps.Add($"solid, rings along the wall: {filledAll} layer(s) filled");
+                r.Steps.Add(Inv.F($"solid, rings along the wall: {filledAll} layer(s) filled"));
             }
             else if (o.BottomLayers > 0 || o.TopLayers > 0)
             {
                 layers = FillEngine.Bottom(layers, st, Math.Max(0, o.BottomLayers), bottomPattern, 0, log, out int filled, Math.Max(0, o.TopLayers));
-                r.Steps.Add($"{filled} solid layer(s) ({(o.BottomLayers > 0 ? o.BottomLayers + " bottom" : "")}{(o.BottomLayers > 0 && o.TopLayers > 0 ? ", " : "")}{(o.TopLayers > 0 ? o.TopLayers + " top" : "")}, {new[] { "auto", "zigzag", "contour" }[bottomPattern]})");
+                r.Steps.Add(Inv.F($"{filled} solid layer(s) ({(o.BottomLayers > 0 ? o.BottomLayers + " bottom" : "")}{(o.BottomLayers > 0 && o.TopLayers > 0 ? ", " : "")}{(o.TopLayers > 0 ? o.TopLayers + " top" : "")}, {new[] { "auto", "zigzag", "contour" }[bottomPattern]})"));
             }
             int n = 0;
             if (infill > 0 && !solid)
@@ -113,9 +113,9 @@ namespace LARGERslicer.Toolpaths
                     if (n > 0 || o.InfillSize > 0 || size / 1.5 < 6 * st.BeadWidth) { log.AddRange(tryLog); break; }
                     size /= 1.5;
                 }
-                r.Steps.Add($"{Infills[infill]}, size {size:0} mm: up to {n} per layer");
-                if (n == 0) r.Notes.Add($"No {Infills[infill].ToLowerInvariant()} fits into this part" + (o.InfillSize > 0 ? $" at size {size:0} mm. Try a smaller Infill Size." : ": it is too small for this pattern with a " + $"{st.BeadWidth:0.#} mm bead. Printed with walls only."));
-                else if (size < asked - 1e-9) r.Notes.Add($"The infill size was reduced from {asked:0} to {size:0} mm so the pattern fits the part.");
+                r.Steps.Add(Inv.F($"{Infills[infill]}, size {size:0} mm: up to {n} per layer"));
+                if (n == 0) r.Notes.Add(Inv.F($"No {Infills[infill].ToLowerInvariant()} fits into this part") + (o.InfillSize > 0 ? Inv.F($" at size {size:0} mm. Try a smaller Infill Size.") : ": it is too small for this pattern with a " + Inv.F($"{st.BeadWidth:0.#} mm bead. Printed with walls only.")));
+                else if (size < asked - 1e-9) r.Notes.Add(Inv.F($"The infill size was reduced from {asked:0} to {size:0} mm so the pattern fits the part."));
             }
             r.Layers = layers;
 
@@ -127,7 +127,7 @@ namespace LARGERslicer.Toolpaths
             tp = PathEngine.Round(tp, st.EffectiveMinRadius, 0, out int corners, out _);
             tp = LeadEngine.StartEnd(tp, Math.Max(0, o.SkirtLoops), 0, Math.Max(0, o.BrimLoops), o.BrimSide, 10 * st.BeadWidth, 4 * st.BeadWidth, null, 0, log);
             r.Path = tp;
-            r.Steps.Add((spiral ? "spiral path" : "flat layers with an open seam (gap of one bead width)") + $", {corners} corner(s) rounded, skirt{(o.BrimSide > 0 && o.BrimLoops > 0 ? ", brim" : "")} and exit");
+            r.Steps.Add((spiral ? "spiral path" : "flat layers with an open seam (gap of one bead width)") + Inv.F($", {corners} corner(s) rounded, skirt{(o.BrimSide > 0 && o.BrimLoops > 0 ? ", brim" : "")} and exit"));
             r.Check = LeadEngine.Check(tp, 0);
             r.Notes.AddRange(log.Distinct());
             // travel moves inside the part: the extruder keeps flowing there, so say how to avoid them
@@ -137,8 +137,8 @@ namespace LARGERslicer.Toolpaths
             for (int i = Math.Max(1, firstPart); i < lastPart; i++) if (tp.Roles[i] == PathRole.Travel && tp.Roles[i - 1] != PathRole.Travel) travels++;
             if (travels > 0)
                 r.Notes.Add(infill == 2 || infill == 3 || infill == 4 || infill == 5 || infill == 6
-                    ? $"{travels} move(s) inside the part run without extrusion; a pellet extruder leaves a thread there."
-                    : $"{travels} move(s) inside the part run without extrusion (a pellet extruder leaves a thread there): the walls of openings or separate pieces are not joined to the outer wall. Infill Wave, Truss, Meander, Honeycomb or Grid joins them into one line.");
+                    ? Inv.F($"{travels} move(s) inside the part run without extrusion; a pellet extruder leaves a thread there.")
+                    : Inv.F($"{travels} move(s) inside the part run without extrusion (a pellet extruder leaves a thread there): the walls of openings or separate pieces are not joined to the outer wall. Infill Wave, Truss, Meander, Honeycomb or Grid joins them into one line."));
             return r;
         }
     }
@@ -146,6 +146,28 @@ namespace LARGERslicer.Toolpaths
     /// <summary>Where a file goes when the user gives no path, a folder, or a name without ending.</summary>
     public static class OutputFile
     {
+        /// <summary>
+        /// The speed line of a file header, as the moves were written: print speed in mm/s, and,
+        /// when Min Layer Time or Max Volume Rate are set, that short layers or high-volume moves
+        /// run slower (the F of every move says how fast). Never "constant" when it is not.
+        /// </summary>
+        public static string SpeedNote(PrintSettings st, PathEngine.ProcessResult pr)
+        {
+            string s = Inv.F($"print speed {st.Speed / 60.0:0.#} mm/s");
+            var slower = new List<string>();
+            if (pr != null && pr.LayerFeed.Count > 0)
+            {
+                double low = pr.LayerFeed.Values.Min();
+                slower.Add(Inv.F($"{pr.LayerFeed.Count} short layer(s) slower for Min Layer Time {st.MinLayerTime:0} s (down to {low / 60.0:0.#} mm/s)"));
+            }
+            else if (st.MinLayerTime > 0) slower.Add(Inv.F($"Min Layer Time {st.MinLayerTime:0} s (no layer needs to slow down)"));
+            if (pr != null && pr.VolumeCapped > 0)
+                slower.Add(Inv.F($"{pr.VolumeCapped} move(s) slower for Max Volume Rate {st.MaxVolumeRate:0} mm3/s"));
+            else if (st.MaxVolumeRate > 0) slower.Add(Inv.F($"Max Volume Rate {st.MaxVolumeRate:0} mm3/s (no move above it)"));
+            if (slower.Count == 0) return s + ", the same on every print move (Min Layer Time and Max Volume Rate are off)";
+            return s + "; " + string.Join("; ", slower) + "; the F of each move is the speed it runs at";
+        }
+
         /// <summary>
         /// Empty = the Desktop with the default name. A folder = that folder with the default name.
         /// A name without ending gets the ending of the default name.
@@ -208,7 +230,7 @@ namespace LARGERslicer.Toolpaths
         {
             string path = Resolve(file, defaultName);
             string dir = System.IO.Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir)) throw new System.IO.DirectoryNotFoundException($"The folder {dir} does not exist.");
+            if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir)) throw new System.IO.DirectoryNotFoundException(Inv.F($"The folder {dir} does not exist."));
             System.IO.File.WriteAllLines(path, lines);
             return path;
         }

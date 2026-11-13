@@ -618,9 +618,9 @@ namespace LARGERslicer.Toolpaths
 
             cellCount = counts.Length > 0 ? counts.Max() : 0;
             int without = noHost.Sum();
-            if (without > 0) log?.Add($"{without} layer(s) got no cells (no closed wall, or too narrow for a cell).");
+            if (without > 0) log?.Add(Inv.F($"{without} layer(s) got no cells (no closed wall, or too narrow for a cell)."));
             int maxDrop = drops.Length > 0 ? drops.Max() : 0;
-            if (maxDrop > 0) log?.Add($"Up to {maxDrop} cell piece(s) per layer are too small to print or could not be joined, and were left out.");
+            if (maxDrop > 0) log?.Add(Inv.F($"Up to {maxDrop} cell piece(s) per layer are too small to print or could not be joined, and were left out."));
             return result.ToList();
         }
 
@@ -1024,8 +1024,8 @@ namespace LARGERslicer.Toolpaths
 
             waveCount = counts.Length > 0 ? counts.Max() : 0;
             int noFit = failed.Count(f => f == 1), noJoin = failed.Count(f => f == 2);
-            if (noFit > 0) log?.Add($"{noFit} layer(s) got no wave: no closed wall, or the part is too narrow for this depth.");
-            if (noJoin > 0) log?.Add($"{noJoin} layer(s) got no wave: it could not be joined to the wall.");
+            if (noFit > 0) log?.Add(Inv.F($"{noFit} layer(s) got no wave: no closed wall, or the part is too narrow for this depth."));
+            if (noJoin > 0) log?.Add(Inv.F($"{noJoin} layer(s) got no wave: it could not be joined to the wall."));
             return result.ToList();
         }
 
@@ -1201,7 +1201,7 @@ namespace LARGERslicer.Toolpaths
 
             chamberCount = counts.Length > 0 ? counts.Max() : 0;
             int without = failed.Sum();
-            if (without > 0) log?.Add($"{without} layer(s) got no chambers (no closed wall, or the part is too narrow for this depth).");
+            if (without > 0) log?.Add(Inv.F($"{without} layer(s) got no chambers (no closed wall, or the part is too narrow for this depth)."));
             return result.ToList();
         }
 
@@ -1239,9 +1239,9 @@ namespace LARGERslicer.Toolpaths
             var line = CellLine(wall, material, width, pattern, size, angleDeg, To2d(plane, origin ?? plane.Origin), out int joined, out int dropped, holeWalls, absorbed);
             if (line == null) { result.Info = "No cell fits into the region. Reduce the cell size."; return result; }
             result.Path = Ring3d(plane, line);
-            result.Info = $"{joined} cell loop(s) joined to the wall in one closed line, {result.Path.Length / 1000.0:0.00} m" +
-                          (dropped > 0 ? $", {dropped} piece(s) too small and left out" : "") +
-                          (holeWalls.Count > 0 ? $", {absorbed.Count} of {holeWalls.Count} hole wall(s) are part of the line" : "");
+            result.Info = Inv.F($"{joined} cell loop(s) joined to the wall in one closed line, {result.Path.Length / 1000.0:0.00} m") +
+                          (dropped > 0 ? Inv.F($", {dropped} piece(s) too small and left out") : "") +
+                          (holeWalls.Count > 0 ? Inv.F($", {absorbed.Count} of {holeWalls.Count} hole wall(s) are part of the line") : "");
             return result;
         }
     }

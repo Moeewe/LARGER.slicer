@@ -133,7 +133,7 @@ namespace LARGERslicer.Utils
                     
                     if (mx.Success)
                     {
-                        if (double.TryParse(mx.Groups[1].Value, out double xVal))
+                        if (double.TryParse(mx.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double xVal))
                         {
                             X_vals.Add(xVal);
                             hasX = true;
@@ -141,7 +141,7 @@ namespace LARGERslicer.Utils
                     }
                     if (my.Success)
                     {
-                        if (double.TryParse(my.Groups[1].Value, out double yVal))
+                        if (double.TryParse(my.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double yVal))
                         {
                             Y_vals.Add(yVal);
                             hasY = true;
@@ -149,7 +149,7 @@ namespace LARGERslicer.Utils
                     }
                     if (mz.Success)
                     {
-                        if (double.TryParse(mz.Groups[1].Value, out double zVal))
+                        if (double.TryParse(mz.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double zVal))
                         {
                             Z_vals.Add(zVal);
                             hasZ = true;
@@ -507,7 +507,7 @@ namespace LARGERslicer.Utils
             try
             {
                 Match m = r.Match(line);
-                if (m.Success && double.TryParse(m.Groups[1].Value, out double value))
+                if (m.Success && double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double value))
                 {
                     return value;
                 }
@@ -561,9 +561,9 @@ namespace LARGERslicer.Utils
                     var my = ry.Match(line);
                     var mz = rz.Match(line);
 
-                    if (mx.Success && double.TryParse(mx.Groups[1].Value, out double xVal)) x = xVal;
-                    if (my.Success && double.TryParse(my.Groups[1].Value, out double yVal)) y = yVal;
-                    if (mz.Success && double.TryParse(mz.Groups[1].Value, out double zVal)) z = zVal;
+                    if (mx.Success && double.TryParse(mx.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double xVal)) x = xVal;
+                    if (my.Success && double.TryParse(my.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double yVal)) y = yVal;
+                    if (mz.Success && double.TryParse(mz.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double zVal)) z = zVal;
                 }
                 catch
                 {

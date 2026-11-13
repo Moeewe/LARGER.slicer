@@ -9,7 +9,8 @@ namespace LARGERslicer.Toolpaths
     /// <summary>
     /// G-code in full size for the Ginger One (pellet extruder on a gantry, Marlin firmware).
     /// Start and end are the sequences of the Ginger quick start guide in EXAMPLE FILES; the moves
-    /// in between are absolute positions with relative extrusion and one constant feedrate.
+    /// in between are absolute positions with relative extrusion; the feedrate is the print speed,
+    /// lower on short layers (Min Layer Time) and on high-volume moves (Max Volume Rate) when these are set.
     /// </summary>
     public static class GingerGCode
     {
@@ -95,11 +96,12 @@ namespace LARGERslicer.Toolpaths
                 r.Warnings.Add("The toolpath has tilted tool axes (angled, non-planar or multi-axis). The Ginger keeps its nozzle vertical: only the positions are written. Check the clearance between nozzle and part.");
             var box = new BoundingBox(tp.Points);
             if (box.Min.X < 0 || box.Min.Y < 0 || box.Min.Z < 0)
-                r.Warnings.Add($"Part of the path has negative coordinates (X {box.Min.X:0}, Y {box.Min.Y:0}, Z {box.Min.Z:0}). Move the part onto the bed: the machine origin is at 0, 0, 0.");
+                r.Warnings.Add(Inv.F($"Part of the path has negative coordinates (X {box.Min.X:0}, Y {box.Min.Y:0}, Z {box.Min.Z:0}). Move the part onto the bed: the machine origin is at 0, 0, 0."));
 
             var L = r.Lines;
             L.Add("; LARGER.slicer - Ginger One");
-            L.Add("; bead " + N(st.BeadWidth, 2) + " x " + N(st.LayerHeight, 2) + " mm, F" + N(st.Speed, 0) + " constant, " + m);
+            L.Add("; bead " + N(st.BeadWidth, 2) + " x " + N(st.LayerHeight, 2) + " mm, " + m);
+            L.Add("; " + OutputFile.SpeedNote(st, pr));
             L.Add("; path " + N(pr.Length / 1000.0, 2) + " m, about " + N(pr.Minutes, 0) + " min");
             L.AddRange(Start);
 
@@ -116,13 +118,13 @@ namespace LARGERslicer.Toolpaths
                 bool print = tp.Flows[i] > 0 && tp.Roles[i] != PathRole.Travel;
                 if (!print) { L.Add("G0 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " F" + N(travel, 0)); continue; }
                 double f = pr.Speed[i]; if (f <= 0) { f = st.Speed; zero++; }
-                // the feedrate is written on every line: it never changes and is never 0
+                // the feedrate is written on every line and is never 0 (it changes where Min Layer Time or Max Volume Rate slow a layer or a move)
                 L.Add("G1 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " E" + N(pr.Extrusion[i], 5) + " F" + N(f, 0));
                 total += pr.Extrusion[i];
             }
-            if (zero > 0) r.Warnings.Add($"{zero} move(s) had speed 0 and got the print speed instead.");
+            if (zero > 0) r.Warnings.Add(Inv.F($"{zero} move(s) had speed 0 and got the print speed instead."));
             L.AddRange(End);
-            r.Info = $"Ginger One: {number} layers, {pr.PrintLength / 1000.0:0.00} m printed, E total {total:0.0}, about {pr.Minutes:0} min, {L.Count} lines";
+            r.Info = Inv.F($"Ginger One: {number} layers, {pr.PrintLength / 1000.0:0.00} m printed, E total {total:0.0}, about {pr.Minutes:0} min, {L.Count} lines");
             return r;
         }
     }

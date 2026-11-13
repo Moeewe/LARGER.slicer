@@ -187,14 +187,14 @@ namespace LARGERslicer.Toolpaths
             }
 
             // report
-            r.Report.Add($"Bead {F(s.BeadWidth, "0.##")} mm, layer {F(h, "0.##")} mm: a bead may lie {F(r.MaxOffset, "0.##")} mm beside the one below, so walls may lean out up to {F(r.LimitDeg)} deg from the build direction.");
-            if (warp != null) r.Report.Add($"Build direction: {warp.Name}, taken per face from the local layer.");
-            else r.Report.Add($"Build direction: {DirText(n0)}.");
+            r.Report.Add(Inv.F($"Bead {F(s.BeadWidth, "0.##")} mm, layer {F(h, "0.##")} mm: a bead may lie {F(r.MaxOffset, "0.##")} mm beside the one below, so walls may lean out up to {F(r.LimitDeg)} deg from the build direction."));
+            if (warp != null) r.Report.Add(Inv.F($"Build direction: {warp.Name}, taken per face from the local layer."));
+            else r.Report.Add(Inv.F($"Build direction: {DirText(n0)}."));
             r.Percent = r.TotalArea > 0 ? 100.0 * r.UnsupportedArea / r.TotalArea : 0;
-            if (r.UnsupportedArea <= 0) r.Report.Add($"Self-supporting: no face leans out more than {F(r.LimitDeg)} deg (worst {F(r.WorstOverhang)} deg).");
-            else r.Report.Add($"NOT SELF-SUPPORTING: {F(r.UnsupportedArea, "0")} mm2 ({F(r.Percent, "0.0")} % of the surface) lean out more than {F(r.LimitDeg)} deg, worst {F(r.WorstOverhang)} deg. Shown red.");
-            if (r.NearArea > 0) r.Report.Add($"Near the limit (within {F(NearBand, "0")} deg): {F(r.NearArea, "0")} mm2, shown orange.");
-            if (r.Starts.Count > 0) r.Report.Add($"{r.Starts.Count} place(s) start in mid air: the lowest point of an island with nothing below it. See Starts.");
+            if (r.UnsupportedArea <= 0) r.Report.Add(Inv.F($"Self-supporting: no face leans out more than {F(r.LimitDeg)} deg (worst {F(r.WorstOverhang)} deg)."));
+            else r.Report.Add(Inv.F($"NOT SELF-SUPPORTING: {F(r.UnsupportedArea, "0")} mm2 ({F(r.Percent, "0.0")} % of the surface) lean out more than {F(r.LimitDeg)} deg, worst {F(r.WorstOverhang)} deg. Shown red."));
+            if (r.NearArea > 0) r.Report.Add(Inv.F($"Near the limit (within {F(NearBand, "0")} deg): {F(r.NearArea, "0")} mm2, shown orange."));
+            if (r.Starts.Count > 0) r.Report.Add(Inv.F($"{r.Starts.Count} place(s) start in mid air: the lowest point of an island with nothing below it. See Starts."));
             if (!r.Ok) r.Report.Add("Fix: try Best Angle, or make the layers self-supporting with Self Supporting Envelope.");
             return r;
         }
@@ -254,7 +254,7 @@ namespace LARGERslicer.Toolpaths
         {
             double tilt = Math.Acos(Math.Max(-1, Math.Min(1, d.Z))) * 180.0 / Math.PI;
             if (tilt < 0.05) return "flat layers (up = Z)";
-            return $"layers tilted {F(tilt)} deg, leaning towards ({F(d.X, "0.00")}, {F(d.Y, "0.00")}) in plan";
+            return Inv.F($"layers tilted {F(tilt)} deg, leaning towards ({F(d.X, "0.00")}, {F(d.Y, "0.00")}) in plan");
         }
 
         // ================================================================== best build direction
@@ -324,15 +324,15 @@ namespace LARGERslicer.Toolpaths
             res.UnsupportedArea = best.Unsupported; res.Percent = fs.Total > 0 ? 100 * best.Unsupported / fs.Total : 0;
             var flat = cands.First(c => c.Angle == cands.Min(k => k.Angle));
             Vector3d lean = best.Layer.Normal; lean.Z = 0;
-            res.Report.Add($"Limit {F(limit)} deg (bead {F(s.BeadWidth, "0.##")} mm, layer {F(h, "0.##")} mm, may lie {F(maxOff, "0.##")} mm beside the bead below). {cands.Count} directions tried.");
+            res.Report.Add(Inv.F($"Limit {F(limit)} deg (bead {F(s.BeadWidth, "0.##")} mm, layer {F(h, "0.##")} mm, may lie {F(maxOff, "0.##")} mm beside the bead below). {cands.Count} directions tried."));
             res.Report.Add(best.Angle < 1e-9
-                ? $"Best: flat layers. Unsupported {F(best.Unsupported, "0")} mm2 ({F(res.Percent, "0.0")} %)."
-                : $"Best: angle {F(best.Angle, "0")} deg, turned {F(best.Dir, "0")} deg about Z (layers lean towards ({F(lean.X, "0.00")}, {F(lean.Y, "0.00")})). Unsupported {F(best.Unsupported, "0")} mm2 ({F(res.Percent, "0.0")} %), mean overhang {F(best.Mean)} deg.");
-            if (best.Starts > 0) res.Report.Add($"{best.Starts} island(s) start in mid air in this direction.");
-            if (flat != best) res.Report.Add($"For comparison, {(flat.Angle < 1e-9 ? "flat" : F(flat.Angle, "0") + " deg")}: unsupported {F(flat.Unsupported, "0")} mm2.");
+                ? Inv.F($"Best: flat layers. Unsupported {F(best.Unsupported, "0")} mm2 ({F(res.Percent, "0.0")} %).")
+                : Inv.F($"Best: angle {F(best.Angle, "0")} deg, turned {F(best.Dir, "0")} deg about Z (layers lean towards ({F(lean.X, "0.00")}, {F(lean.Y, "0.00")})). Unsupported {F(best.Unsupported, "0")} mm2 ({F(res.Percent, "0.0")} %), mean overhang {F(best.Mean)} deg."));
+            if (best.Starts > 0) res.Report.Add(Inv.F($"{best.Starts} island(s) start in mid air in this direction."));
+            if (flat != best) res.Report.Add(Inv.F($"For comparison, {(flat.Angle < 1e-9 ? "flat" : F(flat.Angle, "0") + " deg")}: unsupported {F(flat.Unsupported, "0")} mm2."));
             res.Report.Add("Connect Plane and Angle to Slice. Ranking (angle / turn: unsupported mm2, mid-air starts, mean overhang, height):");
             foreach (var c in ranked.Take(10))
-                res.Report.Add($"  {F(c.Angle, "0")} deg / {F(c.Dir, "0")} deg: {F(c.Unsupported, "0")} mm2, {c.Starts}, {F(c.Mean)} deg, {F(c.Height, "0")} mm");
+                res.Report.Add(Inv.F($"  {F(c.Angle, "0")} deg / {F(c.Dir, "0")} deg: {F(c.Unsupported, "0")} mm2, {c.Starts}, {F(c.Mean)} deg, {F(c.Height, "0")} mm"));
             return res;
         }
 
@@ -398,7 +398,7 @@ namespace LARGERslicer.Toolpaths
                         var pl = layers[i - 1].Plane; pl.Origin = layers[i - 1].Plane.Origin + n * (gaps[i - 1] * j / (k + 1));
                         stack.Add(new SliceLayer { Plane = pl, Height = step, Warp = warp });
                     }
-                    log.Add($"{k} empty layer(s) added between layer {layers[i - 1].Index + 1} and {layers[i].Index + 1}, so they can carry what is above.");
+                    log.Add(Inv.F($"{k} empty layer(s) added between layer {layers[i - 1].Index + 1} and {layers[i].Index + 1}, so they can carry what is above."));
                 }
                 stack.Add(layers[i]);
             }
@@ -407,7 +407,7 @@ namespace LARGERslicer.Toolpaths
             var orig = new PathsD[N];
             int open = 0;
             for (int i = 0; i < N; i++) orig[i] = ToRegion(stack[i].Contours, stack[i].Plane, ref open);
-            if (open > 0) log.Add($"{open} open contour(s) were left out: the envelope needs closed outlines (a closed part).");
+            if (open > 0) log.Add(Inv.F($"{open} open contour(s) were left out: the envelope needs closed outlines (a closed part)."));
 
             // angled layers: nothing below the bed
             bool angled = warp == null && Math.Abs(n.Z) < 0.999;
@@ -470,12 +470,12 @@ namespace LARGERslicer.Toolpaths
                 if (AreaOf(Open(outside, sliver)) > 0.25 * bead * bead) bad++;
             }
 
-            log.Add($"Allowed: {F(m, "0.##")} mm beside the layer below per layer ({F(factor > 0 ? factor : DefaultFactor, "0.##")} x bead {F(bead, "0.##")} mm), {F(LimitAngle(m, s.LayerHeight))} deg at {F(s.LayerHeight, "0.##")} mm layers.");
+            log.Add(Inv.F($"Allowed: {F(m, "0.##")} mm beside the layer below per layer ({F(factor > 0 ? factor : DefaultFactor, "0.##")} x bead {F(bead, "0.##")} mm), {F(LimitAngle(m, s.LayerHeight))} deg at {F(s.LayerHeight, "0.##")} mm layers."));
             if (res.ChangedLayers == 0) log.Add("Already self-supporting: nothing added.");
-            else log.Add($"Added {F(res.AddedVolume / 1000.0, "0.0")} cm3 ({F(res.Volume > 0 ? 100 * res.AddedVolume / res.Volume : 0, "0.0")} % of the envelope) in {res.ChangedLayers} layer(s), layers {firstChanged + 1} to {lastChanged + 1}. Print the new layers as they are; mill the added material away afterwards if it is not wanted.");
-            log.Add(bad == 0 ? "Checked: every layer now lies within the allowed offset of the layer below." : $"{bad} layer(s) still reach further than allowed (see Path Check).");
+            else log.Add(Inv.F($"Added {F(res.AddedVolume / 1000.0, "0.0")} cm3 ({F(res.Volume > 0 ? 100 * res.AddedVolume / res.Volume : 0, "0.0")} % of the envelope) in {res.ChangedLayers} layer(s), layers {firstChanged + 1} to {lastChanged + 1}. Print the new layers as they are; mill the added material away afterwards if it is not wanted."));
+            log.Add(bad == 0 ? "Checked: every layer now lies within the allowed offset of the layer below." : Inv.F($"{bad} layer(s) still reach further than allowed (see Path Check)."));
             if (warp != null) log.Add("Guide: worked in the flat space of the guide, as Path Check does. On the outside of strong bends the real offset can be a little larger.");
-            if (angled) log.Add($"Angled layers: the envelope is cut at the bed (Z {F(bedZ, "0.#")}); what reaches the bed stands on it.");
+            if (angled) log.Add(Inv.F($"Angled layers: the envelope is cut at the bed (Z {F(bedZ, "0.#")}); what reaches the bed stands on it."));
 
             if (makeGeometry)
             {
@@ -492,8 +492,8 @@ namespace LARGERslicer.Toolpaths
             var log = res.Report;
             double tol;
             Brep b = LoftStack(stack, env, warp, bead, out tol, out string why);
-            if (b != null) { res.Geometry = b; res.LoftTolerance = tol; log.Add($"Geometry: lofted NURBS Brep{(b.IsSolid ? " (closed)" : " (open: the ends could not be capped)")}, within {F(tol, "0.00")} mm of the layer contours (taken at mid-layer)."); }
-            else { res.Geometry = SlabMesh(stack, env, warp); log.Add($"Geometry: mesh of the layer stack ({why}). It shows every layer as a slab of its own height."); }
+            if (b != null) { res.Geometry = b; res.LoftTolerance = tol; log.Add(Inv.F($"Geometry: lofted NURBS Brep{(b.IsSolid ? " (closed)" : " (open: the ends could not be capped)")}, within {F(tol, "0.00")} mm of the layer contours (taken at mid-layer).")); }
+            else { res.Geometry = SlabMesh(stack, env, warp); log.Add(Inv.F($"Geometry: mesh of the layer stack ({why}). It shows every layer as a slab of its own height.")); }
 
             // the added material: from the first to the last layer with something added
             int i0 = Array.FindIndex(added, a => a.Count > 0), i1 = Array.FindLastIndex(added, a => a.Count > 0);

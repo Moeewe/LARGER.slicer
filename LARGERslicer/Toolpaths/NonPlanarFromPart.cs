@@ -98,7 +98,7 @@ namespace LARGERslicer.Toolpaths
             if (levels.Count < 3) { Problem = "the part has no closed wall to follow"; return; }
             _zTop = levels[levels.Count - 1][0].Z;
             if (top - _zTop < q + 1e-3) _zTop = top;
-            else Notes.Add($"The closed wall ends at Z {_zTop:0.#}; the layers follow the part up to there.");
+            else Notes.Add(Inv.F($"The closed wall ends at Z {_zTop:0.#}; the layers follow the part up to there."));
 
             // one centre for all heights: the mean of the contour centres
             double cx = 0, cy = 0;
@@ -309,10 +309,10 @@ namespace LARGERslicer.Toolpaths
         /// <summary>What the slicer reports about the layers.</summary>
         public string Summary(double beadWidth)
         {
-            string text = $"Follow the part: {LayerCount} layers, meridians {LMin:0} to {LMax:0} mm long (mean {LMean:0}), " +
-                          $"layers {LMin / LayerCount:0.##} to {LMax / LayerCount:0.##} mm thick along the wall.";
+            string text = Inv.F($"Follow the part: {LayerCount} layers, meridians {LMin:0} to {LMax:0} mm long (mean {LMean:0}), ") +
+                          Inv.F($"layers {LMin / LayerCount:0.##} to {LMax / LayerCount:0.##} mm thick along the wall.");
             if (ThickMeridians > 0)
-                text += $" On {ThickMeridians} of {Meridians.Count} meridians a layer is thicker than 0.8 x bead width ({0.8 * beadWidth:0.#} mm) along the wall: use a lower layer height or a wider bead.";
+                text += Inv.F($" On {ThickMeridians} of {Meridians.Count} meridians a layer is thicker than 0.8 x bead width ({0.8 * beadWidth:0.#} mm) along the wall: use a lower layer height or a wider bead.");
             return text;
         }
     }

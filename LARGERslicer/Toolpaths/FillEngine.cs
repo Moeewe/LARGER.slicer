@@ -172,7 +172,7 @@ namespace LARGERslicer.Toolpaths
             });
 
             if (openSkipped > 0) log?.Add("Open contours keep a single wall centred on the surface; extra walls are only added to closed contours.");
-            if (vanished > 0) log?.Add($"{vanished} layer(s) are narrower than one bead width and have no wall.");
+            if (vanished > 0) log?.Add(Inv.F($"{vanished} layer(s) are narrower than one bead width and have no wall."));
             return result.Where(l => l.Contours.Count > 0).ToList();
         }
 
@@ -535,12 +535,12 @@ namespace LARGERslicer.Toolpaths
             if (skipped > 0)
             {
                 var parts = new List<string>();
-                if (why[0] > 0) parts.Add($"{why[0]} on a contour too small for ribs");
-                if (why[1] > 0) parts.Add($"{why[1]} too close to a rib on the same wall");
-                if (why[2] > 0) parts.Add($"{why[2]} without an opposite wall to meet squarely");
-                if (why[3] > 0) parts.Add($"{why[3]} would run into or alongside another rib or wall");
-                if (why[4] > 0) parts.Add($"{why[4]} too short");
-                log?.Add($"{skipped} rib position(s) skipped: {string.Join(", ", parts)}.");
+                if (why[0] > 0) parts.Add(Inv.F($"{why[0]} on a contour too small for ribs"));
+                if (why[1] > 0) parts.Add(Inv.F($"{why[1]} too close to a rib on the same wall"));
+                if (why[2] > 0) parts.Add(Inv.F($"{why[2]} without an opposite wall to meet squarely"));
+                if (why[3] > 0) parts.Add(Inv.F($"{why[3]} would run into or alongside another rib or wall"));
+                if (why[4] > 0) parts.Add(Inv.F($"{why[4]} too short"));
+                log?.Add(Inv.F($"{skipped} rib position(s) skipped: {string.Join(", ", parts)}."));
             }
             return result;
         }
@@ -572,7 +572,7 @@ namespace LARGERslicer.Toolpaths
                         var x = Rhino.Geometry.Intersect.Intersection.CurveCurve(flat[i], flat[k], 0.01, 0.01);
                         if (x != null && x.Count > 0) { hit = k; break; }
                     }
-                if (hit >= 0) log?.Add($"Sketch line {i + 1} crosses line {hit + 1}. A printed line cannot run across itself, so line {i + 1} was left out.");
+                if (hit >= 0) log?.Add(Inv.F($"Sketch line {i + 1} crosses line {hit + 1}. A printed line cannot run across itself, so line {i + 1} was left out."));
                 else { keep.Add(sketch[i]); kept.Add(i); }
             }
             return keep;
@@ -961,9 +961,9 @@ namespace LARGERslicer.Toolpaths
                 filled++;
                 result.Add(dst);
             }
-            if (uncrossed > 0) log?.Add($"{uncrossed} bottom layer(s): the fill line was re-joined at a place where it would have crossed itself.");
-            if (zigzagReplaced > 0) log?.Add($"{zigzagReplaced} bottom layer(s) are filled following the wall instead of in a zigzag: openings split them, and a zigzag in pieces would need moves without extrusion between them.");
-            if (failed > 0) log?.Add($"{failed} bottom layer(s) could not be filled (no closed wall, or too narrow for a fill line).");
+            if (uncrossed > 0) log?.Add(Inv.F($"{uncrossed} bottom layer(s): the fill line was re-joined at a place where it would have crossed itself."));
+            if (zigzagReplaced > 0) log?.Add(Inv.F($"{zigzagReplaced} bottom layer(s) are filled following the wall instead of in a zigzag: openings split them, and a zigzag in pieces would need moves without extrusion between them."));
+            if (failed > 0) log?.Add(Inv.F($"{failed} bottom layer(s) could not be filled (no closed wall, or too narrow for a fill line)."));
             return result;
         }
 

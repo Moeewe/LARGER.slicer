@@ -25,7 +25,7 @@ namespace LARGERslicer.Toolpaths
         public class Head
         {
             public double TipRadius = 4, HalfAngle = 30, ConeLength = 60, Radius = 40;
-            public override string ToString() => $"head: tip r {TipRadius:0.#} mm, cone {HalfAngle:0.#} deg x {ConeLength:0} mm, body r {Radius:0} mm";
+            public override string ToString() => Inv.F($"head: tip r {TipRadius:0.#} mm, cone {HalfAngle:0.#} deg x {ConeLength:0} mm, body r {Radius:0} mm");
 
             /// <summary>The head as it is checked, standing with its tip on this point: the cone from the tip
             /// up to where it reaches the body radius (or the cone length), then the body, 150 mm high.</summary>
@@ -77,6 +77,8 @@ namespace LARGERslicer.Toolpaths
             public List<Point3d> BadHeights = new List<Point3d>();
             public double MinHeight = double.MaxValue, MaxHeight, MaxDeviation, MeanDeviation;
             public int Measured, TooHigh, TooThin, Deviating, CollisionMoves, SteepMoves, Ramp;
+            /// <summary>Of Measured: points compared with the height used for E (Compared), and the ones left out of that comparison because the used height is below a quarter of the layer height (Tiny: run-in, run-out, a bead that fades to nothing; a percentage of almost nothing says nothing).</summary>
+            public int Compared, Tiny;
             public double MaxSlope;
         }
 
@@ -136,8 +138,10 @@ namespace LARGERslicer.Toolpaths
                                 bool bad = false;
                                 if (dz > 0.8 * w) { r.TooHigh++; bad = true; }
                                 if (dz < 0.4 * h) { r.TooThin++; bad = true; }
-                                if (used > 1e-9)
+                                if (used < 0.25 * h) r.Tiny++;
+                                else
                                 {
+                                    r.Compared++;
                                     double dev = Math.Abs(dz - used) / used;
                                     sumDev += dev;
                                     if (dev > r.MaxDeviation) r.MaxDeviation = dev;
@@ -165,25 +169,28 @@ namespace LARGERslicer.Toolpaths
             }
             if (r.Measured > 0)
             {
-                r.MeanDeviation = sumDev / r.Measured;
-                double tooHigh = 100.0 * r.TooHigh / r.Measured, tooThin = 100.0 * r.TooThin / r.Measured, dev = 100.0 * r.Deviating / r.Measured;
-                r.Report.Add($"Bead height (vertical gap to the layer below, {r.Measured} points): {r.MinHeight:0.##} to {r.MaxHeight:0.##} mm. " +
-                             $"Allowed {0.4 * h:0.##} (0.4 x layer height) to {0.8 * w:0.##} mm (0.8 x bead width).");
+                r.MeanDeviation = r.Compared > 0 ? sumDev / r.Compared : 0;
+                double tooHigh = 100.0 * r.TooHigh / r.Measured, tooThin = 100.0 * r.TooThin / r.Measured, dev = r.Compared > 0 ? 100.0 * r.Deviating / r.Compared : 0;
+                r.Report.Add(Inv.F($"Bead height (vertical gap to the layer below, {r.Measured} points): {r.MinHeight:0.##} to {r.MaxHeight:0.##} mm. ") +
+                             Inv.F($"Allowed {0.4 * h:0.##} (0.4 x layer height) to {0.8 * w:0.##} mm (0.8 x bead width)."));
                 if (r.TooHigh > 0 || r.TooThin > 0)
                 {
                     r.Ok = false;
-                    r.Report.Add($"BEAD HEIGHT OUT OF RANGE: {r.TooHigh} points ({tooHigh:0.#} %) above 0.8 x bead width (the bead does not squash and bonds poorly), " +
-                                 $"{r.TooThin} points ({tooThin:0.#} %) below 0.4 x layer height (pressed flat). See Bad Heights.");
+                    r.Report.Add(Inv.F($"BEAD HEIGHT OUT OF RANGE: {r.TooHigh} points ({tooHigh:0.#} %) above 0.8 x bead width (the bead does not squash and bonds poorly), ") +
+                                 Inv.F($"{r.TooThin} points ({tooThin:0.#} %) below 0.4 x layer height (pressed flat). See Bad Heights."));
                 }
                 else r.Report.Add("Bead height OK at every point.");
-                if (r.MeanDeviation > 0.10 || r.Deviating > 0.05 * r.Measured)
+                string tiny = r.Tiny > 0 ? Inv.F($" {r.Tiny} point(s) where the height used for E is below a quarter of the layer height (the bead fades in or out there) are not part of this comparison.") : "";
+                if (r.Compared == 0)
+                    r.Report.Add("Extrusion against the measured bead height: no point to compare." + tiny);
+                else if (r.MeanDeviation > 0.10 || r.Deviating > 0.05 * r.Compared)
                 {
                     r.Ok = false;
-                    r.Report.Add($"EXTRUSION DOES NOT FIT: at {dev:0.#} % of the points the bead height used for E differs by more than 10 % from the measured one (mean {100 * r.MeanDeviation:0.#} %, largest {100 * r.MaxDeviation:0} %).");
+                    r.Report.Add(Inv.F($"EXTRUSION DOES NOT FIT: at {dev:0.#} % of the points the bead height used for E differs by more than 10 % from the measured one (mean {100 * r.MeanDeviation:0.#} %, largest {100 * r.MaxDeviation:0} %, {r.Compared} points compared).") + tiny);
                 }
-                else r.Report.Add($"Extrusion fits the measured bead height: mean difference {100 * r.MeanDeviation:0.#} %, {dev:0.#} % of the points more than 10 % off (largest {100 * r.MaxDeviation:0} %).");
-                if (r.Ramp > 0) r.Report.Add($"{r.Ramp} point(s) lie where the spiral starts or ends (second and last layer) and the bead runs out to nothing on purpose; the extrusion follows them. Not counted above.");
-                if (notMeasured > 0) r.Report.Add($"{notMeasured} point(s) have no layer below within two bead widths (first bead of an overhang or a bridge): not measured. Path Check tests their support.");
+                else r.Report.Add(Inv.F($"Extrusion fits the measured bead height: mean difference {100 * r.MeanDeviation:0.#} %, {dev:0.#} % of the points more than 10 % off (largest {100 * r.MaxDeviation:0} %, {r.Compared} points compared).") + tiny);
+                if (r.Ramp > 0) r.Report.Add(Inv.F($"{r.Ramp} point(s) lie where the spiral starts or ends (second and last layer) and the bead runs out to nothing on purpose; the extrusion follows them. Not counted above."));
+                if (notMeasured > 0) r.Report.Add(Inv.F($"{notMeasured} point(s) have no layer below within two bead widths (first bead of an overhang or a bridge): not measured. Path Check tests their support."));
             }
             else r.Report.Add("Bead height: only one layer, nothing to measure.");
 
@@ -225,7 +232,7 @@ namespace LARGERslicer.Toolpaths
                             long pair = ((long)tp.Layers[i] << 32) ^ (uint)tp.Layers[j];
                             if (hits.Count < 20 && shown.Add(pair))
                             {
-                                hits.Add($"HEAD COLLISION at move {i}, layer {tp.Layers[i] + 1}, with layer {tp.Layers[j] + 1} (dz {dz:0.#} mm, r {rxy:0.#} mm, needs {need:0.#} mm)");
+                                hits.Add(Inv.F($"HEAD COLLISION at move {i}, layer {tp.Layers[i] + 1}, with layer {tp.Layers[j] + 1} (dz {dz:0.#} mm, r {rxy:0.#} mm, needs {need:0.#} mm)"));
                             }
                             break;
                         }
@@ -250,16 +257,16 @@ namespace LARGERslicer.Toolpaths
             }
 
             if (r.CollisionMoves == 0 && r.SteepMoves == 0)
-                r.Report.Add($"Head clearance OK ({head}): the head never reaches what was printed before; the path climbs at most {Math.Atan(r.MaxSlope) * 180 / Math.PI:0} deg within a layer (allowed {90 - head.HalfAngle:0}).");
+                r.Report.Add(Inv.F($"Head clearance OK ({head}): the head never reaches what was printed before; the path climbs at most {Math.Atan(r.MaxSlope) * 180 / Math.PI:0} deg within a layer (allowed {90 - head.HalfAngle:0})."));
             else
             {
                 r.Ok = false;
                 if (r.CollisionMoves > 0)
                 {
-                    r.Report.Add($"HEAD COLLISION: at {r.CollisionMoves} move(s) the head ({head}) hits beads printed before. With a vertical nozzle a layer must not lie lower than the layers already printed next to it.");
+                    r.Report.Add(Inv.F($"HEAD COLLISION: at {r.CollisionMoves} move(s) the head ({head}) hits beads printed before. With a vertical nozzle a layer must not lie lower than the layers already printed next to it."));
                     r.Report.AddRange(hits);
                 }
-                if (r.SteepMoves > 0) r.Report.Add($"TOO STEEP: {r.SteepMoves} move(s) climb within a layer more steeply than the cone's flank allows (up to {Math.Atan(r.MaxSlope) * 180 / Math.PI:0} deg, allowed {90 - head.HalfAngle:0} deg). The cone would scrape the bead beside it.");
+                if (r.SteepMoves > 0) r.Report.Add(Inv.F($"TOO STEEP: {r.SteepMoves} move(s) climb within a layer more steeply than the cone's flank allows (up to {Math.Atan(r.MaxSlope) * 180 / Math.PI:0} deg, allowed {90 - head.HalfAngle:0} deg). The cone would scrape the bead beside it."));
             }
             return r;
         }

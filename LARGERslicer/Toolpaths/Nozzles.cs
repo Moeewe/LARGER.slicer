@@ -33,13 +33,13 @@ namespace LARGERslicer.Toolpaths
 
         private static Preset Weber(double n, double bead, double layer) => new Preset
         {
-            Name = $"{F(n)} mm nozzle (Weber profile) - bead {F(bead)} mm, layer {F(layer)} mm", Nozzle = n, Bead = bead, Layer = layer,
+            Name = Inv.F($"{F(n)} mm nozzle (Weber profile) - bead {F(bead)} mm, layer {F(layer)} mm"), Nozzle = n, Bead = bead, Layer = layer,
             Shape = Shape.Unknown, Source = "Weber Additive DXR profile",
         };
 
         private static Preset Wide(double n) => new Preset
         {
-            Name = $"{F(n)} mm flat nozzle, wide bead - bead {F(Math.Round(n * 5 / 3, 1))} mm, layer {F(Math.Round(n * 2 / 3, 1))} mm", Nozzle = n,
+            Name = Inv.F($"{F(n)} mm flat nozzle, wide bead - bead {F(Math.Round(n * 5 / 3, 1))} mm, layer {F(Math.Round(n * 2 / 3, 1))} mm"), Nozzle = n,
             Bead = Math.Round(n * 5 / 3, 1), Layer = Math.Round(n * 2 / 3, 1), Shape = Shape.Flat,
             Source = "scaled from the tested 3 mm flat nozzle (5 mm bead, 2 mm layer); print a test wall first",
         };
@@ -63,7 +63,7 @@ namespace LARGERslicer.Toolpaths
             if (st == null || index <= 0) return null;
             var p = Get(index);
             st.BeadWidth = p.Bead; st.LayerHeight = p.Layer; st.Nozzle = p.Nozzle; st.NozzleShape = p.Shape;
-            return $"Nozzle {F(p.Nozzle)} mm: bead {F(p.Bead)} mm, layer {F(p.Layer)} mm ({p.Source}). Bead Width and Layer Height inputs are not used.";
+            return Inv.F($"Nozzle {F(p.Nozzle)} mm: bead {F(p.Bead)} mm, layer {F(p.Layer)} mm ({p.Source}). Bead Width and Layer Height inputs are not used.");
         }
 
         /// <summary>Bead width range a nozzle can lay (Weber quick guide).</summary>
@@ -84,10 +84,10 @@ namespace LARGERslicer.Toolpaths
             if (nozzle <= 0) return notes;
             BeadRange(nozzle, shape, out double min, out double max);
             string kind = shape == Shape.Pointed ? "a pointed" : shape == Shape.Flat ? "a flat" : "a";
-            if (bead > max + 1e-9) notes.Add($"Bead {F(bead)} mm is wider than {kind} {F(nozzle)} mm nozzle lays ({F(min)} to {F(max)} mm): choose a bigger nozzle or a narrower bead.");
-            else if (bead < min - 1e-9) notes.Add($"Bead {F(bead)} mm is narrower than {kind} {F(nozzle)} mm nozzle lays ({F(min)} to {F(max)} mm): choose a smaller nozzle or a wider bead.");
-            if (layer > 0.8 * nozzle + 1e-9) notes.Add($"Layer {F(layer)} mm is more than 80 % of the {F(nozzle)} mm nozzle: the bead is hardly pressed and bonds poorly.");
-            else if (layer < 0.25 * nozzle - 1e-9) notes.Add($"Layer {F(layer)} mm is less than a quarter of the {F(nozzle)} mm nozzle: the extruder has to push hard.");
+            if (bead > max + 1e-9) notes.Add(Inv.F($"Bead {F(bead)} mm is wider than {kind} {F(nozzle)} mm nozzle lays ({F(min)} to {F(max)} mm): choose a bigger nozzle or a narrower bead."));
+            else if (bead < min - 1e-9) notes.Add(Inv.F($"Bead {F(bead)} mm is narrower than {kind} {F(nozzle)} mm nozzle lays ({F(min)} to {F(max)} mm): choose a smaller nozzle or a wider bead."));
+            if (layer > 0.8 * nozzle + 1e-9) notes.Add(Inv.F($"Layer {F(layer)} mm is more than 80 % of the {F(nozzle)} mm nozzle: the bead is hardly pressed and bonds poorly."));
+            else if (layer < 0.25 * nozzle - 1e-9) notes.Add(Inv.F($"Layer {F(layer)} mm is less than a quarter of the {F(nozzle)} mm nozzle: the extruder has to push hard."));
             return notes;
         }
     }

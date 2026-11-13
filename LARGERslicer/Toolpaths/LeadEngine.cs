@@ -378,7 +378,7 @@ namespace LARGERslicer.Toolpaths
                 rings.Add(loop); cums.Add(cum); at.Add(s0);
             }
             if (rings.Count == 0) { log?.Add("Inner brim skipped: no room for it."); return null; }
-            if (rings.Count < loops) log?.Add($"Inner brim: room for {rings.Count} of {loops} loops.");
+            if (rings.Count < loops) log?.Add(Inv.F($"Inner brim: room for {rings.Count} of {loops} loops."));
             if (beads.Count(b => Clipper.Area(b) < 0) > 1) log?.Add("The first layer divides the inside of the part into several rooms: the inner brim lies in the one where the first layer ends.");
 
             Func<int, double, Point2d> on = (k, s) => FillEngine.Sub(rings[k], cums[k], s, s + 1e-6)[0];
@@ -629,22 +629,22 @@ namespace LARGERslicer.Toolpaths
             else
             {
                 r.Ok = false;
-                r.Report.Add($"CROSSES ITSELF: the path runs across its own bead at {r.Crossings.Count} place(s). The nozzle would plough through material it has just laid. See the Crossings output.");
+                r.Report.Add(Inv.F($"CROSSES ITSELF: the path runs across its own bead at {r.Crossings.Count} place(s). The nozzle would plough through material it has just laid. See the Crossings output."));
             }
 
             // ---- report
             if (unsupported == 0)
-                r.Report.Add($"Support OK: every bead lies on the layer below (largest sideways offset {r.MaxOffset:0.0} mm, allowed {limit:0.0} mm = half the bead width).");
+                r.Report.Add(Inv.F($"Support OK: every bead lies on the layer below (largest sideways offset {r.MaxOffset:0.0} mm, allowed {limit:0.0} mm = half the bead width)."));
             else if ((r.MaxOffset <= 1.75 * limit && unsupported <= 0.01 * Math.Max(1, checkedPoints)) || (hangLayers.Count == 0 && r.Unsupported.Count <= Math.Max(8, checkedPoints / 2000)))
             {
                 // a handful of points just over the limit: the bead still rests on most of its width
-                r.Report.Add($"Support OK with a note: {unsupported} of {checkedPoints} points lie slightly more than {limit:0.0} mm beside the layer below (up to {r.MaxOffset:0.0} mm). " +
+                r.Report.Add(Inv.F($"Support OK with a note: {unsupported} of {checkedPoints} points lie slightly more than {limit:0.0} mm beside the layer below (up to {r.MaxOffset:0.0} mm). ") +
                              "They still rest on part of the bead below - typically where ribs start on the bottom layer or two rib tips meet. Use the Offset output to see where.");
             }
             else
             {
                 r.Ok = false;
-                r.Report.Add($"NOT SUPPORTED: {unsupported} of {checkedPoints} points lie more than {limit:0.0} mm beside the layer below (largest offset {r.MaxOffset:0.0} mm). " +
+                r.Report.Add(Inv.F($"NOT SUPPORTED: {unsupported} of {checkedPoints} points lie more than {limit:0.0} mm beside the layer below (largest offset {r.MaxOffset:0.0} mm). ") +
                              "These beads hang in the air. Use a wider bead, a lower layer height, a tilted slicing plane or more ribs.");
                 if (hangLayers.Count > 0 && st.LayerHeight > 0)
                 {
@@ -659,8 +659,8 @@ namespace LARGERslicer.Toolpaths
                     }
                     double allowed = Math.Atan(limit / st.LayerHeight) * 180.0 / Math.PI;
                     double found = Math.Atan(r.MaxOffset / st.LayerHeight) * 180.0 / Math.PI;
-                    r.Report.Add($"Overhang: the wall leans up to {found:0} degrees from vertical. With a {st.BeadWidth:0.#} mm bead and {st.LayerHeight:0.#} mm layers about {allowed:0} degrees is the limit. " +
-                                 $"Affected layers: {string.Join(", ", ranges.Take(8))}{(ranges.Count > 8 ? " ..." : "")}. " +
+                    r.Report.Add(Inv.F($"Overhang: the wall leans up to {found:0} degrees from vertical. With a {st.BeadWidth:0.#} mm bead and {st.LayerHeight:0.#} mm layers about {allowed:0} degrees is the limit. ") +
+                                 Inv.F($"Affected layers: {string.Join(", ", ranges.Take(8))}{(ranges.Count > 8 ? " ..." : "")}. ") +
                                  "Domes, spheres and flat tops close faster than that: slice them with a Guide surface (non-planar) or a tilted plane, or cut the part where it gets too flat.");
                 }
             }
@@ -673,8 +673,8 @@ namespace LARGERslicer.Toolpaths
                     if (badNumber < 0 && (!real.Points[i].IsValid || !real.Normals[i].IsValid || double.IsNaN(real.Heights[i]) || double.IsNaN(real.Widths[i]) || double.IsNaN(real.Flows[i]))) badNumber = i;
                     if (i > 0 && real.Points[i].DistanceTo(real.Points[i - 1]) < 1e-6) zero++;
                 }
-                if (badNumber >= 0) { r.Ok = false; r.Report.Add($"INVALID NUMBERS: point {badNumber + 1} has no valid position, tool axis, height or width. The file would stop the machine. Check the geometry around there."); }
-                if (zero > 0) r.Report.Add($"Note: {zero} move(s) of length 0 (the same point twice). Start and End removes them; a path made by hand should not have them, some controllers stop on them.");
+                if (badNumber >= 0) { r.Ok = false; r.Report.Add(Inv.F($"INVALID NUMBERS: point {badNumber + 1} has no valid position, tool axis, height or width. The file would stop the machine. Check the geometry around there.")); }
+                if (zero > 0) r.Report.Add(Inv.F($"Note: {zero} move(s) of length 0 (the same point twice). Start and End removes them; a path made by hand should not have them, some controllers stop on them."));
             }
 
             // ---- the bed is Z 0: the nozzle must run a layer height above it, not on it
@@ -689,8 +689,8 @@ namespace LARGERslicer.Toolpaths
                     {
                         r.Ok = false;
                         r.Report.Add(z <= 0.01
-                            ? $"INTO THE BED: the nozzle extrudes at Z {z:0.##}, on or below the bed (Z 0). The first layer must lie one layer height above the bed: put the part's bottom on Z 0, or lift curves you drew on the bed by the first layer height."
-                            : $"TOO LOW: the lowest bead is printed at Z {z:0.##}, less than half its height ({hb:0.##} mm) above the bed (Z 0). The nozzle would press it into the bed: put the part's bottom on Z 0 or set First Layer Height.");
+                            ? Inv.F($"INTO THE BED: the nozzle extrudes at Z {z:0.##}, on or below the bed (Z 0). The first layer must lie one layer height above the bed: put the part's bottom on Z 0, or lift curves you drew on the bed by the first layer height.")
+                            : Inv.F($"TOO LOW: the lowest bead is printed at Z {z:0.##}, less than half its height ({hb:0.##} mm) above the bed (Z 0). The nozzle would press it into the bed: put the part's bottom on Z 0 or set First Layer Height."));
                     }
                 }
             }
@@ -710,20 +710,20 @@ namespace LARGERslicer.Toolpaths
                 }
                 if (printed > 0)
                     r.Report.Add(thinCount > 0
-                        ? $"Bead height: the layers are {thin:0.##} to {thick:0.##} mm thick; at {thinCount} of {printed} points less than 40 % of the layer height. The extrusion follows the thickness, but beads this thin are pressed flat and may not bond: a flatter guide, or a guide closer to the part's top, gives more even layers."
-                        : $"Bead height OK: the layers are {thin:0.##} to {thick:0.##} mm thick; the extrusion follows the thickness at every point.");
+                        ? Inv.F($"Bead height: the layers are {thin:0.##} to {thick:0.##} mm thick; at {thinCount} of {printed} points less than 40 % of the layer height. The extrusion follows the thickness, but beads this thin are pressed flat and may not bond: a flatter guide, or a guide closer to the part's top, gives more even layers.")
+                        : Inv.F($"Bead height OK: the layers are {thin:0.##} to {thick:0.##} mm thick; the extrusion follows the thickness at every point."));
             }
 
             double ratio = st.LayerHeight / st.BeadWidth;
             if (ratio > 0.8)
             {
                 r.Ok = false;
-                r.Report.Add($"Bead shape: layer height is {ratio:P0} of the bead width. Above about 80 % the bead is hardly squashed and bonds poorly.");
+                r.Report.Add(Inv.F($"Bead shape: layer height is {ratio:P0} of the bead width. Above about 80 % the bead is hardly squashed and bonds poorly."));
             }
             else if (ratio < 0.15)
-                r.Report.Add($"Bead shape: layer height is only {ratio:P0} of the bead width. Very flat beads need a lot of pressure; check that the extruder can deliver this.");
+                r.Report.Add(Inv.F($"Bead shape: layer height is only {ratio:P0} of the bead width. Very flat beads need a lot of pressure; check that the extruder can deliver this."));
             else
-                r.Report.Add($"Bead shape OK: layer height is {ratio:P0} of the bead width.");
+                r.Report.Add(Inv.F($"Bead shape OK: layer height is {ratio:P0} of the bead width."));
 
             int travels = 0, tiny = 0; double travelLength = 0;
             for (int i = firstPrint + 1; i < n; i++)
@@ -732,8 +732,8 @@ namespace LARGERslicer.Toolpaths
                 if (tp.Flows[i] <= 0) { travelLength += len; if (tp.Flows[i - 1] > 0 || i == firstPrint + 1) travels++; }
                 else if (len < 0.05) tiny++;
             }
-            r.Report.Add(travels == 0 ? "Continuous: no travel moves." : $"Travel: {travels} move(s) without extrusion, {travelLength:0} mm in total.");
-            if (tiny > n / 20) r.Report.Add($"{tiny} moves are shorter than 0.05 mm. Raise Resolution in the Print Settings to thin out the path.");
+            r.Report.Add(travels == 0 ? "Continuous: no travel moves." : Inv.F($"Travel: {travels} move(s) without extrusion, {travelLength:0} mm in total."));
+            if (tiny > n / 20) r.Report.Add(Inv.F($"{tiny} moves are shorter than 0.05 mm. Raise Resolution in the Print Settings to thin out the path."));
             if (st.Speed <= 0 || st.MinSpeed <= 0)
             {
                 r.Ok = false;
@@ -746,7 +746,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>
         /// Layer time and extruder output. A layer printed too fast lands on a layer that is still
         /// soft, so overhangs sag and the part warps (Weber). The time per layer comes from the
-        /// speeds the machine gets (Process: constant F, short layers slowed down when Min Layer
+        /// speeds the machine gets (Process: the print speed, short layers slowed down when Min Layer
         /// Time is set in the Print Settings, capped by Max Volume Rate). Below the minimum the
         /// report says what to do: print slower, print several parts side by side, or, as a last
         /// resort, wait on every short layer. minSeconds = 0: the value of the Print Settings; both
@@ -771,34 +771,34 @@ namespace LARGERslicer.Toolpaths
             if (st.MaxVolumeRate > 0)
             {
                 if (pr.VolumeOverLimit > 0)
-                    r.Report.Add($"VOLUME RATE: {pr.VolumeOverLimit} move(s) need more than the extruder's {st.MaxVolumeRate:0} mm3/s even at Min Speed {st.MinSpeed / 60:0.#} mm/s (up to {pr.MaxVolumeRate:0} mm3/s): the bead gets thin there. Use a lower layer height or bead width, or a lower Min Speed.");
+                    r.Report.Add(Inv.F($"VOLUME RATE: {pr.VolumeOverLimit} move(s) need more than the extruder's {st.MaxVolumeRate:0} mm3/s even at Min Speed {st.MinSpeed / 60:0.#} mm/s (up to {pr.MaxVolumeRate:0} mm3/s): the bead gets thin there. Use a lower layer height or bead width, or a lower Min Speed."));
                 else
-                    r.Report.Add($"Volume rate OK: at most {pr.MaxVolumeRate:0} mm3/s, the extruder gives {st.MaxVolumeRate:0} mm3/s" + (pr.VolumeCapped > 0 ? $" ({pr.VolumeCapped} move(s) run slower to stay below it)." : "."));
+                    r.Report.Add(Inv.F($"Volume rate OK: at most {pr.MaxVolumeRate:0} mm3/s, the extruder gives {st.MaxVolumeRate:0} mm3/s") + (pr.VolumeCapped > 0 ? Inv.F($" ({pr.VolumeCapped} move(s) run slower to stay below it).") : "."));
             }
             else
-                r.Report.Add($"Volume rate: at most {pr.MaxVolumeRate:0} mm3/s. Set Max Volume Rate (Continuous Path) to what your extruder delivers, and moves that ask for more run slower.");
+                r.Report.Add(Inv.F($"Volume rate: at most {pr.MaxVolumeRate:0} mm3/s. Set Max Volume Rate (Continuous Path) to what your extruder delivers, and moves that ask for more run slower."));
 
             string slowed = "";
             if (pr.LayerFeed.Count > 0)
             {
                 var low = pr.LayerFeed.OrderBy(kv => kv.Value).First();
-                slowed = $"{pr.LayerFeed.Count} short layer(s) are printed slower to reach {st.MinLayerTime:0} s (down to F{low.Value:0} at layer {low.Key + 1}). ";
+                slowed = Inv.F($"{pr.LayerFeed.Count} short layer(s) are printed slower to reach {st.MinLayerTime:0} s (down to {low.Value / 60:0.#} mm/s at layer {low.Key + 1}). ");
             }
             if (minSeconds <= 0)
             {
-                r.Report.Add($"Layer time: {shortest:0} s (layer {shortLayer + 1}) to {pr.LayerSeconds[longLayer]:0} s per layer at {st.Speed / 60:0.#} mm/s. " +
+                r.Report.Add(Inv.F($"Layer time: {shortest:0} s (layer {shortLayer + 1}) to {pr.LayerSeconds[longLayer]:0} s per layer at {st.Speed / 60:0.#} mm/s. ") +
                              "Set Min Layer Time (for example 60 s for a large pellet print) to check that every layer has cooled enough before the next one lands on it.");
                 return;
             }
             int tooShort = pr.LayerSeconds.Count(kv => kv.Value < minSeconds - 0.5);
             if (tooShort == 0)
             {
-                r.Report.Add($"Layer time OK: {slowed}Every layer takes at least {minSeconds:0} s (shortest {shortest:0} s at layer {shortLayer + 1}).");
+                r.Report.Add(Inv.F($"Layer time OK: {slowed}Every layer takes at least {minSeconds:0} s (shortest {shortest:0} s at layer {shortLayer + 1})."));
                 return;
             }
 
             var s = new System.Text.StringBuilder();
-            s.Append($"LAYER TIME: {slowed}{tooShort} layer(s) take less than {minSeconds:0} s (shortest {shortest:0} s at layer {shortLayer + 1}). " +
+            s.Append(Inv.F($"LAYER TIME: {slowed}{tooShort} layer(s) take less than {minSeconds:0} s (shortest {shortest:0} s at layer {shortLayer + 1}). ") +
                      "The layer below is still soft there: overhangs can sag and the part can warp. What helps, best first: ");
             // 1) slower: the printing moves take longer, travel moves stay as they are
             pr.LayerPrintSeconds.TryGetValue(shortLayer, out double printing);
@@ -811,17 +811,17 @@ namespace LARGERslicer.Toolpaths
                 double reached = other + printing * now / feed;
                 r.SuggestedSpeed = feed;
                 if (need < st.MinSpeed || now <= st.MinSpeed + 1e-9)
-                    s.Append($"(1) Slower helps only in part: even at the lowest speed {st.MinSpeed / 60:0.#} mm/s (Min Speed in the Print Settings) the shortest layer takes {reached:0} s. Combine it with (2) or (3). ");
+                    s.Append(Inv.F($"(1) Slower helps only in part: even at the lowest speed {st.MinSpeed / 60:0.#} mm/s (Min Speed in the Print Settings) the shortest layer takes {reached:0} s. Combine it with (2) or (3). "));
                 else if (st.MinLayerTime <= 0)
-                    s.Append($"(1) Slower: set Min Layer Time to {minSeconds:0} s in Continuous Path, and only the short layers are printed slower (the shortest at {feed / 60:0.#} mm/s instead of {st.Speed / 60:0.#} mm/s, then {reached:0} s); or print everything at {feed / 60:0.#} mm/s (Speed in the Print Settings). ");
+                    s.Append(Inv.F($"(1) Slower: set Min Layer Time to {minSeconds:0} s in Continuous Path, and only the short layers are printed slower (the shortest at {feed / 60:0.#} mm/s instead of {st.Speed / 60:0.#} mm/s, then {reached:0} s); or print everything at {feed / 60:0.#} mm/s (Speed in the Print Settings). "));
                 else
-                    s.Append($"(1) Slower: print the short layers at F{feed:0}; the shortest then takes {reached:0} s. ");
+                    s.Append(Inv.F($"(1) Slower: print the short layers at {feed / 60:0.#} mm/s; the shortest then takes {reached:0} s. "));
             }
             // 2) more parts at once: the nozzle prints the others while one cools
             int copies = (int)Math.Ceiling(minSeconds / Math.Max(1e-3, shortest));
-            s.Append($"(2) Print {copies} parts side by side in one path: each layer then takes about {copies * shortest:0} s, and you get {copies} parts in that time. ");
+            s.Append(Inv.F($"(2) Print {copies} parts side by side in one path: each layer then takes about {copies * shortest:0} s, and you get {copies} parts in that time. "));
             // 3) pause: last resort
-            s.Append($"(3) Last resort: wait {minSeconds - shortest:0} s on the short layers (a dwell, G4). On a pellet extruder the screw stops during the wait: the melt keeps oozing, so the bead gets thin where it stops and a thread or blob is left at the seam when it starts again.");
+            s.Append(Inv.F($"(3) Last resort: wait {minSeconds - shortest:0} s on the short layers (a dwell, G4). On a pellet extruder the screw stops during the wait: the melt keeps oozing, so the bead gets thin where it stops and a thread or blob is left at the seam when it starts again."));
             r.Report.Add(s.ToString());
         }
 

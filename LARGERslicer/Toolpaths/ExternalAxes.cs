@@ -191,8 +191,8 @@ namespace LARGERslicer.Toolpaths
                     ax.Name, ax.IsRail ? "rail" : "turntable", plan.UsedMin[k], plan.UsedMax[k], u, range, turns, plan.TopSpeed[k], ax.IsRail ? "mm" : "degrees", speed));
                 if (plan.Clamped[k] > 0)
                     plan.Report.Add(ax.IsRail
-                        ? $"{ax.Name}: at {plan.Clamped[k]} point(s) the rail would have to go beyond its range; it stops at its end and the arm has to reach the rest."
-                        : $"{ax.Name}: at {plan.Clamped[k]} point(s) the table would have to turn beyond its range; it stops there and the arm has to reach the rest. A table that turns without end (Endless) avoids it.");
+                        ? Inv.F($"{ax.Name}: at {plan.Clamped[k]} point(s) the rail would have to go beyond its range; it stops at its end and the arm has to reach the rest.")
+                        : Inv.F($"{ax.Name}: at {plan.Clamped[k]} point(s) the table would have to turn beyond its range; it stops there and the arm has to reach the rest. A table that turns without end (Endless) avoids it."));
                 double lagLimit = ax.IsRail ? 100 : 10;
                 if (plan.Lag[k] > lagLimit)
                     plan.Report.Add(string.Format(ci, "{0}: too slow to follow the path, it trails up to {1:0} {2} behind. The arm makes up for it if it can; a higher top speed or a lower print speed helps.", ax.Name, plan.Lag[k], u));

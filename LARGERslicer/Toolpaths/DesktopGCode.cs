@@ -267,13 +267,13 @@ namespace LARGERslicer.Toolpaths
             Func<Point3d, Point3d> map = p => new Point3d((p.X - cx) * scale + printer.BedX * 0.5, (p.Y - cy) * scale + printer.BedY * 0.5, Math.Max(0.05, (p.Z - zBase) * scale));
 
             if (sx > printer.BedX - 10 || sy > printer.BedY - 10)
-                r.Warnings.Add($"The scaled part is {sx:0} x {sy:0} mm and does not fit the {printer.BedX:0} x {printer.BedY:0} mm bed with a 5 mm margin. Largest scale that fits: {Math.Min((printer.BedX - 10) / Math.Max(1e-9, sx / scale), (printer.BedY - 10) / Math.Max(1e-9, sy / scale)):0.###}.");
+                r.Warnings.Add(Inv.F($"The scaled part is {sx:0} x {sy:0} mm and does not fit the {printer.BedX:0} x {printer.BedY:0} mm bed with a 5 mm margin. Largest scale that fits: {Math.Min((printer.BedX - 10) / Math.Max(1e-9, sx / scale), (printer.BedY - 10) / Math.Max(1e-9, sy / scale)):0.###}."));
             if (w < 0.9 * nozzle || w > 2.0 * nozzle)
-                r.Warnings.Add($"The scaled bead is {w:0.##} mm wide; a {nozzle:0.##} mm nozzle prints about {nozzle:0.##} to {2 * nozzle:0.##} mm. Try scale {r.SuggestedScale:0.###}.");
+                r.Warnings.Add(Inv.F($"The scaled bead is {w:0.##} mm wide; a {nozzle:0.##} mm nozzle prints about {nozzle:0.##} to {2 * nozzle:0.##} mm. Try scale {r.SuggestedScale:0.###}."));
             if (h > 0.8 * nozzle)
-                r.Warnings.Add($"The scaled layer is {h:0.##} mm high, more than 80 % of the nozzle. Use a smaller scale or a larger nozzle.");
+                r.Warnings.Add(Inv.F($"The scaled layer is {h:0.##} mm high, more than 80 % of the nozzle. Use a smaller scale or a larger nozzle."));
             if (h < 0.05)
-                r.Warnings.Add($"The scaled layer is only {h:0.###} mm high. Use a larger scale.");
+                r.Warnings.Add(Inv.F($"The scaled layer is only {h:0.###} mm high. Use a larger scale."));
             if (tp.Normals.Any(n => Math.Abs(n.Z) < 0.9998))
                 r.Warnings.Add("The toolpath has tilted tool axes (angled, non-planar or multi-axis). A desktop printer keeps its nozzle vertical, so only positions are used.");
 
@@ -283,11 +283,12 @@ namespace LARGERslicer.Toolpaths
             var L = r.Lines;
             L.Add("; LARGER.slicer scale test, scale " + N(scale, 4) + ", " + printer.Name);
             L.Add("; bead " + N(w, 2) + " x " + N(h, 2) + " mm, nozzle " + N(nozzle, 2) + " mm, filament " + N(filament, 2) + " mm");
+            L.Add("; print speed " + N(F / 60.0, 1) + " mm/s (first layer half of it), the speed of this scale test, not of the full-size print; travel " + N(travelF / 60.0, 0) + " mm/s");
             foreach (var note in printer.Notes()) { r.Warnings.Add(note); L.Add("; NOTE: " + note); }
             double bedX0 = printer.BedX * 0.5 - 0.5 * sx, bedY0 = printer.BedY * 0.5 - 0.5 * sy;
             if (printer.Family == DesktopFamily.BambuP1X1 && bedX0 < 20 && bedY0 < 30)
                 r.Warnings.Add("The print reaches into the front left corner of the bed (18 x 28 mm), which the Bambu P1/X1 keeps free for its filament cutter. Use a smaller scale.");
-            if (sz > printer.MaxZ) r.Warnings.Add($"The scaled part is {sz:0} mm high; the printer takes {printer.MaxZ:0} mm.");
+            if (sz > printer.MaxZ) r.Warnings.Add(Inv.F($"The scaled part is {sz:0} mm high; the printer takes {printer.MaxZ:0} mm."));
             L.AddRange(printer.Start(bedTemp, nozzleTemp, bedX0, bedY0, sx, sy));
             int layerTotal = tp.Layers.Distinct().Count(), layerNumber = 0, layerSeen = int.MinValue;
 
@@ -334,8 +335,8 @@ namespace LARGERslicer.Toolpaths
             }
             L.AddRange(printer.End(sz));
 
-            r.Info = $"{printer.Name}: scale {scale:0.###}, part {sx:0} x {sy:0} x {sz:0} mm, bead {w:0.##} x {h:0.##} mm, " +
-                     $"{totalE / 1000.0:0.00} m filament, about {minutes:0} min, {L.Count} lines";
+            r.Info = Inv.F($"{printer.Name}: scale {scale:0.###}, part {sx:0} x {sy:0} x {sz:0} mm, bead {w:0.##} x {h:0.##} mm, ") +
+                     Inv.F($"{totalE / 1000.0:0.00} m filament, about {minutes:0} min, {L.Count} lines");
             return r;
         }
     }

@@ -99,7 +99,7 @@ namespace LARGERslicer.Toolpaths
             if (path.StartsWith("~")) path = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + path.Substring(1);
             if (!File.Exists(path)) throw new FileNotFoundException("The file " + path + " does not exist.");
             var r = Parse(File.ReadLines(path), o);
-            r.Report.Insert(0, $"Read {Path.GetFileName(path)}: {r.Format}, {r.Lines} lines, {r.MotionLines} moves.");
+            r.Report.Insert(0, Inv.F($"Read {Path.GetFileName(path)}: {r.Format}, {r.Lines} lines, {r.MotionLines} moves."));
             return r;
         }
 
@@ -484,7 +484,7 @@ namespace LARGERslicer.Toolpaths
                 int from = Math.Max(0, firstPrint - 1), to = Math.Min(all.Count - 1, lastPrint + 1);
                 moves = all.GetRange(from, to - from + 1);
                 int left = all.Count - moves.Count;
-                if (left > 0) r.Report.Add($"Left out {left} move(s) of the start and end code (homing, lifting, moving to the start). The path begins with the move onto the first bead.");
+                if (left > 0) r.Report.Add(Inv.F($"Left out {left} move(s) of the start and end code (homing, lifting, moving to the start). The path begins with the move onto the first bead."));
             }
             if (moves[0].E > eps)
             {
@@ -518,7 +518,7 @@ namespace LARGERslicer.Toolpaths
                     if (nrm.Z < 0) nrm = -nrm;
                     if (new Vector3d(lastP.X - firstP.X, lastP.Y - firstP.Y, lastP.Z - firstP.Z) * nrm < 0) nrm = -nrm;
                     axis = nrm; r.Tilted = true;
-                    r.Report.Add($"Tilted layers: the beads lie in planes tilted {F(tilt, "0")} degrees from the bed (angled printing). The tool axis is taken square to them.");
+                    r.Report.Add(Inv.F($"Tilted layers: the beads lie in planes tilted {F(tilt, "0")} degrees from the bed (angled printing). The tool axis is taken square to them."));
                 }
             }
             var frame = Geo.PlaneAt(Point3d.Origin, axis);
@@ -716,36 +716,36 @@ namespace LARGERslicer.Toolpaths
 
             // ---- report
             var rep = r.Report;
-            rep.Add($"Layers: {r.LayerCount}, found from {r.LayerSource}.");
+            rep.Add(Inv.F($"Layers: {r.LayerCount}, found from {r.LayerSource}."));
             rep.Add(r.HeightEstimated
-                ? $"Layer height {F(h)} mm, estimated from the steps between the layers{(r.FileLayerHeight > 0 ? $" (the file says {F(r.FileLayerHeight)} mm)" : "")}."
-                : $"Layer height {F(h)} mm, as given.");
+                ? Inv.F($"Layer height {F(h)} mm, estimated from the steps between the layers{(r.FileLayerHeight > 0 ? Inv.F($" (the file says {F(r.FileLayerHeight)} mm)") : "")}.")
+                : Inv.F($"Layer height {F(h)} mm, as given."));
             rep.Add(r.WidthEstimated
-                ? $"Bead width {F(w)} mm, estimated from E per mm ({F(epmMedian, "0.###")} {machine.Unit} per mm) and the layer height, with {machine.Name}{(r.FileWidth > 0 ? $"; the file says {F(r.FileWidth)} mm" : "")}."
-                : $"Bead width {F(w)} mm, as given; at this width the file extrudes {F(flowMin < double.MaxValue ? Median(Enumerable.Range(1, tp.Count - 1).Where(i => tp.Flows[i] > 0).Select(i => tp.Flows[i]).ToList()) * 100 : 0, "0")} % of the calculated amount.");
+                ? Inv.F($"Bead width {F(w)} mm, estimated from E per mm ({F(epmMedian, "0.###")} {machine.Unit} per mm) and the layer height, with {machine.Name}{(r.FileWidth > 0 ? Inv.F($"; the file says {F(r.FileWidth)} mm") : "")}.")
+                : Inv.F($"Bead width {F(w)} mm, as given; at this width the file extrudes {F(flowMin < double.MaxValue ? Median(Enumerable.Range(1, tp.Count - 1).Where(i => tp.Flows[i] > 0).Select(i => tp.Flows[i]).ToList()) * 100 : 0, "0")} % of the calculated amount."));
             if (r.WidthEstimated && r.FileWidth > 0 && Math.Abs(w - r.FileWidth) > 0.25 * r.FileWidth)
-                r.Warnings.Add($"The estimated bead width ({F(w)} mm) is far from the width the file names ({F(r.FileWidth)} mm). Connect the Machine Profile the file was made for, or give the Bead Width.");
+                r.Warnings.Add(Inv.F($"The estimated bead width ({F(w)} mm) is far from the width the file names ({F(r.FileWidth)} mm). Connect the Machine Profile the file was made for, or give the Bead Width."));
             if (w / h > 8 || w / h < 1)
-                r.Warnings.Add($"Bead {F(w)} x {F(h)} mm looks wrong. E may be counted differently: connect the Machine Profile the file was made for (filament diameter, factor), or give Bead Width and Layer Height.");
-            rep.Add($"Length {F(r.Length / 1000, "0.00")} m: {F(r.PrintLength / 1000, "0.00")} m printed, {F(r.TravelLength / 1000, "0.00")} m without extrusion.");
+                r.Warnings.Add(Inv.F($"Bead {F(w)} x {F(h)} mm looks wrong. E may be counted differently: connect the Machine Profile the file was made for (filament diameter, factor), or give Bead Width and Layer Height."));
+            rep.Add(Inv.F($"Length {F(r.Length / 1000, "0.00")} m: {F(r.PrintLength / 1000, "0.00")} m printed, {F(r.TravelLength / 1000, "0.00")} m without extrusion."));
             rep.Add(r.Starts <= 1
                 ? "One continuous line: the extrusion starts once and never stops (single-toolpath score 1)."
-                : $"{r.Starts} starts and {r.Stops} stops of the extrusion: the print is {r.Starts} separate lines (single-toolpath score 1/{r.Starts} = {F(1.0 / r.Starts, "0.####")}). Every stop and start leaves a mark on a pellet extruder.");
-            rep.Add(r.TravelMoves == 0 ? "Travel: no moves without extrusion." : $"Travel: {r.TravelMoves} move(s) without extrusion in {r.TravelRuns} run(s), {F(r.TravelLength, "0")} mm.");
-            rep.Add(r.Retractions == 0 ? "Retractions: none." : $"Retractions: {r.Retractions}{(r.RetractionsOutside > 0 ? $" ({r.RetractionsOutside} before the first bead)" : "")}.");
+                : Inv.F($"{r.Starts} starts and {r.Stops} stops of the extrusion: the print is {r.Starts} separate lines (single-toolpath score 1/{r.Starts} = {F(1.0 / r.Starts, "0.####")}). Every stop and start leaves a mark on a pellet extruder."));
+            rep.Add(r.TravelMoves == 0 ? "Travel: no moves without extrusion." : Inv.F($"Travel: {r.TravelMoves} move(s) without extrusion in {r.TravelRuns} run(s), {F(r.TravelLength, "0")} mm."));
+            rep.Add(r.Retractions == 0 ? "Retractions: none." : Inv.F($"Retractions: {r.Retractions}{(r.RetractionsOutside > 0 ? Inv.F($" ({r.RetractionsOutside} before the first bead)") : "")}."));
             rep.Add(r.FPrintMax > 0
-                ? $"Speed: printing at {F(r.FPrintMin / 60, "0.#")} to {F(r.FPrintMax / 60, "0.#")} mm/s (mostly {F(st.Speed / 60, "0.#")} mm/s = F{F(st.Speed, "0")}), travel up to {F(r.FTravelMax / 60, "0.#")} mm/s; F changes {r.FeedChanges} time(s), {r.FeedChangesInBead} of them in the middle of a bead."
+                ? Inv.F($"Speed: printing at {F(r.FPrintMin / 60, "0.#")} to {F(r.FPrintMax / 60, "0.#")} mm/s (mostly {F(st.Speed / 60, "0.#")} mm/s = F{F(st.Speed, "0")}), travel up to {F(r.FTravelMax / 60, "0.#")} mm/s; F changes {r.FeedChanges} time(s), {r.FeedChangesInBead} of them in the middle of a bead.")
                 : "Feedrate: no F in the file.");
-            if (r.F0 > 0) { r.Warnings.Add($"F0: {r.F0} line(s) set the feedrate to 0. A move with F0 never finishes: the machine stops there."); }
+            if (r.F0 > 0) { r.Warnings.Add(Inv.F($"F0: {r.F0} line(s) set the feedrate to 0. A move with F0 never finishes: the machine stops there.")); }
             else rep.Add("No F0: every feedrate is above 0.");
-            if (noFeed > 0) r.Warnings.Add($"{noFeed} move(s) run without a feedrate (none set yet, or F0).");
-            rep.Add(r.FlowMax > 0 ? $"Flow: {F(r.FlowMin * 100, "0")} to {F(r.FlowMax * 100, "0")} % of the bead width x layer height.{(r.FlowOutliers > 0 ? $" {r.FlowOutliers} move(s) are below 20 % or above 500 %." : "")}" : "Flow: -");
+            if (noFeed > 0) r.Warnings.Add(Inv.F($"{noFeed} move(s) run without a feedrate (none set yet, or F0)."));
+            rep.Add(r.FlowMax > 0 ? Inv.F($"Flow: {F(r.FlowMin * 100, "0")} to {F(r.FlowMax * 100, "0")} % of the bead width x layer height.{(r.FlowOutliers > 0 ? Inv.F($" {r.FlowOutliers} move(s) are below 20 % or above 500 %.") : "")}") : "Flow: -");
             if (r.ZJumps > 0)
-                r.Warnings.Add($"Z JUMPS: {r.ZJumps} printing move(s) jump more than {F(Math.Max(50, 20 * h), "0")} mm in Z with far too little or too much material for their length. Such numbers are usually broken (for example .566 written as 566). Do not print the file before this is clear.");
-            if (r.IntoBed > 0) r.Warnings.Add($"INTO THE BED: {r.IntoBed} printing move(s) at Z 0 or below.");
+                r.Warnings.Add(Inv.F($"Z JUMPS: {r.ZJumps} printing move(s) jump more than {F(Math.Max(50, 20 * h), "0")} mm in Z with far too little or too much material for their length. Such numbers are usually broken (for example .566 written as 566). Do not print the file before this is clear."));
+            if (r.IntoBed > 0) r.Warnings.Add(Inv.F($"INTO THE BED: {r.IntoBed} printing move(s) at Z 0 or below."));
             foreach (var l in r.Check.Report) rep.Add("Check: " + l);
-            rep.Add($"Time about {F(r.Minutes, "0")} min from the feedrates (without acceleration){(r.FileMinutes > 0 ? $"; the file says {F(r.FileMinutes, "0")} min" : "")}.");
-            rep.Add($"Weight about {F(r.Grams, "0")} g at {F(st.Density)} g/cm3 ({F(r.Volume / 1000, "0")} cm3).");
+            rep.Add(Inv.F($"Time about {F(r.Minutes, "0")} min from the feedrates (without acceleration){(r.FileMinutes > 0 ? Inv.F($"; the file says {F(r.FileMinutes, "0")} min") : "")}."));
+            rep.Add(Inv.F($"Weight about {F(r.Grams, "0")} g at {F(st.Density)} g/cm3 ({F(r.Volume / 1000, "0")} cm3)."));
             if (r.HasRotation) rep.Add("Tool axes: the file has A, B, C. They are read as turns about X, Y and Z (in this order, degrees) and give the tool axis of every point.");
             foreach (var wmsg in r.Warnings) rep.Add("Warning: " + wmsg);
         }
