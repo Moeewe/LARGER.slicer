@@ -27,7 +27,7 @@ Ein Granulatextruder lässt sich nicht sauber stoppen: Jede Leerfahrt zieht Fäd
 |---|---|
 | **Eine Linie** | Wände, Boden und Infill werden zu einer einzigen Bahn verbunden. Das Infill ist in die Wand eingebunden, nicht daneben gedruckt. |
 | **Kreuzt sich nie** | Bei einer Kreuzung fährt die Düse durch frisch gelegtes Material. Lässt sich ein Muster nicht ohne Kreuzung drucken, wählt der Slicer ein anderes. |
-| **Flache Lagen** | Jede Lage liegt flach. Zur nächsten Lage steigt die Bahn über eine kurze Rampe, immer an derselben Stelle. |
+| **Flache Lagen** | Jede Lage liegt flach. Die Naht bleibt um eine Bahnbreite offen; die Bahn überquert die Lücke auf einer kurzen Steigung zur nächsten Lage, immer an derselben Stelle. |
 | **Aufgelegt** | Eine Bahn darf die darunter um höchstens eine halbe Bahnbreite überragen. `Path Check` meldet, wo ein Teil das überschreitet. |
 
 ## Infill aus einer Linie
@@ -50,23 +50,122 @@ Jede Zeichnung ist eine echte Lage aus dem Slicer (Bauteil 300 × 190 mm, Bahn 5
 
 ## Der Tab „Slicer“
 
-Neu hier? `Easy Slicer` ist ein einzelner Baustein vom Modell bis zur geprüften Druckbahn; die Seite [Erste Schritte](https://parametricsolutions.de/larger-slicer/erste-schritte/) führt hindurch. Die Komponenten werden in dieser Reihenfolge verbunden. `Quick Start` legt die ganze Kette samt Beispielteil auf die Leinwand.
+Neu hier? `Easy Slicer` ist ein einzelner Baustein vom Modell bis zur geprüften Druckbahn; die Seite [Erste Schritte](https://parametricsolutions.de/larger-slicer/erste-schritte/) führt hindurch. Für alle Optionen werden die Komponenten in dieser Reihenfolge verbunden. `Quick Start` legt die ganze Kette samt Beispielteilen auf die Leinwand.
+
+Die Einstellungen sitzen auf den Komponenten selbst: Die Zeilen unter einer Komponente sind Auswahlen, Zahlen, Schalter und Knöpfe (`Save G-code`, `Save KRL`, `Play`). Ein Klick auf die Zeile ändert sie: Eine Auswahl öffnet ein Menü, eine Zahl bietet runde Werte oder ein Feld zum Eintippen. Ein Knopf schreibt seine Datei einmal pro Klick und springt von selbst zurück. Der Wert geht in den Eingang, als wäre er dort eingetippt, die Datei behält ihn also. Ein Draht in denselben Eingang hat weiterhin Vorrang (die Zeile zeigt dann „connected“).
+
+**Geschwindigkeiten in mm/s.** `Print Settings` und `Easy Slicer` nehmen standardmäßig Speed 50, Min Speed 5 und Max Speed 200 mm/s. Die Bahn und die Maschinendateien bleiben in mm/min, dem F von G-Code und DXR: 50 mm/s = F3000. Definitionen, die mit einer älteren Version gespeichert wurden, werden als mm/min gelesen, mit einem Hinweis an der Komponente.
 
 | Schritt | Komponente | Aufgabe |
 |---|---|---|
-| 1 | `Machine Profile` | Wie dein Drucker die Extrusionswerte erwartet: Volumen, Filamentlänge oder Faktor für die Steuerung |
-| 2 | `Print Settings` | Bahnbreite, Lagenhöhe, Überlappung, Geschwindigkeit, kleinster Radius |
-| 3 | `Slice` | Breps, Flächen, SubDs, Meshes. Flach, gekippt, non-planar (Führungsfläche) oder multiaxial (Führungskurve) |
+| 1 | `Machine Profile` | Wie dein Drucker die Extrusionswerte erwartet: Volumen, Filamentlänge oder Faktor für die Steuerung. Aufgelistet als Hersteller und Maschine, z. B. „Generic · Pellet extruder“ |
+| 2 | `Print Settings` | Bahnbreite, Lagenhöhe, Überlappung, Geschwindigkeit (mm/s), kleinster Radius. `Nozzle` wählt Bahnbreite und Lagenhöhe passend zur eingeschraubten Düse |
+| | `Material` · `Material Factor` | Startwerte für ein Granulat (Temperaturen, Trocknung, Dichte); ein neuer Extrusionsfaktor aus gemessenen Bahnbreiten |
+| 3 | `Slice` | Breps, Flächen, SubDs, Meshes. Flach, gekippt, non-planar (Führungsfläche oder „Follow the part“) oder multiaxial (Führungskurve) |
+| | `Self Support Check` · `Self Supporting Envelope` · `Best Angle` | Wo das Bauteil zu weit überhängt, das wenigste Material, das es selbsttragend macht, und der Schnittwinkel mit dem kleinsten Überhang |
 | 4 | `Walls` | Bahn innen, mittig oder außen an der Geometrie |
 | 5 | `Bottom Fill` | Geschlossener Boden als eine Linie: Zickzack oder Kontur |
 | 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill, in die Wandlinie eingebunden |
-| 7 | `Continuous Path` | Flache Lagen mit kurzer Rampe an fester Naht, oder Spirale für einfache Wände |
+| | `Support Fins` | Dünne Stützrippen außen am Bauteil, die Überhänge tragen, als Teil derselben Linie |
+| 7 | `Continuous Path` | Flache Lagen mit offener Naht (Lücke von einer Bahnbreite) oder Spirale für einfache Wände. Seam Mode, Min Layer Time, Max Volume Rate |
 | 8 | `Round Corners` | Jede Ecke wird ein Bogen |
-| 9 | `Start and End` | Skirt zuerst, am Ende vom Bauteil wegfahren |
-| 10 | `Path Check` | Auflage, Selbstkreuzung, Bahnform, Leerfahrten |
+| 9 | `Start and End` | Anfahrt von 30 mm oberhalb, Skirt zuerst, Brim außen, innen oder beidseitig, am Ende vom Bauteil wegfahren |
+| 10 | `Path Check` | Auflage, Selbstkreuzung, Bahnform, Leerfahrten, Lagenzeiten |
+| | `Non-Planar Check` | Bahnhöhe und Freiraum des Druckkopfs bei non-planaren Lagen mit senkrechter Düse |
 | 11 | `Extrusion and Speed` | Ebene, E und F pro Punkt für DXR Generator oder G-Code |
 | | `Desktop Test Print` | Derselbe Pfad verkleinert als G-Code für einen Filamentdrucker |
 | | `Ginger G-code` | Der Pfad in Originalgröße als G-Code für den Ginger One, mit dessen Start- und End-Sequenz |
+| | `Machine` · `Machine G-code` | Eingebaute G-Code-Maschinen (z. B. „Ginger Additive · Ginger One (Klipper)“) oder eigene: Start-, Lagen- und Endcode und E-Faktor als `.machine`-Datei in Dokumente/LARGER/Machines |
+| | `Import G-code` | Liest G-Code anderer Slicer oder eine .dxr-Datei als Bahn ein, zur Prüfung mit `Path Check` |
+| | `Material Field` | Bringt die Bahn als richtungsabhängiges Materialfeld zurück aufs Bauteil, für FE oder IGA |
+
+`Quick Start` legt sieben Beispiele an: 01 flache Lagen, 02 non-planar, 03 multiaxial, 04 ein Teil mit Öffnung, 05 schräge Lagen, 06 `Easy Slicer` (eine Vase als Spirale) und 07 ein non-planarer Druckkopf am Ginger One (Klipper), mit Lagen, die dem Bauteil folgen.
+
+### Neue Komponenten im Detail
+
+<details>
+<summary><b>Material, Material Factor, Import G-code, Material Field</b></summary>
+
+**`Material`** (Slicer). Startwerte für ein Granulat: Einzugszone, Heizzonen 1 bis 3, Düse und Bett in °C, Trocknung, Restfeuchte und Dichte in g/cm³. Eingebaut sind Carbon-P PETG, rPETG und PLA mit den Startwerten der Weber-DXR-Kurzanleitung; die Dichten sind typische Werte.
+- Eingänge: `Material` (Auswahl auf der Komponente), optionale Werte, die das gewählte Material überschreiben (Zonen als ein Wert oder Bereich wie 200-210), `Factor` und der Knopf `Save material`.
+- Verbindung: `Density` → `Density` von `Print Settings`, damit Dateinamen und Berichte das richtige Gewicht zeigen.
+- Eigene Materialien: `.material`-Textdateien in Dokumente/LARGER/Materials, oder die Eingänge ausfüllen und `Save material` drücken.
+- Achtung: Die eingebauten Temperaturen sind Startwerte. Mit dem Datenblatt deines Materials abgleichen.
+
+**`Material Factor`** (Slicer). Ermittelt einen neuen Extrusionsfaktor aus einem Testdruck: neu = Sollbreite / gemessene Breite × aktueller Faktor.
+- Eingänge: `Target Width` (mm, Standard 5), `Measured Widths` (mm, mehrere Werte: der Mittelwert zählt), `Current Factor` (Standard 1), optional `Wall Thickness` (mm) eines einwandigen Tests.
+- Ausgänge: `New Factor`, `Off` (% der Sollbreite, + = zu breit), `Mean`, `Report`.
+- Verbindung: `New Factor` als `Factor` in `Machine Profile` verwenden, oder als P1 am Weber DXR, und den Test erneut drucken.
+- Achtung: an mehreren Stellen messen. Der Bericht warnt bei ungleichmäßigen Messwerten.
+
+**`Import G-code`** (Slicer). Liest G-Code aus Cura, Simplify3D, PrusaSlicer, AiSync / Ai Build oder einem Skript, oder eine Weber-`.dxr`, und prüft ihn wie eine eigene Bahn: Starts und Stopps, Leerfahrten, Rückzüge, F-Wechsel und F0, Extrusion ins Bett, Bahnen ohne Auflage, Kreuzungen, Zeit und Gewicht. Schräge Lagen und A/B/C-Werkzeugachsen werden erkannt.
+- Eingänge: `File`, `Bead Width` und `Layer Height` (mm, 0 = aus der Datei geschätzt), optional `Machine Profile` (was E bedeutet; leer = E ist ein Volumen in mm³), `Density` (g/cm³, Standard 1,25) und der Schalter `Keep start code`.
+- Ausgänge: `Toolpath`, `Path`, `Layers`, `Report`.
+- Verbindung: `Toolpath` → `Path Check`, `Robot Program` oder die DXR-Komponenten.
+- Achtung: Ist E eine Filamentlänge oder enthält einen Faktor, das passende `Machine Profile` anschließen, sonst stimmen die Bahnbreiten nicht.
+
+**`Material Field`** (Slicer). Bringt die Bahn als richtungsabhängiges Materialfeld zurück aufs Bauteil, für FE oder IGA. Pro Messpunkt: Bahnrichtung e1, quer zur Bahn e2, Stapelrichtung e3, Lage und Bahn, Abstand zur nächsten Lagen- und Bahngrenze, Lagenzeit und ein Schwächewert. Mit den Moduln ergibt sich die gedrehte orthotrope Steifigkeit pro Punkt.
+- Eingänge: `Toolpath`, optional `Geometry` (Breps: die Punkte bilden ein Raster im UV jeder Fläche, sodass Fläche, u, v auf die NURBS der Analyse passen) oder `Sample Points` (z. B. Gauß-Punkte), `Sample Spacing` (mm, 0 = halbe Lagenhöhe), Moduln E1, E2, E3, G12, G13 (MPa) und Querkontraktionszahlen, `Cooling Time` (s, Standard 60), `File`, `Format` (CSV, JSON, VTK für ParaView) und der Knopf `Save`.
+- Ausgänge: `Points`, `Frames`, `Directions`, `Stacking`, `Weakness` (0 = intakt, 1 = schwach), `Weakness Mesh`, `Table`, `Info`.
+- Achtung: Die voreingestellten Moduln und die Abkühlzeit sind Platzhalter. Durch Werte aus Probekörperversuchen mit deinem Material ersetzen.
+
+</details>
+
+<details>
+<summary><b>Self Support Check, Self Supporting Envelope, Best Angle, Support Fins</b></summary>
+
+Die Grenze für Überhänge ergibt sich aus der Bahn: Eine Bahn darf um `Factor` × Bahnbreite neben der Bahn darunter liegen (Standard 0,5). Bei 5-mm-Bahnen in 2-mm-Lagen darf eine Wand etwa 51° gegen die Aufbaurichtung geneigt sein.
+
+**`Self Support Check`** (Slicer, neben `Slice`). Färbt das Bauteil danach, wie weit es für die gewählte Aufbaurichtung überhängt: grün gut, orange nahe der Grenze, rot nicht selbsttragend, grau auf dem Bett.
+- Eingänge: `Geometry`, `Settings` (aus `Print Settings`), `Plane`, `Angle` (Grad), optional `Guide` und `Guide Mode`, alles wie an `Slice`, und `Factor`.
+- Ausgänge: `Analysis Mesh`, `Unsupported Area` (mm²), `Percent`, `Regions`, `Starts` (Inseln, die frei in der Luft beginnen), `Report`.
+- Achtung: dieselbe Ebene, denselben Winkel und dieselbe Führung wie an `Slice` verwenden, sonst wird eine andere Aufbaurichtung geprüft.
+
+**`Self Supporting Envelope`** (Slicer). Fügt das wenigste Material hinzu, mit dem jede Lage die darüber trägt, wie automatische Fasen unter Überhängen.
+- Eingänge: `Layers` aus `Slice` (vor `Walls`), `Settings`, `Factor`, Schalter `Geometry` (das neue Bauteil auch als Geometrie bauen).
+- Ausgänge: `Layers` (fertig zum Weiterverarbeiten: an `Walls` anschließen), `Geometry` (das neue Bauteil als geschlossener NURBS-Brep oder Mesh), `Added` (nur das hinzugefügte Material), `Contours`, `Added Contours`, `Report`.
+- Achtung: Das hinzugefügte Material verändert das Bauteil. Abfräsen einplanen; das Bauen der Geometrie (ein Loft) dauert einen Moment.
+
+**`Best Angle`** (Slicer). Probiert Schnittwinkel in 5°-Schritten und mit `Turn` jede Kipprichtung in 30°-Schritten, und schlägt die mit dem kleinsten Überhang vor.
+- Eingänge: `Geometry`, `Settings`, `Min Angle` und `Max Angle` (Grad, Standard 0 bis 75), `Turn`, `Factor`.
+- Ausgänge: `Plane` und `Angle` (beide an `Slice` anschließen), `Layer Plane`, `Report` mit der Rangfolge.
+- Achtung: Ein schräger Druck braucht einen Roboter oder ein gekipptes Bett und meist Start- und Endlagen (`Slice`, `Start/End Layers`).
+
+**`Support Fins`** (Slicer, neben dem Infill). Dünne Rippen außen am Bauteil tragen Überhänge. Jede Rippe steht senkrecht zur Außenwand, vom Bett bis knapp unter den Überhang, als Haarnadel aus der Wand hinaus und zurück, und bleibt so Teil der einen Linie.
+- Eingänge: `Layers` (nach `Walls`, `Bottom Fill` und Infill), `Settings`, `Overhang Angle` (Grad gegen die Senkrechte, 0 = eine halbe Bahn pro Lage), `Spacing` (Bahnbreiten, Standard 15), `Reach` (Bahnbreiten, Standard 1), `Contact` (Neck, Neck + gap, Full), `Gap` (mm, Standard 0,3, für Neck + gap).
+- Verbindung: direkt vor `Continuous Path`. Die Nahtrampe hält sich von den Rippen fern.
+- Achtung: „Full“ ist die festeste Verbindung, aber am schwersten zu entfernen. „Neck + gap“ druckt die oberste Rippenlage tiefer, sodass der Überhang abbricht.
+
+</details>
+
+<details>
+<summary><b>Slice „Follow the part“, Non-Planar Check, Optionen von Continuous Path und Path Check</b></summary>
+
+**`Slice`, Guide Mode „Follow the part (no guide)“.** `Guide` leer lassen. Die non-planaren Lagen folgen der Wand des Bauteils von unten nach oben, sodass Überhänge gleich dicke Lagen bekommen, ohne Führungsfläche. Die Düse bleibt senkrecht, und die Extrusion folgt dem senkrechten Abstand zur Lage darunter. Eine Warnung erscheint, wenn eine Lage entlang der Wand dicker als 0,8 × Bahnbreite wird. Passt das Bauteil nicht, meldet `Slice` das und schneidet flach.
+
+**`Non-Planar Check`** (Slicer, neben `Path Check`). Für Drucker mit senkrechter Düse. Misst an jedem Punkt die echte Bahnhöhe gegen Bahnbreite, Lagenhöhe und Extrusion und prüft den Druckkopf gegen alles, was vorher gedruckt wurde.
+- Eingänge: `Toolpath`, `Tip Radius` (mm, Standard 4), `Cone Angle` (halber Kegelwinkel gegen die Senkrechte, Grad, Standard 30), `Cone Length` (mm, Standard 60), `Head Radius` (mm, Standard 40), `Pose` (0 = Anfang, 1 = Ende).
+- Ausgänge: `OK`, `Report`, `Bead Height` (mm pro Punkt), `Bad Heights`, `Collisions` (muss leer sein), `Head` (der geprüfte Kopf, auf der Bahn bei `Pose`).
+- Achtung: die eigene Düse und den eigenen Kopf ausmessen. Die Standardwerte sind nur Beispiele.
+
+**`Continuous Path`, neue Eingänge** (Lagenmodus):
+- `Seam Mode`: Fixed point (wie bisher), Inner corner (in einer Innenecke der Außenwand, wo sie am wenigsten auffällt; ohne Innenecke die schärfste Außenecke) oder Sharpest corner. Die Ecke wird von Lage zu Lage verfolgt, höchstens eine halbe Bahn zur Seite.
+- `Min Layer Time` (s, 0 = aus): Lagen, die schneller fertig wären, werden langsamer gedruckt, mit einer Geschwindigkeit pro Lage, nie unter Min Speed. Etwa 60 s passen zu vielen großen Granulatdrucken.
+- `Max Volume Rate` (mm³/s, 0 = aus): Bewegungen, die mehr vom Extruder verlangen würden, laufen langsamer. Der Ginger One schafft etwa 330 mm³/s.
+
+**`Path Check`**: Eingang `Min Layer Time` (s, 0 = der Wert von `Continuous Path`) und Ausgang `Layer Times` (s pro Lage). Für zu kurze Lagen nennt der Bericht drei Abhilfen: langsamer drucken, mehrere Teile nebeneinander, oder als letzte Möglichkeit eine Pause.
+
+</details>
+
+<details>
+<summary><b>Maschinen und Düsen-Voreinstellungen</b></summary>
+
+- Maschinen und Maschinenprofile sind als Hersteller und Maschine aufgelistet: „Ginger Additive · Ginger One (Klipper)“, „Weber Additive · DXR25 on a robot“, „Generic · Filament printer 1.75 mm“. Eigene `.machine`-Dateien können `manufacturer = ...` enthalten.
+- **Ginger Additive · Ginger One (Klipper)**: Makros START_PRINT und END_PRINT, E als Volumen × 1,0, Lüfter ab Lage 1. Den Faktor mit der Klipper-`rotation_distance` deines Extruders bestätigen.
+- `.machine`-Dateien kennen `material` und `bed temperature` für `{material}` und `{bed}` in den Codes, und Blöcke `[after layer n]`. `Machine` hat die optionalen Eingänge `Material` und `Bed Temperature` (°C).
+- Die Düsen-Voreinstellungen an `Print Settings` und `Easy Slicer` heißen nach der Düse, z. B. „3 mm flat nozzle, wide bead - bead 5 mm, layer 2 mm (tested)“ oder „4 mm nozzle (Weber profile) - bead 4.8 mm, layer 1.8 mm“. Eine Warnung erscheint, wenn Bahn und Lage nicht zur Düse passen.
+
+</details>
 
 ## Der Tab „Robot“
 
@@ -75,19 +174,55 @@ Für das Drucken mit dem Roboter: Die Zelle wird einmal beschrieben, danach wird
 | Baustein | Was er macht |
 |---|---|
 | `Robot` | Der Arm. Voreingestellt ist der KUKA KR120 R2700-2; jeder Sechsachser mit Zentralhand lässt sich aus einer Bibliotheksdatei des Robots-Plug-ins (.xml) laden |
-| `Robot Tool` | Werkzeugspitze (TCP, relativ zum Flansch) und Gewicht |
-| `Robot Cell` | Roboter, Werkzeug und die Basis, von der aus das Programm zählt (KUKA `$BASE`) |
-| `Robot Program` | Werkzeugspitze auf jedem Bahnpunkt, Werkzeug entlang der Werkzeugachse der Bahn. Prüft Reichweite, Achsbereiche, Handachsen-Singularität und Achsgeschwindigkeit. Gibt die Bewegungen für den `DXR Generator`, ein KRL-Programm und den Arm an jeder Stelle der Bahn aus |
+| `Robot Tool` | Werkzeugspitze (TCP) wie im Robots-Plug-in (AE20-Extruder: YZ-Ebene bei -460, 3, 108), Gewicht, Schwerpunkt, 3D-Modell |
+| `Robot Cell` | Roboter, Werkzeug und die Basis, von der aus das Programm zählt (KUKA `$BASE`). Optionale Eingänge `Environment` (Meshes für die Kollisionsprüfung) und `External Axes` |
+| `External Axis` | Eine Linearachse, auf der der Roboter steht, oder ein Drehtisch, auf dem das Bauteil steht. An `External Axes` von `Robot Cell` anschließen |
+| `Robot Program` | Werkzeugspitze auf jedem Bahnpunkt, Werkzeug entlang der Werkzeugachse der Bahn. Prüft Reichweite, Achsbereiche, Handachsen-Singularität, Achsgeschwindigkeit und Kollisionen. Gibt die Bewegungen für den `DXR Generator`, ein KRL-Programm und den Arm an jeder Stelle der Bahn aus |
+| `Robot Simulation` | Spielt das Programm ab: der Roboter mit Werkzeug zu jedem Zeitpunkt des Drucks (Schieberegler oder Play). Ausgang `Colliding` zeigt rot, was in diesem Moment kollidiert |
+| `Cell Geometry` | Eine Beispiel-Druckzelle in 3D (Boden, Sockel, Bett, Zaun; die Zelle der FH Münster), der Standort des Roboters und die Umgebung für die Kollisionsprüfung. Eigene Zelle als .3dm-Datei |
+
+<details>
+<summary><b>Externe Achsen und Kollisionsprüfung</b></summary>
+
+**`External Axis`** (Robot). Eine Linearachse (der Roboter fährt darauf) oder ein Drehtisch (das Bauteil dreht sich darauf). `Robot Program` bewegt sie während des Drucks: Die Linearachse hält den Roboter neben dem Punkt, der gerade gedruckt wird, der Tisch dreht diesen Punkt zum Roboter. Beide bewegen sich ruhig, unter ihrer Höchstgeschwindigkeit und innerhalb ihres Bereichs.
+- Eingänge: `Kind` (Linearachse oder Drehtisch), `Place` (Linearachse: fährt entlang ihrer X-Achse; Tisch: Ursprung = Mitte, Z = Drehachse, X = 0°), `Min` und `Max` (mm bei der Linearachse, Grad beim Tisch; beide 0 = Linearachse 0 bis 3000 mm, Tisch -360 bis 360°), `Max Speed` (mm/s bzw. °/s; 0 = 1000 mm/s bzw. 90 °/s), `Name` (KUKA E1 bis E6), `Endless`, `Offset` (mm bzw. Grad), `Smoothing` (mm Bahn, Standard 300), `Coupled` (KUKA-gekoppelte Basis), `Size` (mm, nur Darstellung).
+- Verbindung: `External Axis` → `External Axes` von `Robot Cell` (eine Linearachse und ein Tisch pro Zelle).
+- Achtung: KRL schreibt E1/E2 in jede Zeile, die DXR-Ausgabe enthält aber keine E-Werte. Noch nicht an einer Steuerung erprobt: zuerst in T1 laufen lassen.
+
+**Kollisionsprüfung in `Robot Program`.** Roboter, Werkzeug, Linearachse und Drehtisch werden gegeneinander geprüft, gegen das bisher gedruckte Bauteil, das Bett und das `Environment` von `Robot Cell`.
+- Eingänge: `Check Collisions` (standardmäßig an; auch als Zeile auf der Komponente), `Clearance` (mm, Standard 10: Körper, die sich näher kommen, werden als Beinahe-Kollision gemeldet), `Collision Poses` (wie viele Stellungen entlang der Bahn, Standard 500; -1 = jede Bewegung, 0 = keine Prüfung).
+- Ausgänge: `Collision Moves` (Nummern der Bewegungen, wie `Move` von `Robot Simulation`), `Collision Bodies` (die Körper bei ihrer schlimmsten Kollision, mit einer Kugel an der Berührstelle), `Collisions` (Bahnpunkte).
+- Der Bericht nennt das Paar, die Bewegung und die Lage und schlägt vor, was sich ändern lässt: Neigung, Düsenlänge, Werkzeugdrehung, Versatz von Linearachse oder Drehtisch.
+- Achtung: Die Prüfung braucht das 3D-Modell des Roboters (siehe Info von `Robot`); ohne es werden Kollisionen nicht geprüft. Ein Werkzeug ohne Mesh wird als einfacher Zylinder vom Flansch bis zur Spitze geprüft, also den eigenen Extruder als `Mesh` an `Robot Tool` anschließen.
+
+</details>
 
 Die kurvenbasierten Werkzeuge des früheren Tabs „Toolpaths“ liegen jetzt unter **Slicer Curves** und heißen wie ihre Gegenstücke im Slicer (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
 
 ## Maschinen
+
+Dateinamen enthalten Maschine, Datum und Uhrzeit, Bauteil, Gewicht und Druckzeit: `DXR_2611051216_Test Object_2668g_53min.dxr`. Ein senkrechter Extruder wird als A 0, B 0, C 0 geschrieben, wie es der Weber DXR erwartet.
 
 | | |
 |---|---|
 | **Im Einsatz erprobt** | Weber Additive DXR25 (KUKA-Roboter, DXR-Code) · Ginger Additive Ginger One (G-Code) |
 | **Testdrucke im kleinen Maßstab** | Bambu Lab, Prusa, Creality, Elegoo und andere Marlin- oder Klipper-Drucker, über `Desktop Test Print` |
 | **Andere Granulat- und Robotersysteme** | Nicht getestet. Das allgemeine Granulat-Profil gibt Position, Werkzeugachse, E und F pro Punkt aus; Format der Steuerung und Extrusionsfaktor müssen an der Maschine abgeglichen werden. |
+
+### Eigene Maschine oder Druckzelle
+
+Kein Code nötig. Alles ist eine Textdatei oder eine Rhino-Datei in `Dokumente/LARGER`:
+
+| Was | Wo | Wie |
+|---|---|---|
+| G-Code-Maschine | `Machines/Mein Drucker.machine` | Start-, Lagen- und Endcode, Bettgröße und E-Faktor als Text (siehe `Machine`). Am einfachsten: in `Machine` eintragen und `Save` setzen. |
+| 3D-Modell für die Vorschau | `Machines/Mein Drucker.3dm` | Rahmen, Bett und Portal in Rhino in den Koordinaten der Maschine zeichnen (ihr 0, 0, 0 im Ursprung), oder an `Model` von `Machine` anschließen und `Save` setzen. Ohne Modell wird das Bett aus der Bettgröße gezeichnet. |
+| Granulat | `Materials/Mein Material.material` | Temperaturen, Trocknung, Dichte und Faktor als Text (siehe `Material`). Am einfachsten: die Eingänge von `Material` ausfüllen und `Save material` drücken. |
+| Roboter-Druckzelle | `Cells/Meine Zelle.3dm` | In Millimetern in den Koordinaten des Betts zeichnen, ein Teil pro Ebene: `Bed` (gezeichnet, nicht auf Kollision geprüft), `Robot Base` (ein Punkt, wo der Roboter steht, und eine Linie von dort entlang seiner X-Achse), `Work Base` (optional) und jede weitere Ebene (Floor, Fence, Table ...) für die Kollisionsprüfung. `Export` an `Cell Geometry` liefert die mitgelieferte Zelle in dieser Form als Start. |
+| Roboterarm | `Dokumente/RobotSystems` | Die Bibliothek des Robots-Plug-ins; `Robot` liest Arm und 3D-Modell von dort (`Geometry File`). |
+| Werkzeug | `Robot Tool` | TCP-Ebene, Gewicht und Schwerpunkt wie in Robots; den eigenen Extruder als Mesh an `Mesh` anschließen. |
+
+Neue Dateien erscheinen in den Listen von `Machine`, `Material` und `Cell Geometry`, sobald die Komponente das nächste Mal platziert wird. Den Ordner unverändert weitergeben: Die `.3dm` neben einer `.machine`-Datei wird über ihren Namen gefunden.
 
 Alle genannten Marken gehören ihren jeweiligen Inhabern. LARGER.slicer ist ein unabhängiges Projekt und steht in keiner Verbindung zu diesen Herstellern.
 
@@ -144,6 +279,7 @@ Mehr: [SETUP-Anleitung](SETUP/README.de.md)
 |---|---|---|---|
 | **Weber DXR25** | KUKA-Roboter, multiaxial | `LARGERslicer Weber Robot and Ginger.gh` | [Deutsch](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) · [English](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) |
 | **Ginger One** | Großformat-Granulatdrucker | `LARGERslicer Weber Robot and Ginger.gh` | [Schnellstart (Englisch)](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
+| **Ginger One (Klipper), non-planar** | Granulatdrucker, senkrechte Düse | [`LARGERslicer - Non Planar Head (Ginger).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Non Planar Head (Ginger).gh>): Lagen, die dem Bauteil folgen, eine Spirale, `Path Check`, `Non-Planar Check`, G-Code | Wie Quick-Start-Beispiel 07 |
 | **Universal Robots UR5** | Kollaborativer Roboter | `UR5slicer.gh` | [Schnellstart (Englisch)](<EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/README UR5 00 QUICK START GUIDE.md>) |
 | **Zünd G3 L-2500** | CNC-Fräsen / Schneiden | `ZündHGPL PLT MSA.gh` | [Schnellstart (Englisch)](<EXAMPLE FILES/00 - ZUENDT - 3D CNC MILLING/README Zünd G3 L-2500 CNC MILLING QUICK START GUIDE.md>) |
 

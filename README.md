@@ -52,24 +52,120 @@ Every drawing is a real layer from the slicer (part 300 × 190 mm, bead 5 mm). S
 
 New here? `Easy Slicer` is one component from the model to the checked print path; the [first-steps page](https://parametricsolutions.de/larger-slicer/erste-schritte/) walks through it. For every option, components connect in this order; `Quick Start` places the whole chain with example parts.
 
-Settings sit on the components themselves: the rows under a component are choices, numbers, switches and buttons (`Save G-code`, `Play`). Click a row to change it; a wire into the same input still wins.
+Settings sit on the components themselves: the rows under a component are choices, numbers, switches and buttons (`Save G-code`, `Save KRL`, `Play`). Click a row to change it: a choice opens a menu, a number offers quick picks or a field to type in. A button writes its file once per click and switches back by itself. The value goes into the input as if typed into it, so the file keeps it, and a wire into the same input still wins (the row then says "connected").
+
+**Speeds are in mm/s.** `Print Settings` and `Easy Slicer` take Speed 50, Min Speed 5 and Max Speed 200 mm/s by default. The path and the machine files keep mm/min, the F of G-code and DXR: 50 mm/s = F3000. Definitions saved with an older version are read as mm/min, with a note on the component.
 
 | Step | Component | What it does |
 |---|---|---|
-| 1 | `Machine Profile` | How your printer wants its extrusion values: volume, filament length, or a factor for the controller |
-| 2 | `Print Settings` | Bead width, layer height, overlap, speed, minimum radius |
-| 3 | `Slice` | Breps, surfaces, SubDs, meshes. Flat, tilted, non-planar (guide surface) or multi-axis (guide curve) |
+| 1 | `Machine Profile` | How your printer wants its extrusion values: volume, filament length, or a factor for the controller. Listed as manufacturer and machine, e.g. "Generic · Pellet extruder" |
+| 2 | `Print Settings` | Bead width, layer height, overlap, speed (mm/s), minimum radius. `Nozzle` picks bead width and layer height for the nozzle that is screwed in |
+| | `Material` · `Material Factor` | Start values for a pellet material (temperatures, drying, density); a new extrusion factor from measured bead widths |
+| 3 | `Slice` | Breps, surfaces, SubDs, meshes. Flat, tilted, non-planar (guide surface or "Follow the part") or multi-axis (guide curve) |
+| | `Self Support Check` · `Self Supporting Envelope` · `Best Angle` | Where the part hangs over too far, the least material that makes it self-supporting, and the slice angle with the least overhang |
 | 4 | `Walls` | Bead inside, centred on or outside the geometry |
 | 5 | `Bottom Fill` | Closed bottom as one line: zigzag or contour |
 | 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill spliced into the wall path |
-| 7 | `Continuous Path` | Flat layers with an open seam (gap of one bead width) at a fixed place, or a spiral for single walls |
+| | `Support Fins` | Thin fins outside the part that hold up overhangs, as part of the same line |
+| 7 | `Continuous Path` | Flat layers with an open seam (gap of one bead width), or a spiral for single walls. Seam Mode, Min Layer Time, Max Volume Rate |
 | 8 | `Round Corners` | Every corner becomes an arc |
 | 9 | `Start and End` | Way in from 30 mm above, skirt first, brim outside, inside or both, a move off the part at the end |
-| 10 | `Path Check` | Support, self-crossings, bead shape, travel moves |
+| 10 | `Path Check` | Support, self-crossings, bead shape, travel moves, layer times |
+| | `Non-Planar Check` | Bead height and head clearance for non-planar layers with a vertical nozzle |
 | 11 | `Extrusion and Speed` | Plane, E and F per point for the DXR Generator or G-code |
 | | `Desktop Test Print` | The same path scaled down as G-code for a desktop filament printer |
 | | `Ginger G-code` | The path in full size as G-code for the Ginger One, with its start and end sequence |
-| | `Machine` · `Machine G-code` | Your own G-code machine: start, layer and end code and E factor as a `.machine` file in Documents/LARGER/Machines |
+| | `Machine` · `Machine G-code` | Built-in G-code machines (e.g. "Ginger Additive · Ginger One (Klipper)") or your own: start, layer and end code and E factor as a `.machine` file in Documents/LARGER/Machines |
+| | `Import G-code` | Reads G-code from other slicers or a .dxr file as a toolpath, to check it with `Path Check` |
+| | `Material Field` | Puts the toolpath back onto the part as a direction-dependent material field for FE or IGA |
+
+`Quick Start` places seven examples: 01 flat layers, 02 non-planar, 03 multi-axis, 04 a part with an opening, 05 angled layers, 06 `Easy Slicer` (a vase as a spiral) and 07 a non-planar head on the Ginger One (Klipper), with layers that follow the part.
+
+### New components in detail
+
+<details>
+<summary><b>Material, Material Factor, Import G-code, Material Field</b></summary>
+
+**`Material`** (Slicer). Start values for a pellet material: feed zone, heat zones 1 to 3, nozzle and bed in °C, drying, residual moisture and density in g/cm³. Built in: Carbon-P PETG, rPETG and PLA, with the start values of the Weber DXR quick guide; the densities are typical values.
+- Inputs: `Material` (a choice on the component), optional values that override the chosen material (zones as one value or a range such as 200-210), `Factor`, and the `Save material` button.
+- Wiring: `Density` → `Density` of `Print Settings`, so file names and reports show the right weight.
+- Own materials: `.material` text files in Documents/LARGER/Materials, or fill in the inputs and press `Save material`.
+- Watch out: the built-in temperatures are start values. Check them against the data sheet of your material.
+
+**`Material Factor`** (Slicer). Finds a new extrusion factor from a test print: new = target width / measured width × current factor.
+- Inputs: `Target Width` (mm, default 5), `Measured Widths` (mm, several values: the mean is used), `Current Factor` (default 1), optional `Wall Thickness` (mm) of a single-wall test.
+- Outputs: `New Factor`, `Off` (% of the target, + = too wide), `Mean`, `Report`.
+- Wiring: use `New Factor` as `Factor` of `Machine Profile`, or as P1 on the Weber DXR, and print the test again.
+- Watch out: measure at several places. The report warns when the measurements are uneven.
+
+**`Import G-code`** (Slicer). Reads G-code from Cura, Simplify3D, PrusaSlicer, AiSync / Ai Build or a script, or a Weber `.dxr`, and checks it like a path of its own: starts and stops, travel moves, retractions, F changes and F0, extrusion into the bed, unsupported beads, crossings, time and weight. Leaning layers and A/B/C tool axes are recognised.
+- Inputs: `File`, `Bead Width` and `Layer Height` (mm, 0 = estimated from the file), optional `Machine Profile` (what E means; empty = E is a volume in mm³), `Density` (g/cm³, default 1.25), and the `Keep start code` switch.
+- Outputs: `Toolpath`, `Path`, `Layers`, `Report`.
+- Wiring: `Toolpath` → `Path Check`, `Robot Program` or the DXR components.
+- Watch out: if E is a filament length or carries a factor, connect the matching `Machine Profile`, otherwise the bead widths come out wrong.
+
+**`Material Field`** (Slicer). Puts the toolpath back onto the part as a direction-dependent material field for FE or IGA. Per sample point: bead direction e1, across the bead e2, stacking direction e3, layer and bead, distance to the next layer and bead interface, layer time and a weakness value. With the moduli it gives the rotated orthotropic stiffness per point.
+- Inputs: `Toolpath`, optional `Geometry` (Breps: samples are a grid in each face's UV, so face, u, v map onto the NURBS of the analysis) or `Sample Points` (e.g. Gauss points), `Sample Spacing` (mm, 0 = half the layer height), moduli E1, E2, E3, G12, G13 (MPa) and Poisson ratios, `Cooling Time` (s, default 60), `File`, `Format` (CSV, JSON, VTK for ParaView) and the `Save` button.
+- Outputs: `Points`, `Frames`, `Directions`, `Stacking`, `Weakness` (0 = sound, 1 = weak), `Weakness Mesh`, `Table`, `Info`.
+- Watch out: the default moduli and the cooling time are placeholders. Replace them with values from coupon tests of your material.
+
+</details>
+
+<details>
+<summary><b>Self Support Check, Self Supporting Envelope, Best Angle, Support Fins</b></summary>
+
+The overhang limit comes from the bead: a bead may lie `Factor` × bead width beside the bead below (default 0.5). With 5 mm beads in 2 mm layers a wall may lean about 51° from the build direction.
+
+**`Self Support Check`** (Slicer, next to `Slice`). Colours the part by how far it hangs over for the chosen build direction: green fine, orange near the limit, red not self-supporting, grey on the bed.
+- Inputs: `Geometry`, `Settings` (from `Print Settings`), `Plane`, `Angle` (degrees), optional `Guide` and `Guide Mode`, all as on `Slice`, and `Factor`.
+- Outputs: `Analysis Mesh`, `Unsupported Area` (mm²), `Percent`, `Regions`, `Starts` (islands that begin in mid air), `Report`.
+- Watch out: use the same plane, angle and guide as on `Slice`, otherwise it checks another build direction.
+
+**`Self Supporting Envelope`** (Slicer). Adds the least material that makes every layer hold the one above, like automatic chamfers under overhangs.
+- Inputs: `Layers` from `Slice` (before `Walls`), `Settings`, `Factor`, `Geometry` switch (also build the new part as geometry).
+- Outputs: `Layers` (slice-ready: connect to `Walls`), `Geometry` (the new part as a closed NURBS Brep or a mesh), `Added` (only the added material), `Contours`, `Added Contours`, `Report`.
+- Watch out: the added material changes the part. Plan to mill it away, and building the geometry (a loft) takes a moment.
+
+**`Best Angle`** (Slicer). Tries slice angles in 5° steps and, with `Turn`, every tilt direction in 30° steps, and suggests the one with the least overhang.
+- Inputs: `Geometry`, `Settings`, `Min Angle` and `Max Angle` (degrees, default 0 to 75), `Turn`, `Factor`.
+- Outputs: `Plane` and `Angle` (connect both to `Slice`), `Layer Plane`, `Report` with the ranking.
+- Watch out: an angled print needs a robot or a tilted bed, and usually start and end layers (`Slice`, `Start/End Layers`).
+
+**`Support Fins`** (Slicer, next to Infill). Thin fins outside the part hold up overhangs. Each fin stands square to the outer wall from the bed up to just under the overhang, as a hairpin out of the wall and back, so it stays part of the one line.
+- Inputs: `Layers` (after `Walls`, `Bottom Fill` and infill), `Settings`, `Overhang Angle` (degrees from vertical, 0 = half a bead per layer), `Spacing` (bead widths, default 15), `Reach` (bead widths, default 1), `Contact` (Neck, Neck + gap, Full), `Gap` (mm, default 0.3, for Neck + gap).
+- Wiring: right before `Continuous Path`. The seam ramp keeps off the fins.
+- Watch out: "Full" is the strongest contact but the hardest to remove. "Neck + gap" prints the top fin layer lower so the overhang breaks off.
+
+</details>
+
+<details>
+<summary><b>Slice "Follow the part", Non-Planar Check, Continuous Path and Path Check options</b></summary>
+
+**`Slice`, Guide Mode "Follow the part (no guide)".** Leave `Guide` empty. The non-planar layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness without a guide surface. The nozzle stays vertical, and the extrusion follows the vertical gap to the layer below. A warning appears when a layer gets thicker than 0.8 × bead width along the wall. If the part does not suit it, `Slice` says so and slices flat.
+
+**`Non-Planar Check`** (Slicer, next to `Path Check`). For printers whose nozzle stays vertical. It measures the real bead height at every point against bead width, layer height and extrusion, and checks the head against everything printed before.
+- Inputs: `Toolpath`, `Tip Radius` (mm, default 4), `Cone Angle` (half angle from vertical, degrees, default 30), `Cone Length` (mm, default 60), `Head Radius` (mm, default 40), `Pose` (0 = start, 1 = end).
+- Outputs: `OK`, `Report`, `Bead Height` (mm per point), `Bad Heights`, `Collisions` (must be empty), `Head` (the checked head standing on the path at `Pose`).
+- Watch out: measure your own nozzle and head. The defaults are only examples.
+
+**`Continuous Path`, new inputs** (layered mode):
+- `Seam Mode`: Fixed point (as before), Inner corner (in an inner corner of the outer wall, where it shows least; without one, the sharpest outer corner), or Sharpest corner. The corner is followed from layer to layer, at most half a bead to the side.
+- `Min Layer Time` (s, 0 = off): layers that would be done sooner are printed slower, at one speed within the layer, never below Min Speed. About 60 s suits many large pellet prints.
+- `Max Volume Rate` (mm³/s, 0 = off): moves that would ask more of the extruder run slower. The Ginger One gives about 330 mm³/s.
+
+**`Path Check`**: input `Min Layer Time` (s, 0 = the value of `Continuous Path`) and output `Layer Times` (s per layer). Layers that are too short get three remedies in the report: a slower speed, several parts side by side, or a pause as a last resort.
+
+</details>
+
+<details>
+<summary><b>Machines and nozzle presets</b></summary>
+
+- Machines and machine profiles are listed as manufacturer and machine: "Ginger Additive · Ginger One (Klipper)", "Weber Additive · DXR25 on a robot", "Generic · Filament printer 1.75 mm". Own `.machine` files can carry `manufacturer = ...`.
+- **Ginger Additive · Ginger One (Klipper)**: START_PRINT and END_PRINT macros, E as volume × 1.0, fan on after layer 1. Confirm the factor with the Klipper `rotation_distance` of your extruder.
+- `.machine` files know `material` and `bed temperature` for `{material}` and `{bed}` in the codes, and blocks `[after layer n]`. `Machine` has the optional inputs `Material` and `Bed Temperature` (°C).
+- Nozzle presets on `Print Settings` and `Easy Slicer` are named by the nozzle, e.g. "3 mm flat nozzle, wide bead - bead 5 mm, layer 2 mm (tested)" or "4 mm nozzle (Weber profile) - bead 4.8 mm, layer 1.8 mm". A warning says when bead and layer do not suit the nozzle.
+
+</details>
 
 ## The Robot tab
 
@@ -79,16 +175,33 @@ For printing with a robot: the cell is described once, then every toolpath becom
 |---|---|
 | `Robot` | The arm. KUKA KR120 R2700-2 by default; any six-axis arm with a spherical wrist from a Robots plug-in library file (.xml) |
 | `Robot Tool` | Tool centre point as in the Robots plug-in (AE20 extruder: YZ plane at -460, 3, 108), weight, centre of mass, 3D model |
-| `Robot Cell` | Robot, tool and the work base the program counts from (KUKA `$BASE`) |
-| `Robot Program` | Tool tip on every path point, tool along the path's tool axis. Checks reach, axis ranges, wrist singularity and axis speed. Outputs the moves for the `DXR Generator`, a KRL program and the arm at any place of the path |
-| `Robot Simulation` | Plays the program: the robot with its tool at any moment of the print (slider or Play) |
-| `Cell Geometry` | The print cell of the FH Muenster in 3D (floor, pedestal, bed, fence), the place of the robot, and the environment for the collision check |
+| `Robot Cell` | Robot, tool and the work base the program counts from (KUKA `$BASE`). Optional inputs `Environment` (meshes for the collision check) and `External Axes` |
+| `External Axis` | A rail the robot stands on, or a turntable the part stands on. Connect it to `External Axes` of `Robot Cell` |
+| `Robot Program` | Tool tip on every path point, tool along the path's tool axis. Checks reach, axis ranges, wrist singularity, axis speed and collisions. Outputs the moves for the `DXR Generator`, a KRL program and the arm at any place of the path |
+| `Robot Simulation` | Plays the program: the robot with its tool at any moment of the print (slider or Play). Output `Colliding` shows in red what collides at that moment |
+| `Cell Geometry` | A sample print cell in 3D (floor, pedestal, bed, fence; the cell of the FH Muenster), the place of the robot, and the environment for the collision check. Your own cell as a .3dm file |
+
+<details>
+<summary><b>External axes and the collision check</b></summary>
+
+**`External Axis`** (Robot). A rail (the robot moves along it) or a turntable (the part turns on it). `Robot Program` moves it along the print: the rail keeps the robot beside the point being printed, the table turns that point towards the robot. Both move smoothly, below their top speed and inside their range.
+- Inputs: `Kind` (rail or turntable), `Place` (rail: moves along its X axis; table: origin = centre, Z = axis of rotation, X = 0°), `Min` and `Max` (mm for a rail, degrees for a table; both 0 = rail 0 to 3000 mm, table -360 to 360°), `Max Speed` (mm/s or °/s; 0 = 1000 mm/s or 90 °/s), `Name` (KUKA E1 to E6), `Endless`, `Offset` (mm or degrees), `Smoothing` (mm of path, default 300), `Coupled` (KUKA coupled base), `Size` (mm, drawing only).
+- Wiring: `External Axis` → `External Axes` of `Robot Cell` (one rail and one table per cell).
+- Watch out: KRL writes E1/E2 on every line, but the DXR output carries no E values. Not yet tried on a controller: run it in T1 first.
+
+**Collision check in `Robot Program`.** The robot, the tool, rail and turntable are checked against each other, against the part printed so far, the bed and the `Environment` of `Robot Cell`.
+- Inputs: `Check Collisions` (on by default; also a row on the component), `Clearance` (mm, default 10: closer bodies are reported as a near miss), `Collision Poses` (how many poses along the path, default 500; -1 = every move, 0 = no check).
+- Outputs: `Collision Moves` (move numbers, as `Move` of `Robot Simulation`), `Collision Bodies` (the bodies at their worst collision, with a ball where they touch), `Collisions` (path points).
+- The report names the pair, the move and the layer, and suggests what to change: tilt, nozzle length, tool turn, rail or turntable offset.
+- Watch out: the check needs the 3D model of the robot (see the Info of `Robot`); without it, collisions are not checked. A tool without a mesh is checked as a plain cylinder from the flange to the tip, so connect your extruder as `Mesh` to `Robot Tool`.
+
+</details>
 
 The curve-based tools of the former Toolpaths tab are now in **Slicer Curves**, named like their Slicer counterparts (`Curve Fill Zigzag`, `Curve Fill Contour`, `Curve Fill Cells`, `Curve Continuous Path`, `Curve Uncross` ...).
 
 ## Machines
 
-File names follow the FH Muenster: `DXR_2611051216_Test Object_2668g_53min.dxr` - machine, date and time, part, weight, print time. A vertical extruder is written as A 0, B 0, C 0, as the Weber DXR expects.
+File names carry machine, date and time, part, weight and print time: `DXR_2611051216_Test Object_2668g_53min.dxr`. A vertical extruder is written as A 0, B 0, C 0, as the Weber DXR expects.
 
 | | |
 |---|---|
@@ -110,11 +223,12 @@ No code is needed. Everything is a text file or a Rhino file in `Documents/LARGE
 |---|---|---|
 | G-code machine | `Machines/My printer.machine` | Start, layer and end code, bed size and E factor as text (see `Machine`). Easiest: type them into `Machine` and set `Save`. |
 | Its 3D model for the preview | `Machines/My printer.3dm` | Draw frame, bed and gantry in Rhino in the machine's coordinates (its 0, 0, 0 at the origin), or connect them to `Model` of `Machine` and set `Save`. Without a model the bed is drawn from the bed size. |
+| Pellet material | `Materials/My material.material` | Temperatures, drying, density and factor as text (see `Material`). Easiest: fill in the inputs of `Material` and press `Save material`. |
 | Robot print cell | `Cells/My cell.3dm` | Draw it in millimetres in the coordinates of the bed, one part per layer: `Bed` (drawn, not checked for collisions), `Robot Base` (a point where the robot stands and a line from it along its X axis), `Work Base` (optional), and any other layer (Floor, Fence, Table ...) for the collision check. Set `Export` on `Cell Geometry` to get the cell of the FH Muenster in this form as a start. |
 | Robot arm | `Documents/RobotSystems` | The library of the Robots plug-in; `Robot` reads the arm and its 3D model from there (`Geometry File`). |
 | Tool | `Robot Tool` | TCP plane, weight and centre of mass as in Robots; connect your extruder as a mesh to `Mesh`. |
 
-New files appear in the lists of `Machine` and `Cell Geometry` the next time they are placed. Pass the folder on as it is: the `.3dm` next to a `.machine` file is found by its name.
+New files appear in the lists of `Machine`, `Material` and `Cell Geometry` the next time they are placed. Pass the folder on as it is: the `.3dm` next to a `.machine` file is found by its name.
 
 All brands named belong to their respective owners. LARGER.slicer is an independent project and is not affiliated with these manufacturers.
 
@@ -171,6 +285,7 @@ More: [SETUP guide](SETUP/README.md)
 |---|---|---|---|
 | **Weber DXR25** | KUKA robot, multiaxial | `LARGERslicer Weber Robot and Ginger.gh` | [English](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) · [Deutsch](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) |
 | **Ginger One** | Large-format pellet printer | `LARGERslicer Weber Robot and Ginger.gh` | [Quick Start](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
+| **Ginger One (Klipper), non-planar** | Pellet printer, vertical nozzle | [`LARGERslicer - Non Planar Head (Ginger).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Non Planar Head (Ginger).gh>): layers that follow the part, one spiral, `Path Check`, `Non-Planar Check`, G-code | Like Quick Start example 07 |
 | **Universal Robots UR5** | Collaborative robot | `UR5slicer.gh` | [Quick Start](<EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/README UR5 00 QUICK START GUIDE.md>) |
 | **Zünd G3 L-2500** | CNC milling / cutting | `ZündHGPL PLT MSA.gh` | [Quick Start](<EXAMPLE FILES/00 - ZUENDT - 3D CNC MILLING/README Zünd G3 L-2500 CNC MILLING QUICK START GUIDE.md>) |
 
