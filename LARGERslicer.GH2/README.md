@@ -20,6 +20,7 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 | Bottom Fill | Solid bottom as one line |
 | Infill | Ribs, honeycomb, grid, wave, truss, meander, chamber wall, truss wall |
 | Support Fins | Thin fins outside the part that hold up overhangs, as part of the one line |
+| Surface Pattern | Textures in the wall (knit, ribs, waves, zigzag, dots, loops, a picture), optional region and attractors; the path stays one line |
 | Continuous Path | All layers as one path; layered with a short ramp, or spiral |
 | Round and Lead | Rounded corners, skirt before the part, exit move after it |
 | Path Check | No crossing, every bead supported; layer times against Min Layer Time |

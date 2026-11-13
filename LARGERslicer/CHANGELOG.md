@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (surface patterns)
+- `Surface Pattern` (Slicer tab, Toolpaths group, Grasshopper 1 and 2; core in `Toolpaths/SurfacePattern.cs`): textures in the wall. Every layer is resampled to the pattern pitch and its points are pulled out along the wall normal in a rhythm that moves on from layer to layer: Knit (pixels, rows alternate), Ribs, Waves, Zigzag, Dots, Loops (with Z Droop and Extra Flow the bead sags into loops) and Image (a grey picture wrapped around the part). Optional Region (closed curves unrolled with the wall, Breps, meshes) with Falloff, Attractors with Reach, Side (outside / inside), Invert. Around closed walls the pitch is fitted to a whole number of repeats and followed from layer to layer. The path stays one line: seam ramps, bridges and infill are untouched, the pattern fades out at the seam, pulls that would cross the path are reduced, the first layer stays plain. Outputs Preview, Hanging (points more than half a bead beside the layer below, on purpose for pixels and loops) and Info.
+- Example `EXAMPLE FILES/LARGERslicer - Surface Patterns.gh`: six vases on one bed (knit, ribs, diagonal waves, hanging loops, a lattice picture next to the file, a region drawn on the part), each with Start and End and Path Check (0 crossings).
+- Icons: `Support Fins` redrawn in the family style and a new `Surface Pattern` icon, both from `scripts/generate_icons.py`.
+
 ### Added (first layer speed)
 - `First Layer Speed` on Print Settings (Grasshopper 1 and 2), in mm/s, 0 = Speed: the first layer runs at its own speed for adhesion (the Ginger head of 2024 used 25 mm/s = F1500). Min Layer Time can only make it slower. File headers name it.
 

@@ -68,6 +68,7 @@ Settings sit on the components themselves: the rows under a component are choice
 | 6 | `Infill Ribs` · `Infill Sketch` · `Infill Cells` · `Infill Wave` · `Infill Chambers` | Infill spliced into the wall path |
 | | `Support Fins` | Thin fins outside the part that hold up overhangs, as part of the same line |
 | 7 | `Continuous Path` | Flat layers with an open seam (gap of one bead width), or a spiral for single walls. Seam Mode, Min Layer Time, Max Volume Rate |
+| | `Surface Pattern` | Textures in the wall: knit, pixels, ribs, waves, zigzag, dots, hanging loops or a picture, on the whole part or inside a region you draw |
 | 8 | `Round Corners` | Every corner becomes an arc |
 | 9 | `Start and End` | Way in from 30 mm above, skirt first, brim outside, inside or both, a move off the part at the end |
 | 10 | `Path Check` | Support, self-crossings, bead shape, travel moves, layer times |
@@ -135,6 +136,31 @@ The overhang limit comes from the bead: a bead may lie `Factor` × bead width be
 - Inputs: `Layers` (after `Walls`, `Bottom Fill` and infill), `Settings`, `Overhang Angle` (degrees from vertical, 0 = half a bead per layer), `Spacing` (bead widths, default 15), `Reach` (bead widths, default 1), `Contact` (Neck, Neck + gap, Full), `Gap` (mm, default 0.3, for Neck + gap).
 - Wiring: right before `Continuous Path`. The seam ramp keeps off the fins.
 - Watch out: "Full" is the strongest contact but the hardest to remove. "Neck + gap" prints the top fin layer lower so the overhang breaks off.
+
+</details>
+
+<details>
+<summary><b>Surface Pattern: knit, ribs, waves, loops, pictures</b></summary>
+
+**`Surface Pattern`** (Slicer, Toolpaths group, after `Continuous Path`, before `Start and End`; works on any toolpath). Every layer is a row of points. The points are pulled out of the wall along its normal in a rhythm, and the rhythm moves on from layer to layer. Small pulls give a fine knit or pixels; large ones let the bead hang over between the points that rest on the layer below, and with `Z Droop` and `Extra Flow` it sags into loops.
+- Inputs: `Toolpath`, `Pattern` (Knit, Ribs, Waves, Zigzag, Dots, Loops, Image), `Amplitude` (mm, how far out), `Pitch` (mm, one repeat along the layer; fitted so a whole number of repeats goes round a closed wall), `Layer Period` (layers per row), `Phase Shift` (fraction of the pitch per row: 0 stacked, 0.5 woven, 0.05 diagonal), `Z Droop` (mm), `Extra Flow` (fraction), `Side` (Outside or Inside), `Region` (closed curves drawn on the part, Breps or meshes) and `Falloff` (mm, soft edge), `Attractors` (points or curves) and `Reach` (mm), `Image` (file path of a grey picture, dark = pattern; a bare file name is looked for next to the .gh file) and `Invert`.
+- Outputs: `Toolpath`, `Preview` (one polyline per layer), `Hanging` (points more than half a bead beside the layer below), `Info`.
+- Regions: a closed curve is unrolled with the wall (arc length across, height up); a path point gets the pattern if it lies inside the curve there. A closed Brep or mesh: points inside it. An open surface lying on the wall: points on it.
+- The path stays one line: only wall points move, seam ramps, bridges, ribs and infill stay, the pattern fades out at the seam, and where a pull would run across the path it is reduced. The first layer stays plain.
+- Watch out: up to half the bead width every bead rests on the bead below. More is allowed on purpose (pixels, loops); `Info` counts those points and `Path Check` lists them as unsupported, so judge them by eye. The extrusion follows the longer path by itself; `Extra Flow` adds more at the peaks, and `Max Volume Rate` in `Continuous Path` still limits the extruder.
+- Example: `EXAMPLE FILES/LARGERslicer - Surface Patterns.gh` (six vases: knit, ribs, waves, loops, a lattice picture, a region).
+
+| Look | Pattern | Amplitude | Pitch | Phase Shift | Layer Period | Z Droop / Extra Flow |
+|---|---|---|---|---|---|---|
+| Fine knit, pixels | Knit | 0.4 to 0.6 x bead | 2 x bead | 0 | 1 | 0 / 0 |
+| Vertical ribs | Ribs | 0.5 to 1 x bead | 3 x bead | 0 | 1 | 0 / 0 |
+| Deep sine walls (stacked) | Waves | 2 to 4 x bead | 6 to 10 x bead | 0 | 1 | 0 / 0 |
+| Woven waves, layers shifted | Waves | 1.5 to 2 x bead | 6 x bead | 0.5 | 1 | 0 / 0 |
+| Diagonal bands | Waves or Knit | 1 x bead | 3 to 6 x bead | 0.03 to 0.08 | 1 | 0 / 0 |
+| Scales, bumps | Dots | 0.8 x bead | 3 x bead | 0 | 2 | 0 / 0 |
+| Hanging loops | Loops | 2 to 4 x bead | 4 to 5 x bead | 0.5 | 2 | 1 layer / 0.3 |
+| Picture or lattice | Image + picture | 0.6 x bead | 1.5 x bead | 0 | 1 | 0 / 0 |
+| Texture only in a field | any + Region curve | | | | | |
 
 </details>
 
