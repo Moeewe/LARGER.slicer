@@ -356,7 +356,11 @@ namespace LARGERslicer.GH2
             int count, position; access.GetItem(2, out count); access.GetItem(3, out position);
             var log = new List<string>();
             var sw = Stopwatch.StartNew();
-            var result = FillEngine.Walls(layers, settings, Math.Max(1, count), Math.Max(0, Math.Min(2, position)), log);
+            // long stacks: progress on the component, and stop when Grasshopper cancels this solution
+            var token = access.Solution != null ? access.Solution.Token : default;
+            var result = FillEngine.Walls(layers, settings, Math.Max(1, count), Math.Max(0, Math.Min(2, position)), log, token,
+                f => access.SetProgress((int)Math.Round(100 * f)));
+            if (result == null) return;
             sw.Stop();
             Io.Remarks(access, log);
             access.SetItem(0, new LayerStack(result));

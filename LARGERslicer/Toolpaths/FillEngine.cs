@@ -111,14 +111,27 @@ namespace LARGERslicer.Toolpaths
         ///  2 = outside: the inner face of the print is the geometry (path half a bead width out)
         /// </summary>
         public static List<SliceLayer> Walls(List<SliceLayer> layers, PrintSettings settings, int count, int position, List<string> log)
+            => Walls(layers, settings, count, position, log, default, null);
+
+        /// <summary>
+        /// As above; token stops the work early (Grasshopper 2 cancels a solution whose inputs changed:
+        /// then null is returned), progress gets the share of layers done (0..1) now and then.
+        /// </summary>
+        public static List<SliceLayer> Walls(List<SliceLayer> layers, PrintSettings settings, int count, int position, List<string> log,
+            System.Threading.CancellationToken token, Action<double> progress)
         {
             count = Math.Max(1, count);
             double w = settings.BeadWidth, spacing = settings.BeadSpacing;
             var result = new SliceLayer[layers.Count];
-            int openSkipped = 0, vanished = 0;
+            int openSkipped = 0, vanished = 0, done = 0;
+            int every = Math.Max(1, layers.Count / 50);
+            var options = new ParallelOptions { CancellationToken = token };
 
-            Parallel.For(0, layers.Count, i =>
+            try
             {
+            Parallel.For(0, layers.Count, options, i =>
+            {
+                if (progress != null && System.Threading.Interlocked.Increment(ref done) % every == 0) progress((double)done / layers.Count);
                 var src = layers[i];
                 var dst = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp, Rings = new List<int>() };
 
@@ -170,6 +183,8 @@ namespace LARGERslicer.Toolpaths
                 }
                 result[i] = dst;
             });
+            }
+            catch (OperationCanceledException) { return null; }
 
             if (openSkipped > 0) log?.Add("Open contours keep a single wall centred on the surface; extra walls are only added to closed contours.");
             if (vanished > 0) log?.Add(Inv.F($"{vanished} layer(s) are narrower than one bead width and have no wall."));
