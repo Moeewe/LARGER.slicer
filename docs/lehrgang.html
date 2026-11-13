@@ -1,4 +1,17 @@
-<title>Lehrgang Großformatdruck</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lehrgang Großformatdruck · LARGER.slicer</title>
+<meta name="description" content="Großformatiger 3D-Druck mit Roboter und Granulatextruder in acht Lektionen: die Bahn verstehen, das Bauteil entwerfen, Wärme und Verzug, Infill, Lagen und die Checkliste vor dem Druck.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="de_DE">
+<meta property="og:site_name" content="LARGER.slicer">
+<meta property="og:title" content="Lehrgang Großformatdruck · LARGER.slicer">
+<meta property="og:description" content="Großformatiger 3D-Druck mit Roboter und Granulatextruder in acht Lektionen: die Bahn verstehen, das Bauteil entwerfen, Wärme und Verzug, Infill, Lagen und die Checkliste vor dem Druck.">
+<meta property="og:url" content="https://parametricsolutions.de/larger-slicer/lehrgang/">
+<meta property="og:image" content="https://raw.githubusercontent.com/Moeewe/LARGER.slicer/main/docs/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -128,9 +141,24 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
 @media (max-width:760px){.links{display:none}.rule{grid-template-columns:1fr}.lhead{grid-template-columns:1fr}.lhead .no{grid-row:auto}section{padding-block:64px}.hero{padding-block:56px 40px}.calc{padding:24px 20px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
+<style>
+/* site nav: the same block on every page of the site */
+body{margin:0}
+.nav .links{gap:20px;white-space:nowrap}
+.nav .links a{padding:5px 0;border-bottom:2px solid transparent}
+.nav .links a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--marker)}
+@media (max-width:980px){
+  html{scroll-padding-top:104px}
+  .nav .wrap{flex-wrap:wrap;height:auto;row-gap:0;padding-top:10px}
+  .nav .brand{min-height:34px}
+  .nav .wrap .links{display:flex;order:3;flex:1 0 100%;margin:0;padding:6px 0 8px;gap:20px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  .nav .wrap .links::-webkit-scrollbar{display:none}
+  .nav .wrap .links a:last-child{padding-right:28px}
+}
+</style>
 <header class="nav"><div class="wrap">
-  <a class="brand" href="https://parametricsolutions.de/larger-slicer/"><svg viewBox="0 0 64 64" aria-hidden="true" id="lm"></svg>LARGER.slicer</a>
-  <nav class="links" aria-label="Seiten"><a href="https://parametricsolutions.de/larger-slicer/"><span lang="de">Slicer</span><span lang="en">Slicer</span></a><a href="https://parametricsolutions.de/larger-slicer/erste-schritte/"><span lang="de">Erste Schritte</span><span lang="en">First steps</span></a><a href="#entwurf"><span lang="de">Entwurf</span><span lang="en">Design</span></a><a href="#infill">Infill</a><a href="#check"><span lang="de">Checkliste</span><span lang="en">Checklist</span></a><a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a></nav>
+  <a class="brand" href="../"><svg viewBox="0 0 64 64" aria-hidden="true" id="lm"></svg>LARGER.slicer</a>
+  <nav class="links" aria-label="Seiten"><a href="../suite/">Suite</a><a href="../einstieg/"><span lang="de">Einstieg</span><span lang="en">Basics</span></a><a href="../erste-schritte/"><span lang="de">Erste Schritte</span><span lang="en">First steps</span></a><a href="../lehrgang/" aria-current="page"><span lang="de">Lehrgang</span><span lang="en">Course</span></a><a href="../maschinen/"><span lang="de">Maschinen</span><span lang="en">Machines</span></a><a href="../versionen/"><span lang="de">Versionen</span><span lang="en">Versions</span></a><a href="../buch/"><span lang="de">Buch</span><span lang="en">Book</span></a><a href="https://github.com/Moeewe/LARGER.slicer">GitHub</a></nav>
   <div class="lang" role="group" aria-label="Sprache / Language"><button type="button" id="lang-de" data-l="de">DE</button><button type="button" id="lang-en" data-l="en">EN</button></div>
 </div></header>
 <main>
@@ -211,7 +239,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
 </div></section>
   <section class="end"><div class="wrap">
     <h2><span lang="de">Jetzt am eigenen Teil.</span><span lang="en">Now on your own part.</span></h2>
-    <div class="ctas"><a class="btn solid" href="https://github.com/Moeewe/LARGER.slicer/releases/latest"><span lang="de">Slicer herunterladen</span><span lang="en">Download the slicer</span></a><a class="btn" href="https://parametricsolutions.de/larger-slicer/"><span lang="de">Zur Übersicht</span><span lang="en">Back to the overview</span></a></div>
+    <div class="ctas"><a class="btn solid" href="https://github.com/Moeewe/LARGER.slicer/releases/latest"><span lang="de">Slicer herunterladen</span><span lang="en">Download the slicer</span></a><a class="btn" href="../"><span lang="de">Zur Übersicht</span><span lang="en">Back to the overview</span></a></div>
   </div></section>
 </main>
 <footer><div class="wrap"><span>LARGER.slicer · Moritz Wesseler · FH Münster</span><span><span lang="de">Richtwerte. Maschine und Material entscheiden: erst klein testen.</span><span lang="en">Guide values. Machine and material decide: test small first.</span></span></div></footer>
@@ -223,7 +251,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:12px 24px;flex-wrap:
     root.setAttribute('data-lang', l);
     document.getElementById('lang-de').setAttribute('aria-pressed', l === 'de' ? 'true' : 'false');
     document.getElementById('lang-en').setAttribute('aria-pressed', l === 'en' ? 'true' : 'false');
-    document.title = l === 'en' ? 'Large-Format Printing Course' : 'Lehrgang Großformatdruck';
+    document.title = l === 'en' ? 'Large-Format Printing Course · LARGER.slicer' : 'Lehrgang Großformatdruck · LARGER.slicer';
     calc();
   }
   var lang = get();
