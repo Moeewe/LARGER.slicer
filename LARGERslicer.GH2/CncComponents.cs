@@ -172,8 +172,8 @@ namespace LARGERslicer.GH2
             if (!access.GetItem(20, out materialWidth)) materialWidth = 0.0;
             access.GetItem(21, out underlayThickness);
             int[] tools; double[] rpms;
-            if (access.GetItemArray(22, out tools) && tools != null) toolList.AddRange(tools.Where(t => t == 11 || t == 21 || t == 31));
-            if (access.GetItemArray(23, out rpms) && rpms != null) toolSpindleSpeeds.AddRange(rpms);
+            if (access.ItemArray(22, out tools) && tools != null) toolList.AddRange(tools.Where(t => t == 11 || t == 21 || t == 31));
+            if (access.ItemArray(23, out rpms) && rpms != null) toolSpindleSpeeds.AddRange(rpms);
 
             // If Cutter is provided, use its MaxCuttingDepth; otherwise use parameter value
             // IMPORTANT: Never automatically correct maxCuttingDepth - always use the input value as-is

@@ -62,7 +62,7 @@ namespace LARGERslicer.GH2
             Func<Component, float, float, Component> put = (c, dx, dy) => (Component)place(c, dx, dy);
             Action<Component, int, Component, int> wire = (from, o, to, i) => Connections.Connect(from.Parameters.Output(o), to.Parameters.Input(i), null);
             Action<IParameter, Component, int> feed = (from, to, i) => Connections.Connect(from, to.Parameters.Input(i), null);
-            Action<Component, int, object> set = (c, i, value) => { var p = c.Parameters.Input(i) as Parameter; if (p != null) p.Set(new[] { value }); };
+            Action<Component, int, object> set = (c, i, value) => Io.SetValue(c.Parameters.Input(i), value);
             Func<string, string, object, float, float, GenericParameter> geometry = (name, info, value, dx, dy) =>
             {
                 var p = new GenericParameter(name, name, info, Access.Twig);

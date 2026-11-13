@@ -22,7 +22,7 @@ namespace LARGERslicer.GH2
 
         protected override void AddInputs(InputAdder inputs)
         {
-            inputs.AddInteger("Material", "M", "Which material:\n" + string.Join("\n", MaterialDefinition.BuiltIn().Select((m, i) => i + " = " + m.Name)) + "\nthen your own materials from Documents/LARGER/Materials, in the order of their file names.").Set(0);
+            inputs.AddInteger("Material", "M", "Which material:\n" + string.Join("\n", MaterialDefinition.BuiltIn().Select((m, i) => i + " = " + m.Name)) + "\nthen your own materials from Documents/LARGER/Materials, in the order of their file names.").Set(0).Choices(Io.MaterialNames());
             inputs.AddText("Name", "N", "Optional. Name of your own material: everything you do not set below is taken from the material chosen above.", Access.Item, Requirement.MayBeMissing);
             inputs.AddNumber("Feed Zone", "T0", "Feed zone in degrees C. 0 = as the material chosen above.").Set(0.0);
             inputs.AddText("Zone 1", "T1", "Optional. Heat zone 1 in degrees C: one value or a range like 200-210.", Access.Item, Requirement.MayBeMissing);
@@ -133,7 +133,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             double target, current; double[] widths, walls;
-            access.GetItem(0, out target); access.GetItemArray(1, out widths); access.GetItem(2, out current); access.GetItemArray(3, out walls);
+            access.GetItem(0, out target); access.ItemArray(1, out widths); access.GetItem(2, out current); access.ItemArray(3, out walls);
             var r = MaterialFactor.Calculate(target, widths ?? new double[0], current, walls ?? new double[0]);
             access.SetTwig(1, r.Report.ToArray(), null, null);
             if (r.Count == 0) { access.AddWarning("No measurement", r.Report.FirstOrDefault() ?? ""); return; }

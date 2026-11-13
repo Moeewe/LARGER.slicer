@@ -107,7 +107,7 @@ cd ../LARGERslicer
 ICON_SIZE=48 ICON_OUT=../LARGERslicer.GH2/Icons/48 python3 scripts/generate_icons.py
 ```
 
-Both are embedded in the assembly and handed to Grasshopper 2 as one `PixelIcon` (`Icons.cs`).
+Both are embedded in the assembly; Grasshopper 2 gets the largest one as a `PixelIcon` (`Icons.cs`): its `PixelIcon` (9.1) refuses several sizes of one picture, and with that every icon was empty and Grasshopper 2 drew lettered stand-ins.
 
 ### Not in Grasshopper 2
 

@@ -59,7 +59,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             object[] geo;
-            if (!access.GetItemArray(0, out geo) || geo == null || geo.Length == 0) return;
+            if (!access.ItemArray(0, out geo) || geo == null || geo.Length == 0) return;
             var settings = Io.Settings(access, 1);
             double angle, factor; object guide; int guideMode;
             access.GetItem(2, out angle); access.GetItem(3, out guide); access.GetItem(4, out guideMode); access.GetItem(5, out factor);
@@ -158,7 +158,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             object[] geo;
-            if (!access.GetItemArray(0, out geo) || geo == null || geo.Length == 0) return;
+            if (!access.ItemArray(0, out geo) || geo == null || geo.Length == 0) return;
             var settings = Io.Settings(access, 1);
             double a0, a1, factor; bool turn;
             access.GetItem(2, out a0); access.GetItem(3, out a1); access.GetItem(4, out turn); access.GetItem(5, out factor);

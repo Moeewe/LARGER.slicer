@@ -52,8 +52,8 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             var tp = Io.Path(access, 0); if (tp == null) return;
-            object[] geo; access.GetItemArray(1, out geo);
-            Point3d[] pts; access.GetItemArray(2, out pts);
+            object[] geo; access.ItemArray(1, out geo);
+            Point3d[] pts; access.ItemArray(2, out pts);
             var breps = new List<Brep>();
             if (geo != null)
                 foreach (var g in geo)

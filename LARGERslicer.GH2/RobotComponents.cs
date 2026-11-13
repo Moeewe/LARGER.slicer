@@ -123,9 +123,9 @@ namespace LARGERslicer.GH2
             var tool = Io.Get<RobotTool>(access, 1) ?? new RobotTool();
             Plane wb; if (!access.GetItem(2, out wb)) wb = Plane.WorldXY;
             var cell = new RobotCell { Arm = arm, Tool = tool, WorkBase = Frame.FromPlane(wb) };
-            Mesh[] env; if (access.GetItemArray(3, out env) && env != null) cell.Environment = env.Where(m => m != null && m.IsValid).ToList();
+            Mesh[] env; if (access.ItemArray(3, out env) && env != null) cell.Environment = env.Where(m => m != null && m.IsValid).ToList();
             object[] ext;
-            if (access.GetItemArray(4, out ext) && ext != null)
+            if (access.ItemArray(4, out ext) && ext != null)
                 foreach (var o in ext)
                 {
                     if (o is ExternalAxis ax) cell.ExternalAxes.Add(ax);
@@ -317,7 +317,7 @@ namespace LARGERslicer.GH2
 
         protected override void AddInputs(InputAdder inputs)
         {
-            inputs.AddInteger("Kind", "K", "0 = rail (the robot moves along it), 1 = turntable (the part turns on it).").Set(0);
+            inputs.AddInteger("Kind", "K", "0 = rail (the robot moves along it), 1 = turntable (the part turns on it).").Set(0).Choices("Rail", "Turntable");
             inputs.AddPlane("Place", "P", "Rail: the robot moves along the X axis of this plane; at 0 it stands where its Base says. Turntable: origin = centre of the table, Z axis = the axis it turns about, X axis = where 0 degrees is.").Set(Plane.WorldXY);
             inputs.AddNumber("Min", "Min", "Lowest value: mm for a rail, degrees for a turntable. Min and Max both 0 = rail 0 to 3000 mm, turntable -360 to 360 degrees.").Set(0.0);
             inputs.AddNumber("Max", "Max", "Highest value: mm for a rail, degrees for a turntable.").Set(0.0);

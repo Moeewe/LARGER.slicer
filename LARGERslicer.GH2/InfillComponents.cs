@@ -142,7 +142,7 @@ namespace LARGERslicer.GH2
         {
             var layers = Io.Layers(access, 0); if (layers == null) return;
             var settings = Io.Settings(access, 1);
-            access.GetItemArray(2, out Curve[] curves);
+            access.ItemArray(2, out Curve[] curves);
             bool meet; double stagger; access.GetItem(3, out meet); access.GetItem(4, out stagger);
             var sketch = (curves ?? new Curve[0]).Where(c => c != null && c.IsValid).Cast<object>().ToList();
             if (sketch.Count == 0)
@@ -219,7 +219,7 @@ namespace LARGERslicer.GH2
         {
             var layers = Io.Layers(access, 0); if (layers == null) return;
             var settings = Io.Settings(access, 1);
-            access.GetItemArray(2, out object[] raw);
+            access.ItemArray(2, out object[] raw);
             var locations = new List<object>();
             int unknown = 0;
             foreach (var o in raw ?? new object[0])

@@ -52,7 +52,11 @@ namespace LARGERslicer.GH2
                             images.Add(new Eto.Drawing.Bitmap(bytes));
                         }
                     }
-                    if (images.Count > 0) icon = new PixelIcon(images.ToArray());
+                    // One image only: PixelIcon of Grasshopper 2 (9.1) refuses several sizes of the same
+                    // square picture ("All bitmaps must have the same width/height ratio"), which made every
+                    // icon null and Grasshopper drew its lettered stand-in. The largest image is used; it
+                    // scales down cleanly to the 24 px Grasshopper draws on the canvas and in the tab.
+                    if (images.Count > 0) icon = new PixelIcon(new[] { images[images.Count - 1] });
                 }
                 catch { icon = null; }   // never let an icon take the component down: Grasshopper draws its default
                 IconCache[name] = icon;

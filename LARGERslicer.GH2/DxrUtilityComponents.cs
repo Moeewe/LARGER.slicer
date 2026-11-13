@@ -639,7 +639,7 @@ namespace LARGERslicer.GH2
             if (!access.GetItem(0, out filePath) || filePath == null) filePath = string.Empty;
             if (!access.GetItem(1, out watchFolder) || watchFolder == null) watchFolder = string.Empty;
             if (!access.GetItem(2, out useLatest)) useLatest = true;
-            var allowedExtensionsInput = access.GetItemArray(3, out ext) && ext != null ? ext.ToList() : new List<string>();
+            var allowedExtensionsInput = access.ItemArray(3, out ext) && ext != null ? ext.ToList() : new List<string>();
             if (!access.GetItem(4, out maxFileNameLength)) maxFileNameLength = 64;
             if (!access.GetItem(5, out largeFileThresholdMb)) largeFileThresholdMb = 25.0;
             if (!access.GetItem(6, out minCommandLines)) minCommandLines = 3;
@@ -1185,7 +1185,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             object[] raw;
-            if (!access.GetItemArray(0, out raw) || raw == null) return;
+            if (!access.ItemArray(0, out raw) || raw == null) return;
             double baseWidth = 3.0, widthA = 4.0, widthB = 10.0, gamma = 2.0, rangeMin = double.NaN, rangeMax = double.NaN, maxFactor = 0.0;
             int axis = 0, mode = 0; bool flip = false, ignoreFirstLayer = true, active = true;
             access.GetItem(1, out baseWidth); access.GetItem(2, out widthA); access.GetItem(3, out widthB);

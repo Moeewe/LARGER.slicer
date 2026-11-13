@@ -250,7 +250,7 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             object[] geo;
-            if (!access.GetItemArray(0, out geo) || geo == null || geo.Length == 0) return;
+            if (!access.ItemArray(0, out geo) || geo == null || geo.Length == 0) return;
             var settings = Io.Settings(access, 1);
             double angle; access.GetItem(2, out angle);
             object guide; access.GetItem(3, out guide);

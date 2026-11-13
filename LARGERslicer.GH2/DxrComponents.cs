@@ -110,8 +110,8 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             string[] path; double[] e, f; bool trim, save; string file;
-            if (!access.GetItemArray(0, out path) || path == null || path.Length == 0) { access.AddError("No robot path", "Connect robot moves, one PTP line each."); return; }
-            access.GetItemArray(1, out e); access.GetItemArray(2, out f);
+            if (!access.ItemArray(0, out path) || path == null || path.Length == 0) { access.AddError("No robot path", "Connect robot moves, one PTP line each."); return; }
+            access.ItemArray(1, out e); access.ItemArray(2, out f);
             var machine = Io.Get<MachineSettings>(access, 3);
             access.GetItem(4, out trim); access.GetItem(5, out file); access.GetItem(6, out save);
 
