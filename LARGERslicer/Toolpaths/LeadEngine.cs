@@ -424,7 +424,7 @@ namespace LARGERslicer.Toolpaths
                     else if (exitLift > 0)
                     {
                         lifted = true;
-                        log?.Add("Exit: every way sideways runs over the last layer, so the nozzle lifts first and then moves away.");
+                        log?.Add("Note: Exit lifts the nozzle first and then moves away, because every way sideways runs over the last layer.");
                     }
                 }
                 Point3d p = end;
