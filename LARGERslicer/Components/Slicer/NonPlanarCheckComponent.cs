@@ -15,7 +15,7 @@ namespace LARGERslicer.Components.Slicer
     {
         public NonPlanarCheckComponent()
             : base("Non-Planar Check", "NP Check",
-                  "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.") { }
+                  "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: at every point the height above the closest point of the lap below is measured (its vertical part, not a line straight down, which misses the lap below on a sloped wall) and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.") { }
 
         public override Guid ComponentGuid => new Guid("8E2DA5D2-C15D-4F27-BB61-A6037ABED240");
         public override GH_Exposure Exposure => GH_Exposure.quinary;
@@ -40,7 +40,7 @@ namespace LARGERslicer.Components.Slicer
         {
             p.AddBooleanParameter("OK", "OK", "True if the bead heights fit and the head hits nothing", GH_ParamAccess.item);
             p.AddTextParameter("Report", "R", "What was checked and what was found", GH_ParamAccess.list);
-            p.AddNumberParameter("Bead Height", "H", "Measured bead height (vertical gap to the layer below) for every path point (mm); 0 = not measured. Use it to colour the path", GH_ParamAccess.list);
+            p.AddNumberParameter("Bead Height", "H", "Measured bead height (height above the closest point of the lap below) for every path point (mm); 0 = not measured. Use it to colour the path", GH_ParamAccess.list);
             p.AddPointParameter("Bad Heights", "Bh", "Points where the bead is higher than 0.8 x bead width or thinner than 0.4 x layer height", GH_ParamAccess.list);
             p.AddPointParameter("Collisions", "X", "Points where the head hits beads printed before, or the path climbs more steeply than the cone. Must be empty", GH_ParamAccess.list);
             p.AddMeshParameter("Head", "Hd", "The head as it is checked (tip, cone, body), standing on the path at Pose. Shows in the viewport", GH_ParamAccess.item);

@@ -274,7 +274,7 @@ namespace LARGERslicer.GH2
 
             // ---- 7 non-planar head on the Ginger One: layers that follow the surface, as the head of 2024
             float y7 = y6 + 820; // Easy Slicer is tall: the next example starts below it
-            section("07. NON-PLANAR HEAD  -  GINGER ADDITIVE · GINGER ONE (KLIPPER)", "A head sliced along its own surface, as the head of 2024 (Slice: Follow the surface): rings from the neck to the crown, the nozzle vertical, one spiral. Printer Simulation plays the print on the Ginger One: set Play.", y7);
+            section("07. NON-PLANAR HEAD  -  GINGER ADDITIVE · GINGER ONE (KLIPPER)", "A head sliced along its own surface, as the head of 2024 (Slice: Follow the surface): rings from the neck to the crown, the nozzle vertical, one spiral; each lap gets the material of the vertical gap to the lap below (the skin where it steps sideways at the crown). Printer Simulation plays the print on the Ginger One: set Play.", y7);
             float r7 = y7 + 100; // the tall blocks reach upwards: keep them below the lines of text
             var part7 = geometry("Head", "The part of example 7: a head standing in the free middle of the bed.", DemoParts.Head(new Point3d(480, 470, 0)), 0, r7);
             // its own settings, as the head of 2024: bead 4, layer 1.75, 20 mm/s, first layer 0.9 mm at 25 mm/s;

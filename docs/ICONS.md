@@ -104,7 +104,9 @@ ICON_SIZE=48 ICON_OUT=../LARGERslicer.GH2/Icons/48 python3 scripts/generate_icon
 (`ICON_OUT` is taken as given, so a relative path counts from the current folder.)
 `LARGERslicerGH2.csproj` embeds `../LARGERslicer/Resources/*Icon.png` as
 `LARGERslicer.GH2.Icons.24.<name>.png`, `Icons/48/*.png` as `...Icons.48...`, and the logo as the 256 px
-image of the plug-in icon; `Io.Icon` puts the sizes it finds into one `PixelIcon`.
+image of the plug-in icon; `Io.Icon` builds the `PixelIcon` from the largest image it finds (48 px, else 24 px; 256 px for the
+plug-in): Grasshopper 2 9.1's `PixelIcon` refuses several sizes of one picture and then drew lettered
+stand-ins.
 
 ### The logo
 

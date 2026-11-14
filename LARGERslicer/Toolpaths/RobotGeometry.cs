@@ -12,7 +12,7 @@ namespace LARGERslicer.Toolpaths
     /// to every robot file (.xml) lies a Rhino file of the same name (.3dm) with one layer per
     /// arm, called RobotArm.MANUFACTURER.MODEL, that holds seven meshes (or seven sublayers 0 to 6
     /// with one mesh each): the base and the six links, drawn in the home position of the arm.
-    /// The library folder is Documents/RobotSystems.
+    /// The library folders: Documents/RobotSystems, Documents/Robots and ~/Robots (LibraryFolders).
     /// </summary>
     public static class RobotGeometry
     {

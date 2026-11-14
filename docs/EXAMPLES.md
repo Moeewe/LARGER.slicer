@@ -26,12 +26,13 @@ to all: a yellow INSTRUCTIONS panel, a yellow `Part name` panel that goes into e
 | **04. Part with an opening** | `Infill Wave` (wavelength 60 mm) joins the wall of the opening and the outer wall into one line; try Shape 1 (Truss) or 2 (Meander) | any |
 | **05. Angled layers** | A block leaning 55°, more than flat layers can overhang; `Slice` with Angle 45, every bead rests on the one below | robot or tilted bed |
 | **06. Easy Slicer - one component** | A vase printed as a spiral by `Easy Slicer` alone (Ginger profile, nozzle preset "3 mm flat nozzle, wide bead (tested)"), then `Path Check` | any; connect Toolpath to an output |
-| **07. Non-planar head - Ginger Additive · Ginger One (Klipper)** | A head sliced along its own surface as the head of 2024: own `Print Settings` (bead 4, layer 1.75, 20 mm/s, Overlap 0, Min Speed 0.2 mm/s, first layer 0.9 mm at 25 mm/s), `Slice` Guide Mode 3 "Follow the surface" with the nozzle vertical, `Walls`, `Continuous Path` Spiral (Min Layer Time 30 s, Max Volume Rate 330), `Start and End`, `Path Check`, `Non-Planar Check`, `Machine` (Ginger One Klipper) → `Machine G-code` → `Printer Simulation` (Play) | Ginger One (Klipper) |
+| **07. Non-planar head - Ginger Additive · Ginger One (Klipper)** | A head sliced along its own surface as the head of 2024: own `Print Settings` (bead 4, layer 1.75, 20 mm/s, Overlap 0, Min Speed 0.2 mm/s, first layer 0.9 mm at 25 mm/s), `Slice` Guide Mode 3 "Follow the surface" with the nozzle vertical, `Walls`, `Continuous Path` Spiral (Min Layer Time 30 s, Max Volume Rate 330), `Start and End`, `Path Check`, `Non-Planar Check`, `Machine` (Ginger One Klipper) → `Machine G-code` → `Printer Simulation` (Play). Extrusion by the shell law (vertical gap to the lap below, skin where the laps step sideways; `Skin Thickness` 0 = layer height) | Ginger One (Klipper) |
 | **08. Surface pattern - a vase with waves** | `Surface Pattern` between `Continuous Path` and `Start and End`: Waves, amplitude 2.5 mm (half a bead), pitch 30 mm, phase shift 0.05 (slow diagonal) | any |
 
 Grasshopper 2 has its own Quick Start (`LARGERslicer.GH2/QuickStart.cs`) with the same sections
-00-08; values are set on the inputs (Grasshopper 2 has no rows on the components) and the
-settings are wired directly (no wireless relays).
+00-08; values are set on the inputs (Grasshopper 2 has no rows on the components). Print Settings
+reaches every example through a Shout "Settings" and a Listen of that name, and every finished path
+goes back to Print Bed through a Shout "Finished path", so no wire crosses the canvas.
 
 ---
 
@@ -43,9 +44,9 @@ settings are wired directly (no wireless relays).
 |---|---|---|
 | `LARGERslicer - Ginger One Printer Simulation.gh` | A planter: `Slice`, `Walls`, `Bottom Fill`, `Continuous Path`, `Start and End`, `Path Check`, `Machine` → `Machine G-code` → `Printer Simulation` with Play and the collision check | Ginger One (Marlin) |
 | `LARGERslicer - Surface Patterns.gh` (+ `LARGERslicer - Surface Patterns lattice.png`) | Six vases on one bed: knit, ribs, diagonal waves, hanging loops, a lattice picture (the PNG next to the file), a region drawn on the part; each with `Start and End` and `Path Check` (0 crossings) | any |
-| `00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One, non-planar).gh` | **The reference print rebuilt**: the 2024 head (`Head.3dm`) placed as printed, Guide Mode "Follow the surface", one wall centred, spiral, brim 7, `Path Check`, `Non-Planar Check`, G-code, `Material Factor` for calibration, `Printer Simulation`, panels "Where the numbers come from". See [PRINTING_PRINCIPLES.md](PRINTING_PRINCIPLES.md) 9.8 | Ginger One (Marlin) |
+| `00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One, non-planar).gh` | **The reference print rebuilt**: the 2024 head (`Head.3dm`) placed as printed, Guide Mode "Follow the surface", one wall centred, spiral, brim 7, `Path Check`, `Non-Planar Check`, G-code, `Material Factor` for calibration, `Printer Simulation`, panels "Where the numbers come from" (what was taken from the 2024 print, and why its extrusion was not: it over-extruded the leaning laps; since 1.3.1 the shell law). See [PRINTING_PRINCIPLES.md](PRINTING_PRINCIPLES.md) 9.3 and 9.8 | Ginger One (Marlin) |
 | `00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Robot, DXR25).gh` | The same head on the robot: `Cell Geometry`, `Robot`, `Robot Tool`, `Robot Cell`, `Robot Program`, `Robot Simulation`, `Machine Settings`, `DXR Generator`, report panels | KUKA KR120 with Weber DXR25 (AE20 extruder), FH Muenster cell |
-| `00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Non Planar Head (Ginger).gh` | Layers that follow the part, one spiral, `Path Check`, `Non-Planar Check`, `Machine G-code`, `Printer Simulation`; like Quick Start 07 | Ginger One (Klipper) |
+| `00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Non Planar Head (Ginger).gh` | Layers that follow the part, one spiral, `Path Check`, `Non-Planar Check`, `Machine G-code`, `Printer Simulation`; like Quick Start 07, but with "Follow the part" | Ginger One (Klipper) |
 | `Machines/My Gantry.machine` + `My Gantry.3dm` | Template of an own machine: a 300 x 300 mm gantry with frame, bed, Z rails, beam and head on the layers Frame, Bed, Z, Y, X, TCP | own gantry |
 | `Machines/My Bed Slinger.machine` | Template of a bed slinger without a 3D model (220 x 220 x 250, filament 1.75) | own bed slinger |
 

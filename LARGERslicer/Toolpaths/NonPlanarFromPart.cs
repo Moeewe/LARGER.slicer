@@ -22,6 +22,7 @@ namespace LARGERslicer.Toolpaths
     ///
     /// The nozzle stays vertical (gantry printer, no A/B axes), so the bead is as high as the
     /// vertical gap between two layers - not the 3D distance, which would over-extrude on a slope.
+    /// Where the wall turns nearly flat the skin term of the shell law takes over (BeadHeight, BeadLaw).
     /// </summary>
     public class MeridianWarp : Warp
     {
@@ -43,7 +44,7 @@ namespace LARGERslicer.Toolpaths
         public override bool KeepLayerStep => true;
         /// <summary>True = "Follow the surface": u is the way along the surface from the bottom ring
         /// to the crown (see SurfaceField) instead of the share of the meridian in a vertical plane,
-        /// and the bead height follows the law of the printed head (BeadLaw).</summary>
+        /// and the bead height follows the shell law from the lap below in the path (BeadLaw).</summary>
         public bool FollowSurface;
         public override bool UseBeadLaw => FollowSurface;
         public override double MinLoopFactor => FollowSurface ? 1.5 : 3.0;
@@ -55,6 +56,7 @@ namespace LARGERslicer.Toolpaths
         private double _cx, _cy, _z0, _zTop, _h;
         private double[] _zs; // Z of every row
         private double[] _u;  // rows x Bins, u at (row, angle bin)
+        private float[] _lean; // rows x Bins, sideways step of the wall per mm of height (dr/dz)
 
         /// <param name="mesh">The part, meshed.</param>
         /// <param name="layerHeight">Nominal layer height h.</param>
@@ -288,6 +290,50 @@ namespace LARGERslicer.Toolpaths
                     _u[i * Bins + b] = u0 + (u1 - u0) * t;
                 }
             }
+            // how far the wall steps sideways per mm of height (dr/dz) at every row and angle: the skin term
+            // of the shell law where the wall turns flat (BeadHeight)
+            _lean = new float[(n + 2) * Bins];
+            var lj = new double[m];
+            for (int i = 0; i < n + 2; i++)
+            {
+                int c = Math.Max(0, Math.Min(n - 1, i - 1)), c2 = c > 0 ? c - 1 : Math.Min(n - 1, c + 1);
+                for (int j = 0; j < m; j++)
+                {
+                    // sideways: the distance in plan to the neighbouring contour (not to its j-th point, which
+                    // may have slid along the wall)
+                    Point3d a = pts[c][j];
+                    double dzz = Math.Abs(a.Z - pts[c2][0].Z), dxy = double.MaxValue;
+                    var o = pts[c2];
+                    for (int k = 0; k < m; k++)
+                    {
+                        Point3d s0 = o[k], s1 = o[(k + 1) % m];
+                        double ex = s1.X - s0.X, ey = s1.Y - s0.Y, l2 = ex * ex + ey * ey;
+                        double tt0 = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((a.X - s0.X) * ex + (a.Y - s0.Y) * ey) / l2));
+                        double qx = s0.X + ex * tt0 - a.X, qy = s0.Y + ey * tt0 - a.Y;
+                        double d2 = qx * qx + qy * qy;
+                        if (d2 < dxy) dxy = d2;
+                    }
+                    dxy = Math.Sqrt(dxy);
+                    lj[j] = dzz > 1e-9 ? Math.Min(50.0, dxy / dzz) : 0;
+                    double an = Math.Atan2(a.Y - _cy, a.X - _cx);
+                    if (an < 0) an += 2 * Math.PI;
+                    ang[j] = an;
+                }
+                for (int j = 1; j < m; j++) while (ang[j] < ang[j - 1] - Math.PI) ang[j] += 2 * Math.PI;
+                for (int bIx = 0; bIx < Bins; bIx++)
+                {
+                    double a = (bIx + 0.5) * 2 * Math.PI / Bins;
+                    while (a < ang[0]) a += 2 * Math.PI;
+                    while (a >= ang[0] + 2 * Math.PI) a -= 2 * Math.PI;
+                    int lo = 0, hi = m - 1;
+                    if (ang[hi] <= a) lo = hi;
+                    else while (hi - lo > 1) { int mid = (lo + hi) >> 1; if (ang[mid] <= a) lo = mid; else hi = mid; }
+                    double l0 = lj[lo], l1 = lj[lo < m - 1 ? lo + 1 : 0];
+                    double a0 = ang[lo], a1 = lo < m - 1 ? ang[lo + 1] : ang[0] + 2 * Math.PI;
+                    double tt = a1 - a0 > 1e-12 ? Math.Max(0, Math.Min(1, (a - a0) / (a1 - a0))) : 0;
+                    _lean[i * Bins + bIx] = (float)(l0 + (l1 - l0) * tt);
+                }
+            }
             // u must grow with Z in every column, or the mapping could not be undone
             for (int b = 0; b < Bins; b++)
             {
@@ -463,14 +509,42 @@ namespace LARGERslicer.Toolpaths
             return s > 1e-6 ? s : 1e-6;
         }
 
+        /// <summary>Follow the part: the vertical gap (as Scale), and where the wall turns nearly flat the skin term
+        /// of the shell law, the sideways step to the layer below x skin thickness / bead width (see BeadLaw).
+        /// Follow the surface sets its heights from the path itself afterwards (BeadLaw.Apply).</summary>
+        public override double BeadHeight(Point3d flat, double flatHeight, PrintSettings st)
+        {
+            double dz = flatHeight * Scale(flat);
+            if (!Valid || FollowSurface || _lean == null || st == null || st.BeadWidth <= 0) return dz;
+            Point3d r = ToReal(flat, out _);
+            if (r.Z - _z0 <= FlatBand + 1e-6) return dz;
+            double lean = LeanAt(r);
+            double t = Math.Max(dz, dz * lean * st.EffectiveSkin / st.BeadWidth);
+            return Math.Min(t, Math.Max(dz, 3.0 * st.LayerHeight));
+        }
+
+        /// <summary>dr/dz of the wall at a real point (linear between rows and angle bins).</summary>
+        private double LeanAt(Point3d p)
+        {
+            if (p.Z <= _z0 || p.Z >= _zTop) return 0;
+            Bin(p.X, p.Y, out int b0, out int b1, out double t);
+            int lo = 0, hi = _zs.Length - 1;
+            while (hi - lo > 1) { int mid = (lo + hi) >> 1; if (_zs[mid] <= p.Z) lo = mid; else hi = mid; }
+            double dz = _zs[hi] - _zs[lo];
+            double v = dz > 1e-12 ? (p.Z - _zs[lo]) / dz : 0;
+            double a = _lean[lo * Bins + b0] * (1 - t) + _lean[lo * Bins + b1] * t;
+            double b = _lean[hi * Bins + b0] * (1 - t) + _lean[hi * Bins + b1] * t;
+            return a * (1 - v) + b * v;
+        }
+
         /// <summary>What the slicer reports about the layers.</summary>
         public string Summary(double beadWidth)
         {
             if (FollowSurface)
                 return Inv.F($"Follow the surface: {LayerCount} laps from the bottom ring to the crown, the way along the surface {LMin:0} to {LMax:0} mm (mean {LMean:0}); ") +
-                       "the bead height follows the law of the printed head (vertical gap, plus the share dxy/w of the slant distance where the lap below lies to the side).";
+                       "the bead height follows the shell law (the height above the closest point of the lap below; where the laps step mostly sideways, the sideways step x skin thickness / bead width).";
             string text = Inv.F($"Follow the part: {LayerCount} layers, meridians {LMin:0} to {LMax:0} mm long (mean {LMean:0}), ") +
-                          Inv.F($"layers {LMin / LayerCount:0.##} to {LMax / LayerCount:0.##} mm thick along the wall.");
+                          Inv.F($"layers {LMin / LayerCount:0.##} to {LMax / LayerCount:0.##} mm thick along the wall; the bead height is the vertical gap, or the sideways step x skin thickness / bead width where the wall turns flat.");
             if (ThickMeridians > 0)
                 text += Inv.F($" On {ThickMeridians} of {Meridians.Count} meridians a layer is thicker than 0.8 x bead width ({0.8 * beadWidth:0.#} mm) along the wall: use a lower layer height or a wider bead.");
             return text;

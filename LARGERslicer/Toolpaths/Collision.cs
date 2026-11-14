@@ -212,6 +212,23 @@ namespace LARGERslicer.Toolpaths
             public bool Closed;
             public bool[] Nozzle;      // tool only: sample lies in the zone around the nozzle tip
             public double[] Height;    // tool only: height of the sample above the tip, along the tool
+            public TriTree Tree;       // the triangles of Mesh, for closest points in own math
+            public SampleGroups Groups; // the samples in small groups, to leave out whole groups
+
+            /// <summary>Builds the tree and the groups (once; before the shape is used by several threads).</summary>
+            public Shape Ready()
+            {
+                if (Tree == null) Tree = new TriTree(Mesh);
+                if (Groups == null) Groups = new SampleGroups(Samples, Box, Spacing);
+                return this;
+            }
+
+            /// <summary>The same shape with a nozzle zone (the shape itself is shared through the cache).</summary>
+            public Shape With(bool[] nozzle, double[] height)
+            {
+                Ready();
+                return new Shape { Mesh = Mesh, Box = Box, Samples = Samples, Spacing = Spacing, Closed = Closed, Nozzle = nozzle, Height = height, Tree = Tree, Groups = Groups };
+            }
         }
 
         internal class Body
@@ -221,6 +238,7 @@ namespace LARGERslicer.Toolpaths
             public Shape Shape;
             public bool Moving; // robot links, carriage, table
             public int[] Parts; // axis bodies: their meshes in ExternalAxisGeometry.Pose
+            public int AxisIndex = -1; // axis bodies that move: the external axis that moves them
         }
 
         private enum Mode { Full, CollisionOnly, Skip }
@@ -246,8 +264,11 @@ namespace LARGERslicer.Toolpaths
         private Frame[] _zeroInv;
         private bool _standingDone;
 
-        private static readonly ConditionalWeakTable<Mesh, Shape> ShapeCache = new ConditionalWeakTable<Mesh, Shape>();
-        private static readonly ConditionalWeakTable<Mesh, Shape[]> PieceCache = new ConditionalWeakTable<Mesh, Shape[]>();
+        // prepared bodies, kept across solutions: keyed by the content of the mesh and the settings,
+        // so a cell rebuilt from the same meshes (a new solution of Robot or Cell Geometry) finds them
+        private static readonly Dictionary<string, Shape> ShapeCache = new Dictionary<string, Shape>();
+        private static readonly Dictionary<string, Shape[]> PieceCache = new Dictionary<string, Shape[]>();
+        private const int CacheLimit = 256;
 
         internal Body BodyAt(int i) => _bodies[i];
 
@@ -268,6 +289,13 @@ namespace LARGERslicer.Toolpaths
             var zero = arm.JointFrames(RobotGeometry.HomePose);
             _zeroInv = zero.Select(f => f.Inverse()).ToArray();
 
+            // ---- the slow part first, for all bodies at once: reduce the meshes of links and tool
+            {
+                var heavy = new List<KeyValuePair<Mesh, int>>();
+                for (int i = 0; i < 7; i++) if (arm.Links[i] != null) heavy.Add(new KeyValuePair<Mesh, int>(arm.Links[i], 1500));
+                if (Cell.Tool?.Mesh != null && Cell.Tool.Mesh.Vertices.Count > 0) heavy.Add(new KeyValuePair<Mesh, int>(Cell.Tool.Mesh, 3000));
+                Simplify(heavy);
+            }
             // ---- robot: base and six links
             for (int i = 0; i < 7; i++)
             {
@@ -290,7 +318,7 @@ namespace LARGERslicer.Toolpaths
             }
             if (toolMesh != null)
             {
-                var shape = GetShape(toolMesh, 3000, Math.Max(4, w), 12000, true);
+                var shape = GetShape(toolMesh, 3000, Math.Max(4, w), 12000);
                 // the zone around the nozzle tip, where the tool sits on the beads by design: as high as two
                 // layers and as wide as the nozzle there, plus a bead
                 Vector3d za = tcp.Z; za.Unitize();
@@ -311,28 +339,38 @@ namespace LARGERslicer.Toolpaths
                     nozzle[k] = u < NozzleHeight && (d - za * u).Length < NozzleRadius;
                 }
                 // the shape is shared (cache): the zone depends on the path, so keep a copy
-                shape = new Shape { Mesh = shape.Mesh, Box = shape.Box, Samples = shape.Samples, Spacing = shape.Spacing, Closed = shape.Closed, Nozzle = nozzle, Height = height };
+                shape = shape.With(nozzle, height);
                 _bodies.Add(new Body { Name = "tool", Robot = 7, Moving = true, Shape = shape });
             }
             else _bodies.Add(new Body { Name = "tool", Robot = 7, Moving = true, Shape = null });
 
-            // ---- external axes: their simple models at 0 (the shapes are made again per pose)
+            // ---- external axes: their simple models at 0, moved per pose by the value of their axis
             _axisFirst = _bodies.Count;
-            var axesModel = ExternalAxisGeometry.Pose(Cell, null);
             int src = 0;
             if (Cell.ExternalAxes != null)
-                foreach (var ax in Cell.ExternalAxes)
+                for (int k = 0; k < Cell.ExternalAxes.Count; k++)
                 {
-                    if (ax.IsRail)
+                    if (Cell.ExternalAxes[k].IsRail)
                     {
-                        AddAxis("rail beam", src, new[] { src }, false); AddAxis("rail carriage", src + 1, new[] { src + 1 }, true); src += 2;
+                        AddAxis("rail beam", src, new[] { src }, -1); AddAxis("rail carriage", src + 1, new[] { src + 1 }, k); src += 2;
                     }
                     else
                     {
-                        AddAxis("turntable", src, new[] { src, src + 1 }, true); AddAxis("turntable stand", src + 2, new[] { src + 2 }, false); src += 3;
+                        AddAxis("turntable", src, new[] { src, src + 1 }, k); AddAxis("turntable stand", src + 2, new[] { src + 2 }, -1); src += 3;
                     }
                 }
             _axisCount = _bodies.Count - _axisFirst;
+            if (_axisCount > 0)
+            {
+                // the models at 0: a value of the axis only moves them (a shift along the rail, a turn of the table)
+                var meshes = ExternalAxisGeometry.Pose(Cell, null);
+                for (int a = 0; a < _axisCount; a++)
+                {
+                    var joined = new Mesh();
+                    foreach (int p in _axisParts[a]) if (p < meshes.Count) joined.Append(meshes[p]);
+                    _bodies[_axisFirst + a].Shape = joined.Faces.Count > 0 ? MakeShape(joined, 4000, 40, 4000).Ready() : null;
+                }
+            }
 
             // ---- environment, in pieces (a fence of many panels: each panel its own box)
             _envFirst = _bodies.Count;
@@ -342,11 +380,14 @@ namespace LARGERslicer.Toolpaths
                     var env = Cell.Environment[e];
                     if (env == null || !env.IsValid) continue;
                     string name = "the " + EnvName(env, e);
-                    if (!PieceCache.TryGetValue(env, out var shapes))
+                    string key = Fingerprint(env) + "|pieces";
+                    Shape[] shapes;
+                    lock (PieceCache) PieceCache.TryGetValue(key, out shapes);
+                    if (shapes == null)
                     {
                         Mesh[] pieces = env.DisjointMeshCount > 1 && env.DisjointMeshCount < 400 ? env.SplitDisjointPieces() : new[] { env };
-                        shapes = pieces.Where(pc => pc != null && pc.Faces.Count > 0).Select(pc => MakeShape(pc, 3000, 40, 6000)).ToArray();
-                        try { PieceCache.Add(env, shapes); } catch { }
+                        shapes = pieces.Where(pc => pc != null && pc.Faces.Count > 0).Select(pc => MakeShape(pc, 3000, 40, 6000).Ready()).ToArray();
+                        lock (PieceCache) { if (PieceCache.Count > CacheLimit) PieceCache.Clear(); PieceCache[key] = shapes; }
                     }
                     foreach (var sh in shapes) _bodies.Add(new Body { Name = name, Env = e, Shape = sh });
                 }
@@ -401,9 +442,9 @@ namespace LARGERslicer.Toolpaths
             if (Cell.Environment == null || Cell.Environment.Count == 0) Notes.Add("No Environment in the cell: floor, fence and walls are not checked (Cell Geometry gives the cell of the FH Muenster).");
         }
 
-        private void AddAxis(string name, int source, int[] parts, bool moving)
+        private void AddAxis(string name, int source, int[] parts, int axisIndex)
         {
-            _bodies.Add(new Body { Name = name, Axis = source, Moving = moving, Parts = parts });
+            _bodies.Add(new Body { Name = name, Axis = source, Moving = axisIndex >= 0, AxisIndex = axisIndex, Parts = parts });
             _axisSource.Add(source); _axisParts.Add(parts);
         }
 
@@ -432,22 +473,126 @@ namespace LARGERslicer.Toolpaths
         internal static Shape GetShape(Mesh m, int maxFaces, double spacing, int maxSamples, bool noCache = false)
         {
             if (m == null) return null;
-            if (!noCache && ShapeCache.TryGetValue(m, out var cached) && Math.Abs(cached.Spacing - spacing) < 1e-9) return cached;
-            var s = MakeShape(m, maxFaces, spacing, maxSamples);
-            if (!noCache) { try { ShapeCache.Remove(m); ShapeCache.Add(m, s); } catch { } }
+            if (noCache) return MakeShape(m, maxFaces, spacing, maxSamples).Ready();
+            string key = Fingerprint(m) + Inv.F($"|{maxFaces}|{spacing:R}|{maxSamples}");
+            lock (ShapeCache) if (ShapeCache.TryGetValue(key, out var cached)) return cached;
+            var s = MakeShape(m, maxFaces, spacing, maxSamples).Ready();
+            lock (ShapeCache) { if (ShapeCache.Count > CacheLimit) ShapeCache.Clear(); ShapeCache[key] = s; }
             return s;
+        }
+
+        // ---- simplified meshes: Rhino's mesh reduction takes seconds for a robot link, so its result
+        // is kept per mesh content (in memory, and in a folder of the temp directory for later sessions)
+        private static readonly Dictionary<string, Lazy<Mesh>> Reduced = new Dictionary<string, Lazy<Mesh>>();
+        private const string ReduceVersion = "r1";
+
+        /// <summary>The mesh in triangles, reduced to about maxFaces if it has more (a copy: the caller may change it).</summary>
+        internal static Mesh Simplified(Mesh source, int maxFaces)
+        {
+            var m = source.DuplicateMesh();
+            m.Faces.ConvertQuadsToTriangles();
+            if (m.Faces.Count <= maxFaces) return m;
+            string key = Fingerprint(source) + Inv.F($"|{maxFaces}|{ReduceVersion}");
+            Lazy<Mesh> lazy;
+            lock (Reduced)
+            {
+                if (!Reduced.TryGetValue(key, out lazy))
+                {
+                    if (Reduced.Count > CacheLimit) Reduced.Clear();
+                    Reduced[key] = lazy = new Lazy<Mesh>(() => LoadOrReduce(m, maxFaces, key), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+                }
+            }
+            return lazy.Value.DuplicateMesh();
+        }
+
+        private static string CacheFile(string key)
+        {
+            var name = new string(key.Select(ch => char.IsLetterOrDigit(ch) ? ch : '_').ToArray());
+            return System.IO.Path.Combine(System.IO.Path.GetTempPath(), "LARGERslicer", "collision", name + ".mesh");
+        }
+
+        private static Mesh LoadOrReduce(Mesh m, int maxFaces, string key)
+        {
+            string file = CacheFile(key);
+            try
+            {
+                if (System.IO.File.Exists(file))
+                    using (var br = new System.IO.BinaryReader(System.IO.File.OpenRead(file)))
+                    {
+                        var r = new Mesh();
+                        int nv = br.ReadInt32();
+                        var pts = new Point3f[nv];
+                        for (int i = 0; i < nv; i++) pts[i] = new Point3f(br.ReadSingle(), br.ReadSingle(), br.ReadSingle());
+                        r.Vertices.AddVertices(pts);
+                        int nf = br.ReadInt32();
+                        var faces = new MeshFace[nf];
+                        for (int i = 0; i < nf; i++) faces[i] = new MeshFace(br.ReadInt32(), br.ReadInt32(), br.ReadInt32(), br.ReadInt32());
+                        r.Faces.AddFaces(faces);
+                        if (r.Faces.Count == nf && r.Vertices.Count == nv && nf > 0) return r;
+                    }
+            }
+            catch { }
+            var red = m.DuplicateMesh();
+            bool closed = m.IsClosed;
+            try { if (red.Reduce(maxFaces, true, 5, false) && red.Faces.Count > 0 && (!closed || red.IsClosed)) m = red; } catch { }
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file));
+                string tmp = file + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                using (var bw = new System.IO.BinaryWriter(System.IO.File.Create(tmp)))
+                {
+                    bw.Write(m.Vertices.Count);
+                    for (int i = 0; i < m.Vertices.Count; i++) { var v = m.Vertices[i]; bw.Write(v.X); bw.Write(v.Y); bw.Write(v.Z); }
+                    bw.Write(m.Faces.Count);
+                    for (int i = 0; i < m.Faces.Count; i++) { var f = m.Faces[i]; bw.Write(f.A); bw.Write(f.B); bw.Write(f.C); bw.Write(f.D); }
+                }
+                if (System.IO.File.Exists(file)) System.IO.File.Delete(tmp); else System.IO.File.Move(tmp, file);
+            }
+            catch { }
+            return m;
+        }
+
+        /// <summary>
+        /// Prepares the slow part of the bodies of a cell ahead (the reduced meshes of robot links and
+        /// tool), in the background: the first collision check then finds them ready. Robot Cell calls
+        /// it when it makes a cell.
+        /// </summary>
+        public static void Warm(RobotCell cell)
+        {
+            if (cell?.Arm?.Links == null) return;
+            var meshes = new List<KeyValuePair<Mesh, int>>();
+            foreach (var l in cell.Arm.Links) if (l != null) meshes.Add(new KeyValuePair<Mesh, int>(l, 1500));
+            if (cell.Tool?.Mesh != null && cell.Tool.Mesh.Vertices.Count > 0) meshes.Add(new KeyValuePair<Mesh, int>(cell.Tool.Mesh, 3000));
+            System.Threading.Tasks.Task.Run(() => { try { Simplify(meshes); } catch { } });
+        }
+
+        /// <summary>Reduces several meshes at once (each its own copy; the slow part of the preparation).</summary>
+        private static void Simplify(List<KeyValuePair<Mesh, int>> meshes)
+        {
+            var todo = meshes.Where(kv => kv.Key != null && kv.Key.Faces.Count + kv.Key.Faces.QuadCount > kv.Value).ToList();
+            if (todo.Count == 0) return;
+            System.Threading.Tasks.Parallel.ForEach(todo, new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Math.Min(todo.Count, Environment.ProcessorCount - 1)) },
+                kv => { try { Simplified(kv.Key, kv.Value); } catch { } });
+        }
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
+        private struct FloatBits { [System.Runtime.InteropServices.FieldOffset(0)] public float F; [System.Runtime.InteropServices.FieldOffset(0)] public uint U; }
+
+        /// <summary>A key for the content of a mesh: counts, and a hash of all vertices and faces.</summary>
+        internal static string Fingerprint(Mesh m)
+        {
+            ulong h = 14695981039346656037UL;
+            var v = m.Vertices.ToFloatArray();
+            var bits = new FloatBits();
+            for (int i = 0; i < v.Length; i++) { bits.F = v[i]; h ^= bits.U; h *= 1099511628211UL; }
+            var fc = m.Faces.ToIntArray(false);
+            for (int i = 0; i < fc.Length; i++) { h ^= (ulong)(uint)fc[i]; h *= 1099511628211UL; }
+            return Inv.F($"{m.Vertices.Count}|{m.Faces.Count}|{h:X16}");
         }
 
         private static Shape MakeShape(Mesh source, int maxFaces, double spacing, int maxSamples)
         {
-            var m = source.DuplicateMesh();
-            m.Faces.ConvertQuadsToTriangles();
-            if (m.Faces.Count > maxFaces)
-            {
-                var r = m.DuplicateMesh();
-                bool closed = m.IsClosed;
-                try { if (r.Reduce(maxFaces, true, 5, false) && r.Faces.Count > 0 && (!closed || r.IsClosed)) m = r; } catch { }
-            }
+            var m = Simplified(source, maxFaces);
             m.Faces.CullDegenerateFaces();
             m.FaceNormals.ComputeFaceNormals();
             bool solid = m.IsClosed && m.IsValid;
@@ -494,12 +639,12 @@ namespace LARGERslicer.Toolpaths
         // ------------------------------------------------------------------ poses
         internal class Posed
         {
-            public Body Body; public Shape Shape; public Frame F; public BoundingBox WorldBox;
+            public Body Body; public Shape Shape; public Frame F, Inv; public BoundingBox WorldBox;
             private Mesh _mesh; private Point3d[] _samples;
             public Posed(Body b, Frame f) : this(b, b.Shape, f) { }
             public Posed(Body b, Shape s, Frame f)
             {
-                Body = b; Shape = s; F = f;
+                Body = b; Shape = s; F = f; Inv = f.Inverse();
                 WorldBox = BoundingBox.Empty;
                 if (s != null) foreach (var c in s.Box.GetCorners()) WorldBox.Union(f.Pt(c));
             }
@@ -507,7 +652,7 @@ namespace LARGERslicer.Toolpaths
             {
                 get
                 {
-                    if (_mesh == null)
+                    lock (this) if (_mesh == null)
                     {
                         _mesh = Shape.Mesh.DuplicateMesh();
                         _mesh.Transform(RobotGeometry.ToTransform(F));
@@ -543,20 +688,19 @@ namespace LARGERslicer.Toolpaths
             var frames = RobotFrames(axes, ext);
             var list = new List<Posed>(_bodies.Count);
             for (int i = 0; i < 8; i++) list.Add(new Posed(_bodies[i], frames[i]));
-            if (_axisCount > 0)
+            for (int a = 0; a < _axisCount; a++)
             {
-                var meshes = ExternalAxisGeometry.Pose(Cell, ext);
-                for (int a = 0; a < _axisCount; a++)
-                {
-                    var joined = new Mesh();
-                    foreach (int p in _axisParts[a]) if (p < meshes.Count) joined.Append(meshes[p]);
-                    var body = _bodies[_axisFirst + a];
-                    list.Add(new Posed(body, MakeShape(joined, 4000, 40, 4000), Frame.World));
-                }
+                var body = _bodies[_axisFirst + a];
+                var f = Frame.World;
+                if (body.AxisIndex >= 0 && ext != null && body.AxisIndex < ext.Length) f = Cell.ExternalAxes[body.AxisIndex].Motion(ext[body.AxisIndex]);
+                list.Add(new Posed(body, f));
             }
             for (int e = _envFirst; e < _bodies.Count; e++) list.Add(new Posed(_bodies[e], Frame.World));
             return list;
         }
+
+        /// <summary>The Rhino intersection of the reference check runs one at a time; the check itself is own math.</summary>
+        internal static readonly object RhinoLock = new object();
 
         // ------------------------------------------------------------------ tests
         internal struct Test { public bool Hit; public double Depth, Distance; public Point3d Where; public double ToolHeight; }
@@ -595,8 +739,19 @@ namespace LARGERslicer.Toolpaths
             // no sample inside: do the surfaces cross? Only possible if both sides come this close
             if (minA <= Math.Max(R, a.Shape.Spacing) && minB <= Math.Max(R, b.Shape.Spacing))
             {
+                bool nozzleZone = skipNozzle && a.Body.Robot == 7 && a.Shape.Nozzle != null;
+                if (!Reference)
+                {
+                    // own math: the triangles of both in a's coordinates, through their trees
+                    var shapeA = a.Shape;
+                    Func<Point3d, bool> accept = null;
+                    if (nozzleZone) accept = p => !InNozzle(p, shapeA);
+                    if (TriTree.Cross(a.Shape.Ready().Tree, b.Shape.Ready().Tree, a.Inv.Times(b.F), accept, out var mid))
+                    { t.Hit = true; t.Depth = Math.Max(t.Depth, 0); t.Where = a.F.Pt(mid); t.Distance = 0; }
+                    return t;
+                }
                 Line[] lines = null;
-                try { lines = Rhino.Geometry.Intersect.Intersection.MeshMeshFast(a.Mesh, b.Mesh); } catch { }
+                lock (RhinoLock) { try { lines = Rhino.Geometry.Intersect.Intersection.MeshMeshFast(a.Mesh, b.Mesh); } catch { } }
                 if (lines != null && lines.Length > 0)
                 {
                     // the tool crossing near its tip is the nozzle on the bed or the beads, by design
@@ -620,8 +775,65 @@ namespace LARGERslicer.Toolpaths
             return best >= 0 && tool.Nozzle[best];
         }
 
-        /// <summary>Samples of a against the mesh of b: smallest gap, and depth for samples inside a closed b.</summary>
+        /// <summary>
+        /// Samples of a against the mesh of b: smallest gap, and depth for samples inside a closed b.
+        /// A gap larger than the clearance (grow) counts as none. Groups of samples that no triangle of
+        /// b comes near (and that do not lie inside b) are left out as a whole; the rest is measured
+        /// one by one in b's own coordinates (own math, so poses can run in parallel).
+        /// </summary>
         private static double Side(Posed a, Posed b, double R, bool skipNozzle, ref Test t)
+        {
+            if (Reference) return SideRhino(a, b, R, skipNozzle, ref t);
+            var box = b.WorldBox; double grow = Math.Max(R, a.Shape.Spacing); box.Inflate(grow);
+            var inner = b.WorldBox;
+            var pts = a.Samples; var noz = skipNozzle ? a.Shape.Nozzle : null;
+            double min = double.PositiveInfinity;
+            var tree = b.Shape.Ready().Tree; var groups = a.Shape.Ready().Groups;
+            bool closed = b.Shape.Closed;
+            // ---- which groups can matter
+            var live = new bool[groups.Count]; bool any = false;
+            for (int g = 0; g < live.Length; g++)
+            {
+                Point3d cw = a.F.Pt(groups.Centre[g]); double r = groups.Radius[g];
+                if (PointBoxGap(box, cw) > r) continue;
+                Point3d cl = b.Inv.Pt(cw);
+                if (tree.AnyWithin(cl, r + grow)) { live[g] = any = true; continue; }
+                // far from every face: either all outside (no gap within grow) or all deep inside
+                if (closed && PointBoxGap(inner, cw) <= r && tree.Closest(cl, double.PositiveInfinity, out var cp, out int f, out _) && (cl - cp) * tree.Normal(f) < 0) live[g] = any = true;
+            }
+            if (!any) return min;
+            var of = groups.Of;
+            for (int i = 0; i < pts.Length; i++)
+            {
+                if (!live[of[i]]) continue;
+                var q = pts[i];
+                if (!box.Contains(q)) continue;
+                if (noz != null && noz[i]) continue;
+                bool maybeInside = closed && inner.Contains(q);
+                var ql = b.Inv.Pt(q);
+                if (!tree.Closest(ql, maybeInside ? double.PositiveInfinity : grow, out var mp, out int face, out double len)) continue;
+                bool inside = maybeInside && len > 1e-6 && (ql - mp) * tree.Normal(face) < 0;
+                if (!inside && len > grow) continue; // far outside: as none
+                if (inside)
+                {
+                    min = 0;
+                    if (!t.Hit || len > t.Depth) { t.Hit = true; t.Depth = len; t.Where = q; t.Distance = 0; t.ToolHeight = a.Shape.Height != null ? a.Shape.Height[i] : -1; }
+                    continue;
+                }
+                if (len < min) min = len;
+                if (!t.Hit && len < t.Distance) { t.Distance = len; t.Where = q; t.ToolHeight = a.Shape.Height != null ? a.Shape.Height[i] : -1; }
+            }
+            return min;
+        }
+
+        /// <summary>
+        /// For tests only: true = the check runs as before 1.3.1, one pose after the other, with
+        /// Rhino's ClosestMeshPoint per sample. The regression test compares both on the same bodies.
+        /// </summary>
+        internal static bool Reference = false;
+
+        /// <summary>Side as before 1.3.1 (Rhino's closest mesh point per sample), the reference for the tests.</summary>
+        private static double SideRhino(Posed a, Posed b, double R, bool skipNozzle, ref Test t)
         {
             var box = b.WorldBox; double grow = Math.Max(R, a.Shape.Spacing); box.Inflate(grow);
             var inner = b.WorldBox;
@@ -649,6 +861,14 @@ namespace LARGERslicer.Toolpaths
                 if (!t.Hit && len < t.Distance) { t.Distance = len; t.Where = q; t.ToolHeight = a.Shape.Height != null ? a.Shape.Height[i] : -1; }
             }
             return min;
+        }
+
+        private static double PointBoxGap(BoundingBox b, Point3d p)
+        {
+            double dx = p.X < b.Min.X ? b.Min.X - p.X : p.X > b.Max.X ? p.X - b.Max.X : 0;
+            double dy = p.Y < b.Min.Y ? b.Min.Y - p.Y : p.Y > b.Max.Y ? p.Y - b.Max.Y : 0;
+            double dz = p.Z < b.Min.Z ? b.Min.Z - p.Z : p.Z > b.Max.Z ? p.Z - b.Max.Z : 0;
+            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
 
         /// <summary>A robot body against the part printed up to maxStamp (part coordinates via partInv).</summary>
@@ -851,10 +1071,23 @@ namespace LARGERslicer.Toolpaths
             // ---- run them
             var worst = new Dictionary<string, CollisionEvent>();
             var hitMoves = new SortedDictionary<int, Point3d>();
-            foreach (int i in picks)
+            // the poses are independent: the first one alone (it decides what stands on what), then all
+            // others in parallel; the results are merged in the order of the moves, as before
+            var order = picks.ToList();
+            var found = new PoseCollision[order.Count];
+            if (order.Count > 0) { var m0 = program.Moves[order[0]]; found[0] = model.Check(m0.Axes, m0.External, order[0], true); }
+            var token = Cancel.Token;
+            var po = new System.Threading.Tasks.ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = CollisionModel.Reference ? 1 : Math.Max(1, Environment.ProcessorCount - 1) };
+            System.Threading.Tasks.Parallel.For(1, order.Count, po, k =>
             {
+                var m = program.Moves[order[k]];
+                found[k] = model.Check(m.Axes, m.External, order[k], true);
+            });
+            for (int k = 0; k < order.Count; k++)
+            {
+                int i = order[k];
                 var mv = program.Moves[i];
-                var pc = model.Check(mv.Axes, mv.External, i, true);
+                var pc = found[k];
                 r.Poses++;
                 if (pc.Any) hitMoves[i] = pc.Where.Count > 0 ? pc.Where[0] : mv.Part.Pt(tp.Points[i]);
                 foreach (var ev in pc.Events)
@@ -1053,7 +1286,7 @@ namespace LARGERslicer.Toolpaths
                     height[k] = d.Z;
                     noz[k] = d.Z < NozzleHeight && Math.Sqrt(d.X * d.X + d.Y * d.Y) < NozzleRadius;
                 }
-                _head = new CollisionModel.Shape { Mesh = _head.Mesh, Box = _head.Box, Samples = _head.Samples, Spacing = _head.Spacing, Closed = _head.Closed, Nozzle = noz, Height = height };
+                _head = _head.With(noz, height);
             }
             // the beads laid so far, and the bed under them (machine coordinates: its top at Z 0)
             Printed = new PrintedVolume(Path, Path.Flows, 10);

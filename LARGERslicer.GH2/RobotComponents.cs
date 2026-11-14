@@ -135,6 +135,7 @@ namespace LARGERslicer.GH2
             if (cell.ExternalAxes.Select(a => a.Name).Distinct().Count() != cell.ExternalAxes.Count) { access.AddError("Same name twice", "Give each external axis its own name: E1, E2 ..."); return; }
             double away = cell.WorkBase.O.DistanceTo(arm.Base.O);
             if (away > arm.Reach) access.AddWarning("Work base far away", $"The work base is {away:0} mm from the robot; its reach is {arm.Reach:0} mm.");
+            CollisionModel.Warm(cell); // prepares the bodies for the collision check in the background
             access.SetItem(0, cell);
             access.SetItem(1, $"{cell}; work base {away:0} mm from the robot");
         }

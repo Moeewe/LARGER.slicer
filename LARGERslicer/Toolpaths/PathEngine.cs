@@ -538,7 +538,7 @@ namespace LARGERslicer.Toolpaths
             if (warp.UseBeadLaw)
             {
                 BeadLaw.Apply(real, out double lo, out double hi, out int set);
-                if (set > 0) log?.Add(Inv.F($"Bead height by the law of the printed head on {set} points: {lo:0.##} to {hi:0.##} mm (the vertical gap to the lap below where it lies underneath, less where it lies to the side)."));
+                if (set > 0) log?.Add(Inv.F($"Bead height by the shell law on {set} points: {lo:0.##} to {hi:0.##} mm (the height above the closest point of the lap below; where the laps step mostly sideways, the sideways step x skin thickness {settings.EffectiveSkin:0.##} mm / bead width)."));
             }
             return real;
         }
@@ -764,12 +764,12 @@ namespace LARGERslicer.Toolpaths
                     {
                         Point3d f = a + (b - a) * (k / (double)parts);
                         Point3d r = warp.ToReal(f, out Vector3d nk);
-                        real.Add(r, nk, flat.Heights[i] * warp.Scale(f), flat.Widths[i], flat.Flows[i], flat.Roles[i], flat.Layers[i]);
+                        real.Add(r, nk, warp.BeadHeight(f, flat.Heights[i], flat.Settings), flat.Widths[i], flat.Flows[i], flat.Roles[i], flat.Layers[i]);
                     }
                 }
                 Point3d p = warp.ToReal(flat.Points[i], out Vector3d n);
                 if (real.Count > 0 && p.DistanceTo(real.Points[real.Count - 1]) < 1e-6 && flat.Flows[i] > 0) continue; // no doubled points
-                real.Add(p, n, flat.Heights[i] * warp.Scale(flat.Points[i]), flat.Widths[i], flat.Flows[i], flat.Roles[i], flat.Layers[i]);
+                real.Add(p, n, warp.BeadHeight(flat.Points[i], flat.Heights[i], flat.Settings), flat.Widths[i], flat.Flows[i], flat.Roles[i], flat.Layers[i]);
             }
             return real;
         }
@@ -903,7 +903,7 @@ namespace LARGERslicer.Toolpaths
                 // Follow the surface on a closed part: the last lap runs from the last ring into its middle
                 // (as the stand-alone app and the printed head close the crown), so no hole stays open on
                 // top. It runs over the open middle, so it keeps half a layer height (the app's value) and
-                // the law of the printed head leaves it alone (role Seam).
+                // the bead law leaves it alone (role Seam).
                 bool crown = i == to - 1 && i > from && layer.Warp is MeridianWarp mw && mw.ClosedTop && cur.Len < 4 * Math.PI * w;
                 if (crown)
                 {
