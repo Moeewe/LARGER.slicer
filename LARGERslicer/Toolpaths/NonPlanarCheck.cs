@@ -232,7 +232,7 @@ namespace LARGERslicer.Toolpaths
                 double tooHigh = 100.0 * r.TooHigh / r.Measured, tooThin = 100.0 * r.TooThin / r.Measured, dev = r.Compared > 0 ? 100.0 * r.Deviating / r.Compared : 0;
                 if (r.LegacyV2)
                     r.Report.Add(Inv.F($"OLD EXTRUSION LAW: E matches the law of the 2024 head (t = dz + (h - dz) dxy / w, used up to version 1.3.0) better than the shell law. That law over-extrudes leaning laps: here {100 * r.V2Excess:0.#} % more material than the shell law (w x dz per lap, or the sideways step x skin thickness where the laps step sideways), at 5 % of the points more than {100 * r.V2ExcessMax:0} %. Slice the part again with this version."));
-                r.Report.Add(Inv.F($"Bead height ({(r.Law ? "shell law: vertical gap to the lap below, or sideways step x skin thickness / bead width where the laps step sideways" : "vertical gap to the layer below")}, {r.Measured} points): {r.MinHeight:0.##} to {r.MaxHeight:0.##} mm. ") +
+                r.Report.Add(Inv.F($"Bead height ({(r.Law ? "shell law: height above the closest point of the lap below, or sideways step x skin thickness / bead width where the laps step sideways" : "vertical gap to the layer below")}, {r.Measured} points): {r.MinHeight:0.##} to {r.MaxHeight:0.##} mm. ") +
                              Inv.F($"Allowed {0.4 * h:0.##} (0.4 x layer height) to {0.8 * w:0.##} mm (0.8 x bead width)") + (r.Law && skinAt.Count > 0 ? Inv.F($"; at {skinAt.Count} points the laps step mostly sideways and form a skin {st.EffectiveSkin:0.##} mm thick (Skin Thickness), which is not judged by the 0.4 x layer height rule.") : "."));
                 if (r.TooHigh == 0 && r.TooThin > 0 && r.Law && r.TooThin <= 0.01 * r.Measured)
                 {

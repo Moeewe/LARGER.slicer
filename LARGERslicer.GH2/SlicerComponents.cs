@@ -660,7 +660,7 @@ namespace LARGERslicer.GH2
     [IoId("c3e7a2d4-6f1b-4a8e-9d25-8e2da5d2c15d")]
     public sealed class NonPlanarCheckComponent : Component
     {
-        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, Group.Check)) { }
+        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: at every point the height above the closest point of the lap below is measured (its vertical part, not a line straight down, which misses the lap below on a sloped wall) and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, Group.Check)) { }
         public NonPlanarCheckComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SlicerNonPlanarCheckIcon");
 
@@ -678,7 +678,7 @@ namespace LARGERslicer.GH2
         {
             outputs.AddBoolean("OK", "OK", "True if the bead heights fit and the head hits nothing.");
             outputs.AddText("Report", "R", "What was checked and found.", Access.Twig);
-            outputs.AddNumber("Bead Height", "H", "Measured bead height (vertical gap to the layer below) for every path point in mm; 0 = not measured. Use it to colour the path.", Access.Twig);
+            outputs.AddNumber("Bead Height", "H", "Measured bead height (height above the closest point of the lap below) for every path point in mm; 0 = not measured. Use it to colour the path.", Access.Twig);
             outputs.AddPoint("Bad Heights", "Bh", "Points where the bead is higher than 0.8 x bead width or thinner than 0.4 x layer height.", Access.Twig);
             outputs.AddPoint("Collisions", "X", "Points where the head hits beads printed before, or the path climbs more steeply than the cone. Must be empty.", Access.Twig);
             outputs.AddMesh("Head", "Hd", "The head as it is checked (tip, cone, body), standing on the path at Pose.");

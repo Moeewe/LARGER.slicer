@@ -162,7 +162,9 @@ measured width x current factor).
 
 **Non-planar layers with a vertical nozzle: the bead height is the shell law** (section 9.3):
 t = max(dz, dxy x t_skin / w) from the closest point of the lap below, E = section(w, t) x length x
-Factor. Flat layers and planar warps (guide surfaces) use the vertical gap to the layer below.
+Factor. dz and dxy are the vertical and sideways part of the line to the closest point of the lap below,
+not a line straight down, which misses the lap below on a sloped wall. Flat layers and planar warps
+(guide surfaces) use the vertical gap to the layer below.
 
 Other machine conventions:
 
@@ -281,6 +283,28 @@ t_skin = `Skin Thickness` on `Continuous Path` (`PrintSettings.SkinThickness`), 
 never below 0.4 x layer height. The skin term takes over where dz / dxy < t_skin / w: surfaces flatter
 than about 24° for a 4 mm bead and 1.75 mm layers. The least material per lap lies at that crossover:
 for laps one layer height apart along the surface t = h · t_skin / sqrt(w² + t_skin²) (0.4 h here).
+
+**How the gap is measured: from the closest point, and only its vertical part.** On a sloped wall the
+lap below does not lie straight under a point: on an overhang it lies further in, on a wall leaning in
+further out, so a line straight down misses it or hits the inside of the part. The plug-in therefore
+takes, for every point p, the closest point q on the lap below (the same pair as from q to the closest
+point on the lap above) and splits the line p - q into its vertical part dz and its sideways part dxy.
+Only dz goes into the bead (plus the skin term where the laps step mostly sideways). The full 3D length
+|p - q| would be too much on every slope: it measures across the wall, not the height a vertical nozzle
+fills. On the examples (1.3.1 measurement, all points of the spiral):
+
+| Example | shell law t (mean) | 3D distance |p - q| | 3D / shell |
+|---|---|---|---|
+| Non Planar Head (Ginger), vase that bulges to one side | 1.97 mm | 1.99 mm | 1.01 |
+| Head (Robot, DXR25), whole head | - | - | 1.14 |
+| Head (Robot, DXR25), Z 160-180 (towards the crown) | 0.67 mm | 1.45 mm | 2.2 |
+| Head (Ginger One), whole head | - | - | 1.12 |
+| Head (Ginger One), Z 160-180 | 0.95 mm | 1.75 mm | 1.8 |
+
+So the 3D distance would put 12-14 % more material into a head and about twice as much near the crown;
+V2's law, which adds part of the 3D distance (dxy / w of it), lies between the two. Guide Mode "Follow
+the part" works out the vertical gap from its layer surfaces; measured against dz to the closest point
+of the lap below it agrees within 1-2 % per 20 mm band (0.99-1.02 of the material in total).
 
 **Where V2 over-extruded, lap by lap** (its own points, closest point on the previous lap, t_skin 1.75):
 

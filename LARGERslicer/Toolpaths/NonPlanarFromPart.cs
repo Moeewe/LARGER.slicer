@@ -542,7 +542,7 @@ namespace LARGERslicer.Toolpaths
         {
             if (FollowSurface)
                 return Inv.F($"Follow the surface: {LayerCount} laps from the bottom ring to the crown, the way along the surface {LMin:0} to {LMax:0} mm (mean {LMean:0}); ") +
-                       "the bead height follows the shell law (the vertical gap to the lap below; where the laps step mostly sideways, the sideways step x skin thickness / bead width).";
+                       "the bead height follows the shell law (the height above the closest point of the lap below; where the laps step mostly sideways, the sideways step x skin thickness / bead width).";
             string text = Inv.F($"Follow the part: {LayerCount} layers, meridians {LMin:0} to {LMax:0} mm long (mean {LMean:0}), ") +
                           Inv.F($"layers {LMin / LayerCount:0.##} to {LMax / LayerCount:0.##} mm thick along the wall; the bead height is the vertical gap, or the sideways step x skin thickness / bead width where the wall turns flat.");
             if (ThickMeridians > 0)

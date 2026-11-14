@@ -538,7 +538,7 @@ namespace LARGERslicer.Toolpaths
             if (warp.UseBeadLaw)
             {
                 BeadLaw.Apply(real, out double lo, out double hi, out int set);
-                if (set > 0) log?.Add(Inv.F($"Bead height by the shell law on {set} points: {lo:0.##} to {hi:0.##} mm (the vertical gap to the lap below; where the laps step mostly sideways, the sideways step x skin thickness {settings.EffectiveSkin:0.##} mm / bead width)."));
+                if (set > 0) log?.Add(Inv.F($"Bead height by the shell law on {set} points: {lo:0.##} to {hi:0.##} mm (the height above the closest point of the lap below; where the laps step mostly sideways, the sideways step x skin thickness {settings.EffectiveSkin:0.##} mm / bead width)."));
             }
             return real;
         }
