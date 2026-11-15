@@ -43,7 +43,9 @@ nachvollzogen: Brim aus 8 Ringen, ein flacher Ring, dann eine Spirale mit 120 Ru
 surface“, Short Lap Time, der Brim mit versetzten Übergängen und die Toleranzen der Prüfungen gebaut.
 
 **Testen.** Nie in Rhino 8 oder in Dokumenten des Eigentümers. Eine Rhino-9-Instanz pro Mac, nur
-`.gha` und `.pdb` installieren, solange Rhino 9 geschlossen ist, Dokumente ohne Speicherdialog
+`.gha` und `.pdb` installieren, solange Rhino 9 geschlossen ist (Grasshopper 2: `.rhp`, `.pdb` und
+`Clipper2Lib.dll` in den Unterordner `gh2/` des Pakets, eingetragen in `CustomPluginInclude.txt`; nie
+in `net8.0/`), Dokumente ohne Speicherdialog
 schließen. Ergebnisse werden angesehen, nicht nur gemessen.
 
 ## Weitere Dokumentation

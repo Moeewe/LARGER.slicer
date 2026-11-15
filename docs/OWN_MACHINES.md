@@ -75,7 +75,7 @@ it does not use.
 a curved layer can be printed with a vertical nozzle. What the machine cannot print is an **error**
 ("NOT PRINTABLE on My Gantry [Gantry (X, Y, Z)]: 12 layer(s) lean up to 45 degrees ..."); the G-code
 is still written, so you can look at it, but do not run it. Non-planar layers on a gantry get a
-warning: check the head against the part in `Printer Simulation`.
+grey remark (allowed, worth knowing): check the head against the part in `Printer Simulation`.
 
 ---
 

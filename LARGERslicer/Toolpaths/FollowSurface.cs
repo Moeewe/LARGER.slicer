@@ -8,12 +8,22 @@ namespace LARGERslicer.Toolpaths
     /// <summary>
     /// "Follow the surface": the way up the part's own surface, from the ring it stands on to the
     /// crown, as a value u on every vertex of the meshed part (0 on the bottom ring, 1 at the crown).
+    /// The laps lie at u = k / N, N = mean way bottom ring - crown / layer height.
     ///
-    /// u = d_bottom / (d_bottom + d_crown), both shortest paths along the mesh edges (Dijkstra).
-    /// Its iso-lines run round the part like the iso-curves of a surface: they dip under the chin
-    /// and the nose, rise at the back of a head, and shrink to the crown, where they close it.
+    /// On the wall u = d_bottom / M: the shortest way along the surface from the bottom ring (Dijkstra
+    /// on the mesh), divided by the mean way M from the bottom ring to the crown. Its iso-lines lie
+    /// exactly one layer height apart along the surface everywhere, so every lap stands on the one
+    /// below: they dip deep under the chin and the nose, where the way up the surface is long for little
+    /// height, and rise at the back of a head. Towards the crown (between 60 and 95 % of the way) u turns
+    /// into the share d_bottom / (d_bottom + d_crown), which reaches 1 on the crown on every side, so the
+    /// rings shrink to the crown and close it.
+    ///
     /// This is how the printed UNIKAT HEAD V2 (Ginger One, 2024) was laid out: rings on the head's
-    /// surface from the neck to the crown, one spiral, the nozzle vertical.
+    /// surface from the neck to the crown, one spiral, the nozzle vertical (its rings dipped up to about
+    /// 17 mm per lap; these about 19). Up to 1.3.0 the share alone was used, smoothed over the mesh and
+    /// pulled a third of the way towards flat layers: on the head the laps then dipped only about 10 mm,
+    /// and lay up to twice the layer height apart under the chin and near the crown. (V2's extrusion law
+    /// is not used any more: see BeadLaw.)
     /// </summary>
     public class SurfaceField
     {
@@ -27,13 +37,12 @@ namespace LARGERslicer.Toolpaths
         private readonly Mesh _mesh;
         private readonly double[] _u;      // per mesh vertex (after welding)
 
-        /// <summary>How far the rings on the wall are pulled towards the level of the height (0 = the way
-        /// along the surface alone, 1 = flat layers), fading out towards the crown.</summary>
-        public readonly double ZBlend;
+        /// <summary>Share of the way bottom ring - crown where u turns from the way from the bottom ring
+        /// (even laps on the wall) into the share of the way (rings that close the crown), and where it is complete.</summary>
+        public const double CrownFrom = 0.6, CrownTo = 0.95;
 
-        public SurfaceField(Mesh part, double zBlend = 0.35)
+        public SurfaceField(Mesh part)
         {
-            ZBlend = Math.Max(0, Math.Min(1, zBlend));
             if (part == null || part.Vertices.Count < 4) { Problem = "no part"; return; }
             var m = part.DuplicateMesh();
             m.Faces.ConvertQuadsToTriangles();
@@ -81,41 +90,18 @@ namespace LARGERslicer.Toolpaths
                 double a = db[id[i]], b = dt[id[i]];
                 _u[i] = a < double.MaxValue && b < double.MaxValue && a + b > 1e-12 ? a / (a + b) : 0;
             }
-            // Shortest paths along mesh edges zigzag, so their lengths depend a little on how the
-            // triangles happen to lie: the rings would wave with the mesh. A few rounds of averaging
-            // with the neighbours (bottom ring and crown held) take that out, as the printed head's
-            // definition smoothed its rings (Smooth Polyline 0.5 x 30).
-            // Not near the crown: there the rings are small circles round one point, averaging would pull
-            // the values round the (held) crown down and squeeze the last rings onto it.
-            var fixedV = new bool[nv];
-            foreach (int i in bottom) fixedV[i] = true;
-            foreach (int i in crown) fixedV[i] = true;
-            var uw = new double[nv];
-            for (int i = 0; i < nv; i++) uw[i] = _u[id[i]];
-            for (int i = 0; i < nv; i++) if (uw[i] > 0.85) fixedV[i] = true;
-            var next = new double[nv];
-            for (int round = 0; round < 40; round++)
-            {
-                for (int i = 0; i < nv; i++)
-                {
-                    if (id[i] != i || fixedV[i] || adj[i].Count == 0) { next[i] = uw[i]; continue; }
-                    double sum = 0;
-                    foreach (var (j, _) in adj[i]) sum += uw[j];
-                    next[i] = 0.5 * uw[i] + 0.5 * sum / adj[i].Count;
-                }
-                var tmp = uw; uw = next; next = tmp;
-            }
-            // On the wall the rings are pulled a third of the way towards the level of the height, fading
-            // out towards the crown (where the way along the surface alone spaces them evenly): the rings
-            // still dip under chin, nose and ears, but less deep, as the iso-curves of the printed head
-            // did (and the stand-alone app does the same). Less dip = less of the nozzle grazing the
-            // ring beside it (Non-Planar Check).
-            double zTop = v[top].Z, zr = Math.Max(1e-9, zTop - zmin);
+            // u: on the wall the way from the bottom ring over the mean way to the crown (laps one layer
+            // height apart along the surface everywhere); towards the crown the share of the way, which
+            // reaches 1 on the crown on every side (smooth step between CrownFrom and CrownTo of the share)
+            var md0 = bottom.Select(i => dt[i]).Where(d => d < double.MaxValue).ToList();
+            double mean = md0.Count > 0 ? md0.Average() : 0;
             for (int i = 0; i < nv; i++)
             {
-                double u = uw[id[i]];
-                double b = ZBlend * (1.0 - Math.Max(0.0, Math.Min(1.0, (u - 0.6) / 0.3)));
-                _u[i] = u * (1 - b) + (v[i].Z - zmin) / zr * b;
+                double a = db[id[i]], r = _u[i];
+                if (a >= double.MaxValue || mean <= 1e-9) continue;
+                double t = Math.Max(0, Math.Min(1, (r - CrownFrom) / (CrownTo - CrownFrom)));
+                double w = t * t * (3 - 2 * t);
+                _u[i] = (1 - w) * (a / mean) + w * r;
             }
             var md = bottom.Select(i => dt[i]).Where(d => d < double.MaxValue).ToList();
             if (md.Count == 0) { Problem = "the bottom and the crown are not connected by the surface"; return; }
@@ -162,19 +148,42 @@ namespace LARGERslicer.Toolpaths
     }
 
     /// <summary>
-    /// The bead height law of the printed UNIKAT HEAD V2 (owner's definition "head test unikat.gh",
-    /// confirmed on all 18 041 points of its G-code to 0.0006 E/mm):
+    /// The bead height law for non-planar laps printed with a vertical nozzle (the shell law, 1.3.1).
     ///
-    ///   h = distance to the closest point of the lap below, a = angle of that line to the horizontal
-    ///   t = h (1 - (h/w)(1 - sin a)((w/h) - cos a))  =  dz + (h - dz) dxy / w
+    /// A single-bead shell of horizontal thickness w (the bead width) gains, per lap, the cross-section
+    /// w x dz in any vertical section across the wall, dz = how much higher the lap lies than the lap
+    /// below: a parallelogram with horizontal sides w and height dz. How far the lap is offset sideways
+    /// (dxy, an overhang or a wall leaning in) does not change that area: a sideways offset moves the
+    /// material, it does not add any. Where the surface turns nearly flat (crown, the shelf under a
+    /// chin) the laps step mostly sideways and the shell becomes a skin: per mm of path it then needs
+    /// the sideways step times the skin thickness. Together:
     ///
-    /// Stacked straight (the lap below right underneath): t = the vertical gap. Where the lap below
-    /// lies to the side (overhang, crown) only the share dxy / w of the slant distance counts, so a
-    /// bead that leans on the one below is not overfilled. E = factor x w x t x length.
+    ///   A = max(w dz, dxy t_skin)        t = A / w = max(dz, dxy t_skin / w)        E = factor x w x t x length
+    ///
+    /// with (dz, dxy) = vertical and horizontal part of the line to the closest point of the lap below,
+    /// and t_skin = Skin Thickness (default the layer height, never below 0.4 x layer height). The
+    /// skin term takes over where dz / dxy &lt; t_skin / w (surface flatter than about 24 degrees for a
+    /// 4 mm bead and 1.75 mm layers).
+    ///
+    /// The law of the printed UNIKAT HEAD V2 (2024), used up to 1.3.0, added the share dxy / w of the
+    /// slant distance on top of dz: t = dz + (h - dz) dxy / w (h = 3D distance). That term is extra
+    /// material: on V2 3.4 % over the whole head, 4-5 % per lap under the chin, about 12 % on a 45 degree
+    /// slope and 36-57 % per lap on the shoulder towards the crown (surface 20-35 degrees). It is kept
+    /// as HeightV2 so Non-Planar Check can recognise old files.
     /// </summary>
     public static class BeadLaw
     {
-        public static double Height(Point3d p, Point3d q, double w)
+        /// <summary>Bead height by the shell law: max(dz, dxy x skin / w) to the closest point q of the lap below.</summary>
+        public static double Height(Point3d p, Point3d q, double w, double skin)
+        {
+            double dz = Math.Max(0, p.Z - q.Z);
+            double dxy = Math.Sqrt((p.X - q.X) * (p.X - q.X) + (p.Y - q.Y) * (p.Y - q.Y));
+            return Math.Max(dz, dxy * skin / Math.Max(1e-9, w));
+        }
+
+        /// <summary>The law of the printed UNIKAT HEAD V2 (up to 1.3.0): t = dz + (h - dz) dxy / w. It over-extrudes
+        /// leaning laps (see the class notes); only for recognising old files.</summary>
+        public static double HeightV2(Point3d p, Point3d q, double w)
         {
             double dz = p.Z - q.Z;
             double dxy = Math.Sqrt((p.X - q.X) * (p.X - q.X) + (p.Y - q.Y) * (p.Y - q.Y));
@@ -194,7 +203,7 @@ namespace LARGERslicer.Toolpaths
         {
             low = double.MaxValue; high = 0; count = 0;
             if (tp == null || tp.Count < 3) return;
-            double w = tp.Settings.BeadWidth, hNom = tp.Settings.LayerHeight;
+            double w = tp.Settings.BeadWidth, hNom = tp.Settings.LayerHeight, skin = tp.Settings.EffectiveSkin;
             int n = tp.Count;
             var s = new double[n];
             for (int i = 1; i < n; i++) s[i] = s[i - 1] + tp.Points[i].DistanceTo(tp.Points[i - 1]);
@@ -239,7 +248,7 @@ namespace LARGERslicer.Toolpaths
                     if (d < best) { best = d; q = c; }
                 }
                 if (!q.IsValid) continue;
-                double t1 = Height(p, q, w);
+                double t1 = Height(p, q, w, skin);
                 t1 = Math.Max(0.01, Math.Min(3.0 * hNom, t1)); // never exactly 0: a move with E 0 reads as a stop
                 heights[i] = t1; count++;
                 if (t1 < low) low = t1; if (t1 > high) high = t1;

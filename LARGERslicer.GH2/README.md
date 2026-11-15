@@ -8,7 +8,9 @@ this assembly, so both versions cut, fill and check in exactly the same way.
 
 The tab follows the Grasshopper 1 plug-in: the same components with the same names, inputs and
 icons. The Slicer section is split into the groups of the Grasshopper 1 tab, in this order:
-Start, Layers, Walls & fill, Path, Check, Output, Curve tools.
+Start, Layers, Walls & fill, Path, Check, Output, Curve tools. Import G-code and Material Field sit in Curve
+tools here (Output and Check in Grasshopper 1); Align Curves, Alternate Curves and Join Open Contours
+are visible.
 
 **LARGER > Slicer**
 
@@ -151,7 +153,7 @@ package (e.g. `.../LARGERslicer/<version>/gh2/`) is not scanned by Rhino, and a 
 
 Tested in Grasshopper 2 (Rhino 9.1) on a box: slice, walls, bottom, honeycomb infill,
 continuous path, check and DXR all compute. A guide curve from a native arc component is
-accepted by Slice. Not yet tested: non-planar and multi-axis slicing on a real part, Windows, installation through the package manager, and a real print.
+accepted by Slice. Not yet tested: Windows, installation through the package manager, and a real print.
 
 `Toolpath to Robot Lines` writes one fixed tool orientation (A, B, C). Check it against your
 robot cell before the first run. For tilted tool axes use the planes from `Extrusion and Speed`.

@@ -251,7 +251,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Settings", "S", "Print Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddNumber("Angle", "A", "Tilts the layers around the X axis, in degrees. 45 = 45 degree slicing.").Set(0.0).Angles();
             inputs.AddGeneric("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it. A curve: the layers stand square to it.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddInteger("Guide Mode", "GM", "0 = with a guide surface: flat bottom, top follows the guide.\n1 = with a guide surface: all layers follow the guide (curved base or mould).\n2 = follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical.\n3 = follow the surface (no guide): leave Guide empty; for closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, under chin and nose as well, closing the top. Use Continuous Path in Spiral mode. The bead height follows the law of the printed head of 2024. The nozzle stays vertical.").Set(0)
+            inputs.AddInteger("Guide Mode", "GM", "0 = with a guide surface: flat bottom, top follows the guide.\n1 = with a guide surface: all layers follow the guide (curved base or mould).\n2 = follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical.\n3 = follow the surface (no guide): leave Guide empty; for closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, under chin and nose as well, closing the top. Use Continuous Path in Spiral mode. The bead height follows the shell law: the vertical gap to the lap below, or where the laps step mostly sideways (crown, under a chin) the sideways step x Skin Thickness / bead width (Continuous Path). The nozzle stays vertical.").Set(0)
                 .Choices("Flat bottom, top follows guide", "All layers follow guide", "Follow the part (no guide)", "Follow the surface (no guide)");
             inputs.AddInteger("Tool Axis", "TA", "Only with a guide: 0 = tool square to the layer (robot). 1 = tool stays vertical.").Set(0).Choices("Square to the layer (robot)", "Stays vertical (3-axis)");
             inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away afterwards (about 5 for angled printing). The start feature stands on the bed. 0 = none.").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
@@ -514,6 +514,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Min Layer Time", "Tmin", "Shortest time a layer may take in s. A layer that would be done sooner is printed slower, so the layer below can cool: F stays constant within the layer and never goes below Min Speed. 0 = off (default). About 60 s suits many large pellet prints.").Set(0.0).Values(0, 30, 60, 90, 120, 180);
             inputs.AddNumber("Max Volume Rate", "Qmax", "Most the extruder can deliver in mm3/s. Moves that would ask for more run slower, never below Min Speed. 0 = off (default). The Ginger gives about 330 mm3/s.").Set(0.0);
             inputs.AddNumber("Short Lap Time", "Tshort", "Minimum time for short laps (s), as the printed head of 2024: laps shorter than min + 0.7464 x (max - min) of all lap lengths get this time, the longer ones Min Layer Time, with a change over 5 laps between them. Small laps (neck, crown) then cool longer than wide ones. 0 = Min Layer Time for all (default). The head: Min Layer Time 35 s, Short Lap Time 40 s.").Set(0.0);
+            inputs.AddNumber("Skin Thickness", "Skin", "Non-planar only (Guide Mode Follow the part / Follow the surface): thickness of the skin in mm where the laps step mostly sideways instead of up (the crown, the shelf under a chin). The bead height is the vertical gap to the lap below (a shell of one bead width gains bead width x gap per lap, however far the lap leans), or, where that is less, the sideways step x Skin Thickness / bead width. 0 = the layer height (default); never below 0.4 x layer height.").Set(0.0);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -540,12 +541,14 @@ namespace LARGERslicer.GH2
             int seamMode; double minTime, maxRate;
             access.GetItem(6, out seamMode); access.GetItem(7, out minTime); access.GetItem(8, out maxRate);
             double shortTime; access.GetItem(9, out shortTime);
-            if (minTime > 0 || maxRate > 0 || shortTime > 0)
+            double skin; access.GetItem(10, out skin);
+            if (minTime > 0 || maxRate > 0 || shortTime > 0 || skin > 0)
             {
                 // the limits travel with the path, so every machine output (G-code, DXR, robot) uses them
                 settings = settings.Duplicate();
                 settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
                 settings.ShortLapTime = Math.Max(0, shortTime);
+                settings.SkinThickness = Math.Max(0, skin);
             }
             if (Io.Step(access, 10)) return; // progress; stop if the inputs changed meanwhile
             var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, Math.Max(0, ramp), false, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
@@ -553,7 +556,7 @@ namespace LARGERslicer.GH2
             foreach (var l in log)
             {
                 string title = l.Length > 60 ? l.Substring(0, 60) + "…" : l;
-                if (l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") || l.StartsWith("Bead height by the law")) access.AddRemark(title, l);
+                if (l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") || l.StartsWith("Bead height by the")) access.AddRemark(title, l);
                 else access.AddWarning(title, l);
             }
             if (tp.Count < 2) { access.AddError("No path", "The layers contain no printable contour."); return; }
@@ -657,7 +660,7 @@ namespace LARGERslicer.GH2
     [IoId("c3e7a2d4-6f1b-4a8e-9d25-8e2da5d2c15d")]
     public sealed class NonPlanarCheckComponent : Component
     {
-        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: the vertical gap to the layer below is measured at every point and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, Group.Check)) { }
+        public NonPlanarCheckComponent() : base(Io.Name("Non-Planar Check", "Checks a non-planar path for a printer whose nozzle stays vertical. Bead height: at every point the height above the closest point of the lap below is measured (its vertical part, not a line straight down, which misses the lap below on a sloped wall) and compared with the bead width, the layer height and the height the extrusion was worked out for. Head: the nozzle is a cone with a wider head above it; nothing printed before may reach into it.", Io.Slicer, Group.Check)) { }
         public NonPlanarCheckComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SlicerNonPlanarCheckIcon");
 
@@ -675,7 +678,7 @@ namespace LARGERslicer.GH2
         {
             outputs.AddBoolean("OK", "OK", "True if the bead heights fit and the head hits nothing.");
             outputs.AddText("Report", "R", "What was checked and found.", Access.Twig);
-            outputs.AddNumber("Bead Height", "H", "Measured bead height (vertical gap to the layer below) for every path point in mm; 0 = not measured. Use it to colour the path.", Access.Twig);
+            outputs.AddNumber("Bead Height", "H", "Measured bead height (height above the closest point of the lap below) for every path point in mm; 0 = not measured. Use it to colour the path.", Access.Twig);
             outputs.AddPoint("Bad Heights", "Bh", "Points where the bead is higher than 0.8 x bead width or thinner than 0.4 x layer height.", Access.Twig);
             outputs.AddPoint("Collisions", "X", "Points where the head hits beads printed before, or the path climbs more steeply than the cone. Must be empty.", Access.Twig);
             outputs.AddMesh("Head", "Hd", "The head as it is checked (tip, cone, body), standing on the path at Pose.");

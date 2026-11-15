@@ -49,7 +49,7 @@ LARGER.slicer/
 
 The stand-alone app **LARGER.app** is a separate, private project. It shares the presets and the
 printing rules described in [PRINTING_PRINCIPLES.md](PRINTING_PRINCIPLES.md) (bead-width-driven
-geometry, machine kinds, the bead law of the 2024 head, Short Lap Time ...); several core comments
+geometry, machine kinds, the non-planar bead law (since 1.3.1 the shell law, which replaced the law of the 2024 head), Short Lap Time ...); several core comments
 say "as in LARGER.app" where a rule was taken over from it or into it. Nothing in this repository
 depends on it.
 
@@ -75,7 +75,7 @@ outputs. Two rules keep the core portable and testable:
 
 | Type | What it is |
 |---|---|
-| `PrintSettings` | The one place for bead width, layer height and speed. Defaults: bead 5 mm, layer 2 mm (house standard, 3 mm nozzle), Overlap 0.15, Speed 3000 mm/min (= 50 mm/s), MinSpeed 300, MaxSpeed 12000 (also the travel speed), Resolution 2 mm. Also FirstLayerHeight, FirstLayerSpeed, MinLayerTime, ShortLapTime, MaxVolumeRate, Flow, Density, Nozzle/NozzleShape, `Machine` (a `MachineProfile`). Derived: `BeadSpacing = width x (1 - overlap)` (overlap clamped 0..0.9), `FirstLayer`, `PointSpacing` (x3 in Preview), `EffectiveMinRadius`, `BeadArea(w, h)` (squashed bead: rectangle with round ends). **Speeds are stored in mm/min** (the F of G-code and DXR); the components take mm/s (see `Components/Slicer/SpeedUnits.cs`). |
+| `PrintSettings` | The one place for bead width, layer height and speed. Defaults: bead 5 mm, layer 2 mm (house standard, 3 mm nozzle), Overlap 0.15, Speed 3000 mm/min (= 50 mm/s), MinSpeed 300, MaxSpeed 12000 (also the travel speed), Resolution 2 mm. Also FirstLayerHeight, FirstLayerSpeed, MinLayerTime, ShortLapTime, MaxVolumeRate, SkinThickness (non-planar skin, 0 = layer height; `EffectiveSkin`), MinRadius (0 = `EffectiveMinRadius`: half the bead width, at least half the nozzle), Flow, Density, Nozzle/NozzleShape, `Machine` (a `MachineProfile`). Derived: `BeadSpacing = width x (1 - overlap)` (overlap clamped 0..0.9), `FirstLayer`, `PointSpacing` (x3 in Preview), `EffectiveMinRadius`, `BeadArea(w, h)` (squashed bead: rectangle with round ends). **Speeds are stored in mm/min** (the F of G-code and DXR); the components take mm/s (see `Components/Slicer/SpeedUnits.cs`). |
 | `MachineProfile` | How E is computed for a machine: `E = section x length x Flow x Factor` (x FirstLayerFactor on the first layer), divided by the filament area when FilamentDiameter > 0. `RectangleSection = true` uses w x h (as the hand-made scripts), false the squashed-bead area. Five presets: Generic pellet (volume), Generic filament 1.75 / 2.85, Weber DXR25 (factor 1.128, rectangle, "x P1"), Ginger One (factor 0.21, rectangle). |
 | `SliceLayer` | One slice: `Index`, `Plane` (at nozzle height, normal = tool axis), `Height`, `Contours` (polylines, in flat space when warped), `Rings` (wall number per contour, 0 = outermost), `Reference` (plain walls before infill, used to tell wall from infill), `ContourRoles`, `EntryHints` (ends of fill paths, where the wall should start), `Warp`. `RealContours()` maps warped contours back for display. |
 | `Toolpath` | The print path. Parallel lists per point: `Points`, `Normals` (tool axis), `Heights` (local layer height), `Widths` (bead width), `Flows` (0 = no extrusion), `Roles` (`PathRole`: Wall, Bottom, Infill, Support, Seam, Travel, Skirt), `Layers` (layer index). **Height, flow and role describe the move that ends at the point.** Plus `Settings` and `Warp` (set when the path was mapped back from non-planar / multi-axis space; its points are in real space). |
@@ -97,13 +97,14 @@ geometry ─ SliceEngine ─ layers ─ FillEngine (walls, ribs, bottom) / CellF
 | File | Role |
 |---|---|
 | `SliceEngine.cs` | `ToMesh`: any input (open/closed Breps, surfaces, extrusions, SubDs, meshes) meshed once into one welded mesh. Rhino's mesher is called under `MeshLock`, one call at a time (background tasks). `Slice`: own triangle/plane cutter, every triangle assigned once to the layers it crosses; the model is cut at the middle of each layer and the contour is lifted to the top of the layer (nozzle height). The first layer is FirstLayerHeight thick, so the nozzle never runs on the bed. With a `Warp` it slices in flat space. |
+| `Cancel.cs` | Optional `CancellationToken` for the heavy entry points (`SliceEngine.Slice`, `PathEngine.Build`, `FillEngine.Walls` ...): `Cancel.Use(token)` around the work, loops call `Cancel.Check()`; without a token nothing changes. |
 | `FillEngine.cs` | Walls (`position` 0 inside / 1 centred / 2 outside of the geometry; walls one `BeadSpacing` apart; holes grow), infill ribs (hairpins from the wall, tip one bead spacing short of the opposite wall; from both walls meeting in the middle with the joint alternating per layer), sketched ribs (`WithoutCrossingSketches` drops a sketch line that would cross another), bottom/top fill (`Bottom`: 0 auto, 1 zigzag turned 90° per layer, 2 contour). A place from another layer (rib point, sketch) is found straight above or below it on this layer. `FillEngine` is a partial class: `CellFill.cs` and `RegionFill.cs` add to it. |
 | `CellFill.cs`, `CellLibrary.cs` | `FillEngine.Cells`, `Waves` (wave, truss, meander along the wall, meeting in the middle) and `Chambers` (a chamber wall, boxes or truss). Cells: honeycomb and grid as part of the one wall line: every cell is a loop half a bead spacing inside the cell, the loops are joined into ONE closed contour by a spanning tree with crosswise two-line bridges (cannot cross, also prints in spiral mode). `CellLibrary`/`ModelFile` read and write machine and cell 3D models as plain .3dm files (one layer per part). |
 | `FermatFill.cs` | Solid fill as one line that never crosses itself and starts and ends side by side (Connected Fermat Spirals, Zhao et al. 2016). Used by contour bottom fill and the curve fills. |
 | `RegionFill.cs` | `PathTools`: fills one flat region (curve minus holes) for the curve-based components of the former Toolpaths tab, on the same engines. |
 | `PathEngine.cs` | `Build`: one continuous path from the layers. **Layered** (default): every layer flat, changes layer over a short ramp at one place (Seam Gap, default one bead width); `SeamMode` Fixed / InnerCorner / SharpestCorner; contours inside each other are joined by a two-line bridge that stacks into a rib (`bridge`). **Spiral**: vase mode, only for layers that are exactly one closed wall; flat first loop stops one bead before its start, the first climbing loop ramps from zero. `Round`: rounds corners in the plane of their layer (keeps heights; ramps smoothed separately). `Process`: extrusion and feed per move (see PRINTING_PRINCIPLES.md 4). `LayerTargets`: Min Layer Time / Short Lap Time per layer. |
 | `LeadEngine.cs` | `StartEnd`: skirt (always first, runs on into the outer wall), brim (outside / inside / both, staggered links), exit move off the part (sideways, then up; Exit Flow 0 = no extrusion), then `Thin` (drops points closer than max(0.5, 0.2 w) unless they carry a change or a corner) and `Approach` (way in from above, default 30 mm). `Check`: support (offset to the layer below, ≤ ½ bead), crossings within a layer, layer times, suggested speed. |
-| `FollowSurface.cs`, `NonPlanarFromPart.cs` | `SurfaceField` (u = d_bottom / (d_bottom + d_crown) by Dijkstra on the welded mesh) and `BeadLaw` (bead height from the lap below). `MeridianWarp`: "Follow the part" (Guide Mode 2: contours a quarter layer apart, aligned seams, arc length along meridians) and "Follow the surface" (Guide Mode 3, the 2024 head). |
+| `FollowSurface.cs`, `NonPlanarFromPart.cs` | `SurfaceField` (u = d_bottom / (d_bottom + d_crown) by Dijkstra on the welded mesh) and `BeadLaw` (bead height from the lap below by the shell law t = max(dz, dxy x t_skin / w); `HeightV2` = the 2024 head's law, only to recognise old files). `MeridianWarp.BeadHeight` adds the skin term to "Follow the part". `MeridianWarp`: "Follow the part" (Guide Mode 2: contours a quarter layer apart, aligned seams, arc length along meridians) and "Follow the surface" (Guide Mode 3, the 2024 head). |
 | `NonPlanarCheck.cs` | For vertical-nozzle non-planar paths: measured bead height per point (vs 0.8 w, 0.4 h and the E the point was given), head clearance (cone + cylinder head model, `Graze` 0.6 mm tolerated). |
 | `SurfacePattern.cs` | Textures in the wall (Knit, Ribs, Waves, Zigzag, Dots, Loops, Image) on a finished path; see PRINTING_PRINCIPLES.md 8. |
 | `SelfSupport.cs` | Overhang check for a build direction (flat, angled, guide), smallest self-supporting envelope, best slice angle. Rule: lean ≤ maxOffset (0.5 w) per layer = atan(maxOffset / h) (5 mm bead, 2 mm layer = 51°). |
@@ -174,8 +175,8 @@ mouse input).
 
 ### 3.4 Background calculation (`Components/AsyncSolve.cs`)
 
-Used by Slice, Continuous Path, Surface Pattern, Material Field, Self Support Check, Non-Planar
-Check and Robot Program. Pattern inside `SolveInstance`:
+Used by Slice, Walls, Continuous Path, Surface Pattern, Material Field, Self Support Check,
+Non-Planar Check and Robot Program. Pattern inside `SolveInstance`:
 
 ```csharp
 if (Async.Deliver(da)) return;          // a finished result is handed out
@@ -185,7 +186,10 @@ Async.Run(da, job => { /* calculate; job.SetData / SetDataList / AddRuntimeMessa
 
 - `Before()` (BeforeSolveInstance) cancels running tasks, bumps a generation counter and starts a
   clock; `Run` starts a `Task` per iteration with a `CancellationToken`; the work never touches
-  Grasshopper, everything goes through the `AsyncJob`.
+  Grasshopper, everything goes through the `AsyncJob`. The work runs inside `Cancel.Use(token)`, so the
+  core loops (Slice, Walls, Ribs, Bottom, Build, Round) stop within about a layer when the task is
+  cancelled (`Toolpaths/Cancel.cs`). While a component upstream still computes, the components below
+  show a grey "waiting for X (still computing)..." (`ShowWaiting`).
 - When all tasks of a generation are finished, `Ready` schedules a solution in which the component
   expires itself (`_selfExpire`) with `_deliver = true`; that solution hands out the stored jobs per
   iteration (`Hand`: errors become error messages, then messages, items, lists, OnApply actions).
@@ -242,7 +246,9 @@ At the end Quick Start removes itself from the document.
   number input.
 - **Progress and early stop**: GH2 already solves beside the canvas. Long components call
   `if (Io.Step(access, 30)) return;` between their steps: it sets the progress (0-100 %) and returns
-  true when Grasshopper cancelled the solution because inputs changed.
+  true when Grasshopper cancelled the solution because inputs changed. They also start with
+  `using var cancel = Io.Cancellable(access);`, which hands the solution's token to the core loops
+  (`Toolpaths/Cancel.cs`), so a changed input frees the CPU at once.
 - **Icons**: `Io.Icon("SlicerSliceIcon")` builds a `PixelIcon` from the largest embedded image: the
   48 px image (`Icons/48`), else the 24 px GH1 file; for the plug-in the 256 px logo; cached; never
   throws. One image only: `PixelIcon` (9.1) refuses several sizes of one picture.
@@ -290,8 +296,9 @@ because the option rows and menus use `System.Windows.Forms`.
    the newest Grasshopper referenced, so net8.0 must stay out of the Rhino 8 package) and moves the
    `.yak` files to `dist/`. It prints the `yak push` commands; **pushing is a manual step of the owner.**
 
-Version numbers: the csproj (`1.3.0`, unreleased at the time of writing) and the manifests go
-together; the last release is listed in [CHANGELOG.md](../LARGERslicer/CHANGELOG.md). Older notes:
+Version numbers: the csproj (`1.3.0`) and the three manifests go together; the Rhino 9, 8 and 7
+packages share one version (rh9 and rh8 use the same `manifest.yml`). Changes after a release collect
+in the CHANGELOG under the next version (1.3.1, unreleased); the last release is listed in [CHANGELOG.md](../LARGERslicer/CHANGELOG.md). Older notes:
 `documentations/YAK_PACKAGE_GUIDE.md`, `VERSIONING_STRATEGY.md`.
 
 **The `obj/` quirk.** `.gitignore` ignores `**/obj/`, but 14 files under `LARGERslicer/obj/`

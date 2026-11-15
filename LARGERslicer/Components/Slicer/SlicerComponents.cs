@@ -525,7 +525,7 @@ namespace LARGERslicer.Components.Slicer
             // Easy Slicer is a tall block (all its rows): the next section starts below it
             easy.Attributes.ExpireLayout(); easy.Attributes.PerformLayout();
             float y7 = Math.Max(y6 + 520, easy.Attributes.Bounds.Bottom - y0 + 360);
-            section("07. NON-PLANAR HEAD  -  GINGER ADDITIVE · GINGER ONE (KLIPPER)", "A head sliced along its own surface, as the head of 2024 (Slice: Follow the surface): rings from the neck to the crown, under the chin as well, the nozzle vertical, one spiral. Printer Simulation plays the print on the Ginger One: click Play.", y7);
+            section("07. NON-PLANAR HEAD  -  GINGER ADDITIVE · GINGER ONE (KLIPPER)", "A head sliced along its own surface, as the head of 2024 (Slice: Follow the surface): rings from the neck to the crown, under the chin as well, the nozzle vertical, one spiral; each lap gets the material of the vertical gap to the lap below (the skin where it steps sideways at the crown). Printer Simulation plays the print on the Ginger One: click Play.", y7);
             var part7 = (Grasshopper.Kernel.Parameters.Param_Brep)place(new Grasshopper.Kernel.Parameters.Param_Brep(), -60, y7);
             part7.NickName = "Head";
             Brep demo7 = DemoParts.Head(new Point3d(480, 470, 0));
@@ -1008,7 +1008,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddPlaneParameter("Plane", "P", "Layer plane. Its normal is the build direction and the tool axis", GH_ParamAccess.item, Plane.WorldXY);
             p.AddNumberParameter("Angle", "A", "Tilts the layers around the plane's X axis (degrees). 45 = 45 degree slicing", GH_ParamAccess.item, 0.0);
             p.AddGenericParameter("Guide", "Gd", "Optional. A surface, Brep or mesh: the layers follow it (non-planar). A curve: the layers stand square to it (multi-axis, for parts that grow along a bent axis). Empty = flat layers.", GH_ParamAccess.item);
-            p.AddIntegerParameter("Guide Mode", "GM", "Only with a guide surface:\n0 = Flat bottom, top follows the guide: the first layer lies flat on the bed and the layers bend gradually\n1 = All layers follow the guide: for printing on a curved base or mould\n2 = Follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical\n3 = Follow the surface (no guide): leave Guide empty; for closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, under chin and nose as well, closing the top. Use Continuous Path in Spiral mode. The bead height follows the law of the printed head of 2024 (vertical gap, less where the lap below lies to the side). The nozzle stays vertical", GH_ParamAccess.item, 0);
+            p.AddIntegerParameter("Guide Mode", "GM", "Only with a guide surface:\n0 = Flat bottom, top follows the guide: the first layer lies flat on the bed and the layers bend gradually\n1 = All layers follow the guide: for printing on a curved base or mould\n2 = Follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical\n3 = Follow the surface (no guide): leave Guide empty; for closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, under chin and nose as well, closing the top. Use Continuous Path in Spiral mode. The bead height follows the shell law: the vertical gap to the lap below, or where the laps step mostly sideways (crown, under a chin) the sideways step x Skin Thickness / bead width (Continuous Path). The nozzle stays vertical", GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Tool Axis", "TA", "Only with a guide:\n0 = Tool square to the layer (robot)\n1 = Tool stays vertical (3-axis printer)", GH_ParamAccess.item, 0);
             p.AddIntegerParameter("Start/End Layers", "SE", "Sacrificial layers before the part's first and after its last layer, milled away afterwards (CEAD recommends about 5 for angled printing). The start feature stands on the bed and gives the first leaning layer a full layer to lie on; flat layers get only the end feature. 0 = none", GH_ParamAccess.item, 0);
             p[1].Optional = true;
@@ -1623,6 +1623,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddNumberParameter("Min Layer Time", "Tmin", "Shortest time a layer may take (s). A layer that would be done sooner is printed slower, so the layer below can cool: F stays constant within the layer and never goes below Min Speed. 0 = off (default). About 60 s suits many large pellet prints", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Max Volume Rate", "Qmax", "Most the extruder can deliver (mm3/s). Moves that would ask for more run slower, never below Min Speed. 0 = off (default). The Ginger gives about 330 mm3/s", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Short Lap Time", "Tshort", "Minimum time for short laps (s), as the printed head of 2024: laps shorter than min + 0.7464 x (max - min) of all lap lengths get this time, the longer ones Min Layer Time, with a change over 5 laps between them. Small laps (neck, crown) then cool longer than wide ones. 0 = Min Layer Time for all (default). The head: Min Layer Time 35 s, Short Lap Time 40 s", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Skin Thickness", "Skin", "Non-planar only (Guide Mode Follow the part / Follow the surface): thickness of the skin in mm where the laps step mostly sideways instead of up (the crown, the shelf under a chin). The bead height is the vertical gap to the lap below (a shell of one bead width gains bead width x gap per lap, however far the lap leans), or, where that is less, the sideways step x Skin Thickness / bead width. 0 = the layer height (default); never below 0.4 x layer height", GH_ParamAccess.item, 0.0);
             p[1].Optional = true; p[3].Optional = true;
         }
 
@@ -1666,22 +1667,24 @@ namespace LARGERslicer.Components.Slicer
             double minTime = 0, maxRate = 0;
             if (Params.Input.Count > 8) { da.GetData(7, ref minTime); da.GetData(8, ref maxRate); }
             double shortTime = 0; if (Params.Input.Count > 9) da.GetData(9, ref shortTime);
+            double skin = 0; if (Params.Input.Count > 10) da.GetData(10, ref skin);
 
             Async.Run(da, job =>
             {
                 var log = new List<string>();
                 var sw = Stopwatch.StartNew();
-                if (minTime > 0 || maxRate > 0 || shortTime > 0)
+                if (minTime > 0 || maxRate > 0 || shortTime > 0 || skin > 0)
                 {
                     // the limits travel with the path, so every machine output (G-code, DXR, robot) uses them
                     settings = settings.Duplicate();
                     settings.MinLayerTime = Math.Max(0, minTime); settings.MaxVolumeRate = Math.Max(0, maxRate);
                     settings.ShortLapTime = Math.Max(0, shortTime);
+                    settings.SkinThickness = Math.Max(0, skin);
                 }
                 var tp = PathEngine.Build(layers, settings, mode == 0 ? ContinuousMode.Spiral : ContinuousMode.Layered, seam, ramp, alternate, log, bridge, (SeamMode)Math.Max(0, Math.Min(2, seamMode)));
                 sw.Stop();
                 // slivers left out are a note, not a problem: they are where a layer just touches the part
-                foreach (var l in log) job.AddRuntimeMessage(l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") || l.StartsWith("Bead height by the law") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
+                foreach (var l in log) job.AddRuntimeMessage(l.Contains("(slivers") || l.Contains("bridge(s) join") || l.StartsWith("Seam:") || l.StartsWith("Bead height by the") ? GH_RuntimeMessageLevel.Remark : GH_RuntimeMessageLevel.Warning, l);
                 if (tp.Count < 2) { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty path."); return; }
 
                 int travels = tp.Roles.Count(r => r == PathRole.Travel);

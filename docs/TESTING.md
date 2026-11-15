@@ -211,6 +211,33 @@ Faults to look for first: an optional list input left open (GH2 9.1 throws in `G
 lettered stand-ins (`PixelIcon` with several sizes throws; the instance's `Icon` is then a
 `VectorIcon`).
 
+### 2.6 Collision check of Robot Program (regression and speed)
+
+`tests/CollisionBench` (net8 class library, run from a Rhino 9 slot as in 2.1, script in
+`tests/CollisionBench/run.csx`). `Compare` runs six cases in the FH Muenster cell (KR120 R2700,
+AE20 extruder, environment) twice on the same prepared bodies: once as before 1.3.1
+(`CollisionModel.Reference`: Rhino's `ClosestMeshPoint` per sample and `MeshMeshFast`, one pose after
+the other) and once as now (own closest points and triangle crossings, poses in parallel). It compares
+a fingerprint of both results (hit moves, every pair with count, first and last move, depth and gap to
+0.01 mm) and checks what must be found:
+
+| Case | Must find |
+|---|---|
+| 1 free tower (r 150, 100 layers) | no collision |
+| 2 box hanging over the part | tool and links 4, 5, 6 hit the box |
+| 3 tool leaning 45 degrees over a tall printed tower | tool hits the printed part |
+| 4 first layer, tool 80 degrees from vertical | tool hits the bed |
+| 5 rail and turntable | no collision (no false alarm from what stands on what) |
+| 6 robot without 3D model | not checked |
+
+It also compares the gantry check (Printer Simulation, a leaning vase on the Ginger One), and with
+argument `qs` builds Quick Start in memory (2.3), solves it with the checks off and runs the check of
+both Robot Programs both ways. `QuickStart("full")` solves Quick Start with the checks on and reads the
+report of Robot Program. The fingerprints are written to `<temp>/LARGERslicer/collision-bench/`.
+
+Rhino's mesh reduction (`Mesh.Reduce`) does not give the same mesh twice; the reduced meshes are
+therefore kept in `<temp>/LARGERslicer/collision/`. Delete that folder to measure a first run.
+
 ---
 
 ## 3. Metrics and how results were judged
@@ -228,6 +255,15 @@ lettered stand-ins (`PixelIcon` with several sizes throws; the instance's `Icon`
   and star, 1 and 2 walls, centred or inside, every seam mode, spiral (after the corner fix: 0.012 mm).
 - **Against a reference G-code**: import it (`Import G-code`), run the same checks, compare laps, Z
   range, E per mm (5 % / median / 95 %), E total, first layer, time (the 2024 head).
+  A reference print shows what is printable, not that its numbers are right: the 2024 head's extrusion
+  law over-extruded its leaning laps (PRINTING_PRINCIPLES 9.3), so check a law by its physics first.
+- **Non-planar bead law** (console bench, no Rhino needed): `BeadLaw.Height` / `HeightV2` on fixed cases
+  (vertical wall, 45°, 20°, crown, one-bead step); a synthetic dome (vertical wall, then a quarter
+  circle) built as a spiral `Toolpath`, `BeadLaw.Apply`, then `NonPlanarCheck.Run`: with shell-law
+  heights E fits (mean < 1 %), with V2-law heights the report says "OLD EXTRUSION LAW"; a G-code with
+  layer comments imported and replayed (`BeadLaw.Apply` on the imported path) gives E per lap before
+  and after. Still to do in Grasshopper: solve the head example and Quick Start 07 and read Path Check
+  (support stretches under the chin) and Non-Planar Check.
 - **Pictures**: layers in top view and the canvas captured, looked at before reporting. "Chaos" (ribs not
   square to the wall, joints not alternating evenly) is a failure even when the checks pass.
 

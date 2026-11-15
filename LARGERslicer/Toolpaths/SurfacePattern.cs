@@ -763,7 +763,7 @@ namespace LARGERslicer.Toolpaths
                 }
                 outp.AddFrom(tp, i);
             }
-            // Follow the surface: the bead heights come from the lap below by the law of the printed head;
+            // Follow the surface: the bead heights come from the lap below by the shell law (BeadLaw);
             // the pattern moved the points, so they are measured again on the new path
             if (tp.Warp != null && tp.Warp.UseBeadLaw) BeadLaw.Apply(outp, out _, out _, out _);
             res.Path = outp;

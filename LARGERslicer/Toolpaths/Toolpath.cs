@@ -23,6 +23,7 @@ namespace LARGERslicer.Toolpaths
         public double MinLayerTime = 0.0;     // s, 0 = off: shorter layers are printed slower (Process), never below MinSpeed
         public double ShortLapTime = 0.0;     // s, 0 = MinLayerTime: the minimum for short laps (shorter than min + 0.7464 x (max - min) of all lap lengths), as the printed head of 2024 (40 s short, 35 s long)
         public double MaxVolumeRate = 0.0;    // mm3/s, 0 = off: no move asks the extruder for more (Ginger about 330)
+        public double SkinThickness = 0.0;    // mm, 0 = layer height: thickness of the skin where non-planar laps step mostly sideways (crown, under a chin); never below 0.4 x layer height (BeadLaw)
         public double MaxSpeed = 12000.0;     // mm/min, upper limit and travel speed
         public double MinRadius = 0.0;        // mm, 0 = half the bead width (at least half the nozzle: Ginger handbook)
         public double Flow = 1.0;             // global extrusion multiplier
@@ -37,6 +38,9 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Height of the first layer: the nozzle runs this high above the bottom of the part.</summary>
         public double FirstLayer => FirstLayerHeight > 0 ? FirstLayerHeight : LayerHeight;
         public double PointSpacing => Preview ? Resolution * 3.0 : Resolution;
+        /// <summary>Skin thickness used by the non-planar bead law: Skin Thickness, or the layer height when it is
+        /// not set, and never below 0.4 x layer height (thinner beads are pressed flat).</summary>
+        public double EffectiveSkin => Math.Max(0.4 * LayerHeight, SkinThickness > 0 ? SkinThickness : LayerHeight);
         /// <summary>
         /// Corner radius of the walls. Not set: half the bead width. The Ginger handbook asks for at least half
         /// the nozzle, and a bead is at least 1.5 nozzles wide (CEAD, Ginger), so half the bead is 0.75 nozzle

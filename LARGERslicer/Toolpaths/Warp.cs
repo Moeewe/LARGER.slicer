@@ -21,7 +21,7 @@ namespace LARGERslicer.Toolpaths
         /// layers lie further apart (the warp has chosen its layer count itself).</summary>
         public virtual bool KeepLayerStep => false;
         /// <summary>True: after mapping back, the bead height of every point is set from the lap below
-        /// it in the path by the law of the printed head (BeadLaw) instead of from Scale.</summary>
+        /// it in the path by the shell law (BeadLaw) instead of from Scale.</summary>
         public virtual bool UseBeadLaw => false;
         /// <summary>Closed loops shorter than this many bead widths are left out as slivers.</summary>
         public virtual double MinLoopFactor => 3.0;
@@ -42,6 +42,11 @@ namespace LARGERslicer.Toolpaths
             double s = Math.Abs((b - a) * n) / (2 * d);
             return s > 1e-6 ? s : 1e-6;
         }
+
+        /// <summary>Bead height at a flat point for a bead that is flatHeight high in flat space: the real
+        /// layer height there (flatHeight x Scale). Warps that know how far the layer below lies to the side
+        /// add the skin term of the shell law (see BeadLaw).</summary>
+        public virtual double BeadHeight(Point3d flat, double flatHeight, PrintSettings st) => flatHeight * Scale(flat);
 
         public Polyline ToReal(Polyline flat, double maxSegment)
         {
