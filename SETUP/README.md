@@ -4,9 +4,12 @@
 
 This folder contains everything needed to set up the Grasshopper definition **`LARGERslicer Weber Robot and Ginger.gh`** for the Weber DXR25 and the Ginger One.
 
+**Use `LARGERslicer Weber Robot and Ginger V2.gh`.** It has the same three workflows, built with the current components, and needs **only the LARGER.slicer plug-in** (1.3.1 or newer) - no Robots, no Pufferfish. It opens without errors or warnings in Rhino 8 and Rhino 9. The first version is kept for reference; it needs Robots and Pufferfish and its components are no longer maintained.
+
 | File | Purpose |
 |---|---|
-| `LARGERslicer Weber Robot and Ginger.gh` | Grasshopper definition with Easy Slicer, Path Creator (multiaxial) and Custom Paths |
+| `LARGERslicer Weber Robot and Ginger V2.gh` | **Current.** 01 Easy Ginger and Robot Slicer, 02 Advanced Multiaxial Robot Slicer, 03 Custom Robot Path Creator; LARGER.slicer only |
+| `LARGERslicer Weber Robot and Ginger.gh` | First version (needs Robots and Pufferfish), kept for reference |
 | `Install Windows.bat` (+ `setup-windows.ps1`) | Installer for Windows |
 | `Install Mac.command` | Installer for macOS |
 | `RobotLibrary/` | KUKA KR120 robot library of FH Münster MSA (`KR120_R2700_2`) |

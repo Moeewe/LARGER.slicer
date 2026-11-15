@@ -4,9 +4,12 @@
 
 Dieser Ordner enthält alles, um die Grasshopper-Definition **`LARGERslicer Weber Robot and Ginger.gh`** für den Weber DXR25 und den Ginger One einzurichten.
 
+**Bitte `LARGERslicer Weber Robot and Ginger V2.gh` verwenden.** Sie hat dieselben drei Arbeitswege, ist mit den aktuellen Bausteinen gebaut und braucht **nur das Plug-in LARGER.slicer** (1.3.1 oder neuer) - kein Robots, kein Pufferfish. Sie öffnet in Rhino 8 und Rhino 9 ohne Fehler und Warnungen. Die erste Fassung bleibt zum Nachschlagen liegen; sie braucht Robots und Pufferfish und wird nicht mehr gepflegt.
+
 | Datei | Zweck |
 |---|---|
-| `LARGERslicer Weber Robot and Ginger.gh` | Grasshopper-Definition mit Easy Slicer, Path Creator (multiaxial) und Custom Paths |
+| `LARGERslicer Weber Robot and Ginger V2.gh` | **Aktuell.** 01 Easy Ginger and Robot Slicer, 02 Advanced Multiaxial Robot Slicer, 03 Custom Robot Path Creator; nur LARGER.slicer |
+| `LARGERslicer Weber Robot and Ginger.gh` | Erste Fassung (braucht Robots und Pufferfish), zum Nachschlagen |
 | `Install Windows.bat` (+ `setup-windows.ps1`) | Installer für Windows |
 | `Install Mac.command` | Installer für macOS |
 | `RobotLibrary/` | KUKA-KR120-Roboterbibliothek der FH Münster MSA (`KR120_R2700_2`) |
@@ -22,7 +25,7 @@ Dieser Ordner enthält alles, um die Grasshopper-Definition **`LARGERslicer Webe
    |---|---|
    | Doppelklick auf `Install Windows.bat` | Rechtsklick auf `Install Mac.command` → **Öffnen** → **Öffnen** |
 
-3. Rhino starten, eine Datei in **Millimetern** anlegen, Grasshopper öffnen und `LARGERslicer Weber Robot and Ginger.gh` aus diesem Ordner öffnen.
+3. Rhino starten, eine Datei in **Millimetern** anlegen, Grasshopper öffnen und `LARGERslicer Weber Robot and Ginger V2.gh` aus diesem Ordner öffnen.
 
 ## Was der Installer macht
 
