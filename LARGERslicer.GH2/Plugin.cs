@@ -14,7 +14,8 @@ namespace LARGERslicer.GH2
         public override string Info => "Continuous single-line toolpaths for large-format 3D printing with robots and pellet extruders, and DXR output.";
         public override string Author => "Moritz Wesseler, FH Münster";
         public override string Website => "https://github.com/Moeewe/LARGER.slicer";
-        public override Version Version => new Version(0, 1, 0);
+        /// <summary>The version of this assembly, the same as the Grasshopper 1 plug-in (set in the csproj by build-package.sh).</summary>
+        public override Version Version => typeof(LargerSlicerPlugin).Assembly.GetName().Version;
         /// <summary>The tab icon of Grasshopper 1 when small, the logo (one line climbing in loops) when large.</summary>
         public override Grasshopper2.UI.Icon.IIcon Icon => Io.Icon("LARGERslicer");
     }

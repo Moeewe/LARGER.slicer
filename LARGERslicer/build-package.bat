@@ -23,6 +23,8 @@ if not "%~1"=="" (
     REM Update version in .csproj, Yak manifests and yak.yml
     powershell -NoProfile -Command "$v='!VERSION!'; $f=(Resolve-Path 'LARGERslicer.csproj').Path; $c=[IO.File]::ReadAllText($f); foreach ($t in 'Version','InformationalVersion') { $c=$c -replace ('<'+$t+'>.*</'+$t+'>'),('<'+$t+'>'+$v+'</'+$t+'>') }; foreach ($t in 'AssemblyVersion','FileVersion') { $c=$c -replace ('<'+$t+'>.*</'+$t+'>'),('<'+$t+'>'+$v+'.0</'+$t+'>') }; [IO.File]::WriteAllText($f,$c)"
     powershell -NoProfile -Command "$v='!VERSION!'; foreach ($n in 'manifest.yml','manifest-rh7.yml','yak.yml') { $f=(Resolve-Path $n).Path; $c=[IO.File]::ReadAllText($f); $c=$c -replace '(?m)^version:.*$',('version: '+$v); [IO.File]::WriteAllText($f,$c) }"
+    REM The Grasshopper 2 plug-in carries the same version
+    powershell -NoProfile -Command "$v='!VERSION!'; $f=(Resolve-Path '..\LARGERslicer.GH2\LARGERslicerGH2.csproj').Path; $c=[IO.File]::ReadAllText($f); $c=$c -replace '<Version>.*</Version>',('<Version>'+$v+'</Version>'); [IO.File]::WriteAllText($f,$c)"
 
     echo Updated version to !VERSION!
 ) else (

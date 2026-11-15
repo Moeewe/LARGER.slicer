@@ -5,7 +5,7 @@ All notable changes to LARGERslicer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.1] - Unreleased
+## [1.3.1] - Unreleased (version of the files; not yet published)
 
 ### Fixed: non-planar extrusion (the law of the 2024 head over-extruded leaning laps)
 - **Shell law for the bead height of non-planar laps** (`BeadLaw`): with a vertical nozzle a single-bead shell of horizontal thickness w gains w x dz per lap however far the lap is offset sideways (an offset moves material, it adds none); where the laps step mostly sideways (crown, under a chin) the shell becomes a skin of the sideways step x Skin Thickness. t = max(dz, dxy x t_skin / w), E = factor x w x t x length. It replaces the law of the printed head "UNIKAT HEAD V2" taken over in 1.3.0 (t = dz + (h - dz) dxy / w), which the owner found over-extruded at the overhangs: on V2's own points 3.4 % more material over the head, 3-5 % per lap under the chin, about 13 % at 45 degrees, 36-57 % per lap on the way to the crown, about 20 % on the crown. Used by Slice "Follow the surface" (also after Surface Pattern) and, as a skin term where the wall turns flat, by "Follow the part" (`MeridianWarp.BeadHeight`).
@@ -28,9 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Docs
 - PRINTING_PRINCIPLES 9 (what to take from V2 and what not, the derivation, V2 against the shell law lap by lap, the checks), DECISIONS, EXAMPLES, README (EN/DE); outdated statements fixed: background calculation on eight components (Walls too) and cancellation into the core, Quick Start has eight examples and 07 follows the surface, Grasshopper 2 Quick Start uses Shout/Listen, non-planar on a gantry is a remark, Grasshopper 2 icons from one image, Round Corners default radius (half the bead width), version notes.
 
-## [Unreleased]
+### Also in 1.3.1: everything after 1.3.0 (the 1.3.0 draft release, never published)
 
-### Fixed and added (test of what was untested: presets, saving, cancel; Grasshopper 2 polish)
+#### Fixed and added (test of what was untested: presets, saving, cancel; Grasshopper 2 polish)
 - Cancel frees the CPU: Slice, Walls, Ribs, Bottom Fill and Continuous Path stop within about one layer when their result is no longer needed (Grasshopper 2 cancels the solution when an input changes; Grasshopper 1 cancels the background task). The core entry points take an optional `CancellationToken` (`SliceEngine.Slice`, `PathEngine.Build`, `FillEngine.Walls`; old calls unchanged), loops check it through `Cancel.Use` / `Cancel.Check`. Measured: `PathEngine.Build` on 2000 layers returned 79 ms after the cancel; on both canvases the old Continuous Path left the CPU within 0.25 s of a new layer height. Walls (Grasshopper 1) calculates in the background as well (Background row).
 - Save (Grasshopper 1): after a click on a Save button the component kept no results until something else recomputed (seen on the DXR Generator: DXR and Info empty). Only the value of Save goes back to false now.
 - Save (Grasshopper 2): Save works like the Grasshopper 1 button: after the solution that wrote the file it goes back to false (a wire into Save is left alone), so changes upstream no longer write file after file. The file name is only worked out when a file is written.
@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Grasshopper 2: number and count inputs offer the quick picks of the Grasshopper 1 rows as presets (bead and layer in mm, speeds in mm/s, angles 0 to 90 in 15 degree steps, walls, layers, loops, factors); Print Bed draws its plate, grid, outline and origin; Machine, Machine G-code, Printer Simulation, Robot Program and Robot Simulation draw their meshes in their own colours (what collides red); DXR Variable Width draws coloured segments of growing thickness; the short text of Grasshopper 1 under a component (Layered, 1 wall, inside, Fits, OK, the machine) is shown as the component label.
 - Grasshopper 2 Quick Start: no wire crosses the canvas any more. Print Settings reaches the examples through a Shout "Settings" and a Listen of that name at every example; every finished path goes back to Print Bed through a Shout "Finished path".
 
-### Fixed (canvas test after the path-quality merge)
+#### Fixed (canvas test after the path-quality merge)
 - Path Check, angled layers (Quick Start 05): "CROSSES ITSELF" on the last layer came from the check, not the path. With a skirt the first point of the path is the end of the approach, which lies flat on the bed (tool axis Z); the check took its plane from that point and tested tilted layers in plan view, where the thin top layer's ramp and its far side overlap. Every layer is now tested in its own plane, taken from a printed point of the part. The place a crossing is shown at was computed with the other move's parameter (off by up to 20 mm); it now lies on the crossing. A move that only starts or ends on another one (within 0.001 mm) touches it and is no crossing; two moves one short step apart are tested too (they were skipped as neighbours).
 - Start and End, exit: the move off the part is tested against the last layer (no crossing, half a bead clear): away from the middle, else square to the last move to either side, else straight on; if none is free (a top layer thinner than a bead) the nozzle lifts first and then moves away. Bench: leaning block at 30/45/60 degrees, bead 4/5/8, 1 and 2 walls, exit flow 0 and 1: 36 of 36 without crossings.
 - Continuous Path, several walls without bridges (with ribs, or Bottom Fill + ribs as in Quick Start 01): the move over to the next wall could run back across the closing pass of the wall before (layer 3 and every second layer above, Walls 2-3 + Bottom Fill). The next wall now starts where that move is clear of the layer printed so far and of the wall itself, away from corners. Closed loops around almost nothing (mean width under a tenth of a bead: where a tilted layer only stands on the bed) are left out like other slivers; rounding their ends made them cross. Bench (Rhino, sliced Breps): rectangle, L, the Quick Start hull, circle and a box at 602/567, walls 1-3, bottom 0-4 (Auto), with and without ribs, layered and spiral: 300 of 300 without crossings after Continuous Path, Round Corners and Start and End (before 38 with crossings).
@@ -55,130 +55,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Robot: the 3D model of the arm is also found in Documents/Robots and ~/Robots (where the installers in SETUP put the Robots library), not only in Documents/RobotSystems.
 - scripts/generate_icons.py: the example path for Grasshopper 2 icons (`ICON_OUT=../LARGERslicer.GH2/Icons/48`, run from LARGERslicer/).
 
-### Changed (Quick Start and examples, tested on the visible canvas)
+#### Changed (Quick Start and examples, tested on the visible canvas)
 - Quick Start has eight examples. Example 07 is now a head sliced along its surface as the head of 2024 (Slice: Follow the surface, its own settings: bead 4, layer 1.75, first layer 0.9 mm at 25 mm/s), played on the Ginger One in Printer Simulation (fed by Simulation of Machine G-code, with Play). It stood where the angled block of example 05 leans over and their paths met at Z 96; the head now stands in the free middle of the bed. New example 08: a vase with waves from Surface Pattern. The Ginger examples print their first layer at 25 mm/s. Machine Settings no longer touches Robot Program.
 - Print Settings: a row for First Layer Speed.
 - CNC - Program: Tool Spindle Speeds is optional, as its description says (the wrong input was marked optional).
 - Example files: new `LARGERslicer - Ginger One Printer Simulation.gh` (a planter on the Ginger One: G-code, Printer Simulation with Play, collision check). Head (Ginger One): Printer Simulation and report panels, one Ginger in the viewport. Head (Robot): report panels. Non Planar Head (Ginger) and Surface Patterns: tidied (no overlapping blocks, settings by wireless links, full input names), Printer Simulation on the Ginger head. Zünd PLT: the Cutter Selector goes into Cutter again (it had slipped into Tool List).
 
-### Fixed (corners and the way into the part)
+#### Fixed (corners and the way into the part)
 - Continuous Path: corners and straight edges stay exactly where the wall is (max. 0.012 mm off the wall contour in the bench of rectangle, L and star, 1 and 2 walls, centred or inside, every seam mode, spiral; before up to 1.0-2.5 mm). Causes: the point thinning (contour cleaning in Continuous Path, and Start and End) left out corner points closer than the point spacing to the point before, cutting the corner on every layer; it now only leaves out points whose line stays within 0.02 mm. A bridge between two walls could stand on a corner (Clipper rings offer only their corners as places) and cut it on every layer; bridges now go where both walls run on without a corner for 1.5 bead spacings to either side.
 - Round Corners: corners are rounded in the plane of their layer, keeping the path's own height, and the slope changes where a seam ramp starts or ends are smoothed separately. Before, a ramp next to a corner was merged with it and widened the arc beyond the radius (2.23 mm instead of at most 2.07 mm for R 5 at 90 degrees; up to 0.5 mm off a straight edge beside a seam in a corner).
 - Skirt, brim and the first layer: every ring ends one bead before its own start (the round bead ends just touch), the link to the next ring is square to both and lands where that ring starts, so the links form a staircase one bead apart; the innermost ring ends right beside the start of the part. The first wall (layered) and the first flat spiral loop leave the same one-bead gap at the seam and the next layer climbs away from its end, so no move crosses the gap. A ramp that grows from nothing no longer prints its first move at full height. The inner brim returns to the wall without a bead. Double coverage of the first layer (0.1 mm raster, overlap 0): layered + skirt 21.1 -> 0.0 mm2, brim outside 33.1 -> 2.9, brim inside 35.1 -> 0.0, both 44.4 -> 2.2, skirt + brim 33.7 -> 2.2, spiral + brim 43.3 -> 3.7, follow-the-surface head + brim 7 18.9 -> 3.5 (what is left: slivers of a few hundredths of a millimetre along the round corners of the rings).
 
-### Added (from the stand-alone app)
+#### Added (from the stand-alone app)
 - Continuous Path: input **Short Lap Time** (Grasshopper 1 and 2, `PrintSettings.ShortLapTime`): two layer times as on the printed head of 2024 - laps shorter than min + 0.7464 x (max - min) of all lap lengths get Short Lap Time, the longer ones Min Layer Time, changing over 5 laps (the head: 35 s and 40 s). Path Check measures every layer against its own minimum.
 - Follow the surface: on a part closed at the top the last lap runs from the last ring into its middle at half a layer height (as the app and the printed head), so the crown is closed.
 
-### Changed (number rows, tab order, background)
+#### Changed (number rows, tab order, background)
 - Number rows on the components no longer open a long list of numbers: drag the row left or right (whole range over about 250 px, Shift = finer, one solution when you let go), click it to type any value in a box over the row (`45`, `12,5 mm`, `45°` are read), or use the arrow on the right for a handful of round values and the default. A bar shows where the value sits in its range. Angles (Slice, Easy Slicer, Self Support Check, Best Angle) offer 0/15/30/45/60/75/90°, counts (walls, bottom/top layers, skirt and brim loops, start/end layers) whole numbers only; lengths show mm. A wire into the input still wins.
 - Slicer tab in seven ordered groups: 1 Start, 2 Layers, 3 Walls and fill, 4 Path, 5 Check (now with Material Field), 6 Output (now with Import G-code), 7 Curve tools: only Layers to Curves, Curves to Layers and the Curve ... components. Align Curves, Alternate Curves and Join Open Contours (before in a separate "Curve Tools" panel) are in group 7 too, but hidden from the panel (obscure): find them by search. Grasshopper 2 uses the same seven groups; there Import G-code and Material Field sit in group 7 (curve tools and analysis), and Align Curves, Alternate Curves and Join Open Contours are visible. GUIDs and names are unchanged.
 - Long calculations in the background (Grasshopper 1): Slice, Continuous Path, Surface Pattern, Material Field, Self Support Check, Non-Planar Check and Robot Program calculate beside the canvas (`Components/AsyncSolve.cs`), show "computing 3.2 s", start over when an input changes and hand out the result when done; errors become messages. Row `Background: on/off` and a menu item per component, kept in the file. Grasshopper 2 (which already solves beside the canvas): these components and Easy Slicer report progress between their steps and stop early when the solution is cancelled.
 
-### Added (non-planar: follow the surface, as the head of 2024 was printed)
+#### Added (non-planar: follow the surface, as the head of 2024 was printed)
 - Slice: new Guide Mode **"Follow the surface (no guide)"** (Grasshopper 1 and 2; core in `Toolpaths/FollowSurface.cs` and `NonPlanarFromPart.cs`). For closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, from the way along the surface (shortest paths on the mesh, bottom ring to crown, smoothed, a third pulled towards the level of the height on the wall), under chin and nose as well, closing the crown; the first two layers flat (first layer height, then one layer height higher); contours are added where the surface lies nearly flat, so the rings there follow it. Analysed from the G-code "UNIKAT HEAD V2" (Ginger One, Marlin, July 2024) and its definition.
 - **Bead height law of the printed head** (`BeadLaw`): t = h (1 - (h/w)(1 - sin a)((w/h) - cos a)) = dz + (h - dz) dxy / w, from the closest point of the ring below in the path itself; it fits all 18 041 points of the 2024 G-code to 0.0006 E/mm. Used by "Follow the surface" (E = factor x w x t x length) and re-measured after `Surface Pattern`.
 - Example `LARGERslicer - Head (Ginger One, non-planar).gh` rebuilt: the head exactly as printed in 2024 (`Head.3dm`, NurbsHead turned about 75 degrees and scaled about 1.74 / 1.56 / 1.83, bottom on Z 0), Follow the surface, one wall centred on the surface, spiral, Min Layer Time 40 s, first layer 0.9 mm at 25 mm/s, brim of 7 beads, Overlap 0. Against the 2024 G-code: 123 / 119 laps, Z 0.9-177.4 / 0.9-178.0, E 48 621 / 48 353, first layer 2628 / 2627 mm at F1500 and E/mm 0.756 / 0.756, 87 / 81 min. Path Check and Non-Planar Check OK.
 
-### Changed
+#### Changed
 - Start and End, outer brim: the loops no longer all end at the same place. Their links into the next loop lay side by side 0.7 bead apart (the "V" of the 2024 head, where the brim ran into the part, 28 % overlap); now each loop ends half a bead further on than the one inside it, a staircase (at most about a tenth of a bead touches).
 - Spiral: the flat first loop stops one bead before its own start (as the foot ring of the 2024 head), the first climbing loop rises from nothing over that gap; the flat closing pass is left out on a ring smaller than three bead widths round (the crown).
 - Min Layer Time: the brim and skirt count for the time of the first layer (they are printed right before it), and the first layer is slowed from its own First Layer Speed, not from Speed. The head's foot ring no longer drops to 2.7 mm/s.
 - Follow the part / Follow the surface: the first layer lies flat on the bed at the first layer height; the centre the rings are measured around is moved inside every contour when the mean centre lies outside some (the small rings of a crown).
 
-### Calibrated on the 2024 head (it printed fine)
+#### Calibrated on the 2024 head (it printed fine)
 - Path Check: for laps that lean on the lap below with the bead law ("Follow the surface"), offsets up to one bead width at up to 2.5 % of the points are reported as "Support OK for leaning laps" (the 2024 head: 1.8 % of its points, up to 4.0 mm).
 - Non-Planar Check: measures the bead height by the law when the extrusion follows it (also for imported G-code); for such paths it accepts up to 0.5 % of the points above 0.8 x bead width (at most 1.1 x) and 1 % below 0.4 x layer height (2024: 0.3 %, up to 1.0 x, and 0.1 %); a nozzle that grazes the flank of a bead by up to 0.6 mm (`Head.Graze`) is reported, not counted as a collision (2024: about 70 moves, up to 0.5 mm; 12 moves deeper, up to 1.7 mm, on the imported G-code with its turn-by-turn layering).
 
-### Added (surface patterns)
+#### Added (surface patterns)
 - `Surface Pattern` (Slicer tab, Toolpaths group, Grasshopper 1 and 2; core in `Toolpaths/SurfacePattern.cs`): textures in the wall. Every layer is resampled to the pattern pitch and its points are pulled out along the wall normal in a rhythm that moves on from layer to layer: Knit (pixels, rows alternate), Ribs, Waves, Zigzag, Dots, Loops (with Z Droop and Extra Flow the bead sags into loops) and Image (a grey picture wrapped around the part). Optional Region (closed curves unrolled with the wall, Breps, meshes) with Falloff, Attractors with Reach, Side (outside / inside), Invert. Around closed walls the pitch is fitted to a whole number of repeats and followed from layer to layer. The path stays one line: seam ramps, bridges and infill are untouched, the pattern fades out at the seam, pulls that would cross the path are reduced, the first layer stays plain. Outputs Preview, Hanging (points more than half a bead beside the layer below, on purpose for pixels and loops) and Info.
 - Example `EXAMPLE FILES/LARGERslicer - Surface Patterns.gh`: six vases on one bed (knit, ribs, diagonal waves, hanging loops, a lattice picture next to the file, a region drawn on the part), each with Start and End and Path Check (0 crossings).
 - Icons: `Support Fins` redrawn in the family style and a new `Surface Pattern` icon, both from `scripts/generate_icons.py`.
 
-### Added (first layer speed)
+#### Added (first layer speed)
 - `First Layer Speed` on Print Settings (Grasshopper 1 and 2), in mm/s, 0 = Speed: the first layer runs at its own speed for adhesion (the Ginger head of 2024 used 25 mm/s = F1500). Min Layer Time can only make it slower. File headers name it.
 
-### Added (Ginger One in 3D, Printer Simulation)
+#### Added (Ginger One in 3D, Printer Simulation)
 - The Ginger One comes with a 3D model (`Resources/GingerOne.3dm`, spec in `Resources/GingerOne.README.md`): frame with the real corner nodes, bed 1000 x 1000, gantry, beam and head with hopper, auger, barrel and heater bands, in their colours, on the layers Frame, Bed, Z, Y, X and TCP. Machine shows it, Machine G-code shows it with the nozzle at the start of the path (new output `Model`), and a machine saved from a Ginger keeps it.
 - `Printer Simulation` (Slicer tab, next to Machine G-code): Machine, Toolpath, Pose (0 to 1) and Play; the gantry, beam and head move so the nozzle tip stands on the path, the printed part grows up to Pose. Your own machine moves too when its .3dm has the layers Z, Y, X and TCP.
 
-### Changed (speeds in mm/s, machine names)
+#### Changed (speeds in mm/s, machine names)
 - Speeds are entered in mm/s (Print Settings: Speed 50, Min Speed 5, Max Speed 200 mm/s; Easy Slicer: Speed 50 mm/s); the path and the machine files keep mm/min, the F of G-code and DXR (50 mm/s = F3000). Definitions saved with an older version are read as mm/min, with a note. Reports name speeds in mm/s. The per-point outputs for the machine are called `Feed` (F, mm/min). Also in Grasshopper 2.
 - Machines and machine profiles are listed as manufacturer and machine: "Ginger Additive · Ginger One (Klipper)", "Weber Additive · DXR25 on a robot", "Generic · Filament printer 1.75 mm". Own .machine files can carry `manufacturer = ...`.
 - Nozzle presets are named by the nozzle: "3 mm flat nozzle, wide bead - bead 5 mm, layer 2 mm (tested)", "4 mm nozzle (Weber profile) - bead 4.8 mm, layer 1.8 mm". The numbers are unchanged.
 
-### Added (non-planar head example)
+#### Added (non-planar head example)
 - Quick Start example 07: layers that follow the part on the Ginger One (Klipper), one spiral, Max Volume Rate 330 mm3/s, Path Check, Non-Planar Check and G-code.
 - Non-Planar Check: `Pose` input and `Head` output, the head as it is checked (tip, cone, body) standing on the path.
 - Example files `LARGERslicer - Head (Ginger One, non-planar).gh` and `LARGERslicer - Head (Robot, DXR25).gh`: the NurbsHead of the 2024 print "UNIKAT HEAD V2" (1.75 x, 174 mm), layers that follow the part, one spiral; Ginger One (Marlin) with the values of the 2024 G-code (bead 4, layer 1.75, first layer 0.9, 11 mm/s, 35 s per lap, factor 0.21), and the KUKA KR120 with DXR25 in the FH Muenster cell (bead 5, layer 1.5, reach and collision check OK).
 
-### Added (collision check for multi-axis and angled prints)
+#### Added (collision check for multi-axis and angled prints)
 - `Robot Program` checks the robot, the tool, rail and turntable against each other, the part printed so far, the bed and the Environment: new inputs `Check Collisions` and `Clearance`, outputs `Collision Moves` and `Collision Bodies`; `Robot Simulation` shows what collides in red. The report names the pair, the move and the layer, and suggests what to change (tilt, nozzle length, tool turn, rail or turntable offset). Bodies that stand on something (robot foot, carriage, table) may touch it by a few mm while they slide. Tested with the cell of the FH Muenster (KR120, AE20 extruder): free tower 0 hits, box over the part, tool leaning 45 deg over the printed part, 80 deg at the bed, rail and turntable without false alarm; Quick Start without false alarm and faster than before (64 s instead of 107 s for the whole demo).
 - Example `LARGERslicer - Non Planar Head (Ginger).gh` (EXAMPLE FILES, Weber - Ginger): layers that follow the part on the Ginger One with Klipper.
 
-### Fixed (after the canvas test)
+#### Fixed (after the canvas test)
 - Path Check: the seam closing onto its own start no longer counts as a crossing after Start and End thinned the path.
 - Non-Planar Check: the wall next to a fin or the first bead of an overhang no longer reads as a squashed bead (a bead of the same layer only carries a point where it lies clearly lower).
 - Start and End: the info no longer shows a negative number of exit points.
 
-### Removed
+#### Removed
 - Copyrighted manufacturer manuals (Ginger operating manual, Zünd HP-GL manual) are no longer in the repository.
 
-### Added (non-planar for a vertical nozzle, Ginger on Klipper)
+#### Added (non-planar for a vertical nozzle, Ginger on Klipper)
 - Slice: new Guide Mode **"Follow the part (no guide)"**. Non-planar layers follow the part's own wall from bottom to top (meridians, N = mean wall length / layer height), so overhangs get layers of even thickness without drawing a guide surface. The nozzle stays vertical and the extrusion follows the vertical gap to the layer below - not the 3D distance, which over-extrudes by 15 % at 45 degrees and 43 % at 60 degrees. Warns when a layer is thicker than 0.8 x bead width along the wall.
 - **Non-Planar Check** (Slicer, next to Path Check): measures the real bead height at every point against bead width, layer height and extrusion, and checks the head (tip radius, cone angle and length, head radius) against everything printed before and the in-layer slope against the cone ("HEAD COLLISION at move i, layer k, with layer m"). Tested on a 200 mm vase with a 40 mm bulge: 101 layers, bead height 0.8 to 2.0 mm, E per layer within 0.07 % of the measured gap, head clear.
 - Built-in machine **Ginger One (Klipper)**: START_PRINT/END_PRINT macros, E as volume x 1.0 (confirm with the Klipper rotation_distance), fan on after layer 1, M107 at the end. Own machines move down one place in the Machine list.
 - .machine files: keys `material` and `bed temperature` for `{material}` and `{bed}` in the codes, and blocks `[after layer n]`. Machine component: optional inputs Material and Bed Temperature.
 
-### Added (seam, layer time, volume rate)
+#### Added (seam, layer time, volume rate)
 - **Seam Mode** on Continuous Path (Grasshopper 1 and 2): Fixed point (as before), Inner corner, or Sharpest corner. The seam and its ramp go into an inner corner of the outer wall, where they show least and milling does not run over them; without one, to the sharpest outer corner. Followed from layer to layer within half a bead, never at the cost of a move without extrusion. L and star parts: seam in the inner corner on every layer, stack step 0 mm.
 - The skirt also runs straight into a part that starts in a hollow of its outline.
 - **Min Layer Time** (Continuous Path): layers that would be done sooner are printed slower, constant within the layer, never below Min Speed. **Max Volume Rate** (mm3/s, about 330 for the Ginger): moves that would ask more of the extruder run slower.
 - **Path Check**: Min Layer Time input and Layer Times output. Too-short layers get three remedies: the speed that reaches the minimum, how many parts side by side would, or a pause as a last resort (and why it harms a pellet extruder).
 
-### Fixed
+#### Fixed
 - Path Check no longer fails when the path is not printable for a reason without a known prefix (e.g. INTO THE BED).
 
-### Added (self-supporting geometry)
+#### Added (self-supporting geometry)
 - **Self Support Check, Self Supporting Envelope, Best Angle** (Slicer, next to Slice; Grasshopper 1 and 2). Self Support Check colours the part by how far it hangs over for the chosen build direction (flat, angled, guide curve or guide surface); the limit comes from the bead (half a bead beside the bead below: 5 mm beads in 2 mm layers allow 51 degrees). Self Supporting Envelope adds the least material that makes every layer hold the one above: slice-ready layers, the new part as a closed NURBS Brep (or a mesh) for analysis (IGA), and the added material alone to mill away later. Best Angle tries slice angles 0 to 75 degrees in every tilt direction and suggests the one with the least overhang. Tested: the mushroom part goes from "NOT SUPPORTED, offset 50 mm" to "Support OK" with 417 cm3 added; Best Angle picks 55 degrees for the 55-degree lean block.
 
-### Added (toolpath back into the analysis)
+#### Added (toolpath back into the analysis)
 - **Material Field** (Slicer, Grasshopper 1 and 2): puts the toolpath back onto the part as a direction-dependent material field for IGA or FE. Per sample point: bead direction e1, across the bead e2, stacking direction e3, layer and bead, distance to the next layer and bead interface, bead spacing and overlap, layer time and the time across the interface, and a weakness value. With the moduli it gives the rotated orthotropic stiffness per point. Samples are a grid in each Brep face's UV, so (face, u, v) maps onto the NURBS of the analysis, or your own points such as Gauss points. Save writes CSV, JSON and VTK (ParaView). The default material values are placeholders until coupon tests give real ones.
 
-### Added (support fins, materials, G-code import)
+#### Added (support fins, materials, G-code import)
 - **Support Fins** (Slicer, next to Infill; also Grasshopper 2): thin fins outside the part hold up overhangs. Each stands square to the outer wall from the bed up to just under the overhang, exactly on the fin below, and is part of the one continuous line: a hairpin out of the wall and back, touching the part through a narrow neck so it cuts off easily. Contact "Neck + gap" prints the top fin layer 0.3 mm lower so the overhang breaks off. Spacing and reach in bead widths.
 - Continuous Path: the seam ramp stays off ribs and support fins, so the move to the next wall never cuts through a hairpin.
 - **Material** (Slicer): start values for pellet materials - feed zone, heat zones, nozzle, bed, drying, residual moisture, density. Built in: Carbon-P PETG, rPETG and PLA with the start values of the Weber quick guide (densities typical). Own materials as `.material` files in Documents/LARGER/Materials.
 - **Material Factor**: new extrusion factor from measured bead widths (new = target / measured x current), with a warning for uneven measurements.
 - **Import G-code**: reads G-code from Cura, Simplify3D, PrusaSlicer, AiSync / Ai Build and scripts, and Weber .dxr, as a Toolpath, and checks it with the same Path Check: starts and stops, travel moves, retractions, F changes and F0, extrusion into the bed, unsupported beads, crossings, time and weight. Leaning layers and A/B/C tool axes are recognised. On the Weber examples: Hopper 3 lines, 3DBenchy 2268 separate lines; it also found that the 45 degree cube .dxr of the start package has Z values without their decimal point (Z.566 became Z566).
 
-### Added (external axes: rail and turntable)
+#### Added (external axes: rail and turntable)
 - New **External Axis** component (Robot, Grasshopper 1 and 2): a rail the robot stands on, or a turntable the part stands on - range, top speed, KUKA name (E1 to E6), endless table, offset, smoothing, coupled base, drawing size. Robot Cell has a new optional input External Axes (at the end, old files still open).
 - Robot Program moves rail and table along the print: the rail keeps the robot beside the point being printed, the table turns that point towards the robot; smooth, below top speed, inside the range, never a jump of a full turn. The report lists per axis the range used, the speed needed and points beyond the range. KRL writes E1/E2 on every line; a turntable in the fixed base or a coupled base (EK).
 - Robot Simulation shows the rail carriage, the turning table, the robot on its moved base, the printed path turning with the table and the cell. Tested in Rhino 9: a 6 m wall that is out of reach becomes reachable with a 3 m rail; a cylinder of 10 turns on an endless table keeps axis 1 within 0.4 degrees (25.7 degrees without).
 - Not yet tried on a controller; DXR output carries no E values; one rail and one table per cell.
 
-### Added (nozzles, Easy Slicer, Quick Start)
+#### Added (nozzles, Easy Slicer, Quick Start)
 - `Nozzle` on Print Settings (Grasshopper 1 and 2) and Easy Slicer: choose the nozzle that is screwed in and get bead width and layer height that suit it. From the Weber DXR profiles of the start package (1 / 2 / 3 / 4 / 5 / 6 / 8 mm -> bead 1.25 / 2.5 / 3.6 / 4.8 / 6 / 7.2 / 10 mm, layer 0.5 / 1 / 1.25 / 1.8 / 2 / 2.4 / 3.2 mm), a tested setting (3 mm flat nozzle, 5 mm bead, 2 mm layer) and wide beads for other flat nozzles scaled from it. A warning says when bead and layer do not suit the nozzle (Weber quick guide: a pointed nozzle lays 0.7 to 1.3 x its diameter, a flat one 1.0 to 1.8 x; layer a quarter to 80 % of the nozzle).
 - `Design Rules`: bead range for pointed and flat nozzles, Weber's own bead and layer for the nozzle, and the milling allowance of half a bead.
 - `Easy Slicer` does every option of the chain: Nozzle, Solid Pattern (auto, zigzag, rings) for bottom and top, Top Layers, Angle (leaning layers), Start/End Layers, Wall Position, Bridge, and the infill "Solid (rings along the wall)" for solid parts - all as rows on the component.
 - The curve tools (Curve Fill Zigzag, Contour, Cells, Euler, Cross Lines, Continuous Infill, Wall and Zigzag, Curve Bridge, Join and Order, Uncross, Align, Alternate, Join Open Contours) moved from the separate "Slicer Curves" and "Toolpaths" panels into the Slicer tab, as its last group next to Layers to Curves and Curves to Layers.
 - Quick Start: wireless links instead of long wires - every example gets its own "Settings" parameter fed from Print Settings by a hidden wire (select it to see the wire), the multi-axis robot program its own "Robot Cell". New example 6: Easy Slicer with the FH Muenster nozzle printing a vase as a spiral. 99 objects, no overlaps, six Path Checks OK, six paths on the bed.
 
-### Changed (settings and buttons on the components)
+#### Changed (settings and buttons on the components)
 - Grasshopper 1: settings that used to need a value list, a slider or a True/False toggle in front of a component are now rows on the component itself, under its inputs and outputs: a choice (click: menu), a number (click: quick picks or type a value, Enter), an on/off switch and buttons. `Save G-code`, `Save KRL`, `Save DXR`, `Save machine` and `Export cell` write the file once per click and switch back by themselves; `Robot Simulation` has a `Play` / `Stop` row. Rows on Slice (Angle, Guide Mode, Tool Axis, Start/End Layers), Walls, Bottom Fill, Infill, Continuous Path (Mode, Bridge), Start and End (Skirt, Brim), Print Settings, Easy Slicer, Machine, Cell Geometry, Robot Program and the output components. The value goes into the input as if typed into it, so the file keeps it and a wire into the input still wins (the row then says "connected"). Quick Start places no value lists or toggles any more: 87 objects, no overlaps, all Path Checks OK.
 
-### Added (start and end feature)
+#### Added (start and end feature)
 - `Slice` (Grasshopper 1 and 2): input `Start/End Layers` adds sacrificial layers before the part's first and after its last layer, as the CEAD sheet for 45-degree printing recommends (about 5, milled away afterwards). With leaning layers each start layer is a band in front of the edge where the layers begin plus the first layer moved back and filled down to the bed, so the feature stands on the bed and the part's first layer lies on a full layer; the end layers are copies of the last one. Built layer by layer, without joining solids. Tested at 45 degrees on a box, the leaning demo block and a profile cut parallel to the layers: one line, check OK, every bead supported.
 
-### Changed (icons)
+#### Changed (icons)
 - New icons in the style of Grasshopper's own: light bodies and one accent colour per group with a dark edge and a faint shadow, without the dark chip. They read on a light and a dark toolbar and on the grey, orange and green capsules of the canvas.
 
-### Added (45-degree printing, from the boat hull paper and the CEAD and Ginger sheets)
+#### Added (45-degree printing, from the boat hull paper and the CEAD and Ginger sheets)
 - `Continuous Path` (and `Easy Slicer`): **bridges** after the Continuous-Toolpath Connection Rule of Wesseler, Herrlein and Kiendl. A contour that lies inside another one - the inner shell inside the outer shell, the wall of an opening inside the outer wall - is joined to it by two lines one bead spacing apart; both contours are cut open there and become one line, so the nozzle never moves without extrusion between them. The bridge stands exactly where the bridge of the layer below stood, so the bridges stack into a rib (offset 0.2 to 0.4 mm on the test plates). Two walls one bead apart (a wall of two beads, CO90) are joined by a short turn where that makes the whole layer one line. Input `Bridge` (on by default) switches it off. Measured on 16 test parts with 10 option sets: travel moves inside the print 668 -> 399, no check got worse; a double shell (outer shell and inner chamber, walls CO90) 75 -> 0 travel moves flat and 96 -> 54 at 45 degrees (crossings 14 -> 1).
 - `Design Rules`: what bead width and nozzle allow before you model - layer height range (a quarter to half the nozzle), overlap (5 to 10 % of the bead width), how thick to model a wall of two beads (CO90 = 2 LW - OL; CO45 = 1/2 sqrt2 (2 LW - OL) where the layers cross it at 45 degrees), the layer width for a finished wall at 45 degrees (LW45 = sqrt2 t, with milling sqrt2 (t - t milling)), corner radius, double beads and the start and end feature of about 5 layers. The numbers match the CEAD table. Also in Grasshopper 2.
 
-### Fixed (non-planar and multi-axis, checked against the FH Muenster definition)
+#### Fixed (non-planar and multi-axis, checked against the FH Muenster definition)
 - Non-planar layers (guide surface) with the tool square to the layer got too much material: the bead height was taken as the vertical gap between the layers, but a tilted nozzle lays a bead as thick as the gap square to the layer, which is smaller by the cosine of the slope (+3 to +7 % at 10 to 30 degrees, +41 % at 45). Measured on the demo part and on a 40 degree guide: the height used for E now matches the real bead thickness within 0.3 %. Multi-axis (guide curve) was right before and is unchanged (within 2 %).
 - Non-planar with Flat bottom: the first layer was not flat. It was squeezed with the rest and lay only 0.35 to 0.6 mm above the bed where the guide is low. It now lies flat at the first layer height and only the layers above it bend.
 - Robot Program: the turn of the tool about its own axis is now taken by the shortest way from vertical. Before it was the projection of world X, which turns over at 90 degrees of tilt: a multi-axis print that tilts the tool to 90 degrees or past it would have spun the extruder half a turn in one move.
@@ -186,27 +186,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Start and End: a point given twice in a row (where a wall hands over to the seam) made a move of length 0 once per layer; some controllers stop on them. They are removed. Found by a stress test of 16 parts x 10 option sets: 66 of 160 paths had them, now none.
 - Path Check reports invalid numbers (stops the machine) and moves of length 0, and for non-planar and multi-axis paths how thick the beads get (a note where they are thinner than 40 % of the layer height).
 
-### Added (your own machines and cells)
+#### Added (your own machines and cells)
 - `Cell Geometry` reads your own print cell: a .3dm in Documents/LARGER/Cells (or any file via `File`) with one part per layer - `Bed`, `Robot Base` (a point and a line along the robot's X axis), `Work Base` (optional) and any other layer for the collision check. `Export` writes the cell of the FH Muenster in this form as a start. Also in Grasshopper 2.
 - `Machine` shows the machine in 3D: a .3dm of the same name next to the .machine file (or `model = ...` in it), or what you connect to `Model`; `Save` writes it next to the .machine file. Without a model the bed is drawn from `bed = ...`. Also in Grasshopper 2.
 
-### Added (first layer)
+#### Added (first layer)
 - `Print Settings` and `Easy Slicer` (Grasshopper 1 and 2) have a `First Layer Height` input, as the FH Muenster definition has: the first layer can be thinner or thicker than the others, and its extrusion follows its own height. 0 = the layer height, as before. The nozzle always runs one first layer height above the bottom of the part, never on it.
 - `Path Check` and every check after slicing: a bead printed on or below Z 0 is reported as `INTO THE BED`, one less than half its height above Z 0 as `TOO LOW`, and the path is not OK. `Slice` says when the part reaches below Z 0 or stands above it. Before, a part sunk into the bed or curves drawn on the bed were printed into the bed without a word.
 
-### Added (Grasshopper 2)
+#### Added (Grasshopper 2)
 - `Robot Simulation` and `Cell Geometry` in Grasshopper 2; `Robot` shows the arm in 3D, `Robot Program` checks collisions (with the environment of `Robot Cell` and the part already printed) and gives the robot at the chosen pose. `Continuous Path` has a `Seam` input. Quick Start uses the cell of the FH Muenster and plays the program with a slider.
 
-### Fixed (stability)
+#### Fixed (stability)
 - `Slice`: the number of layers is rounded to the nearest whole layer. Before it was rounded up, so a part of 58.2 mm in 2 mm layers was printed 60 mm high, almost a full layer above its top. Found by slicing two parts with the FH Muenster definition and with LARGER.slicer side by side (that definition rounds down and leaves out the top layer of a 200 mm part).
 - Rhino could crash when Grasshopper 2 solved several definitions at once: its mesher was called on the same part from two threads. Meshing is now done one call at a time, on a copy.
 - `Robot Simulation`: where an axis cannot turn fast enough, the time of the move follows the slowest axis.
 
-### Fixed (bottom fill, compared with Bi et al. 2022)
+#### Fixed (bottom fill, compared with Bi et al. 2022)
 - `Bottom Fill` with Pattern Zigzag: a zigzag that openings split into pieces needed a move without extrusion between the pieces (9 to 11 on three layers of a plate with two openings). Now another direction is tried, and if no direction gives one line, the layer is filled following the wall, with a note. A zigzag that ended in a pointed corner far from where the layer below stopped could make the wall cross its own way into the fill; now the direction is chosen so the fill starts next to where the layer below stopped.
 - Grasshopper 2: the inputs and outputs have the same names as in Grasshopper 1 (Machine Profile, Machine Settings, Tool Axis, Cell Name, Filament Diameter, Path).
 
-### Fixed (robot, checked against the definition BeispielRoboter.gh of the FH Muenster)
+#### Fixed (robot, checked against the definition BeispielRoboter.gh of the FH Muenster)
 - `Robot Program` wrote the tool orientation the wrong way round: a vertical tool came out as `A 0, B 0, C 180` in the robot lines and so in the DXR file, while the Weber DXR expects `A 0, B 0, C 0` for a vertical extruder. Targets and TCP now follow the Robots plug-in: the target's Z axis is the layer normal (up for flat layers), the TCP's Z axis points from the nozzle tip back into the tool. A TCP from a Robots definition can be used as it is; the AE20 extruder is a YZ plane at -460, 3, 108. **TCP planes made for earlier versions of Robot Tool must be turned half a turn about their X axis.** The default of Robot Tool is now a straight tool on the flange.
 - The robot stands where the definition of the FH Muenster puts it: at 651.5, -1448, 211.1, turned like the bed (`Cell Geometry`, Quick Start; before: 196 mm high and turned by 90 degrees, read from the pedestal).
 - Axes 4 and 6 are followed round without a jump. Before, a value that would have passed the axis range was replaced by the same angle one turn back; the report said "within range", the real robot would have stopped at the limit. Now this is reported as NOT RUNNABLE.
@@ -216,12 +216,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `$LOAD` is noted in the KRL file also when no weight is given.
 - `DXR Generator`: the way in from above is not counted as a layer.
 
-### Added
+#### Added
 - Way in from above: every path starts 30 mm above its first point and comes down onto it at print speed (Start and End, Easy Slicer), as the Weber converter does. Before, the machine moved to the start at print height across the bed.
 - Very short pieces of path (shorter than a fifth of the bead width) are left out. Rounded corners left pieces of a few hundredths of a millimetre; a machine slows down on them and the extruder leaves a blob.
 - Collision check: all links (link 3 and the tool against links 1 to 4 were missing), up to 500 poses spread along the path plus both ends of every travel move, 5 mm clearance, and the tool against what is already printed (except right at the nozzle tip).
 
-### Added
+#### Added
 - `Robot Simulation` (Robot tab): plays the robot program. The robot with its tool stands at any moment of the print, `Time` from 0 to 1 following the real time of the print; `Play` lets it run by itself, `Film Length` says how many seconds one run takes on the screen. Outputs the axis angles, the tool tip (TCP), the move and the time. Moving the slider only places the robot, the program is not calculated again. `Robot Program` has the output `Program` for it. In `Quick Start` it is part of output B, with a slider and a Play switch. Example 3 (multi-axis) has a robot program and a simulation of its own, so you can watch the tool lean with the layers.
 - `Cell Geometry` (Robot tab): the print cell of the FH Muenster in 3D, as it is drawn in the definition of the FH Muenster: floor, pedestal of the robot, print bed, safety fence, glass and walls, in the coordinates of the print bed. It gives the place of the robot (in the middle of its pedestal, looking towards the bed), the work base and the environment for the collision check; `Robot Cell` has an `Environment` input for it. `Quick Start` uses it, so the robot of example 1 stands where it stands in the lab.
 - `Robot Program` and `Cell Geometry` draw their models in colour (robot orange on a dark base, tool steel blue, fence yellow, glass see-through).
@@ -236,7 +236,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The inner brim needs free room inside the first layer: with a solid bottom it is left out, with infill it lies in the room where the first layer ends. A note says so.
   - Not available on tilted layers.
 
-### Changed
+#### Changed
 - Icons: every icon is now a white glyph with its accent colour on a small dark chip with round corners, like the logo. One icon reads on every ground Grasshopper puts it on (light and dark toolbar, the grey capsule on the canvas, green when selected), so the two sets for light and dark and the switching between them are gone. The 26 icons of the older components keep their look.
 - Names of inputs and outputs made the same everywhere. `DXR Generator`: `Extrusion`, `Speed`, `DXR`, `Info` (before: Extrusion Amount, Print Speed, DXR File, Process Info). `Machine Settings`: output `Info`. A machine profile is called `Machine Profile` wherever it is connected or chosen (`Print Settings`, `Easy Slicer`, `Machine Profile`), so it is not mistaken for a `Machine` (G-code) or the `Machine Settings` (DXR). `Slice`: `Tool Axis` (before: Tool). `Print Bed`: output `OK`. `Desktop Test Print`: output `Path`, input `Filament Diameter`. `Robot`: `Cell Name`. Planes are `Pl`, paths `P`, flow `Fl` as short names. Saved definitions keep working: the inputs and outputs stay in their places.
 - `Robot Program`: the KRL file is named exactly like the program in it (letters, digits and underscore), as the controller needs it; a space in the name becomes an underscore.
