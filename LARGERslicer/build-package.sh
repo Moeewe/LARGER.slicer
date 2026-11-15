@@ -39,6 +39,8 @@ if [ -n "$1" ]; then
          -e "s/<InformationalVersion>.*<\/InformationalVersion>/<InformationalVersion>${VERSION}<\/InformationalVersion>/" \
          LARGERslicer.csproj
     sedi "s/^version:.*/version: ${VERSION}/" manifest.yml manifest-rh7.yml yak.yml
+    # The Grasshopper 2 plug-in carries the same version
+    sedi "s/<Version>.*<\/Version>/<Version>${VERSION}<\/Version>/" ../LARGERslicer.GH2/LARGERslicerGH2.csproj
 
     echo -e "${GREEN}✓ Updated version to ${VERSION}${NC}"
 else

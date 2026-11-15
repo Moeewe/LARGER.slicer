@@ -268,7 +268,7 @@ At the end Quick Start removes itself from the document.
 ```bash
 cd LARGERslicer
 dotnet build -c Release            # all five target frameworks
-./build-package.sh [1.3.0]         # or build-package.bat; optional new version
+./build-package.sh [1.3.1]         # or build-package.bat; optional new version
 ```
 
 | Target | Rhino | Grasshopper package |
@@ -284,7 +284,7 @@ because the option rows and menus use `System.Windows.Forms`.
 `build-package.sh` (same steps in the `.bat`):
 
 1. With a version argument, writes it into the csproj (Version, AssemblyVersion, FileVersion,
-   InformationalVersion), `manifest.yml`, `manifest-rh7.yml` and `yak.yml`; without one it reads
+   InformationalVersion), `manifest.yml`, `manifest-rh7.yml`, `yak.yml` and the Grasshopper 2 csproj; without one it reads
    the csproj and **refuses to build if a manifest has another version**.
 2. Finds `yak` (PATH, then the one inside Rhino 9 or Rhino 8), `dotnet clean`, `dotnet build -c Release`.
 3. Copies outputs to `net48/`, `net7.0*/`, `dist/LARGERslicer*.gha` and `Plugin Installation Files/LARGERSlicer/`.
@@ -296,7 +296,7 @@ because the option rows and menus use `System.Windows.Forms`.
    the newest Grasshopper referenced, so net8.0 must stay out of the Rhino 8 package) and moves the
    `.yak` files to `dist/`. It prints the `yak push` commands; **pushing is a manual step of the owner.**
 
-Version numbers: the csproj (`1.3.0`) and the three manifests go together; the Rhino 9, 8 and 7
+Version numbers: the csproj (`1.3.1`) and the three manifests go together; the Rhino 9, 8 and 7
 packages share one version (rh9 and rh8 use the same `manifest.yml`). Changes after a release collect
 in the CHANGELOG under the next version (1.3.1, unreleased); the last release is listed in [CHANGELOG.md](../LARGERslicer/CHANGELOG.md). Older notes:
 `documentations/YAK_PACKAGE_GUIDE.md`, `VERSIONING_STRATEGY.md`.
