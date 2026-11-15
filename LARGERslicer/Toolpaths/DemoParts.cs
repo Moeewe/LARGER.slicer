@@ -87,11 +87,56 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>
-        /// Example 7: a small head, closed like the head of the 2024 Ginger print: it stands on a
-        /// flat neck ring, the chin juts forward (-Y) over the neck, the skull closes in a crown.
-        /// About 118 x 134 x 171 mm, for Slice with "Follow the surface".
+        /// Example 7: the head printed on the Ginger One in 2024 ("UNIKAT HEAD V2"), the model of that
+        /// print (Resources/Head.3dm, 138 x 117 x 177 mm, a closed polysurface cut flat at the neck), its
+        /// neck centred on c. Its chin juts forward over the neck and its face is long, so the rings of
+        /// "Follow the surface" dip under the chin by up to about 15 mm per lap, as the printed rings did.
+        /// When the model cannot be read: a lofted stand-in of about the same size.
         /// </summary>
         public static Brep Head(Point3d c)
+        {
+            Brep head = BuiltInHead();
+            if (head != null)
+            {
+                head = head.DuplicateBrep();
+                head.Translate(new Vector3d(c));
+                return head;
+            }
+            return HeadStandIn(c);
+        }
+
+        private static Brep _head;
+        private static bool _headRead;
+
+        /// <summary>The model of the printed head, standing on Z 0, its bounding box centred on the origin.</summary>
+        private static Brep BuiltInHead()
+        {
+            lock (typeof(DemoParts))
+            {
+                if (_headRead) return _head;
+                _headRead = true;
+                try
+                {
+                    var asm = typeof(DemoParts).Assembly;
+                    string resource = null;
+                    foreach (var n in asm.GetManifestResourceNames()) if (n.EndsWith(".Head.3dm", StringComparison.OrdinalIgnoreCase)) { resource = n; break; }
+                    if (resource == null) return null;
+                    using (var stream = asm.GetManifestResourceStream(resource))
+                    using (var memory = new System.IO.MemoryStream())
+                    {
+                        stream.CopyTo(memory);
+                        using (var f = Rhino.FileIO.File3dm.FromByteArray(memory.ToArray()))
+                            foreach (var o in f.Objects)
+                                if (o.Geometry is Brep b && b.IsValid) { _head = b.DuplicateBrep(); break; }
+                    }
+                }
+                catch { _head = null; }
+                return _head;
+            }
+        }
+
+        /// <summary>A lofted stand-in for the head: a neck ring, the chin forward (-Y), a crown. About 118 x 134 x 171 mm.</summary>
+        private static Brep HeadStandIn(Point3d c)
         {
             // z, half width (X), half depth (Y), shift towards the face (-Y)
             double[,] rings =

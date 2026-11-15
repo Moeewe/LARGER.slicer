@@ -295,7 +295,7 @@ fills. On the examples (1.3.1 measurement, all points of the spiral):
 
 | Example | shell law t (mean) | 3D distance |p - q| | 3D / shell |
 |---|---|---|---|
-| Non Planar Head (Ginger), vase that bulges to one side | 1.97 mm | 1.99 mm | 1.01 |
+| a vase that bulges to one side (the part of the example Non Planar Head (Ginger) up to 1.3.0) | 1.97 mm | 1.99 mm | 1.01 |
 | Head (Robot, DXR25), whole head | - | - | 1.14 |
 | Head (Robot, DXR25), Z 160-180 (towards the crown) | 0.67 mm | 1.45 mm | 2.2 |
 | Head (Ginger One), whole head | - | - | 1.12 |
@@ -345,6 +345,30 @@ an old file is reproduced by its own G-code, and re-slicing it should give the c
   change between them. So F runs from 336 mm/min (neck) to 665 (widest) down to 11.5 (crown): very slow
   crown laps are cooling time for tiny rings. The first layer at F1500 is the only fixed speed.
 - This is `Short Lap Time` (40 s) and `Min Layer Time` (35 s) in the plug-in (section 4).
+
+**How "Follow the surface" lays out the laps (1.3.1).** The plug-in does not have V's surface
+parameter of a loft for any part, so it measures the way along the meshed surface. On the wall a lap
+lies at the way from the bottom ring k x layer height (divided by the mean way to the crown): the laps
+are one layer height apart along the surface everywhere, so each one stands on the one below, and they
+dip as deep as the surface asks. Towards the crown (60 to 95 % of the share of the way to the crown) the
+share of the way takes over, which reaches the crown on every side and closes it. The rings are then
+smoothed along the way round (0.5 / 0.25 / 0.25, 120 rounds over 240 points), so the flanks of the dips
+stay under about 21 degrees along the path and the nozzle cone does not touch the lap below ahead of it.
+Measured per lap between Z 30 and 150 (dip = the smooth part of the lap's rise and fall, harmonics 1-5):
+
+| Laps of | dip median | dip max | flank along the path, max |
+|---|---|---|---|
+| V2 as printed (G-code) | 11.5 mm | 16.8 mm | 27 degrees |
+| Head (Ginger One), 1.3.1 | 16.0 mm | 18.2 mm | 20 degrees |
+| Head (Ginger One), up to 1.3.0 (share of the way, smoothed over the mesh, a third pulled towards flat) | 8.2 mm | 9.9 mm | 27 degrees |
+| Quick Start 07, up to 1.3.0 (a lofted stand-in head) | 1.9 mm | 4.3 mm | |
+| Non Planar Head (Ginger), up to 1.3.0 (a placeholder part, Follow the part) | 1.2 mm | 1.7 mm | |
+
+Up to 1.3.0 the share alone was used: where the shortest way to the crown runs round the side (under
+the chin) it grows too slowly, and the laps lay up to twice the layer height apart (Path Check: 172
+unsupported points without the pull towards flat); 40 rounds of smoothing over the mesh flattened the
+dips further. Quick Start 07 and the example Non Planar Head (Ginger) now use the model of the printed
+head itself (`Resources/Head.3dm`); before, their laps were nearly flat spirals.
 
 ### 9.5 Crown closure
 

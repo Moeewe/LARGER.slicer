@@ -53,6 +53,12 @@ namespace LARGERslicer.Toolpaths
         public bool ClosedTop => FollowSurface && _field != null && !_field.FlatTop;
 
         private const int Bins = 720; // half a degree
+        /// <summary>Follow the surface: rounds of smoothing of u along every ring (0.5 / 0.25 / 0.25 over 240
+        /// points, about 12 degrees round the part). 30 (the printed head's Smooth Polyline 0.5 x 30) left
+        /// the flanks of the dips up to 25 degrees steep along the path; with 120 they stay under about 21
+        /// degrees, the nozzle cone no longer touches the lap below ahead of it (Non-Planar Check: Quick
+        /// Start 07 had 3 collisions of 0.68 mm and 45 grazes, now none), and the dips keep 95 % of their depth.</summary>
+        private const int RingSmoothing = 120;
         private double _cx, _cy, _z0, _zTop, _h;
         private double[] _zs; // Z of every row
         private double[] _u;  // rows x Bins, u at (row, angle bin)
@@ -262,11 +268,12 @@ namespace LARGERslicer.Toolpaths
                     uj[j] = _field == null ? s[i, j] / lengths[j] : i == 0 ? 0 : i == n + 1 ? 1 : _field.At(p);
                 }
                 // Follow the surface: the rings are smoothed along the way round (the printed head's
-                // definition: Smooth Polyline 0.5 x 30), so no ring waves with the mesh
+                // definition: Smooth Polyline 0.5 x 30; here RingSmoothing), so no ring waves with the mesh
+                // and the flanks of the dips stay flat enough for the nozzle cone
                 if (_field != null && i > 0 && i < n + 1)
                 {
                     var tmp = new double[m];
-                    for (int pass = 0; pass < 30; pass++)
+                    for (int pass = 0; pass < RingSmoothing; pass++)
                     {
                         for (int j = 0; j < m; j++) tmp[j] = 0.5 * uj[j] + 0.25 * (uj[(j + m - 1) % m] + uj[(j + 1) % m]);
                         Array.Copy(tmp, uj, m);
