@@ -10,6 +10,11 @@
 #   neuere Version (z.B. Beta) -> behalten
 #   feste Version (unten)      -> genau diese Version aktivieren
 #   alte manuelle .gha-Kopie   -> anbieten, sie in einen Backup-Ordner zu verschieben
+#
+# Liegt im Ordner "packages" neben diesem Skript ein Paket (z.B.
+# largerslicer-1.3.1-rh8_0-any.yak), das neuer ist als die Version auf dem
+# Package-Server, wird dieses Paket installiert. So passt das Plug-in immer zur
+# Definition in diesem Ordner, auch wenn der Package-Server noch eine ältere Version hat.
 
 # "Paket" = neueste passende Version, "Paket 1.2.3" = feste Version
 PACKAGES=(
@@ -20,7 +25,7 @@ PACKAGES=(
 
 cd "$(dirname "$0")" || exit 1
 HERE="$(pwd)"
-GH="$HERE/LARGERslicer Weber Robot and Ginger.gh"
+GH="$HERE/LARGERslicer Weber Robot and Ginger V2.gh"
 PKGROOT="$HOME/Library/Application Support/McNeel/Rhinoceros/packages"
 MCNEEL="$HOME/Library/Application Support/McNeel/Rhinoceros"
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -73,19 +78,34 @@ server_version() {
   [ -n "$best" ] && echo "$best $best_url"
 }
 
+# Beiliegendes Paket im Ordner "packages" (Name wie vom Package Manager:
+# <name klein>-<version>-rh<rhino>_0-any.yak). Ausgabe: "<version> <datei>"
+bundled_version() {
+  local name="$1" rh="$2" lname f v best="" best_f=""
+  lname="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')"
+  for f in "$HERE/packages/$lname-"*"-rh${rh}_0-any.yak"; do
+    [ -f "$f" ] || continue
+    v="$(basename "$f")"; v="${v#"$lname-"}"; v="${v%"-rh${rh}_0-any.yak"}"
+    if [ -z "$best" ] || ver_gt "$v" "$best"; then best="$v"; best_f="$f"; fi
+  done
+  [ -n "$best" ] && echo "$best $best_f"
+}
+
 # Rhino 8: über yak. Rhino 7: yak braucht auf Apple-Silicon-Macs Rosetta, deshalb
-# das Paket direkt laden und so ablegen, wie es der Package Manager tut.
+# das Paket direkt laden und so ablegen, wie es der Package Manager tut. Ein
+# beiliegendes Paket (url "file:<datei>") wird für beide auf diese Weise abgelegt.
 do_install() {
   local rh="$1" name="$2" version="$3" url="$4" log dest tmp
-  if [ "$rh" = 8 ]; then
+  if [ "$rh" = 8 ] && [[ "$url" != file:* ]]; then
     log="$(mktemp)"
     if "$YAK8" install "$name" "$version" > "$log" 2>&1; then rm -f "$log"; return 0; fi
     sed 's/^/      /' "$log"; rm -f "$log"; return 1
   fi
-  dest="$PKGROOT/7.0/$name"
+  dest="$PKGROOT/$rh.0/$name"
   if [ ! -f "$dest/$version/manifest.yml" ]; then
     tmp="$(mktemp -d)"
-    curl -fsSL "$url" -o "$tmp/p.yak" && unzip -oq "$tmp/p.yak" -d "$tmp/x" || { rm -rf "$tmp"; return 1; }
+    if [[ "$url" == file:* ]]; then cp "${url#file:}" "$tmp/p.yak"; else curl -fsSL "$url" -o "$tmp/p.yak"; fi \
+      && unzip -oq "$tmp/p.yak" -d "$tmp/x" || { rm -rf "$tmp"; return 1; }
     mkdir -p "$dest" && rm -rf "$dest/$version" && mv "$tmp/x" "$dest/$version" || { rm -rf "$tmp"; return 1; }
     rm -rf "$tmp"
     xattr -dr com.apple.quarantine "$dest/$version" 2>/dev/null
@@ -95,9 +115,15 @@ do_install() {
 }
 
 install_package() {
-  local rh="$1" name="$2" pin="$3" have latest url
+  local rh="$1" name="$2" pin="$3" have latest url bver bfile from=""
   have="$(installed_version "$name" "$rh.0")"
-  if ! read -r latest url <<< "$(server_version "$name" "$rh" "$pin")" || [ -z "$latest" ]; then
+  read -r latest url <<< "$(server_version "$name" "$rh" "$pin")"
+  # Beiliegendes Paket nehmen, wenn es neuer ist als der Package-Server (oder dieser nicht antwortet)
+  read -r bver bfile <<< "$(bundled_version "$name" "$rh")"
+  if [ -z "$pin" ] && [ -n "$bver" ] && { [ -z "$latest" ] || ver_gt "$bver" "$latest"; }; then
+    latest="$bver"; url="file:$bfile"; from=" (aus dem SETUP-Ordner)"
+  fi
+  if [ -z "$latest" ]; then
     if [ -n "$have" ]; then warn "$name $have ist installiert (Package-Server nicht erreichbar, nicht geprüft)"; return 0; fi
     fail "$name: ${pin:+Version $pin }für Rhino $rh nicht gefunden oder Package-Server nicht erreichbar"; return 1
   fi
@@ -108,9 +134,9 @@ install_package() {
   fi
 
   if do_install "$rh" "$name" "$latest" "$url"; then
-    if [ -z "$have" ]; then ok "$name $latest installiert"
+    if [ -z "$have" ]; then ok "$name $latest installiert$from"
     elif [ -n "$pin" ]; then ok "$name $have -> $latest (feste Version)"
-    else ok "$name $have -> $latest aktualisiert"; fi
+    else ok "$name $have -> $latest aktualisiert$from"; fi
   else
     fail "$name $latest konnte nicht installiert werden"; return 1
   fi

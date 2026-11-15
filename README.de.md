@@ -283,7 +283,7 @@ Alle genannten Marken gehören ihren jeweiligen Inhabern. LARGER.slicer ist ein 
 📥 **[LARGERslicer-SETUP.zip](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip)** – immer die neueste Version.
 Enthält die Grasshopper-Definition, den Installer für Windows und macOS und die KUKA-KR120-Roboterbibliothek.
 
-🧩 **Nur das Plugin:** im Rhino Package Manager (Befehl `PackageManager` bzw. `PaketManager`) nach **LARGERslicer** suchen.
+🧩 **Nur das Plugin:** die `.yak`-Datei für die eigene Rhino-Version aus dem [neuesten Release](https://github.com/Moeewe/LARGER.slicer/releases/latest) auf das Rhino-Fenster ziehen, oder im Rhino Package Manager (Befehl `PackageManager` bzw. `PaketManager`) nach **LARGERslicer** suchen (dort kann noch eine ältere Version stehen als im Release).
 
 ## Schnellstart
 
@@ -298,7 +298,7 @@ Enthält die Grasshopper-Definition, den Installer für Windows und macOS und di
 
 3. Rhino starten, eine Datei in **Millimetern** anlegen, Grasshopper öffnen und `LARGERslicer Weber Robot and Ginger V2.gh` (Fassung 2 braucht nur LARGER.slicer; die erste Fassung mit Robots und Pufferfish liegt daneben) aus dem Ordner `SETUP` öffnen.
 
-Der Installer installiert **Robots**, **LARGERslicer** und **Pufferfish** über den Rhino Package Manager und kopiert die KUKA-KR120-Roboterbibliothek (`KR120_R2700_2`) in den Ordner, den das Robots-Plugin liest. Er kann jederzeit erneut ausgeführt werden und aktualisiert dann nur, was veraltet ist.
+Der Installer installiert **LARGERslicer** (aus dem Paket, das dem Download beiliegt), **Robots** und **Pufferfish** (über den Rhino Package Manager) und kopiert die KUKA-KR120-Roboterbibliothek (`KR120_R2700_2`) in den Ordner, den das Robots-Plugin liest. Er kann jederzeit erneut ausgeführt werden und aktualisiert dann nur, was veraltet ist.
 
 <details>
 <summary><b>Details zum Installer und Fehlerbehebung</b></summary>

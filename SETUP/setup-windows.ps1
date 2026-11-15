@@ -9,6 +9,11 @@
 #   neuere Version (z.B. Beta) -> behalten
 #   feste Version (unten)      -> genau diese Version aktivieren
 #   alte manuelle .gha-Kopie   -> anbieten, sie in einen Backup-Ordner zu verschieben
+#
+# Liegt im Ordner "packages" neben diesem Skript ein Paket (z.B.
+# largerslicer-1.3.1-rh8_0-any.yak), das neuer ist als die Version auf dem
+# Package-Server, wird dieses Paket installiert. So passt das Plug-in immer zur
+# Definition in diesem Ordner, auch wenn der Package-Server noch eine aeltere Version hat.
 
 # "Paket" = neueste passende Version, "Paket 1.2.3" = feste Version (nur Rhino 8)
 $packages = @(
@@ -20,7 +25,7 @@ $packages = @(
 $ErrorActionPreference = "Continue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$gh = "LARGERslicer Weber Robot and Ginger.gh"
+$gh = "LARGERslicer Weber Robot and Ginger V2.gh"
 $pkgRoot = Join-Path $env:APPDATA "McNeel\Rhinoceros\packages"
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 function Ok($m)   { Write-Host "  [OK] $m" -ForegroundColor Green }
@@ -62,6 +67,23 @@ function Get-ServerVersion($name, $rh, $want) {
   return $best
 }
 
+# Beiliegendes Paket im Ordner "packages" (Name wie vom Package Manager:
+# <name klein>-<version>-rh<rhino>_0-any.yak)
+function Get-BundledVersion($name, $rh) {
+  $dir = Join-Path $here "packages"
+  if (-not (Test-Path $dir)) { return $null }
+  $prefix = $name.ToLower() + "-"; $suffix = "-rh${rh}_0-any.yak"
+  $best = $null
+  foreach ($f in @(Get-ChildItem $dir -File -Filter "*.yak" -ErrorAction SilentlyContinue)) {
+    $n = $f.Name.ToLower()
+    if (-not ($n.StartsWith($prefix) -and $n.EndsWith($suffix))) { continue }
+    $v = $n.Substring($prefix.Length, $n.Length - $prefix.Length - $suffix.Length)
+    if ($v -notmatch "^[0-9]") { continue }
+    if (-not $best -or (Test-Newer $v $best.version)) { $best = @{ version = $v; file = $f.FullName } }
+  }
+  return $best
+}
+
 function Find-RhinoSystem($major) {
   $dir = "C:\Program Files\Rhino $major\System"
   if (-not (Test-Path (Join-Path $dir "Rhino.exe"))) {
@@ -74,19 +96,21 @@ function Find-RhinoSystem($major) {
 
 # Rhino 8: ueber Yak.exe. Rhino 7: Paket direkt laden und so ablegen, wie es der
 # Package Manager tut (alte Versionsordner bleiben, manifest.txt bestimmt die aktive).
+# Ein beiliegendes Paket ($hit.file) wird fuer beide auf diese Weise abgelegt.
 function Invoke-Install($rh, $name, $hit) {
-  if ($rh -eq 8) {
+  if ($rh -eq 8 -and -not $hit.file) {
     $out = & $script:yak8 install $name $hit.version 2>&1 | Out-String
     if ($LASTEXITCODE -ne 0) { Write-Host $out; return $false }
     return $true
   }
-  $dest = Join-Path $pkgRoot "7.0\$name"
+  $dest = Join-Path $pkgRoot "$rh.0\$name"
   $verDir = Join-Path $dest $hit.version
   try {
     if (-not (Test-Path (Join-Path $verDir "manifest.yml"))) {
       $tmp = Join-Path $env:TEMP ("larger_" + [guid]::NewGuid())
       New-Item -ItemType Directory -Force -Path $tmp | Out-Null
-      Invoke-WebRequest $hit.url -OutFile (Join-Path $tmp "p.zip") -UseBasicParsing
+      if ($hit.file) { Copy-Item -LiteralPath $hit.file -Destination (Join-Path $tmp "p.zip") -Force -ErrorAction Stop }
+      else { Invoke-WebRequest $hit.url -OutFile (Join-Path $tmp "p.zip") -UseBasicParsing }
       if (Test-Path $verDir) { Remove-Item $verDir -Recurse -Force }
       Expand-Archive (Join-Path $tmp "p.zip") -DestinationPath $verDir -Force
       Get-ChildItem $verDir -Recurse -File | Unblock-File
@@ -100,6 +124,12 @@ function Invoke-Install($rh, $name, $hit) {
 function Install-Package($rh, $name, $pin) {
   $have = Get-InstalledVersion $name $rh
   $hit = Get-ServerVersion $name $rh $pin
+  # Beiliegendes Paket nehmen, wenn es neuer ist als der Package-Server (oder dieser nicht antwortet)
+  $from = ""
+  $bundled = Get-BundledVersion $name $rh
+  if (-not $pin -and $bundled -and (-not $hit -or (Test-Newer $bundled.version $hit.version))) {
+    $hit = $bundled; $from = " (aus dem SETUP-Ordner)"
+  }
   if (-not $hit) {
     if ($have) { Warn "$name $have ist installiert (Package-Server nicht erreichbar, nicht geprueft)"; return $true }
     Fail "${name}: $(if ($pin) { "Version $pin " })fuer Rhino $rh nicht gefunden oder Package-Server nicht erreichbar"; return $false
@@ -109,9 +139,9 @@ function Install-Package($rh, $name, $pin) {
     Info "$name $have ist neuer als die veroeffentlichte $($hit.version) - wird behalten"; return $true
   }
   if (Invoke-Install $rh $name $hit) {
-    if (-not $have) { Ok "$name $($hit.version) installiert" }
+    if (-not $have) { Ok "$name $($hit.version) installiert$from" }
     elseif ($pin) { Ok "$name $have -> $($hit.version) (feste Version)" }
-    else { Ok "$name $have -> $($hit.version) aktualisiert" }
+    else { Ok "$name $have -> $($hit.version) aktualisiert$from" }
     return $true
   }
   Fail "$name $($hit.version) konnte nicht installiert werden"; return $false
