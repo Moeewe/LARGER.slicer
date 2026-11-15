@@ -25,11 +25,12 @@ This folder contains everything needed to set up the Grasshopper definition **`L
    |---|---|
    | Double-click `Install Windows.bat` | Right-click `Install Mac.command` → **Open** → **Open** |
 
-3. Start Rhino, create a file in **millimeters**, open Grasshopper and open `LARGERslicer Weber Robot and Ginger.gh` from this folder.
+3. Start Rhino, create a file in **millimeters**, open Grasshopper and open `LARGERslicer Weber Robot and Ginger V2.gh` from this folder.
 
 ## What the installer does
 
 - Installs the latest compatible **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager – for Rhino 8 and/or Rhino 7, whichever is installed.
+- **LARGERslicer** comes from the folder `packages` of the release download (`LARGERslicer-SETUP.zip`) when that package is newer than the one on the Rhino package server, so the plug-in fits the definition in this folder. The folder exists only in the release download, not in the repository.
 - Copies the **KR120_R2700_2** robot library to the folder the Robots plugin reads (`Documents/Robots`, on macOS with Rhino 7 also `~/Robots`).
 - Can be run again at any time:
   - current plugins are kept, older ones are updated, newer ones (e.g. beta builds) are kept,

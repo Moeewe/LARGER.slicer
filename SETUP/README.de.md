@@ -30,6 +30,7 @@ Dieser Ordner enthält alles, um die Grasshopper-Definition **`LARGERslicer Webe
 ## Was der Installer macht
 
 - Installiert über den Rhino Package Manager die neueste passende Version von **Robots**, **LARGERslicer** und **Pufferfish** – für Rhino 8 und/oder Rhino 7, je nachdem, was installiert ist.
+- **LARGERslicer** kommt aus dem Ordner `packages` des Release-Downloads (`LARGERslicer-SETUP.zip`), wenn dieses Paket neuer ist als das auf dem Rhino-Paketserver. So passt das Plug-in zur Definition in diesem Ordner. Den Ordner gibt es nur im Release-Download, nicht im Repository.
 - Kopiert die Roboterbibliothek **KR120_R2700_2** in den Ordner, den das Robots-Plugin liest (`Dokumente/Robots`, unter macOS mit Rhino 7 zusätzlich `~/Robots`).
 - Kann jederzeit erneut ausgeführt werden:
   - aktuelle Plugins bleiben unverändert, ältere werden aktualisiert, neuere (z. B. Beta-Versionen) bleiben erhalten,

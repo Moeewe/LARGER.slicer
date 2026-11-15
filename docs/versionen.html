@@ -279,7 +279,7 @@ body{margin:0}
     <article class="card lit">
       <span class="meta">Empfohlen</span>
       <h3>SETUP-Paket mit Installer</h3>
-      <p>Installiert LARGER.slicer, das Robots-Plug-in und Pufferfish über den Rhino-Paketmanager und kopiert die Bibliothek des KUKA KR120. Kann jederzeit wieder laufen, dann wird nur Veraltetes erneuert.</p>
+      <p>Installiert LARGER.slicer aus dem Paket, das dem Download beiliegt, dazu das Robots-Plug-in und Pufferfish über den Rhino-Paketmanager, und kopiert die Bibliothek des KUKA KR120. Kann jederzeit wieder laufen, dann wird nur Veraltetes erneuert.</p>
       <ol class="steps">
         <li><b>Paket laden</b><span><a href="https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip">LARGERslicer-SETUP.zip</a> herunterladen und entpacken.</span></li>
         <li><b>Rhino schließen, Installer starten</b><span>Windows: Doppelklick auf <code>Install Windows.bat</code>. Mac: Rechtsklick auf <code>Install Mac.command</code>, dann zweimal Öffnen.</span></li>
@@ -290,8 +290,8 @@ body{margin:0}
     <article class="card">
       <span class="meta">Nur das Plug-in</span>
       <h3>Rhino-Paketmanager</h3>
-      <p>In Rhino den Befehl <code>PackageManager</code> eingeben (deutsches Rhino: <code>PaketManager</code>), nach <b>LARGERslicer</b> suchen, installieren und Rhino neu starten. Updates kommen auf demselben Weg.</p>
-      <p>Ohne Internet an der Maschine: Die Datei <code>.yak</code> für deine Rhino-Version aus dem Release laden und auf das Rhino-Fenster ziehen.</p>
+      <p>In Rhino den Befehl <code>PackageManager</code> eingeben (deutsches Rhino: <code>PaketManager</code>), nach <b>LARGERslicer</b> suchen, installieren und Rhino neu starten. Dort kann noch eine ältere Version stehen als im Release.</p>
+      <p>Die neueste Version, auch ohne Internet an der Maschine: Die Datei <code>.yak</code> für deine Rhino-Version aus dem Release laden und auf das Rhino-Fenster ziehen.</p>
       <div class="go"><a href="https://github.com/Moeewe/LARGER.slicer/releases/latest">.yak-Dateien im Release</a></div>
     </article>
     <article class="card">
@@ -324,8 +324,8 @@ body{margin:0}
 <section id="verlauf"><div class="wrap">
   <div class="lhead"><span class="no num">03</span><h2>Was sich geändert hat</h2><p class="lead">Kurz und auf Deutsch. Die vollständige Liste steht im <a href="https://github.com/Moeewe/LARGER.slicer/blob/main/LARGERslicer/CHANGELOG.md">Changelog</a> (Englisch).</p></div>
 
-  <article class="rel">
-    <div><div class="v num">1.3.1</div><div class="d">15.11.2026</div><span class="chip dev">Release folgt</span></div>
+  <article class="rel now">
+    <div><div class="v num">1.3.1</div><div class="d">15.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
     <div><h3>Düsen, Roboterzelle, eigene Maschinen, echter Non-Planar-Kopf</h3><ul>
       <li><b>Kopf wirklich non-planar:</b> Die Runden liegen entlang der Oberfläche eine Lagenhöhe auseinander und tauchen unter dem Kinn 16 bis 18&nbsp;mm ein, so wie beim gedruckten Kopf von 2024. Quick Start 07 und „Non Planar Head“ benutzen dieses Kopfmodell.</li>
       <li><b>Schalengesetz:</b> Die Raupenhöhe auf gekippten Lagen folgt der Dicke der Schale, nicht mehr dem Gesetz des Kopfes von 2024, das an Überhängen zu viel Material gab.</li>
@@ -343,7 +343,7 @@ body{margin:0}
   </article>
 
   <article class="rel">
-    <div><div class="v num">1.3.0</div><div class="d">12.11.2026</div><span class="chip dev">Release folgt</span></div>
+    <div><div class="v num">1.3.0</div><div class="d">12.11.2026</div><span class="chip dev">In 1.3.1 enthalten</span></div>
     <div><h3>Roboter-Tab und Easy Slicer</h3><ul>
       <li><b>Roboter-Tab:</b> Robot, Robot Tool, Robot Cell und Robot Program. Das Werkzeug folgt der Bahn, auch gekippt und mehrachsig. Prüft Reichweite, Achsen, Singularitäten und Achsgeschwindigkeit, schreibt KRL und die Zeilen für den DXR Generator.</li>
       <li><b>Easy Slicer:</b> ein Baustein vom Modell zur geprüften Bahn, mit Bericht.</li>
@@ -355,8 +355,8 @@ body{margin:0}
     </ul></div>
   </article>
 
-  <article class="rel now">
-    <div><div class="v num">1.2.1</div><div class="d">11.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+  <article class="rel">
+    <div><div class="v num">1.2.1</div><div class="d">11.11.2026</div><span class="chip ok">Release</span></div>
     <div><h3>Korrekturen aus dem Test in Grasshopper</h3><ul>
       <li><b>Grasshopper 2:</b> erste Version für Rhino 9, mit neun Slicer- und drei DXR-Bausteinen auf demselben Kern.</li>
       <li><b>Quick Start:</b> drei Beispiele: flach, entlang einer Fläche, entlang einer Kurve.</li>
