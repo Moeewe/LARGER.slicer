@@ -302,7 +302,7 @@ Contains the Grasshopper definition, the installer for Windows and macOS and the
    |---|---|
    | Double-click `Install Windows.bat` | Right-click `Install Mac.command` → **Open** → **Open** |
 
-3. Start Rhino, create a file in **millimeters**, open Grasshopper and open `LARGERslicer Weber Robot and Ginger.gh` from the `SETUP` folder.
+3. Start Rhino, create a file in **millimeters**, open Grasshopper and open `LARGERslicer Weber Robot and Ginger V2.gh` from the `SETUP` folder (version 2 needs only LARGER.slicer; the first version, which needs Robots and Pufferfish, lies next to it).
 
 The installer installs **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager and copies the KUKA KR120 robot library (`KR120_R2700_2`) to the folder the Robots plugin reads. It can be run again at any time and then only updates what is outdated.
 
@@ -325,8 +325,8 @@ More: [SETUP guide](SETUP/README.md)
 
 | Machine | Type | Grasshopper definition | Guide |
 |---|---|---|---|
-| **Weber DXR25** | KUKA robot, multiaxial | `LARGERslicer Weber Robot and Ginger.gh` | [English](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) · [Deutsch](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) |
-| **Ginger One** | Large-format pellet printer | `LARGERslicer Weber Robot and Ginger.gh` | [Quick Start](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
+| **Weber DXR25** | KUKA robot, multiaxial | `LARGERslicer Weber Robot and Ginger V2.gh` | [English](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) · [Deutsch](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) |
+| **Ginger One** | Large-format pellet printer | `LARGERslicer Weber Robot and Ginger V2.gh` | [Quick Start](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
 | **Ginger One (Marlin), non-planar head** | Pellet printer, vertical nozzle | [`LARGERslicer - Head (Ginger One, non-planar).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One, non-planar).gh>): the 2024 head placed as printed, "Follow the surface", one spiral, brim, `Path Check`, `Non-Planar Check`, G-code | The comparison with the 2024 G-code is on the canvas |
 | **Ginger One (Klipper), non-planar** | Pellet printer, vertical nozzle | [`LARGERslicer - Non Planar Head (Ginger).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Non Planar Head (Ginger).gh>): the head of 2024 sliced along its surface (Follow the surface), one spiral, `Path Check`, `Non-Planar Check`, G-code | Like Quick Start example 07, with 4 mm bead and 2 mm layers |
 | **Universal Robots UR5** | Collaborative robot | `UR5slicer.gh` | [Quick Start](<EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/README UR5 00 QUICK START GUIDE.md>) |
@@ -334,13 +334,15 @@ More: [SETUP guide](SETUP/README.md)
 
 ## Usage Guide
 
-`LARGERslicer Weber Robot and Ginger.gh` contains three workflows – copy the one you need into a new Grasshopper file:
+`LARGERslicer Weber Robot and Ginger V2.gh` contains three workflows – copy the one you need into a new Grasshopper file. It needs only the LARGER.slicer plug-in:
 
-1. **Easy Slicer** – slices surfaces and creates the toolpath automatically.
-2. **Path Creator (multiaxial)** – converts a prepared toolpath into multiaxial robot paths.
-3. **Custom Paths** – uses only the conversion/export components to create DXR robot code from your own paths.
+1. **Easy Ginger and Robot Slicer** – slices your geometry; row A gives G-code for the Ginger One, row B the robot program and DXR file for the Weber DXR.
+2. **Advanced Multiaxial Robot Slicer** – the same for the robot, with angled layers or layers along a guide curve or surface.
+3. **Custom Robot Path Creator** – turns your own curves into a robot program and DXR file.
 
-Password-protected clusters: right-click the component and enter **Supersizedprinting**.
+Read the report panels before saving: Path Check has to say OK, the robot report must show no unreachable points or collisions, the file check has to say GO.
+
+The first version (`LARGERslicer Weber Robot and Ginger.gh`, needs Robots and Pufferfish) lies next to it; its password-protected clusters open with **Supersizedprinting**.
 
 <details>
 <summary><b>Part 1: 3D Print Path Maker</b></summary>

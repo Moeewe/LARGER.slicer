@@ -296,7 +296,7 @@ Enthält die Grasshopper-Definition, den Installer für Windows und macOS und di
    |---|---|
    | Doppelklick auf `Install Windows.bat` | Rechtsklick auf `Install Mac.command` → **Öffnen** → **Öffnen** |
 
-3. Rhino starten, eine Datei in **Millimetern** anlegen, Grasshopper öffnen und `LARGERslicer Weber Robot and Ginger.gh` aus dem Ordner `SETUP` öffnen.
+3. Rhino starten, eine Datei in **Millimetern** anlegen, Grasshopper öffnen und `LARGERslicer Weber Robot and Ginger V2.gh` (Fassung 2 braucht nur LARGER.slicer; die erste Fassung mit Robots und Pufferfish liegt daneben) aus dem Ordner `SETUP` öffnen.
 
 Der Installer installiert **Robots**, **LARGERslicer** und **Pufferfish** über den Rhino Package Manager und kopiert die KUKA-KR120-Roboterbibliothek (`KR120_R2700_2`) in den Ordner, den das Robots-Plugin liest. Er kann jederzeit erneut ausgeführt werden und aktualisiert dann nur, was veraltet ist.
 
@@ -319,8 +319,8 @@ Mehr: [SETUP-Anleitung](SETUP/README.de.md)
 
 | Maschine | Art | Grasshopper-Definition | Anleitung |
 |---|---|---|---|
-| **Weber DXR25** | KUKA-Roboter, multiaxial | `LARGERslicer Weber Robot and Ginger.gh` | [Deutsch](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) · [English](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) |
-| **Ginger One** | Großformat-Granulatdrucker | `LARGERslicer Weber Robot and Ginger.gh` | [Schnellstart (Englisch)](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
+| **Weber DXR25** | KUKA-Roboter, multiaxial | `LARGERslicer Weber Robot and Ginger V2.gh` | [Deutsch](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE GERMAN.md>) · [English](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - WEBER - DXR25 - README/README Weber DXR25 PRINTER QUICK START GUIDE ENGLISH.md>) |
+| **Ginger One** | Großformat-Granulatdrucker | `LARGERslicer Weber Robot and Ginger V2.gh` | [Schnellstart (Englisch)](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/00 - GINGER - ONE - README/README GINGER 00 QUICK START GUIDE.md>) |
 | **Ginger One (Marlin), non-planarer Kopf** | Granulatdrucker, senkrechte Düse | [`LARGERslicer - Head (Ginger One, non-planar).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One, non-planar).gh>): der Kopf von 2024 so platziert wie gedruckt, „Follow the surface“, eine Spirale, Brim, `Path Check`, `Non-Planar Check`, G-Code | Der Vergleich mit dem G-Code von 2024 steht auf dem Canvas |
 | **Ginger One (Klipper), non-planar** | Granulatdrucker, senkrechte Düse | [`LARGERslicer - Non Planar Head (Ginger).gh`](<EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Non Planar Head (Ginger).gh>): der Kopf von 2024 entlang seiner Oberfläche geschnitten (Follow the surface), eine Spirale, `Path Check`, `Non-Planar Check`, G-Code | Wie Quick-Start-Beispiel 07, mit 4-mm-Bahn und 2-mm-Lagen |
 | **Universal Robots UR5** | Kollaborativer Roboter | `UR5slicer.gh` | [Schnellstart (Englisch)](<EXAMPLE FILES/00 - UNIVERSAL ROBOTS - UR5/README UR5 00 QUICK START GUIDE.md>) |
@@ -328,13 +328,15 @@ Mehr: [SETUP-Anleitung](SETUP/README.de.md)
 
 ## Bedienung
 
-`LARGERslicer Weber Robot and Ginger.gh` enthält drei Arbeitsabläufe – den benötigten in eine neue Grasshopper-Datei kopieren:
+`LARGERslicer Weber Robot and Ginger V2.gh` enthält drei Arbeitsabläufe – den benötigten in eine neue Grasshopper-Datei kopieren. Sie braucht nur das Plug-in LARGER.slicer:
 
-1. **Easy Slicer** – schneidet Flächen und erzeugt die Werkzeugbahn automatisch.
-2. **Path Creator (multiaxial)** – wandelt eine vorbereitete Werkzeugbahn in multiaxiale Roboterbahnen um.
-3. **Custom Paths** – nutzt nur die Umwandlungs- und Export-Komponenten, um aus eigenen Bahnen DXR-Robotercode zu erzeugen.
+1. **Easy Ginger and Robot Slicer** – schneidet die Geometrie; Zeile A gibt G-Code für den Ginger One, Zeile B das Roboterprogramm und die DXR-Datei für den Weber DXR.
+2. **Advanced Multiaxial Robot Slicer** – dasselbe für den Roboter, mit schrägen Lagen oder Lagen entlang einer Leitkurve oder Leitfläche.
+3. **Custom Robot Path Creator** – macht aus eigenen Kurven ein Roboterprogramm und eine DXR-Datei.
 
-Passwortgeschützte Cluster: Rechtsklick auf die Komponente und **Supersizedprinting** eingeben.
+Vor dem Speichern die Berichte lesen: Path Check muss OK melden, der Roboterbericht darf keine unerreichbaren Punkte oder Kollisionen zeigen, die Dateiprüfung muss GO melden.
+
+Die erste Fassung (`LARGERslicer Weber Robot and Ginger.gh`, braucht Robots und Pufferfish) liegt daneben; ihre passwortgeschützten Cluster öffnen mit **Supersizedprinting**.
 
 <details>
 <summary><b>Teil 1: 3D Print Path Maker</b></summary>
