@@ -1,0 +1,31 @@
+#!/bin/bash
+# LARGER.slicer Installer (macOS): runs after the user clicked "Install" in the signed package.
+# The macOS installer runs this as root from the package's scripts folder; the setup itself
+# ("Install Mac.command", the same as in the SETUP folder) runs as the user who is logged in,
+# so that everything lands in that user's Rhino folders.
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+U="$(stat -f%Su /dev/console)"
+if [ -z "$U" ] || [ "$U" = "root" ] || [ "$U" = "loginwindow" ]; then
+  echo "No user logged in: nothing to install." >&2
+  exit 1
+fi
+UID_N="$(id -u "$U")"
+HOME_U="$(dscl . -read "/Users/$U" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+[ -n "$HOME_U" ] || HOME_U="/Users/$U"
+LOG="$HOME_U/Library/Logs/LARGERslicer-Installer.log"
+
+# a working copy the user owns: the setup script, the bundled packages, the robot library
+WORK="$(mktemp -d /tmp/larger-setup.XXXXXX)"
+cp -R "$HERE/SETUP/." "$WORK/"
+chown -R "$U" "$WORK"
+mkdir -p "$HOME_U/Library/Logs"
+
+# no terminal: questions take their default (keep going, move old manual copies to a backup)
+launchctl asuser "$UID_N" sudo -u "$U" -H /bin/bash "$WORK/Install Mac.command" < /dev/null > "$LOG" 2>&1
+RC=$?
+chown "$U" "$LOG" 2>/dev/null
+rm -rf "$WORK"
+# strip the colour codes for a readable log
+sed -i '' $'s/\x1b\\[[0-9;]*m//g' "$LOG" 2>/dev/null
+exit $RC
