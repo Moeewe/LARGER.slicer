@@ -325,7 +325,21 @@ body{margin:0}
   <div class="lhead"><span class="no num">03</span><h2>Was sich geändert hat</h2><p class="lead">Kurz und auf Deutsch. Die vollständige Liste steht im <a href="https://github.com/Moeewe/LARGER.slicer/blob/main/LARGERslicer/CHANGELOG.md">Changelog</a> (Englisch).</p></div>
 
   <article class="rel now">
-    <div><div class="v num">1.3.1</div><div class="d">15.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><div class="v num">2.0.0</div><div class="d">24.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><h3>Simulation, die mitdruckt, Bahnen, die sich verzahnen, und die Zünd</h3><ul>
+      <li><b>Robot Simulation zeigt den Druck:</b> Gedrucktes erscheint dick und farbig, Skirt und Brim grün, der Rest der Bahn blass. Die Info sagt, wo der Roboter ist: Anfahrt, Skirt und Brim, Lage n von m, Abfahrt.</li>
+      <li><b>Slice Options:</b> Wer Slice platziert, bekommt links ein kleines Feld mit Winkel, Lagenart, Werkzeugachse und Start-/Endlagen, schon verdrahtet. Ohne das Feld arbeitet Slice wie bisher mit seinen Eingängen.</li>
+      <li><b>Weniger Zeilen:</b> Hängt an einem Eingang ein Draht, verschwindet seine Zeile am Baustein.</li>
+      <li><b>Weave:</b> Bahnen greifen von Lage zu Lage ineinander, mit Varianten, Probenserie und Nahtdaten.</li>
+      <li><b>Reshape:</b> Druckhöhe dort, wo sie gebraucht wird. Lagen fächern auf, auch für fertigen Code.</li>
+      <li><b>Zünd:</b> Schruppen und Schlichten mit Platte, Fräsern und Quick Start.</li>
+      <li><b>Neue Beispiele:</b> gebogene Wand für den Roboter, einmal mit ebenen Lagen, einmal nicht-planar zur schrägen Oberkante.</li>
+      <li><b>Korrigiert:</b> DXR-Postprozessor, DXR File Health Check, Dateinamen, Einheiten der Geschwindigkeit (siehe Changelog).</li>
+    </ul></div>
+  </article>
+
+  <article class="rel">
+    <div><div class="v num">1.3.1</div><div class="d">15.11.2026</div><span class="chip ok">Release</span></div>
     <div><h3>Düsen, Roboterzelle, eigene Maschinen, echter Non-Planar-Kopf</h3><ul>
       <li><b>Kopf wirklich non-planar:</b> Die Runden liegen entlang der Oberfläche eine Lagenhöhe auseinander und tauchen unter dem Kinn 16 bis 18&nbsp;mm ein, so wie beim gedruckten Kopf von 2024. Quick Start 07 und „Non Planar Head“ benutzen dieses Kopfmodell.</li>
       <li><b>Schalengesetz:</b> Die Raupenhöhe auf gekippten Lagen folgt der Dicke der Schale, nicht mehr dem Gesetz des Kopfes von 2024, das an Überhängen zu viel Material gab.</li>

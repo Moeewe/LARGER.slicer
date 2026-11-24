@@ -5,7 +5,7 @@ All notable changes to LARGERslicer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - not released yet
+## [2.0.0] - 2026-11-24
 
 Version 2.0: so much is new since 1.3.1 that this is a new major version. Everything the lab prints and mills now runs on LARGER.slicer's own components (robot, cell, machines, checks, CNC) instead of the old mix with the Robots and Pufferfish plug-ins and native clusters. 1.3.1 stays available as the previous version.
 
