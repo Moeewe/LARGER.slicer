@@ -50,6 +50,7 @@ namespace LARGERslicer.Components
         public Func<string> TextOf;       // Label: the text to show now (null = Label); a Label row is a caption or a line of information
         public bool Caption;              // Label: a section heading (drawn bold, without a box)
         public Func<bool> Wired;          // a row shown elsewhere (Control Panel): true while a wire feeds the input; the row then shows the value it gets and cannot be changed
+        public Action MakeSlider;         // a row shown elsewhere (Control Panel): puts a real slider into the input, e.g. as a gene for Galapagos
 
         internal double StepSize => Step > 0 ? Step : Math.Pow(10, -Math.Max(0, Decimals));
         internal bool HasRange => !double.IsNaN(Min) && !double.IsNaN(Max) && Max > Min;
@@ -91,19 +92,14 @@ namespace LARGERslicer.Components
             return gone;
         }
 
+        /// <summary>The inputs of a component a panel sets (none: empty).</summary>
+        public static List<int> InputsOf(IGH_DocumentObject comp) => comp != null && _map.TryGetValue(comp.InstanceGuid, out var kv) ? kv.Value.ToList() : new List<int>();
+
         public static Guid? PanelOf(IGH_DocumentObject comp) => comp != null && _map.TryGetValue(comp.InstanceGuid, out var kv) ? kv.Key : (Guid?)null;
 
         /// <summary>The components a panel shows now.</summary>
         public static List<Guid> Of(Guid panel) => _map.Where(kv => kv.Value.Key == panel).Select(kv => kv.Key).ToList();
 
-        private static readonly Color[] Palette =
-        {
-            Color.FromArgb(32, 120, 200), Color.FromArgb(214, 112, 20), Color.FromArgb(40, 150, 90),
-            Color.FromArgb(170, 60, 160), Color.FromArgb(190, 50, 50), Color.FromArgb(20, 140, 150),
-        };
-
-        /// <summary>The colour of a panel: its header and the mark on every component it shows, so one sees what belongs to it.</summary>
-        public static Color ColorOf(Guid panel) => Palette[(int)((uint)panel.GetHashCode() % (uint)Palette.Length)];
     }
 
     /// <summary>Draws the rows of an IOptionRows component under it and answers clicks and drags on them.</summary>
@@ -130,7 +126,7 @@ namespace LARGERslicer.Components
             base.Layout();
             _rects.Clear();
             var rows = Rows;
-            if (rows.Count == 0) return;
+            if (rows.Count == 0 && ControlRegistry.InputsOf(Owner).Count == 0) { _marks.Clear(); return; }
             // wide enough to read the labels of the rows
             float wide = (Owner as IWideRows)?.MinWidth ?? 0;
             if (Bounds.Width < wide)
@@ -144,42 +140,99 @@ namespace LARGERslicer.Components
                 }
                 Bounds = new RectangleF(Bounds.X, Bounds.Y, wide, Bounds.Height);
             }
+            // inputs a Control Panel sets get a small sign at their left, as Grasshopper marks a flattened or
+            // grafted input: the input column grows to the left by the width of the sign
+            _marks.Clear();
+            var comp = (GH_Component)Owner;
+            foreach (int ix in ControlRegistry.InputsOf(Owner))
+                if (ix >= 0 && ix < comp.Params.Input.Count && comp.Params.Input[ix].SourceCount == 0) _marks.Add(ix);
+            _marks.Sort();
+            if (_marks.Count > 0)
+            {
+                foreach (var ip in comp.Params.Input)
+                {
+                    var r = ip.Attributes.Bounds; r.X -= MarkWidth; r.Width += MarkWidth; ip.Attributes.Bounds = r;
+                    ip.Attributes.Pivot = new PointF(ip.Attributes.Pivot.X - MarkWidth, ip.Attributes.Pivot.Y);
+                }
+                Bounds = new RectangleF(Bounds.X - MarkWidth, Bounds.Y, Bounds.Width + MarkWidth, Bounds.Height);
+            }
             var b = Bounds;
             float y = b.Bottom + 2f;
             _wiredAtLayout = WiredKey();
-            _panelNote = RectangleF.Empty;
-            bool byPanel = false;
             foreach (var r in rows)
             {
                 // a row whose input has a wire is not drawn: the wire decides (e.g. an Options component);
-                // nor a row a Control Panel shows: the component then only says where its settings are
+                // nor a row a Control Panel shows: its input carries the sign instead
                 if (Wired(r)) { _rects.Add(RectangleF.Empty); continue; }
-                if (ControlRegistry.Controls(Owner, r)) { _rects.Add(RectangleF.Empty); byPanel = true; continue; }
+                if (ControlRegistry.Controls(Owner, r)) { _rects.Add(RectangleF.Empty); continue; }
                 _rects.Add(new RectangleF(b.X + 4f, y, b.Width - 8f, RowHeight));
                 y += RowHeight + Gap;
             }
-            if (byPanel) { _panelNote = new RectangleF(b.X + 2f, y, b.Width - 4f, 4f); y += 4f + Gap; }
             Bounds = new RectangleF(b.X, b.Y, b.Width, y - b.Y + (y > b.Bottom + 2f ? 2f : 0f));
         }
 
-        private RectangleF _panelNote = RectangleF.Empty;
+        private const float MarkWidth = 13f;
+        private readonly List<int> _marks = new List<int>();
 
         private string _wiredAtLayout;
         private bool Wired(OptionRow r) { var p = Param(r); return p != null && p.SourceCount > 0; }
-        private string WiredKey() => string.Concat(Rows.Select(r => Wired(r) ? '1' : ControlRegistry.Controls(Owner, r) ? '2' : '0'));
+        private string WiredKey() => string.Concat(Rows.Select(r => Wired(r) ? '1' : ControlRegistry.Controls(Owner, r) ? '2' : '0'))
+            + "|" + string.Join(",", ControlRegistry.InputsOf(Owner).Select(k => k < ((GH_Component)Owner).Params.Input.Count && ((GH_Component)Owner).Params.Input[k].SourceCount > 0 ? -k - 1 : k));
 
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
         {
             // a wire was connected or removed since the last layout: rows come or go
-            if (Rows.Count > 0 && _wiredAtLayout != null && WiredKey() != _wiredAtLayout) { ExpireLayout(); PerformLayout(); }
+            if (_wiredAtLayout != null && WiredKey() != _wiredAtLayout) { ExpireLayout(); PerformLayout(); }
             base.Render(canvas, graphics, channel);
             if (channel != GH_CanvasChannel.Objects) return;
             RenderRows(graphics);
-            // set in a Control Panel: a bar in the colour of that panel (no text)
-            var panel = ControlRegistry.PanelOf(Owner);
-            if (!_panelNote.IsEmpty && panel.HasValue)
-                using (var br = new SolidBrush(Color.FromArgb(Owner.Locked ? 90 : 230, ControlRegistry.ColorOf(panel.Value))))
-                    graphics.FillRectangle(br, _panelNote);
+            foreach (int k in _marks) DrawMark(graphics, MarkRect(k));
+        }
+
+        private RectangleF MarkRect(int input)
+        {
+            var comp = (GH_Component)Owner;
+            if (input < 0 || input >= comp.Params.Input.Count) return RectangleF.Empty;
+            var r = comp.Params.Input[input].Attributes.Bounds;
+            return new RectangleF(r.X + 3f, r.Y + r.Height / 2f - 4.5f, 9f, 9f);
+        }
+
+        /// <summary>The sign of an input set in a Control Panel: two slider lines with their knobs, in the ink of the
+        /// component's text (as Grasshopper's own flatten and graft signs).</summary>
+        private void DrawMark(Graphics g, RectangleF m)
+        {
+            if (m.IsEmpty) return;
+            var old = g.SmoothingMode; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            var ink = Owner.Locked ? Color.FromArgb(110, 110, 110) : Color.FromArgb(35, 35, 35);
+            using (var pen = new Pen(ink, 1f))
+            using (var knob = new SolidBrush(ink))
+            {
+                float[] at = { 0.3f, 0.7f };
+                for (int k = 0; k < 2; k++)
+                {
+                    float yy = m.Y + 2.5f + k * 4f;
+                    g.DrawLine(pen, m.X, yy, m.Right, yy);
+                    float kx = m.X + m.Width * at[k];
+                    g.FillRectangle(knob, kx - 1.25f, yy - 2f, 2.5f, 4f);
+                }
+            }
+            g.SmoothingMode = old;
+        }
+
+        // the sign tells where the setting is
+        public override bool IsTooltipRegion(PointF canvasPoint) => _marks.Any(k => MarkRect(k).Contains(canvasPoint)) || base.IsTooltipRegion(canvasPoint);
+        public override void SetupTooltip(PointF canvasPoint, GH_TooltipDisplayEventArgs e)
+        {
+            int k = -1; foreach (int x in _marks) if (MarkRect(x).Contains(canvasPoint)) { k = x; break; }
+            if (k >= 0)
+            {
+                var panel = ControlRegistry.PanelOf(Owner);
+                var po = panel.HasValue ? Owner.OnPingDocument()?.FindObject(panel.Value, true) : null;
+                e.Title = ((GH_Component)Owner).Params.Input[k].Name + ": set in the Control Panel";
+                e.Text = "This input gets its value from the Control Panel" + (po != null && po.NickName != po.Name ? " '" + po.NickName + "'" : "") + ". Select the panel to see everything it sets. A wire into the input still wins.";
+                return;
+            }
+            base.SetupTooltip(canvasPoint, e);
         }
 
         /// <summary>Draws the rows into their rectangles.</summary>
@@ -383,6 +436,21 @@ namespace LARGERslicer.Components
 
         public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
+            // right click on a setting of a Control Panel: make it a real slider (for an optimiser such as Galapagos)
+            if (e.Button == MouseButtons.Right)
+            {
+                int ri = RowAt(e.CanvasLocation);
+                if (ri >= 0 && Rows[ri].MakeSlider != null && !Locked(Rows[ri]))
+                {
+                    var r = Rows[ri];
+                    var menu = new ContextMenuStrip();
+                    var item = new ToolStripMenuItem("Slider for an optimiser (Galapagos)") { ToolTipText = "Puts a number slider into this input, beside its component. Galapagos and other optimisers can then change it as a gene; the panel shows the slider." };
+                    item.Click += (s2, a2) => r.MakeSlider();
+                    menu.Items.Add(item);
+                    menu.Show(sender, e.ControlLocation);
+                    return GH_ObjectResponse.Handled;
+                }
+            }
             if (e.Button == MouseButtons.Left)
             {
                 int i = RowAt(e.CanvasLocation);

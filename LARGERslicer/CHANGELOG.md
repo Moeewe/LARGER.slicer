@@ -5,6 +5,16 @@ All notable changes to LARGERslicer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2026-11-25
+
+Version 2.0.2: the Control Panel covers what is changed in practice, and looks as if it came with Grasshopper.
+
+### Changed: Control Panel
+- **Every typed setting:** besides the rows of the components, the panel offers every single number, whole number or true/false typed into an input of a LARGER component (bed and nozzle temperature, Extrusion Factor, Min Layer Time, Seam Gap, Flow, the values of Weave, Reshape, Surface Pattern ...). The main ones show at once, all of them under "Advanced". All 12 example definitions with a panel now have every typed setting in it.
+- **Drawn as Grasshopper draws:** an input set by a panel carries a small slider sign at its left, where Grasshopper shows flatten and graft (its tooltip names the panel). The panel's name sits in a dark capsule like a component's message. Selected, the panel frames everything it sets with a dashed line and joins it with a dashed curve shaped like a wire. The coloured bars of 2.0.1 are gone.
+- **Several panels:** a panel in a group sets that group; a panel over the whole canvas leaves out groups that have a panel of their own.
+- **For optimisers (Galapagos):** right-click a number or choice in the panel, "Slider for an optimiser (Galapagos)", or use the panel's menu for every setting shown: a real number slider goes into the input, in a column beside the panel and in its group. The panel shows the slider in the setting's place. Delete it and the panel sets the value again.
+
 ## [2.0.1] - 2026-11-24
 
 Version 2.0.1: prints without double material at seams and links, travel lifted over the print, and two components for people who want the print, not the wiring.

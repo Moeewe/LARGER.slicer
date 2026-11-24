@@ -6,7 +6,7 @@
     <AssemblyName>LARGERslicerGH2</AssemblyName>
     <RootNamespace>LARGERslicer.GH2</RootNamespace>
     <TargetExt>.rhp</TargetExt>
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
     <AssemblyTitle>LARGER.slicer</AssemblyTitle>
     <Description>Continuous single-line toolpaths for large-format 3D printing, and DXR output.</Description>
     <Company>Moritz Wesseler, FH Muenster</Company>
