@@ -1062,6 +1062,9 @@ namespace LARGERslicer.Toolpaths
             const double eps = 1e-3;
             double range = ymax - ymin - 2 * eps;
             int m = range > 0 ? Math.Max(1, (int)Math.Round(range / spacing)) : 0;
+            // never more than a tenth closer than the bead spacing: rounding up on a small region would lay
+            // the lines a third closer and print part of every bead twice
+            if (m > 1 && range / m < 0.9 * spacing) m--;
             double pitch = m > 0 ? range / m : 0;
 
             // chains = parts of the shape that one zigzag can fill without lifting

@@ -631,7 +631,7 @@ namespace LARGERslicer.GH2
         {
             outputs.AddBoolean("OK", "OK", "True if the path can be printed.");
             outputs.AddText("Report", "R", "What was checked and found.", Access.Twig);
-            outputs.AddPoint("Crossings", "X", "Where the path crosses itself.", Access.Twig);
+            outputs.AddPoint("Crossings", "X", "Where the path crosses itself, lays a bead into a bead (double material) or travels through the print.", Access.Twig);
             outputs.AddPoint("Unsupported", "U", "Points that hang in the air.", Access.Twig);
             outputs.AddNumber("Layer Times", "Lt", "Time of every layer at the print speed in s, from the first layer up.", Access.Twig);
             outputs.AddNumber("Offset", "Off", "Sideways offset to the layer below for every path point (mm). Use it to colour the path.", Access.Twig);
@@ -649,7 +649,7 @@ namespace LARGERslicer.GH2
             foreach (var l in r.Report.Where(l => l.StartsWith("LAYER TIME") || l.StartsWith("VOLUME RATE"))) access.AddWarning(l.StartsWith("LAYER TIME") ? "Layer time" : "Volume rate", l);
             access.SetItem(0, r.Ok);
             access.SetTwig(1, r.Report.ToArray(), null, null);
-            access.SetTwig(2, r.Crossings.ToArray(), null, null);
+            access.SetTwig(2, r.Crossings.Concat(r.DoubleAt).ToArray(), null, null);
             access.SetTwig(3, r.Unsupported.ToArray(), null, null);
             access.SetTwig(4, r.LayerTimes.ToArray(), null, null);
             access.SetTwig(5, r.Offsets.ToArray(), null, null);

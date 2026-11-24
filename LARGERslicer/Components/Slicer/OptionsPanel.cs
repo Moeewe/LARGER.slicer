@@ -222,7 +222,8 @@ namespace LARGERslicer.Components.Slicer
                   "The settings of Slice as choices: angle, guide mode, tool axis, start and end layers. Comes along when you place Slice, wired into its inputs. Delete it to work with the inputs alone, or place it from the toolbar and connect it again.") { }
 
         public override Guid ComponentGuid => new Guid("C3A7E1D4-5B2F-4E86-9A1C-7D0F3B8E2A61");
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        // replaced by the Control Panel: kept so files that have it still open, not offered in the toolbar
+        public override GH_Exposure Exposure => GH_Exposure.hidden;
         protected override Bitmap Icon => IconHelper.Load("SlicerSliceIcon.png", this);
         protected override SlicerComponent CreateHost() => new SliceComponent();
     }

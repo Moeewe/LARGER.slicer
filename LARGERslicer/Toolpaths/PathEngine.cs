@@ -885,13 +885,10 @@ namespace LARGERslicer.Toolpaths
                     int startIndex = tp.Count;
                     bool gap = cur.Len > 6 * w;
                     var flatLoop = gap ? new Loop(StartAt(cur.P, cur.PointAt(w)), true) : cur;
+                    // a wall, not a fill: it is rounded and checked as a wall
                     foreach (var kv in Traverse(flatLoop, 0, gap ? flatLoop.Len - w : flatLoop.Len))
-                        tp.Add(kv.Key, n, h, w, 1, from == 0 ? PathRole.Bottom : PathRole.Wall, layer.Index);
-                    if (startIndex > 0 && tp.Points[startIndex].DistanceTo(tp.Points[startIndex - 1]) > 3 * w)
-                    {
-                        tp.Flows[startIndex] = 0;
-                        tp.Roles[startIndex] = PathRole.Travel;
-                    }
+                        tp.Add(kv.Key, n, h, w, 1, PathRole.Wall, layer.Index);
+                    if (startIndex > 0) ShapeLink(tp, startIndex, w, h, n);
                 }
                 else
                 {
@@ -1092,6 +1089,16 @@ namespace LARGERslicer.Toolpaths
                                     if (ds < bestStart) { bestStart = ds; target = up; }
                                 }
                             }
+                            // The step from the wall before onto this one prints. It goes straight across, square
+                            // to the walls and one bead spacing long, not diagonally through both beads.
+                            if (!firstOfLayer && !usedHint && tp.Count > layerStart + 1)
+                            {
+                                int hq = -1;
+                                Point3d square = src.Closest(from, ref hq, int.MaxValue);
+                                double sp = tp.Settings.BeadSpacing;
+                                int hq2 = -1;
+                                if (from.DistanceTo(square) < 1.5 * sp && from.DistanceTo(src.Closest(target, ref hq2, int.MaxValue)) > 1.3 * sp) target = square;
+                            }
                             // The move over to a further wall of the layer must not run across what this layer has
                             // printed already, nor across the wall it goes to: with several walls (and no bridges, e.g. with ribs) the wall before
                             // ends with its closing pass over the seam, and a start right above the start below can
@@ -1143,13 +1150,16 @@ namespace LARGERslicer.Toolpaths
                             double lr = ramp ? Math.Min(Math.Min(rampLength, maxRamp), cur.Len * 0.5) : 0;
                             // does this ramp lie on the ramp of the layer below?
                             bool stacked = ramp && belowRamped && rampStart.IsValid && (rampStart + n * h).DistanceTo(cur.P[0]) < w;
-                            double closeOver = 0;
+                            double closeOver = 0, gapAtFill = 0;
                             if (usedHint)
                             {
-                                // The wall meets the fill on a straight piece of wall, never on a corner:
-                                // slide the meeting point along the wall until the wall is straight there.
+                                // A wall too short for a gap meets the fill on a straight piece of wall, never on
+                                // a corner: slide the meeting point along the wall until the wall is straight
+                                // there. A wall with a gap stays right beside the fill's end, so the step between
+                                // them is short and square (sliding it would make that step a long diagonal).
                                 double reach = 2 * w;
-                                foreach (double shift in new[] { 0.0, reach, -reach, 2 * reach, -2 * reach, 3 * reach, -3 * reach })
+                                bool withGap = cur.Len > 6 * w;
+                                foreach (double shift in withGap ? new double[0] : new[] { 0.0, reach, -reach, 2 * reach, -2 * reach, 3 * reach, -3 * reach })
                                 {
                                     Vector3d before = cur.PointAt(shift) - cur.PointAt(shift - w), after = cur.PointAt(shift + w) - cur.PointAt(shift);
                                     if (!before.Unitize() || !after.Unitize() || before * after < 0.985) continue; // bend of more than ~10 degrees
@@ -1158,16 +1168,26 @@ namespace LARGERslicer.Toolpaths
                                     if (Math.Abs(shift) > 1e-9) cur = new Loop(StartAt(cur.P, cur.PointAt(shift)), true);
                                     break;
                                 }
-                                // Run the wall one bead spacing past its start before turning into the fill.
-                                // Rounding the turn takes about that much away again, so the wall ends up
-                                // closed instead of showing a gap on the outside.
-                                closeOver = Math.Min(tp.Settings.BeadSpacing, cur.Len * 0.25);
+                                // The wall leaves a gap at the fill, never runs over its own start: a bead
+                                // has width and height, and a closing pass over the start prints that stretch
+                                // twice. Where the fill came first, the wall begins on the point the fill
+                                // ended beside and stops one gap before it. Where the fill comes next, the
+                                // wall begins one gap after the point beside the fill start and ends on it;
+                                // the turn into the fill is then a short step at right angles across one bead
+                                // spacing, and the skirt of the first layer comes into the wall's start the
+                                // same way, as on a layer without fill.
+                                gapAtFill = withGap ? Math.Min(Math.Max(w, rampLength), cur.Len * 0.25) : 0;
+                                bool fillBefore = !firstOfLayer && tp.Count > layerStart
+                                                  && (tp.Roles[tp.Count - 1] == PathRole.Bottom || tp.Roles[tp.Count - 1] == PathRole.Infill || tp.Roles[tp.Count - 1] == PathRole.Support);
+                                if (gapAtFill > 0 && !fillBefore) cur = new Loop(StartAt(cur.P, cur.PointAt(gapAtFill)), true);
+                                // a wall too short for a gap closes as before: one bead spacing past its start
+                                if (gapAtFill <= 0) closeOver = Math.Min(tp.Settings.BeadSpacing, cur.Len * 0.25);
                             }
                             // after the last ramp the wedge it leaves at the top is closed with one more
                             // pass over the ramp zone, fading out
                             // (with several walls the next layer ramps on another wall, so close it here too)
                             bool closeWedge = ramp && (!nextRamps || multi);
-                            double end = cur.Len + closeOver + (closeWedge ? lr : 0);
+                            double end = gapAtFill > 0 ? cur.Len - gapAtFill : cur.Len + closeOver + (closeWedge ? lr : 0);
                             // The very first wall of the print leaves a gap of one bead at its seam, as every ring of
                             // skirt and brim does: it begins one bead after the seam (the skirt or brim comes in there)
                             // and ends on the seam, where the next layer climbs away. Its end never runs over its own
@@ -1176,6 +1196,12 @@ namespace LARGERslicer.Toolpaths
                             if (tp.Count == 0 && !ramp && !usedHint && !hasFill && !multi && closeOver == 0 && cur.Len > 6 * w)
                             {
                                 cur = new Loop(StartAt(cur.P, cur.PointAt(w)), true);
+                                end = cur.Len - w;
+                            }
+                            // A further wall of a layer (reached by a step from the wall before) ends one bead
+                            // before its own start too: its last stretch would lie on its first one.
+                            else if (!firstOfLayer && !ramp && !closeWedge && gapAtFill <= 0 && closeOver == 0 && cur.Len > 6 * w)
+                            {
                                 end = cur.Len - w;
                             }
 
@@ -1225,16 +1251,8 @@ namespace LARGERslicer.Toolpaths
                         // the move that reaches this contour: print it if it is short, otherwise travel
                         if (!first && startIndex < tp.Count)
                         {
-                            double link = tp.Points[startIndex].DistanceTo(tp.Points[startIndex - 1]);
-                            if (link > 3 * w)
-                            {
-                                tp.Flows[startIndex] = 0;
-                                tp.Roles[startIndex] = PathRole.Travel;
-                            }
-                            else if (!src.Closed)
-                            {
-                                tp.Heights[startIndex] = h;
-                            }
+                            if (!src.Closed) tp.Heights[startIndex] = h;
+                            ShapeLink(tp, startIndex, w, h, n);
                         }
                         first = false;
                         firstOfLayer = false;
@@ -1248,6 +1266,62 @@ namespace LARGERslicer.Toolpaths
                     curStarts = curStarts1; rampStart = rampStart1; belowRamped = belowRamped1;
                 }
             }
+        }
+
+        /// <summary>
+        /// The move into point k from the point before, shaped by where its bead lies. A bead takes its
+        /// width and its height of room:
+        /// - longer than three beads: a travel, lifted over the print (up, across, down), so the nozzle
+        ///   never drags over beads of this layer or the top of the layer below;
+        /// - climbing onto the next layer: its bead lies on the layer below and grows from nothing to
+        ///   the full height (half a bead on average, as on a ramp), not a full bead over its length;
+        /// - lying on the top of the layer below and ending where a bead grows from nothing (a ramp
+        ///   that starts there): there is no room for a bead, so it does not extrude.
+        /// </summary>
+        internal static void ShapeLink(Toolpath tp, int k, double w, double h, Vector3d n)
+        {
+            if (k <= 0 || k >= tp.Count) return;
+            Point3d a = tp.Points[k - 1], b = tp.Points[k];
+            double link = a.DistanceTo(b);
+            if (link > 3 * w) { LiftTravel(tp, k, h, n); return; }
+            if (link < 0.25 * w || tp.Flows[k] <= 0) return;
+            double rise = (b - a) * n;
+            if (rise > 0.5 * h)
+            {
+                double hb = tp.Heights[k];
+                if (k + 1 < tp.Count && tp.Points[k + 1].DistanceTo(b) > 0.2)
+                {
+                    tp.Heights[k] = 0;
+                    // a point a hair further on brings the full height back for the moves after it
+                    Vector3d dir = tp.Points[k + 1] - b; dir.Unitize();
+                    Insert(tp, k + 1, b + dir * 0.05, tp.Normals[k], hb, tp.Widths[k], tp.Flows[k + 1], tp.Roles[k + 1], tp.Layers[k + 1]);
+                }
+                else tp.Heights[k] = 0.5 * hb;
+            }
+            else if (Math.Abs(rise) < 0.25 * h && tp.Heights[k] < 0.25 * h && tp.Heights[k - 1] > 0.5 * h)
+            {
+                tp.Flows[k] = 0;
+                tp.Roles[k] = PathRole.Travel;
+            }
+        }
+
+        /// <summary>Point k is reached by a travel: lift over the print first, move across, then down onto it.</summary>
+        internal static void LiftTravel(Toolpath tp, int k, double h, Vector3d n)
+        {
+            double lift = Math.Max(2 * h, 3.0);
+            Point3d a = tp.Points[k - 1], b = tp.Points[k];
+            tp.Flows[k] = 0;
+            tp.Roles[k] = PathRole.Travel;
+            // up above the point it leaves, across above the point it goes to (both travel)
+            Insert(tp, k, b + n * lift, tp.Normals[k], tp.Heights[k], tp.Widths[k], 0, PathRole.Travel, tp.Layers[k]);
+            Insert(tp, k, a + n * lift, tp.Normals[k - 1], tp.Heights[k], tp.Widths[k], 0, PathRole.Travel, tp.Layers[k]);
+        }
+
+        /// <summary>Inserts a point into the path at index k (all per-point lists).</summary>
+        internal static void Insert(Toolpath tp, int k, Point3d p, Vector3d normal, double height, double width, double flow, PathRole role, int layer)
+        {
+            tp.Points.Insert(k, p); tp.Normals.Insert(k, normal); tp.Heights.Insert(k, height);
+            tp.Widths.Insert(k, width); tp.Flows.Insert(k, flow); tp.Roles.Insert(k, role); tp.Layers.Insert(k, layer);
         }
 
         /// <summary>The path from index 'from' on (with the point before it, where its first move starts).</summary>

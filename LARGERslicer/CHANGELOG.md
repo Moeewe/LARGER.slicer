@@ -5,6 +5,30 @@ All notable changes to LARGERslicer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-11-24
+
+Version 2.0.1: prints without double material at seams and links, travel lifted over the print, and two components for people who want the print, not the wiring.
+
+### Added: Control Panel and Result (Grasshopper 1)
+For people who want the print, not the wiring: two components without wires that sit beside a definition.
+- **Control Panel** shows the settings of every component in its group, sorted as the definition runs: the main ones (bead, layer height, speed, nozzle, layers, walls, bottom, mode, skirt and brim, cell, printer; plate, cutters and milling for the Zünd), every setting under "Advanced". A value goes into the input it belongs to, as if typed there (with undo); the components then show "settings in the Control Panel" instead of their own rows, and their inputs stay free for wires. It also shows the sliders, value lists and toggles of the group, so it works for definitions with other plug-ins too. Outside any group it covers the whole canvas, group by group in their order, each group a heading that opens and closes. Delete it and the components show their rows again.
+- **Result** reads its group: the verdict of the checks (Path Check with double material, the robot's reach and collisions), layers, path length, print time and material, the Save buttons of the components (G-code, KRL, DXR, PLT) and the simulation slider with Play.
+- Quick Start places one of each for every example; the examples and the SETUP definitions have them at their left.
+- A row on any component whose input has a wire is no longer drawn (the wire decides).
+- The Slice Options component of 2.0.0 no longer docks beside Slice and is out of the toolbar (files with it still open): the Control Panel replaces it.
+
+### Fixed: beads that take room (seams, links, layer changes)
+A bead is not a line: it is a bead width wide and a layer height high. An audit of all Quick Start paths with that room found double material at seams and links; these are fixed:
+- **Walls on layers with a bottom or infill** no longer run one bead past their own start before turning into the fill. They leave a gap of one bead (or Seam Gap) right beside the fill: the step into or out of the fill is short and square, and the skirt of the first layer comes into the wall's start as on a layer without fill. Seam Gap now works on these layers too.
+- **Further walls of a layer** are reached by a square step of one bead spacing (no diagonal through both beads) and end one bead before their own start.
+- **Links onto the next layer** grow from nothing to the full height (their bead lies on the layer below); a link along the top of the layer below into a ramp that grows from nothing does not extrude. Before, both printed a full bead.
+- **Travel moves are lifted over the print** (up, across, down): moves longer than three beads inside the part, the travel from the skirt to a start further in, and the way back from the inner brim. Before they ran at print height across the beads.
+- The first flat lap of a spiral is a wall (rounded and checked as one), not a bottom fill.
+- Zigzag fill keeps its lines at least 0.9 bead spacing apart on small regions (before down to about 0.67).
+- The link from the skirt and the exit keep a whole bead clear of the first and last layer (before half a bead).
+- **Path Check** now looks at the room of the beads: "Double material" (a bead laid where a bead already is, with width and height, in cm3, with the places in the Crossings output) and "TRAVEL THROUGH THE PRINT" (a move without extrusion lower than the top of a bead printed before).
+- Measured with the same rule on Quick Start "Input geometry and slicer": 1.9 -> 1.5 cm3 extra material; with three bottom layers 4.0 -> 2.4 cm3, with three bottom layers and two walls 9.5 -> 3.1 cm3. What is left is mostly the edge of zigzag fill on slanted outlines (the turn connectors are straight chords) and parts thinner than two beads.
+
 ## [2.0.0] - 2026-11-24
 
 Version 2.0: so much is new since 1.3.1 that this is a new major version. Everything the lab prints and mills now runs on LARGER.slicer's own components (robot, cell, machines, checks, CNC) instead of the old mix with the Robots and Pufferfish plug-ins and native clusters. 1.3.1 stays available as the previous version.

@@ -325,7 +325,17 @@ body{margin:0}
   <div class="lhead"><span class="no num">03</span><h2>Was sich geändert hat</h2><p class="lead">Kurz und auf Deutsch. Die vollständige Liste steht im <a href="https://github.com/Moeewe/LARGER.slicer/blob/main/LARGERslicer/CHANGELOG.md">Changelog</a> (Englisch).</p></div>
 
   <article class="rel now">
-    <div><div class="v num">2.0.0</div><div class="d">24.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><div class="v num">2.0.1</div><div class="d">24.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><h3>Steuerpult, Ergebnis und Bahnen ohne doppeltes Material</h3><ul>
+      <li><b>Steuerpult:</b> alle wichtigen Einstellungen einer Definition an einer Stelle, ohne Drähte, nach Arbeitsschritt sortiert, auch Regler und Wertelisten. Die Komponenten werden schlank, Experten arbeiten wie bisher an den Eingängen.</li>
+      <li><b>Ergebnis:</b> Prüfung, Lagen, Druckzeit, Material, Speichern und Simulation in einem Feld.</li>
+      <li><b>Bahnen:</b> Eine Raupe hat Breite und Höhe. Wände auf Lagen mit Boden oder Infill lassen am Seam eine Lücke statt doppelt zu drucken, Übergänge auf die nächste Lage wachsen von 0 auf die volle Höhe, Leerfahrten heben über den Druck.</li>
+      <li><b>Path Check</b> meldet doppeltes Material (in cm³) und Leerfahrten durch den Druck.</li>
+    </ul></div>
+  </article>
+
+  <article class="rel">
+    <div><div class="v num">2.0.0</div><div class="d">24.11.2026</div><span class="chip ok">Release</span></div>
     <div><h3>Simulation, die mitdruckt, Bahnen, die sich verzahnen, und die Zünd</h3><ul>
       <li><b>Robot Simulation zeigt den Druck:</b> Gedrucktes erscheint dick und farbig, Skirt und Brim grün, der Rest der Bahn blass. Die Info sagt, wo der Roboter ist: Anfahrt, Skirt und Brim, Lage n von m, Abfahrt.</li>
       <li><b>Slice Options:</b> Wer Slice platziert, bekommt links ein kleines Feld mit Winkel, Lagenart, Werkzeugachse und Start-/Endlagen, schon verdrahtet. Ohne das Feld arbeitet Slice wie bisher mit seinen Eingängen.</li>
