@@ -1508,7 +1508,7 @@ namespace LARGERslicer.Toolpaths
             var clusters = Clusters(tp, s, travelEnd, minRadius, ribRadius);
             if (clusters.Count == 0) return tp.Duplicate();
             clusters = SplitBent(tp, s, travelEnd, travelStart, clusters);
-            corners = clusters.Count(c => c.Kind == 0);
+            corners = clusters.Count(c => c.Kind == 0 && !c.Sharp);
 
             var before = LayerLengths(tp);
             List<Point3d> crossedBefore = null;
@@ -1575,6 +1575,7 @@ namespace LARGERslicer.Toolpaths
             public List<int> Corners = new List<int>();        // point indices
             public List<double> Turns = new List<double>();    // signed turn at each corner (kind 1: the angle)
             public bool Sharp;           // left as it is
+            public bool Tip;             // the path turns right back on itself there (always sharp, never reported)
             public bool Piece;           // a piece of a longer chain of corners (SplitBent)
             public Point3d[] Curve;      // the arc of the last RoundOnce, at the height of the path
         }
@@ -1641,8 +1642,16 @@ namespace LARGERslicer.Toolpaths
                 bool layerStep = tp.Layers[i - 1] != tp.Layers[i + 1];
                 double turn = inPlane && Vector3d.CrossProduct(ap, bp) * nz < 0 ? -angle : angle;
 
+                // the path turns right back on itself (a rib or a cell wall printed out and back): an arc
+                // there would cut the stub away, so the tip stays sharp and is never part of another arc
+                if (inPlane && angle > 2.8)
+                {
+                    var tip = new Cluster { First = s[i], Last = s[i], Radius = radius, Thin = thin, Kind = kind, LayerStep = layerStep, Sharp = true, Tip = true };
+                    tip.Corners.Add(i); tip.Turns.Add(turn); clusters.Add(tip);
+                    continue;
+                }
                 var c = clusters.Count > 0 ? clusters[clusters.Count - 1] : null;
-                if (c != null && c.Kind == kind && s[i] - c.Last <= JoinLength(tp, thin, radius) && travelEnd[i] <= c.Last)
+                if (c != null && !c.Sharp && c.Kind == kind && s[i] - c.Last <= JoinLength(tp, thin, radius) && travelEnd[i] <= c.Last)
                 {
                     c.Last = s[i];
                     c.Radius = Math.Min(c.Radius, radius);
@@ -1660,8 +1669,7 @@ namespace LARGERslicer.Toolpaths
         /// smaller than the radius, the short lines of a narrow fill). One arc over all of it would cut
         /// the shape away. Such a chain is taken apart where its one arc leaves the path: a long chain
         /// by more than a quarter bead, a short one on a wall by nearly a whole bead (a ring as small as
-        /// the radius; the turns of a bridge stay one arc), in the infill, where a few corners of a small
-        /// cell are often one arc, by more than two beads. The pieces turn
+        /// the radius; the turns of a bridge stay one arc), in the infill as well. The pieces turn
         /// at most as a U-turn does, are no longer than two corners may be apart, and a turn to the other
         /// side starts a new piece.
         /// </summary>
@@ -1675,7 +1683,9 @@ namespace LARGERslicer.Toolpaths
                 double join = JoinLength(tp, c.Thin, c.Radius);
                 if (c.Corners.Count < 2 || (c.Last - c.First <= join + 1e-9 && c.Turns.Sum(t => Math.Abs(t)) <= uTurn)) { result.Add(c); continue; }
                 var curve = Fit(tp, s, travelEnd, travelStart, clusters, k, out double sA, out double sB, out Vector3d axis, out _);
-                double allowed = (c.Last - c.First > 3.5 * join ? 0.25 : c.Thin ? 2.0 : 0.9) * tp.Settings.BeadWidth;
+                // in the infill no more than on a wall: an arc that leaves the path by two beads cuts away a cell wall or a
+                // cross piece (the grid under a top then prints as open channels)
+                double allowed = (c.Last - c.First > 3.5 * join ? 0.25 : 0.9) * tp.Settings.BeadWidth;
                 if (curve != null)
                 {
                     var line = Sampled(curve, 48).ToList();
@@ -1799,7 +1809,7 @@ namespace LARGERslicer.Toolpaths
                 var cl = clusters[c];
                 cl.Curve = null;
                 // only wall corners are counted: not fill turns, not slope changes, not the step to the next layer
-                bool counted = !cl.Thin && cl.Kind == 0 && !cl.LayerStep;
+                bool counted = !cl.Thin && cl.Kind == 0 && !cl.LayerStep && !cl.Tip;
                 if (cl.Sharp) { if (counted) tooSharp++; continue; }
                 Point3d[] curve = Fit(tp, s, travelEnd, travelStart, clusters, c, out double sA, out double sB, out Vector3d axis, out bool sharp);
                 // a piece of a long chain of small corners: never a longer way than the corners themselves

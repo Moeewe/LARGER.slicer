@@ -66,7 +66,6 @@ namespace LARGERslicer.Components.Slicer
                 {
                     _rows = new List<LARGERslicer.Components.OptionRow>();
                     try { CreateAutoInputs(null); } catch { }
-                    if (Async != null) _rows.Add(Async.Row());
                     // settings first (in the order of the inputs), then buttons, then settings of the component itself
                     _rows = _rows.OrderBy(r => r.Input < 0 ? 2 : r.Kind == LARGERslicer.Components.RowKind.Button ? 1 : 0).ThenBy(r => r.Input).ToList();
                 }
@@ -179,7 +178,8 @@ namespace LARGERslicer.Components.Slicer
         /// <summary>A count (walls, layers, loops): whole numbers only.</summary>
         protected void AddCount(GH_Document doc, int input, string name, int min, int max, int value)
         {
-            var picks = max - min <= 6 ? Enumerable.Range(min, max - min + 1).Select(v => (double)v).ToArray() : null;
+            // every small count can be picked (0, 1, 2, 3 ... as one bottom layer), then the largest
+            var picks = Enumerable.Range(min, Math.Min(max, min + 5) - min + 1).Select(v => (double)v).Concat(new[] { (double)max }).Distinct().ToArray();
             AddSlider(doc, input, name, min, max, value, 0, "", picks);
         }
 

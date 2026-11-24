@@ -132,6 +132,11 @@ namespace LARGERslicer.Components.Slicer
         private List<OptionRow> _rows;
         private string _signature;
         private readonly List<IGH_Component> _targets = new List<IGH_Component>();
+        private readonly List<IGH_Component> _candidates = new List<IGH_Component>(); // every component the panel could show
+        private readonly HashSet<Guid> _excluded = new HashSet<Guid>();                // the ones switched off in its menu
+
+        /// <summary>The components whose settings the panel shows now (they carry a bar in its colour).</summary>
+        internal IReadOnlyList<IGH_Component> Targets => _targets;
 
         public List<OptionRow> Rows
         {
@@ -154,6 +159,7 @@ namespace LARGERslicer.Components.Slicer
             var old = ControlRegistry.Release(InstanceGuid);
             _rows = new List<OptionRow>();
             _targets.Clear();
+            _candidates.Clear();
             bool many = Scope.GroupsOf(this, doc).Count == 0;
             // sliders, value lists and toggles of the definition (any plug-in, e.g. the IGAToolkit), except the
             // simulation slider, which the Result shows
@@ -188,13 +194,16 @@ namespace LARGERslicer.Components.Slicer
                 try { theirs = src.Rows; } catch { continue; }
                 var settings = theirs.Where(r => r.Input >= 0 && r.Input < c.Params.Input.Count && r.Kind != RowKind.Button && r.Kind != RowKind.Label).ToList();
                 if (settings.Count == 0) continue;
+                _candidates.Add(c);
+                if (_excluded.Contains(c.InstanceGuid)) continue; // switched off in the panel's menu: the component keeps its own rows
                 // all of them belong to the panel (the component shows a note), only the important ones unless Advanced
                 ControlRegistry.Set(InstanceGuid, c, settings.Select(r => r.Input));
                 _targets.Add(c);
                 string[] keep;
                 // a component without a list of main settings shows its settings under Advanced only
                 if (!Essential.TryGetValue(c.Name, out keep)) keep = new string[0];
-                var shown = settings.Where(r => (_advanced || keep.Contains(r.Label)) && c.Params.Input[r.Input].SourceCount == 0).ToList();
+                // a wired input is shown too, with the value the wire brings, and cannot be changed here
+                var shown = settings.Where(r => _advanced || keep.Contains(r.Label)).ToList();
                 if (shown.Count == 0) continue;
                 var into = bucket(c);
                 into.Add(new OptionRow { Kind = RowKind.Label, Label = c.NickName != c.Name && !string.IsNullOrEmpty(c.NickName) ? c.Name + " (" + c.NickName + ")" : c.Name, Caption = !many });
@@ -276,6 +285,7 @@ namespace LARGERslicer.Components.Slicer
             {
                 Kind = r.Kind, Label = r.Label, Input = -1, Items = r.Items, Presets = r.Presets, Decimals = r.Decimals, Unit = r.Unit,
                 Min = r.Min, Max = r.Max, Step = r.Step, Default = r.Default, ZeroText = r.ZeroText, On = r.On, Off = r.Off, External = true,
+                Wired = () => p.SourceCount > 0,
             };
             if (r.Kind == RowKind.Toggle)
             {
@@ -296,6 +306,37 @@ namespace LARGERslicer.Components.Slicer
 
         public override void CreateAttributes() { m_attributes = new PanelAttributes(this, "Control Panel", 250f); }
 
+        /// <summary>The menu says which components the panel works on; each can be switched off (it then keeps its own rows).</summary>
+        protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu)
+        {
+            Menu_AppendSeparator(menu);
+            var head = new System.Windows.Forms.ToolStripLabel("Settings shown here (click to switch off):") { ForeColor = Color.DimGray };
+            menu.Items.Add(head);
+            if (_candidates.Count == 0) Menu_AppendItem(menu, "(no LARGER component with settings in this group)", null, false);
+            foreach (var c in _candidates.ToList())
+            {
+                var cc = c;
+                string label = c.Name + (c.NickName != c.Name && !string.IsNullOrEmpty(c.NickName) ? " (" + c.NickName + ")" : "");
+                string g = Scope.GroupsOf(this, OnPingDocument()).Count == 0 ? Scope.GroupName(c, OnPingDocument()) : "";
+                Menu_AppendItem(menu, label + (g.Length > 0 ? "  -  " + g : ""), (s, e) =>
+                {
+                    RecordUndoEvent("Control Panel: " + cc.Name);
+                    if (!_excluded.Remove(cc.InstanceGuid)) _excluded.Add(cc.InstanceGuid);
+                    _rows = null; _signature = null; Attributes?.ExpireLayout(); cc.Attributes?.ExpireLayout();
+                    Grasshopper.Instances.RedrawCanvas();
+                }, true, !_excluded.Contains(cc.InstanceGuid));
+            }
+            Menu_AppendItem(menu, "Show every component again", (s, e) => { RecordUndoEvent("Control Panel"); _excluded.Clear(); _rows = null; _signature = null; Attributes?.ExpireLayout(); Grasshopper.Instances.RedrawCanvas(); }, _excluded.Count > 0);
+        }
+
+        // Names in full on the canvas: what "Bead W" or "Lh" mean is otherwise hard to guess
+        private static bool _fullNames;
+        public override void AddedToDocument(GH_Document document)
+        {
+            base.AddedToDocument(document);
+            if (!_fullNames) { _fullNames = true; try { if (!Grasshopper.CentralSettings.CanvasFullNames) { Grasshopper.CentralSettings.CanvasFullNames = true; Grasshopper.Instances.RedrawCanvas(); } } catch { } }
+        }
+
         public override void RemovedFromDocument(GH_Document document)
         {
             foreach (var g in ControlRegistry.Release(InstanceGuid)) (document?.FindObject(g, true) as IGH_Component)?.Attributes?.ExpireLayout();
@@ -305,12 +346,14 @@ namespace LARGERslicer.Components.Slicer
         public override bool Write(GH_IO.Serialization.GH_IWriter writer)
         {
             writer.SetBoolean("LARGER_Advanced", _advanced);
+            if (_excluded.Count > 0) writer.SetString("LARGER_Excluded", string.Join("\n", _excluded));
             if (_open != null) writer.SetString("LARGER_Open", string.Join("\n", _open));
             return base.Write(writer);
         }
         public override bool Read(GH_IO.Serialization.GH_IReader reader)
         {
             bool a = false; if (reader.TryGetBoolean("LARGER_Advanced", ref a)) _advanced = a;
+            string ex = null; if (reader.TryGetString("LARGER_Excluded", ref ex)) { _excluded.Clear(); foreach (var t in ex.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)) if (Guid.TryParse(t, out var g)) _excluded.Add(g); }
             string open = null; if (reader.TryGetString("LARGER_Open", ref open)) _open = new HashSet<string>(open.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries));
             _rows = null; _signature = null;
             return base.Read(reader);
@@ -497,15 +540,18 @@ namespace LARGERslicer.Components.Slicer
     /// <summary>A panel drawn as rows only (captions, lines, settings, buttons) with its name underneath.</summary>
     internal sealed class PanelAttributes : OptionAttributes
     {
-        private const float Footer = 15f, Line = 15f;
+        private const float Header = 18f, Line = 15f;
         private readonly string _title; private readonly float _width;
         public PanelAttributes(IGH_Component owner, string title, float width) : base(owner) { _title = title; _width = width; }
+
+        /// <summary>The Control Panel has its own colour (also on the components it shows); the Result is dark.</summary>
+        private Color Tint => Owner is ControlPanelComponent ? ControlRegistry.ColorOf(Owner.InstanceGuid) : Color.FromArgb(45, 45, 48);
 
         protected override void Layout()
         {
             var rows = Rows;
             _rects.Clear();
-            float x = Pivot.X, y = Pivot.Y + 5f;
+            float x = Pivot.X, y = Pivot.Y + Header + 5f;
             foreach (var r in rows)
             {
                 if (r.Kind == RowKind.Label)
@@ -519,23 +565,51 @@ namespace LARGERslicer.Components.Slicer
                 }
                 _rects.Add(new RectangleF(x + 5f, y, _width - 10f, RowHeight)); y += RowHeight + Gap;
             }
-            Bounds = new RectangleF(x, Pivot.Y, _width, y - Pivot.Y + Footer + 4f);
+            Bounds = new RectangleF(x, Pivot.Y, _width, y - Pivot.Y + 4f);
             m_innerBounds = Bounds;
+            // the panel grew over the Result below it (a component was added): the Result moves down
+            if (Owner is ControlPanelComponent)
+                foreach (var res in Owner.OnPingDocument()?.Objects.OfType<ResultComponent>() ?? Enumerable.Empty<ResultComponent>())
+                {
+                    var ra = res.Attributes; if (ra == null) continue;
+                    var rb = ra.Bounds;
+                    if (rb.Top > Bounds.Top && rb.Top < Bounds.Bottom + 8f && rb.Right > Bounds.Left && rb.Left < Bounds.Right)
+                    {
+                        ra.Pivot = new PointF(ra.Pivot.X, ra.Pivot.Y + (Bounds.Bottom + 10f - rb.Top));
+                        ra.ExpireLayout();
+                    }
+                }
         }
 
         private static string SafeLine(Func<string> f) { try { return f(); } catch { return ""; } }
 
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
         {
+            // selected: a line to every component the panel shows and a frame around it, in the panel's colour
+            if (channel == GH_CanvasChannel.Overlay && Selected && Owner is ControlPanelComponent cp0)
+            {
+                using (var pen = new Pen(Color.FromArgb(200, Tint), 2.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash })
+                using (var frame = new Pen(Color.FromArgb(230, Tint), 3f))
+                    foreach (var c in cp0.Targets)
+                    {
+                        var b = c.Attributes?.Bounds ?? RectangleF.Empty;
+                        if (b.IsEmpty) continue;
+                        b.Inflate(4f, 4f);
+                        graphics.DrawRectangle(frame, b.X, b.Y, b.Width, b.Height);
+                        graphics.DrawLine(pen, Bounds.Right, Bounds.Top + Header / 2f, b.Left, b.Top + 10f);
+                    }
+                return;
+            }
             if (channel != GH_CanvasChannel.Objects) return;
             // the group changed (a component added or wired): build the rows anew
             if ((Owner is ControlPanelComponent cp && cp.Stale()) || (Owner is ResultComponent rc && rc.Stale())) { ExpireLayout(); PerformLayout(); }
             using (var cap = GH_Capsule.CreateCapsule(Bounds, GH_Palette.Normal, 4, 0))
                 cap.Render(graphics, Selected, Owner.Locked, false);
-            var foot = new RectangleF(Bounds.X + 2f, Bounds.Bottom - Footer - 1f, Bounds.Width - 4f, Footer);
-            using (var b = new SolidBrush(Color.FromArgb(Owner.Locked ? 120 : 235, 45, 45, 48))) graphics.FillRectangle(b, foot);
+            // the title bar: drag the panel by it (or by any heading or line)
+            var head = new RectangleF(Bounds.X + 1.5f, Bounds.Y + 1.5f, Bounds.Width - 3f, Header);
+            using (var b = new SolidBrush(Color.FromArgb(Owner.Locked ? 120 : 245, Tint))) graphics.FillRectangle(b, head);
             using (var f = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-                graphics.DrawString(_title, GH_FontServer.Small, Brushes.White, foot, f);
+                graphics.DrawString(_title, GH_FontServer.StandardBold, Brushes.White, head, f);
             RenderRows(graphics);
         }
     }

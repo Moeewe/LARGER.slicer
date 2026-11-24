@@ -49,6 +49,7 @@ namespace LARGERslicer.Components
         public bool External;             // Get/Put (or Get/SetSetting) work on another component, which records the undo and solves
         public Func<string> TextOf;       // Label: the text to show now (null = Label); a Label row is a caption or a line of information
         public bool Caption;              // Label: a section heading (drawn bold, without a box)
+        public Func<bool> Wired;          // a row shown elsewhere (Control Panel): true while a wire feeds the input; the row then shows the value it gets and cannot be changed
 
         internal double StepSize => Step > 0 ? Step : Math.Pow(10, -Math.Max(0, Decimals));
         internal bool HasRange => !double.IsNaN(Min) && !double.IsNaN(Max) && Max > Min;
@@ -91,6 +92,18 @@ namespace LARGERslicer.Components
         }
 
         public static Guid? PanelOf(IGH_DocumentObject comp) => comp != null && _map.TryGetValue(comp.InstanceGuid, out var kv) ? kv.Key : (Guid?)null;
+
+        /// <summary>The components a panel shows now.</summary>
+        public static List<Guid> Of(Guid panel) => _map.Where(kv => kv.Value.Key == panel).Select(kv => kv.Key).ToList();
+
+        private static readonly Color[] Palette =
+        {
+            Color.FromArgb(32, 120, 200), Color.FromArgb(214, 112, 20), Color.FromArgb(40, 150, 90),
+            Color.FromArgb(170, 60, 160), Color.FromArgb(190, 50, 50), Color.FromArgb(20, 140, 150),
+        };
+
+        /// <summary>The colour of a panel: its header and the mark on every component it shows, so one sees what belongs to it.</summary>
+        public static Color ColorOf(Guid panel) => Palette[(int)((uint)panel.GetHashCode() % (uint)Palette.Length)];
     }
 
     /// <summary>Draws the rows of an IOptionRows component under it and answers clicks and drags on them.</summary>
@@ -145,7 +158,7 @@ namespace LARGERslicer.Components
                 _rects.Add(new RectangleF(b.X + 4f, y, b.Width - 8f, RowHeight));
                 y += RowHeight + Gap;
             }
-            if (byPanel) { _panelNote = new RectangleF(b.X + 4f, y, b.Width - 8f, 14f); y += 14f + Gap; }
+            if (byPanel) { _panelNote = new RectangleF(b.X + 2f, y, b.Width - 4f, 4f); y += 4f + Gap; }
             Bounds = new RectangleF(b.X, b.Y, b.Width, y - b.Y + (y > b.Bottom + 2f ? 2f : 0f));
         }
 
@@ -162,10 +175,11 @@ namespace LARGERslicer.Components
             base.Render(canvas, graphics, channel);
             if (channel != GH_CanvasChannel.Objects) return;
             RenderRows(graphics);
-            if (!_panelNote.IsEmpty)
-                using (var f = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-                using (var br = new SolidBrush(Color.FromArgb(Owner.Locked ? 90 : 170, 20, 40, 90)))
-                    graphics.DrawString("settings in the Control Panel", GH_FontServer.Small, br, _panelNote, f);
+            // set in a Control Panel: a bar in the colour of that panel (no text)
+            var panel = ControlRegistry.PanelOf(Owner);
+            if (!_panelNote.IsEmpty && panel.HasValue)
+                using (var br = new SolidBrush(Color.FromArgb(Owner.Locked ? 90 : 230, ControlRegistry.ColorOf(panel.Value))))
+                    graphics.FillRectangle(br, _panelNote);
         }
 
         /// <summary>Draws the rows into their rectangles.</summary>
@@ -221,6 +235,19 @@ namespace LARGERslicer.Components
         }
 
         private static string SafeText(Func<string> f) { try { return f() ?? ""; } catch { return ""; } }
+        private static bool SafeBool(Func<bool> f) { try { return f(); } catch { return false; } }
+        private static bool Locked(OptionRow r) => r.Wired != null && SafeBool(r.Wired);
+
+        /// <summary>The value of a row as text (for a row whose value comes from a wire).</summary>
+        private string Value(OptionRow r, IGH_Param p)
+        {
+            switch (r.Kind)
+            {
+                case RowKind.Choice: int v = IntOf(r, p); return r.Items != null && v >= 0 && v < r.Items.Length ? Short(r.Items[v]) : v.ToString(CultureInfo.InvariantCulture);
+                case RowKind.Toggle: bool on = r.GetSetting != null ? r.GetSetting() : GetBool(p); return on ? "on" : "off";
+                default: return WithUnit(r, NumOf(r, p));
+            }
+        }
 
         /// <summary>The row shows an item up to its explanation ("Square to the layer (robot)" -> "Square to the layer"); the menu shows it whole.</summary>
         private static string Short(string item)
@@ -247,6 +274,7 @@ namespace LARGERslicer.Components
             active = false; connected = false;
             IGH_Param p = Param(r);
             if (p != null && p.SourceCount > 0) { connected = true; return r.Label + ": connected"; }
+            if (r.Wired != null && SafeBool(r.Wired)) { connected = true; return r.Label + ": " + Value(r, p) + "  (wire)"; }
             switch (r.Kind)
             {
                 case RowKind.Choice:
@@ -348,7 +376,8 @@ namespace LARGERslicer.Components
 
         private int RowAt(PointF canvasPoint)
         {
-            for (int i = 0; i < Rows.Count && i < _rects.Count; i++) if (!_rects[i].IsEmpty && _rects[i].Contains(canvasPoint)) return i;
+            // a label (heading, line of information) is not a control: there the component can be dragged
+            for (int i = 0; i < Rows.Count && i < _rects.Count; i++) if (!_rects[i].IsEmpty && Rows[i].Kind != RowKind.Label && _rects[i].Contains(canvasPoint)) return i;
             return -1;
         }
 
@@ -361,6 +390,7 @@ namespace LARGERslicer.Components
                 {
                     var r = Rows[i];
                     var p = Param(r);
+                    if (Locked(r)) return GH_ObjectResponse.Handled; // the wire decides
                     if (r.Kind == RowKind.Number && (p == null || p.SourceCount == 0) && !Owner.Locked)
                     {
                         // the arrow: quick picks; elsewhere: drag to change it, or click to type
@@ -474,7 +504,7 @@ namespace LARGERslicer.Components
         {
             var comp = (GH_Component)Owner;
             IGH_Param p = Param(r);
-            if (p != null && p.SourceCount > 0) return; // a wire decides
+            if ((p != null && p.SourceCount > 0) || Locked(r)) return; // a wire decides
             switch (r.Kind)
             {
                 case RowKind.Choice:
@@ -526,7 +556,14 @@ namespace LARGERslicer.Components
         }
 
         /// <summary>The value an input holds now (its own data), for rows shown on another component.</summary>
-        internal static double ValueOf(IGH_Param p) => p is Param_Boolean ? (GetBool(p) ? 1 : 0) : GetNumber(p);
+        internal static double ValueOf(IGH_Param p)
+        {
+            // with a wire: the value it brings (the one typed in before no longer counts)
+            if (p != null && p.SourceCount > 0)
+                return p is Param_Boolean ? (GetBool(p, true) ? 1 : 0)
+                     : p.VolatileDataCount > 0 && GH_Convert.ToDouble(p.VolatileData.AllData(true).First(), out double x, GH_Conversion.Both) ? x : 0;
+            return p is Param_Boolean ? (GetBool(p) ? 1 : 0) : GetNumber(p);
+        }
 
         // Save rows (by input) pressed while the component waits for a background calculation above it
         private readonly HashSet<int> _waiting = new HashSet<int>();
