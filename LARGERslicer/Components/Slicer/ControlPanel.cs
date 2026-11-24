@@ -49,7 +49,7 @@ namespace LARGERslicer.Components.Slicer
             // start of the group's name, as "01. PART", else top to bottom), then left to right within each
             if (groups.Count > 0) list = list.OrderBy(c => c.Attributes?.Pivot.X ?? 0).ThenBy(c => c.Attributes?.Pivot.Y ?? 0).ToList();
             else list = Order(list.Cast<IGH_DocumentObject>().ToList(), doc).Cast<IGH_Component>().ToList();
-            signature = (groups.Count > 0 ? string.Join(",", groups.Select(g => g.ObjectIDs.Count)) : "doc" + doc.ObjectCount) + "|" + list.Count + "|" + Plain(owner, doc).Count
+            signature = (groups.Count > 0 ? string.Join(",", groups.Select(g => g.ObjectIDs.Count)) : "doc" + doc.ObjectCount + "g" + doc.Objects.OfType<GH_Group>().Sum(g => g.ObjectIDs.Count)) + "|" + list.Count + "|" + Plain(owner, doc).Count
                         + "|" + string.Join(",", list.Select(c => c.InstanceGuid.ToString().Substring(0, 6) + c.Params.Input.Count(p => p.SourceCount > 0)));
             return list;
         }
@@ -106,13 +106,20 @@ namespace LARGERslicer.Components.Slicer
         private static readonly Dictionary<string, string[]> Essential = new Dictionary<string, string[]>
         {
             { "Machine Profile", new[] { "Machine" } },
-            { "Print Settings", new[] { "Nozzle", "Bead Width", "Layer Height", "Speed" } },
+            { "Print Settings", new[] { "Nozzle", "Bead Width", "Layer Height", "Speed", "Flow" } },
             { "Easy Slicer", new[] { "Bead Width", "Layer Height", "Speed", "Walls", "Bottom Layers", "Spiral", "Brim" } },
             { "Slice", new[] { "Angle", "Guide Mode" } },
             { "Walls", new[] { "Walls" } },
             { "Bottom Fill", new[] { "Bottom Layers", "Pattern" } },
             { "Infill Wave", new[] { "Shape", "Wavelength" } },
-            { "Continuous Path", new[] { "Mode" } },
+            { "Continuous Path", new[] { "Mode", "Seam Gap", "Min Layer Time" } },
+            { "Machine Settings", new[] { "Bed Temperature", "Nozzle Temperature", "Cooling Fan" } },
+            { "Machine", new[] { "Machine", "Extrusion Factor", "Bed Temperature", "Nozzle Temperature" } },
+            { "Material Factor", new[] { "Target Width", "Current Factor" } },
+            { "Weave", new[] { "Pattern", "Amplitude", "Wavelength", "Faces" } },
+            { "Surface Pattern", new[] { "Pattern", "Amplitude", "Pitch", "Side" } },
+            { "Shape Field", new[] { "Mode", "Min Factor", "Max Factor" } },
+            { "Reshape Path", new[] { "Variant", "Material (0 = as the field)", "Min Layer", "Max Layer" } },
             { "Start and End", new[] { "Skirt Loops", "Brim" } },
             { "Path Check", new string[0] },
             { "Round Corners", new string[0] },
@@ -159,6 +166,7 @@ namespace LARGERslicer.Components.Slicer
             var old = ControlRegistry.Release(InstanceGuid);
             _rows = new List<OptionRow>();
             _targets.Clear();
+            _sliderRows.Clear();
             _candidates.Clear();
             bool many = Scope.GroupsOf(this, doc).Count == 0;
             // sliders, value lists and toggles of the definition (any plug-in, e.g. the IGAToolkit), except the
@@ -166,6 +174,8 @@ namespace LARGERslicer.Components.Slicer
             var plain = Scope.Plain(this, doc).Where(o => !((IGH_Param)o).Recipients.Any(r => { var top = r.Attributes?.GetTopLevel?.DocObject; return top != null && (top.Name == "Robot Simulation" || top.Name == "Printer Simulation"); })).ToList();
             // everything in the order of the definition: over the whole canvas group by group (see Scope.Order)
             var items = new List<IGH_DocumentObject>(members); items.AddRange(plain);
+            // over the whole canvas: a group with a Control Panel of its own belongs to that panel
+            if (many) items = items.Where(o => !Scope.GroupsOf(o, doc).Any(g => g.ObjectIDs.Any(id => id != InstanceGuid && doc.FindObject(id, true) is ControlPanelComponent))).ToList();
             if (many) items = Scope.Order(items, doc);
             // over the whole canvas every group is a heading that opens and closes; a short panel opens all of them
             var byGroup = new List<KeyValuePair<string, List<OptionRow>>>();
@@ -177,9 +187,17 @@ namespace LARGERslicer.Components.Slicer
                 if (kv.Value == null) { kv = new KeyValuePair<string, List<OptionRow>>(g, new List<OptionRow>()); byGroup.Add(kv); }
                 return kv.Value;
             };
+            // sliders that feed a setting of a component the panel shows (made for an optimiser): shown in that
+            // setting's place, not among the other inputs
+            var inPlace = new HashSet<IGH_DocumentObject>(plain.Where(pl => ((IGH_Param)pl).Recipients.Any(rc =>
+            {
+                var top = rc.Attributes?.GetTopLevel?.DocObject as IGH_Component;
+                return top != null && members.Contains(top) && !_excluded.Contains(top.InstanceGuid) && top is IOptionRows;
+            })));
             bool plainCaption = false;
             foreach (var o in items)
             {
+                if (o is IGH_Param && inPlace.Contains(o)) continue;
                 if (o is IGH_Param)
                 {
                     var pr = PlainRow(o); if (pr == null) continue;
@@ -189,10 +207,16 @@ namespace LARGERslicer.Components.Slicer
                     continue;
                 }
                 var c = (IGH_Component)o;
-                if (!(c is IOptionRows src)) continue;
-                List<OptionRow> theirs;
-                try { theirs = src.Rows; } catch { continue; }
+                // LARGER components and any component that brings rows of its own (another plug-in)
+                if (!(c is IOptionRows) && c.GetType().Assembly != typeof(ControlPanelComponent).Assembly) continue;
+                List<OptionRow> theirs = new List<OptionRow>();
+                if (c is IOptionRows src) { try { theirs = src.Rows; } catch { continue; } }
                 var settings = theirs.Where(r => r.Input >= 0 && r.Input < c.Params.Input.Count && r.Kind != RowKind.Button && r.Kind != RowKind.Label).ToList();
+                // every other single number, whole number or true/false typed into an input gets a plain row too
+                // (temperatures, Min Layer Time, Flow ...): what a user changes in practice is all in the panel
+                var have = new HashSet<int>(settings.Select(r => r.Input));
+                for (int ii = 0; ii < c.Params.Input.Count; ii++)
+                    if (!have.Contains(ii)) { var gr = GenericRow(c, ii); if (gr != null) settings.Add(gr); }
                 if (settings.Count == 0) continue;
                 _candidates.Add(c);
                 if (_excluded.Contains(c.InstanceGuid)) continue; // switched off in the panel's menu: the component keeps its own rows
@@ -207,7 +231,17 @@ namespace LARGERslicer.Components.Slicer
                 if (shown.Count == 0) continue;
                 var into = bucket(c);
                 into.Add(new OptionRow { Kind = RowKind.Label, Label = c.NickName != c.Name && !string.IsNullOrEmpty(c.NickName) ? c.Name + " (" + c.NickName + ")" : c.Name, Caption = !many });
-                foreach (var r in shown) into.Add(Proxy(c, r));
+                foreach (var r in shown)
+                {
+                    // fed by a slider (one made for an optimiser): the slider's row in its place
+                    var pin = c.Params.Input[r.Input];
+                    var feeder = pin.Sources.FirstOrDefault(feed => inPlace.Contains(feed));
+                    if (feeder != null) { var fr = PlainRow(feeder); if (fr != null) into.Add(fr); continue; }
+                    var row = Proxy(c, r);
+                    if (row.MakeSlider != null) { var cc = c; int ix = r.Input; var rr = r; row.MakeSlider = () => SliderFor(cc, ix, rr, FreeSpot(), Scope.GroupsOf(this, OnPingDocument())); }
+                    into.Add(row);
+                    if (row.MakeSlider != null) _sliderRows.Add(row);
+                }
             }
             byGroup = byGroup.Where(kv => kv.Value.Count > 0).ToList();
             if (!many) foreach (var kv in byGroup) _rows.AddRange(kv.Value);
@@ -238,6 +272,21 @@ namespace LARGERslicer.Components.Slicer
             // components no longer shown, and the ones shown now, draw their rows anew
             foreach (var g in old) (doc?.FindObject(g, true) as IGH_Component)?.Attributes?.ExpireLayout();
             foreach (var c in _targets) c.Attributes?.ExpireLayout();
+        }
+
+        /// <summary>A row for an input without a row of its own: one number, whole number or true/false typed into it.</summary>
+        private static OptionRow GenericRow(IGH_Component c, int i)
+        {
+            var p = c.Params.Input[i];
+            if (p.SourceCount > 0) return null;
+            if (p is Param_Boolean pb && pb.PersistentData.DataCount == 1)
+                return new OptionRow { Kind = RowKind.Toggle, Label = p.Name, Input = i };
+            double v;
+            if (p is Param_Integer pi && pi.PersistentData.DataCount == 1) v = pi.PersistentData.get_FirstItem(true).Value;
+            else if (p is Param_Number pn && pn.PersistentData.DataCount == 1) v = pn.PersistentData.get_FirstItem(true).Value;
+            else return null;
+            int dec = p is Param_Integer ? 0 : Math.Abs(v) >= 100 ? 0 : Math.Abs(v) >= 10 ? 1 : Math.Abs(v) >= 1 || v == 0 ? 2 : 3;
+            return new OptionRow { Kind = RowKind.Number, Label = p.Name, Input = i, Decimals = dec, Default = v };
         }
 
         /// <summary>A row for a slider, value list or toggle on the canvas; the object keeps its value.</summary>
@@ -277,6 +326,54 @@ namespace LARGERslicer.Components.Slicer
         }
 
         /// <summary>A row on the panel that reads and writes the input of the component it belongs to.</summary>
+        private readonly List<OptionRow> _sliderRows = new List<OptionRow>();
+
+        /// <summary>
+        /// A real number slider in the input, left of its component and in its groups: an optimiser such as
+        /// Galapagos changes sliders (its genes), not values in a panel. The panel then shows the slider; one undo.
+        /// </summary>
+        /// <summary>A free place for a new slider: in a column right of the panel, below the ones already there.</summary>
+        private PointF FreeSpot()
+        {
+            var doc = OnPingDocument(); var b = Attributes.Bounds;
+            float x = b.Right + 25f, y = b.Top;
+            for (int k = 0; k < 200; k++, y += 24f)
+            {
+                var spot = new RectangleF(x - 4f, y - 2f, 230f, 24f);
+                if (doc == null || !doc.Objects.Any(o => !(o is GH_Group) && !(o is Grasshopper.Kernel.Special.GH_Scribble) && !(o is Grasshopper.Kernel.Special.GH_Markup) && o.Attributes != null && o.Attributes.Bounds.IntersectsWith(spot))) break;
+            }
+            return new PointF(x, y);
+        }
+
+        internal static void SliderFor(IGH_Component c, int input, OptionRow r, PointF? at = null, List<GH_Group> groups = null)
+        {
+            var doc = c.OnPingDocument();
+            var p = c.Params.Input[input];
+            if (doc == null || p.SourceCount > 0) return;
+            bool choice = r.Kind == RowKind.Choice, whole = choice || p is Param_Integer;
+            double v = OptionAttributes.ValueOf(p);
+            double min = choice ? 0 : r.HasRange ? r.Min : Math.Min(0, v);
+            double max = choice ? r.Items.Length - 1 : r.HasRange ? r.Max : Math.Max(1, 2 * Math.Abs(v));
+            var sl = new GH_NumberSlider();
+            sl.CreateAttributes();
+            sl.NickName = r.Label;
+            sl.Slider.Type = whole ? Grasshopper.GUI.Base.GH_SliderAccuracy.Integer : Grasshopper.GUI.Base.GH_SliderAccuracy.Float;
+            sl.Slider.DecimalPlaces = whole ? 0 : Math.Max(0, Math.Min(6, r.Decimals));
+            sl.Slider.Minimum = (decimal)min; sl.Slider.Maximum = (decimal)max;
+            sl.SetSliderValue((decimal)Math.Max(min, Math.Min(max, v)));
+            var pb = p.Attributes.Bounds;
+            sl.Attributes.Pivot = at ?? new PointF(pb.Left - 230f, pb.Top + pb.Height / 2f - 10f);
+            var undo = new Grasshopper.Kernel.Undo.GH_UndoRecord("Slider for " + r.Label);
+            undo.AddAction(new Grasshopper.Kernel.Undo.Actions.GH_WireAction(p));
+            doc.AddObject(sl, false);
+            undo.AddAction(new Grasshopper.Kernel.Undo.Actions.GH_AddObjectAction(sl));
+            // in the panel's groups (a panel over the whole canvas has none): there the panel finds it
+            foreach (var g in groups ?? Scope.GroupsOf(c, doc)) g.AddObject(sl.InstanceGuid);
+            p.AddSource(sl);
+            doc.UndoServer.PushUndoRecord(undo);
+            sl.ExpireSolution(true);
+        }
+
         private static OptionRow Proxy(IGH_Component c, OptionRow r)
         {
             var p = c.Params.Input[r.Input];
@@ -286,6 +383,7 @@ namespace LARGERslicer.Components.Slicer
                 Kind = r.Kind, Label = r.Label, Input = -1, Items = r.Items, Presets = r.Presets, Decimals = r.Decimals, Unit = r.Unit,
                 Min = r.Min, Max = r.Max, Step = r.Step, Default = r.Default, ZeroText = r.ZeroText, On = r.On, Off = r.Off, External = true,
                 Wired = () => p.SourceCount > 0,
+                MakeSlider = r.Kind == RowKind.Number || (r.Kind == RowKind.Choice && r.Items != null && r.Items.Length > 1) ? () => SliderFor(c, input, r) : (Action)null,
             };
             if (r.Kind == RowKind.Toggle)
             {
@@ -326,6 +424,10 @@ namespace LARGERslicer.Components.Slicer
                     Grasshopper.Instances.RedrawCanvas();
                 }, true, !_excluded.Contains(cc.InstanceGuid));
             }
+            var make = _sliderRows.Where(r => r.MakeSlider != null && !(r.Wired?.Invoke() ?? false)).ToList();
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Sliders for an optimiser (Galapagos): the " + make.Count + " setting(s) shown", (s, e) => { foreach (var r in make) r.MakeSlider(); }, make.Count > 0)
+                .ToolTipText = "Puts a number slider into every setting the panel shows now (Advanced: every setting). Galapagos can then change them as genes. Delete a slider and the panel sets the value again.";
             Menu_AppendItem(menu, "Show every component again", (s, e) => { RecordUndoEvent("Control Panel"); _excluded.Clear(); _rows = null; _signature = null; Attributes?.ExpireLayout(); Grasshopper.Instances.RedrawCanvas(); }, _excluded.Count > 0);
         }
 
@@ -544,8 +646,8 @@ namespace LARGERslicer.Components.Slicer
         private readonly string _title; private readonly float _width;
         public PanelAttributes(IGH_Component owner, string title, float width) : base(owner) { _title = title; _width = width; }
 
-        /// <summary>The Control Panel has its own colour (also on the components it shows); the Result is dark.</summary>
-        private Color Tint => Owner is ControlPanelComponent ? ControlRegistry.ColorOf(Owner.InstanceGuid) : Color.FromArgb(45, 45, 48);
+        /// <summary>Selected, the panel shows what it sets in Grasshopper's own colour for selected objects.</summary>
+        private static Color Mark => Color.FromArgb(70, 150, 40);
 
         protected override void Layout()
         {
@@ -583,21 +685,36 @@ namespace LARGERslicer.Components.Slicer
 
         private static string SafeLine(Func<string> f) { try { return f(); } catch { return ""; } }
 
+        /// <summary>The height of the first input the panel sets on a component (else the middle of the component).</summary>
+        private float FirstMarked(IGH_Component c, RectangleF b)
+        {
+            foreach (var p in c.Params.Input)
+                if (p.SourceCount == 0 && c is IOptionRows src && src.Rows.Any(r => r.Input == c.Params.IndexOfInputParam(p.Name) && ControlRegistry.Controls(c, r)))
+                    return p.Attributes.Bounds.Y + p.Attributes.Bounds.Height / 2f;
+            return b.Y + b.Height / 2f;
+        }
+
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
         {
-            // selected: a line to every component the panel shows and a frame around it, in the panel's colour
+            // selected: a thin dashed line to every component the panel sets and a frame around it
             if (channel == GH_CanvasChannel.Overlay && Selected && Owner is ControlPanelComponent cp0)
             {
-                using (var pen = new Pen(Color.FromArgb(200, Tint), 2.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash })
-                using (var frame = new Pen(Color.FromArgb(230, Tint), 3f))
+                var old = graphics.SmoothingMode; graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var pen = new Pen(Color.FromArgb(170, Mark), 1.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash })
+                using (var frame = new Pen(Color.FromArgb(200, Mark), 2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash })
                     foreach (var c in cp0.Targets)
                     {
                         var b = c.Attributes?.Bounds ?? RectangleF.Empty;
                         if (b.IsEmpty) continue;
-                        b.Inflate(4f, 4f);
-                        graphics.DrawRectangle(frame, b.X, b.Y, b.Width, b.Height);
-                        graphics.DrawLine(pen, Bounds.Right, Bounds.Top + Header / 2f, b.Left, b.Top + 10f);
+                        b.Inflate(5f, 5f);
+                        using (var path = GH_CapsuleRenderEngine.CreateRoundedRectangle(b, 6f)) graphics.DrawPath(frame, path);
+                        // a curve as Grasshopper draws its wires: out of the panel to the right, into the
+                        // component from the left, at the height of the first input the panel sets
+                        var to = new PointF(b.Left, FirstMarked(c, b));
+                        var from = new PointF(Bounds.Right, Bounds.Top + Header / 2f);
+                        using (var wire = GH_Painter.ConnectionPath(from, to, GH_WireDirection.right, GH_WireDirection.left)) graphics.DrawPath(pen, wire);
                     }
+                graphics.SmoothingMode = old;
                 return;
             }
             if (channel != GH_CanvasChannel.Objects) return;
@@ -605,11 +722,12 @@ namespace LARGERslicer.Components.Slicer
             if ((Owner is ControlPanelComponent cp && cp.Stale()) || (Owner is ResultComponent rc && rc.Stale())) { ExpireLayout(); PerformLayout(); }
             using (var cap = GH_Capsule.CreateCapsule(Bounds, GH_Palette.Normal, 4, 0))
                 cap.Render(graphics, Selected, Owner.Locked, false);
-            // the title bar: drag the panel by it (or by any heading or line)
-            var head = new RectangleF(Bounds.X + 1.5f, Bounds.Y + 1.5f, Bounds.Width - 3f, Header);
-            using (var b = new SolidBrush(Color.FromArgb(Owner.Locked ? 120 : 245, Tint))) graphics.FillRectangle(b, head);
-            using (var f = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-                graphics.DrawString(_title, GH_FontServer.StandardBold, Brushes.White, head, f);
+            // the name in a dark capsule, as Grasshopper writes the message of a component (drag the panel
+            // by it, or by any heading or line). A nickname of its own is shown with it.
+            string name = Owner.NickName != Owner.Name && !string.IsNullOrEmpty(Owner.NickName) ? _title + "  \u2022  " + Owner.NickName : _title;
+            var head = new RectangleF(Bounds.X + 4f, Bounds.Y + 3f, Bounds.Width - 8f, Header - 2f);
+            using (var cap = GH_Capsule.CreateTextCapsule(head, head, GH_Palette.Black, name, GH_FontServer.StandardBold, 3, 0))
+                cap.Render(graphics, Selected, Owner.Locked, false);
             RenderRows(graphics);
         }
     }
