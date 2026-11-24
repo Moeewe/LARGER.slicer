@@ -5,6 +5,35 @@ All notable changes to LARGERslicer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-11-24
+
+Version 2.0.1: prints without double material at seams and links, travel lifted over the print, and two components for people who want the print, not the wiring.
+
+### Added: Control Panel and Result (Grasshopper 1)
+For people who want the print, not the wiring: two components without wires that sit beside a definition.
+- **Control Panel** shows the settings of every component in its group, sorted as the definition runs: the main ones (bead, layer height, speed, nozzle, layers, walls, bottom, mode, skirt and brim, cell, printer; plate, cutters and milling for the Zünd), every setting under "Advanced". A value goes into the input it belongs to, as if typed there (with undo); the components then carry a bar in the panel's colour instead of their own rows, and their inputs stay free for wires. A wired input shows in the panel with the value the wire brings, greyed out: the wire decides. Selected, the panel frames every component it shows and draws a line to it; its right-click menu lists them and switches each one off or on. Drag it by its coloured title bar or any heading. It switches Grasshopper to full names (Display > Draw Full Names), so "Bead W" reads "Bead Width". It also shows the sliders, value lists and toggles of the group, so it works for definitions with other plug-ins too. Outside any group it covers the whole canvas, group by group in their order, each group a heading that opens and closes. Delete it and the components show their rows again.
+- **Result** reads its group: the verdict of the checks (Path Check with double material, the robot's reach and collisions), layers, path length, print time and material, the Save buttons of the components (G-code, KRL, DXR, PLT) and the simulation slider with Play.
+- Quick Start places one of each for every example; the examples and the SETUP definitions have them at their left.
+- A row on any component whose input has a wire is no longer drawn (the wire decides).
+- The "Background: on" row is no longer drawn on the components (cut short it read "on"); calculating in the background stays in the right-click menu.
+- Count rows (Bottom Layers, Top Layers, Walls ...) offer 0, 1, 2, 3, 4, 5 and the largest value as quick picks; 1 was missing before.
+- The Slice Options component of 2.0.0 no longer docks beside Slice and is out of the toolbar (files with it still open): the Control Panel replaces it.
+
+### Fixed: beads that take room (seams, links, layer changes)
+A bead is not a line: it is a bead width wide and a layer height high. An audit of all Quick Start paths with that room found double material at seams and links; these are fixed:
+- **Walls on layers with a bottom or infill** no longer run one bead past their own start before turning into the fill. They leave a gap of one bead (or Seam Gap) right beside the fill: the step into or out of the fill is short and square, and the skirt of the first layer comes into the wall's start as on a layer without fill. Seam Gap now works on these layers too.
+- **Further walls of a layer** are reached by a square step of one bead spacing (no diagonal through both beads) and end one bead before their own start.
+- **Links onto the next layer** grow from nothing to the full height (their bead lies on the layer below); a link along the top of the layer below into a ramp that grows from nothing does not extrude. Before, both printed a full bead.
+- **Travel moves are lifted over the print** (up, across, down): moves longer than three beads inside the part, the travel from the skirt to a start further in, and the way back from the inner brim. Before they ran at print height across the beads.
+- The first flat lap of a spiral is a wall (rounded and checked as one), not a bottom fill.
+- Zigzag fill keeps its lines at least 0.9 bead spacing apart on small regions (before down to about 0.67).
+- The link from the skirt and the exit keep a whole bead clear of the first and last layer (before half a bead).
+- **Bead room while the path is made:** Start and End (and the Easy Slicer) check every move with width and height of its bead. A move that would lay its bead partly into beads printed before gets only the material its room takes (no material where almost all is taken); the component says how many moves and how much. Path Check counts with these flows. Measured: the curved wall examples 0.0 cm3 double material, a box with three bottom layers and two walls none.
+- **A top needs something to lie on:** the Easy Slicer with Top Layers and no infill adds a grid four bead widths apart below the top (over an empty box the liquid plastic falls in), and the first top layer runs across the infill as it is printed: both directions are tried, the one with the shorter free span wins.
+- **Round Corners no longer cuts infill away:** an arc in the infill may leave the path by about one bead, as on a wall (before two), and a tip where the path turns right back on itself stays sharp. Before, the cross pieces of a grid were rounded away and it printed as open channels.
+- **Path Check** now looks at the room of the beads: "Double material" (a bead laid where a bead already is, with width and height, in cm3, with the places in the Crossings output) and "TRAVEL THROUGH THE PRINT" (a move without extrusion lower than the top of a bead printed before).
+- Measured with the same rule on Quick Start "Input geometry and slicer": 1.9 -> 1.5 cm3 extra material; with three bottom layers 4.0 -> 2.4 cm3, with three bottom layers and two walls 9.5 -> 3.1 cm3. What is left is mostly the edge of zigzag fill on slanted outlines (the turn connectors are straight chords) and parts thinner than two beads.
+
 ## [2.0.0] - 2026-11-24
 
 Version 2.0: so much is new since 1.3.1 that this is a new major version. Everything the lab prints and mills now runs on LARGER.slicer's own components (robot, cell, machines, checks, CNC) instead of the old mix with the Robots and Pufferfish plug-ins and native clusters. 1.3.1 stays available as the previous version.

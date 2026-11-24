@@ -67,13 +67,65 @@ namespace LARGERslicer.Toolpaths
             }
         }
 
+        private sealed class Filled
+        {
+            public List<SliceLayer> Layers; public double Size; public double Hang;
+            public List<string> Steps = new List<string>(), Notes = new List<string>(), Log = new List<string>();
+        }
+
+        /// <summary>
+        /// The longest stretch of the solid fill printed in layer 'top' that lies more than half a bead beside
+        /// everything printed in the layer below (walls, infill, fill): where it hangs in the air (mm).
+        /// </summary>
+        internal static double FreeSpan(Toolpath tp, int top, double w)
+        {
+            var cells = new Dictionary<long, List<Line>>();
+            Func<double, double, long> key = (x, y) => ((long)Math.Floor(x / w) * 73856093L) ^ ((long)Math.Floor(y / w) * 19349663L);
+            for (int i = 1; i < tp.Count; i++)
+            {
+                if (tp.Layers[i] != top - 1 || tp.Flows[i] <= 0 || tp.Roles[i] == PathRole.Travel) continue;
+                var ln = new Line(new Point3d(tp.Points[i - 1].X, tp.Points[i - 1].Y, 0), new Point3d(tp.Points[i].X, tp.Points[i].Y, 0));
+                int k = Math.Max(1, (int)Math.Ceiling(ln.Length / w));
+                var seen = new HashSet<long>();
+                for (int j = 0; j <= k; j++) { var q = ln.PointAt(j / (double)k); long kk = key(q.X, q.Y); if (seen.Add(kk)) { if (!cells.TryGetValue(kk, out var l)) cells[kk] = l = new List<Line>(); l.Add(ln); } }
+            }
+            double longest = 0, run = 0;
+            for (int i = 1; i < tp.Count; i++)
+            {
+                if (tp.Layers[i] != top || tp.Roles[i] != PathRole.Bottom || tp.Flows[i] <= 0) { run = 0; continue; }
+                Point3d a = tp.Points[i - 1], b = tp.Points[i];
+                double L = a.DistanceTo(b); int k = Math.Max(1, (int)Math.Ceiling(L / (0.5 * w)));
+                for (int j = 1; j <= k; j++)
+                {
+                    var q = a + (b - a) * (j / (double)k); var q0 = new Point3d(q.X, q.Y, 0);
+                    bool held = false;
+                    for (int dx = -1; dx <= 1 && !held; dx++)
+                        for (int dy = -1; dy <= 1 && !held; dy++)
+                            if (cells.TryGetValue(key(q.X + dx * w, q.Y + dy * w), out var l))
+                                foreach (var ln in l) if (ln.ClosestPoint(q0, true).DistanceTo(q0) <= 0.5 * w) { held = true; break; }
+                    if (held) run = 0; else { run += L / k; if (run > longest) longest = run; }
+                }
+            }
+            return longest;
+        }
+
         public static Result Run(List<SliceLayer> layers, PrintSettings st, Options o)
         {
             var r = new Result();
             var log = new List<string>();
             if (layers == null || layers.Count == 0) { r.Notes.Add("No layers: the part is lower than one layer, or it does not stand on the slicing plane."); return r; }
             int infill = Math.Max(0, Math.Min(Infills.Length - 1, o.Infill));
+            // a closed top over an empty box: the liquid plastic would fall in. The top needs something to
+            // lie on, so a grid is added below it as support
+            bool topSupport = o.TopLayers > 0 && infill == 0;
+            if (topSupport)
+            {
+                infill = 6; // a grid: it carries the top lines whichever way they run (ribs only cross one direction)
+                r.Notes.Add("Top Layers need something to lie on: over an empty box the liquid plastic falls in. A grid of four bead widths was added as support below the top. Choose another infill, or set Top Layers to 0 for an open box.");
+            }
             double size = o.InfillSize > 0 ? o.InfillSize : DefaultSize(st, infill);
+            // a grid that carries a top: close enough that the first top layer bridges from wall to wall of a cell
+            if (topSupport && o.InfillSize <= 0) size = 4 * st.BeadWidth;
             r.Steps.Add(Inv.F($"{layers.Count} layers of {st.LayerHeight:0.##} mm{(layers.Count > 0 && Math.Abs(layers[0].Height - st.LayerHeight) > 1e-6 ? Inv.F($" (the first {layers[0].Height:0.##} mm)") : "")}, bead {st.BeadWidth:0.##} mm"));
 
             layers = FillEngine.Walls(layers, st, Math.Max(1, o.Walls), Math.Max(0, Math.Min(2, o.WallPosition)), log);
@@ -82,47 +134,73 @@ namespace LARGERslicer.Toolpaths
 
             int bottomPattern = Math.Max(0, Math.Min(2, o.BottomPattern));
             bool solid = infill == 8;
-            if (solid)
+            var walled = layers;
+            // bottom, top and infill with the solid lines in one direction (turned 90 degrees every layer)
+            Func<double, Filled> fill = angle =>
             {
-                // a solid part: every layer filled with rings along the wall, joined into one line whose
-                // start and end lie at the wall (zigzag would need a move without extrusion between layers)
-                layers = FillEngine.Bottom(layers, st, layers.Count, 2, 0, log, out int filledAll);
-                r.Steps.Add(Inv.F($"solid, rings along the wall: {filledAll} layer(s) filled"));
-            }
-            else if (o.BottomLayers > 0 || o.TopLayers > 0)
-            {
-                layers = FillEngine.Bottom(layers, st, Math.Max(0, o.BottomLayers), bottomPattern, 0, log, out int filled, Math.Max(0, o.TopLayers));
-                r.Steps.Add(Inv.F($"{filled} solid layer(s) ({(o.BottomLayers > 0 ? o.BottomLayers + " bottom" : "")}{(o.BottomLayers > 0 && o.TopLayers > 0 ? ", " : "")}{(o.TopLayers > 0 ? o.TopLayers + " top" : "")}, {new[] { "auto", "zigzag", "contour" }[bottomPattern]})"));
-            }
-            int n = 0;
-            if (infill > 0 && !solid)
-            {
-                // With an automatic size: if nothing fits, try smaller ones before giving up.
-                var before = layers; double asked = size;
-                for (int attempt = 0; attempt < 4; attempt++)
+                var f = new Filled { Layers = walled, Size = size };
+                if (solid)
                 {
-                    var tryLog = new List<string>();
-                    switch (infill)
-                    {
-                        case 1: layers = FillEngine.Ribs(before, st, new List<object>(), size, 0, true, 0.15, tryLog, out n); break;
-                        case 2: case 3: case 4: layers = FillEngine.Waves(before, st, infill - 2, size, 0, null, tryLog, out n); break;
-                        case 5: layers = FillEngine.Cells(before, st, 0, size, 0, null, tryLog, out n); break;
-                        case 6: layers = FillEngine.Cells(before, st, 1, size, 0, null, tryLog, out n); break;
-                        default: layers = FillEngine.Chambers(before, st, 0, size, 0.6 * size, tryLog, out n); break;
-                    }
-                    if (n > 0 || o.InfillSize > 0 || size / 1.5 < 6 * st.BeadWidth) { log.AddRange(tryLog); break; }
-                    size /= 1.5;
+                    // a solid part: every layer filled with rings along the wall, joined into one line whose
+                    // start and end lie at the wall (zigzag would need a move without extrusion between layers)
+                    f.Layers = FillEngine.Bottom(f.Layers, st, f.Layers.Count, 2, 0, f.Log, out int filledAll);
+                    f.Steps.Add(Inv.F($"solid, rings along the wall: {filledAll} layer(s) filled"));
+                    return f;
                 }
-                r.Steps.Add(Inv.F($"{Infills[infill]}, size {size:0} mm: up to {n} per layer"));
-                if (n == 0) r.Notes.Add(Inv.F($"No {Infills[infill].ToLowerInvariant()} fits into this part") + (o.InfillSize > 0 ? Inv.F($" at size {size:0} mm. Try a smaller Infill Size.") : ": it is too small for this pattern with a " + Inv.F($"{st.BeadWidth:0.#} mm bead. Printed with walls only.")));
-                else if (size < asked - 1e-9) r.Notes.Add(Inv.F($"The infill size was reduced from {asked:0} to {size:0} mm so the pattern fits the part."));
-            }
-            r.Layers = layers;
-
+                if (o.BottomLayers > 0 || o.TopLayers > 0)
+                {
+                    f.Layers = FillEngine.Bottom(f.Layers, st, Math.Max(0, o.BottomLayers), bottomPattern, angle, f.Log, out int filled, Math.Max(0, o.TopLayers));
+                    f.Steps.Add(Inv.F($"{filled} solid layer(s) ({(o.BottomLayers > 0 ? o.BottomLayers + " bottom" : "")}{(o.BottomLayers > 0 && o.TopLayers > 0 ? ", " : "")}{(o.TopLayers > 0 ? o.TopLayers + " top" : "")}, {new[] { "auto", "zigzag", "contour" }[bottomPattern]})"));
+                }
+                if (infill > 0)
+                {
+                    // With an automatic size: if nothing fits, try smaller ones before giving up.
+                    var before = f.Layers; double sz = size; int n = 0;
+                    for (int attempt = 0; attempt < 4; attempt++)
+                    {
+                        var tryLog = new List<string>();
+                        switch (infill)
+                        {
+                            case 1: f.Layers = FillEngine.Ribs(before, st, new List<object>(), sz, 0, true, 0.15, tryLog, out n); break;
+                            case 2: case 3: case 4: f.Layers = FillEngine.Waves(before, st, infill - 2, sz, 0, null, tryLog, out n); break;
+                            case 5: f.Layers = FillEngine.Cells(before, st, 0, sz, 0, null, tryLog, out n); break;
+                            case 6: f.Layers = FillEngine.Cells(before, st, 1, sz, 0, null, tryLog, out n); break;
+                            default: f.Layers = FillEngine.Chambers(before, st, 0, sz, 0.6 * sz, tryLog, out n); break;
+                        }
+                        if (n > 0 || o.InfillSize > 0 || sz / 1.5 < 6 * st.BeadWidth) { f.Log.AddRange(tryLog); break; }
+                        sz /= 1.5;
+                    }
+                    f.Size = sz;
+                    f.Steps.Add(Inv.F($"{Infills[infill]}, size {sz:0} mm: up to {n} per layer"));
+                    if (n == 0) f.Notes.Add(Inv.F($"No {Infills[infill].ToLowerInvariant()} fits into this part") + (o.InfillSize > 0 ? Inv.F($" at size {sz:0} mm. Try a smaller Infill Size.") : ": it is too small for this pattern with a " + Inv.F($"{st.BeadWidth:0.#} mm bead. Printed with walls only.")));
+                    else if (sz < size - 1e-9) f.Notes.Add(Inv.F($"The infill size was reduced from {size:0} to {sz:0} mm so the pattern fits the part."));
+                }
+                return f;
+            };
+            var best = fill(0);
             bool spiral = o.Spiral && infill == 0 && o.BottomLayers == 0 && o.TopLayers == 0;
             if (o.Spiral && !spiral) r.Notes.Add("Spiral only works for walls without infill and bottom; printed as flat layers instead.");
             if (o.MinLayerTime > 0 || o.MaxVolumeRate > 0) { st = st.Duplicate(); st.MinLayerTime = Math.Max(0, o.MinLayerTime); st.MaxVolumeRate = Math.Max(0, o.MaxVolumeRate); }
-            var tp = PathEngine.Build(layers, st, spiral ? ContinuousMode.Spiral : ContinuousMode.Layered, null, 0, false, log, o.Bridge, (SeamMode)Math.Max(0, Math.Min(2, o.Seam)));
+            var stp = st;
+            Func<Filled, Toolpath> build = f => PathEngine.Build(f.Layers, stp, spiral ? ContinuousMode.Spiral : ContinuousMode.Layered, null, 0, false, f.Log, o.Bridge, (SeamMode)Math.Max(0, Math.Min(2, o.Seam)));
+            var tp = build(best);
+            // a top over infill: its first layer must cross the infill below as it is printed, not run along it
+            // (a line between two infill walls hangs in the air). Both directions are tried; less free span wins.
+            if (!solid && infill > 0 && o.TopLayers > 0 && best.Layers.Count > o.TopLayers && tp.Count > 1)
+            {
+                int first = best.Layers.OrderBy(l => l.Index).ElementAt(best.Layers.Count - o.TopLayers).Index;
+                double hang = FreeSpan(tp, first, st.BeadWidth);
+                if (hang > 1.5 * st.BeadWidth)
+                {
+                    var turned = fill(90);
+                    var tp2 = build(turned);
+                    double hang2 = tp2.Count > 1 ? FreeSpan(tp2, first, st.BeadWidth) : double.MaxValue;
+                    if (hang2 < hang - 1e-6) { best = turned; tp = tp2; hang = hang2; }
+                }
+            }
+            layers = best.Layers; size = best.Size;
+            r.Steps.AddRange(best.Steps); r.Notes.AddRange(best.Notes); log.AddRange(best.Log);
+            r.Layers = layers;
             if (tp.Count < 2) { r.Notes.Add("No printable contour was found."); r.Notes.AddRange(log); return r; }
             tp = PathEngine.Round(tp, st.EffectiveMinRadius, 0, out int corners, out _, log);
             tp = LeadEngine.StartEnd(tp, Math.Max(0, o.SkirtLoops), 0, Math.Max(0, o.BrimLoops), o.BrimSide, 10 * st.BeadWidth, 4 * st.BeadWidth, null, 0, log);

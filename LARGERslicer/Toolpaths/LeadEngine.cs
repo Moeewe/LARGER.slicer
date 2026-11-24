@@ -43,6 +43,12 @@ namespace LARGERslicer.Toolpaths
         {
             var done = StartEndOnly(tp, skirtLoops, skirtDistance, brimLoops, brimSide, exitLength, exitLift, exitCurve, exitFlow, log);
             done = Thin(done, Math.Max(0.5, 0.2 * tp.Settings.BeadWidth));
+            // a bead needs room: where a move would lay its bead into beads printed before (a seam that
+            // closes over its start, a link across a wall, a part thinner than two beads), it gets only
+            // the material its room takes
+            var fixedRoom = BeadRoom(done, 0, true);
+            if (fixedRoom.Thinned > 0)
+                log?.Add(Inv.F($"Note: Bead room: {fixedRoom.Thinned} move(s) lay their bead partly into beads printed before and got less material, {fixedRoom.Saved / 1000:0.0} cm3 in all, so nothing is laid twice."));
             return Approach(done, approachHeight);
         }
 
@@ -350,12 +356,12 @@ namespace LARGERslicer.Toolpaths
                     bool homeAdded = innerBrim.Count > 1 && innerBrim[innerBrim.Count - 1].DistanceTo(home) < 1e-6;
                     int ringEnd = homeAdded ? innerBrim.Count - 2 : innerBrim.Count - 1;
                     for (int k = 0; k <= ringEnd; k++) result.Add(innerBrim[k], tp.Normals[0], brimHeight, w, 1, PathRole.Skirt, tp.Layers[0]);
-                    Point3d next = homeAdded ? home : (i + 1 < tp.Count ? tp.Points[i + 1] : home);
-                    Vector3d back = next - innerBrim[ringEnd];
-                    if (back.Unitize())
+                    // back to the end of the first layer as a travel lifted over the beads it crosses: at
+                    // print height the nozzle would drag through the tops of brim and wall
+                    if (innerBrim[ringEnd].DistanceTo(home) > 1e-6)
                     {
-                        result.Add(innerBrim[ringEnd] + back * 0.05, tp.Normals[0], 0, w, 1, PathRole.Seam, tp.Layers[0]);
-                        if (homeAdded) result.Add(home, tp.Normals[0], 0, w, 1, PathRole.Seam, tp.Layers[0]);
+                        result.Add(home, tp.Normals[0], tp.Heights[lastOfFirst], w, 0, PathRole.Travel, tp.Layers[0]);
+                        PathEngine.LiftTravel(result, result.Count - 1, brimHeight > 0 ? brimHeight : st.LayerHeight, tp.Normals[0]);
                     }
                 }
             }
@@ -380,6 +386,8 @@ namespace LARGERslicer.Toolpaths
                         log?.Add("The part does not start on its outer wall: the move from the skirt to the start is a travel move.");
                 }
                 result.Heights[offset] = tp.Heights[0] > 0 ? tp.Heights[0] : st.LayerHeight;
+                // a travel across to the start goes over the first layer's beads and the skirt: lifted
+                if (!direct) PathEngine.LiftTravel(result, offset, result.Heights[offset], tp.Normals[0]);
             }
 
             // ---- exit
@@ -509,7 +517,8 @@ namespace LARGERslicer.Toolpaths
                     double u = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((q - sg.Item1) * ab) / l2));
                     Vector3d d = sg.Item1 + ab * u - q;
                     d -= axis * (d * axis); // sideways, in the plane of the layer
-                    if (d.Length < 0.5 * w) return false;
+                    // a whole bead clear: the bead (and the nozzle) is w wide, half of it either side
+                    if (d.Length < w) return false;
                 }
             }
             return true;
@@ -700,7 +709,7 @@ namespace LARGERslicer.Toolpaths
             return best <= 0.75 * w;
         }
 
-        /// <summary>True if the straight line from the skirt to the start of the part keeps half a bead clear of the first layer (up to one bead before the start) and is at most 30 bead widths long.</summary>
+        /// <summary>True if the straight line from the skirt to the start of the part keeps one bead spacing clear of the first layer (up to one bead before the start) and is at most 30 bead widths long.</summary>
         private static bool LinkClear(Point3d from, Toolpath tp, int lastOfFirst, double w)
         {
             Point3d to = tp.Points[0];
@@ -716,7 +725,8 @@ namespace LARGERslicer.Toolpaths
                     Point3d a = tp.Points[i - 1], b = tp.Points[i];
                     Vector3d ab = b - a; double l2 = ab.SquareLength;
                     double u = l2 < 1e-18 ? 0 : Math.Max(0, Math.Min(1, ((p - a) * ab) / l2));
-                    if ((a + ab * u).DistanceTo(p) < 0.5 * w) return false;
+                    // the link prints: it keeps one bead spacing from the first layer, as two walls do
+                    if ((a + ab * u).DistanceTo(p) < 0.85 * w) return false;
                 }
             }
             return true;
@@ -729,6 +739,7 @@ namespace LARGERslicer.Toolpaths
             public List<Point3d> Unsupported = new List<Point3d>();
             public List<double> Offsets = new List<double>(); // per path point: sideways distance to the layer below
             public List<Point3d> Crossings = new List<Point3d>(); // where the path crosses itself within a layer
+            public List<Point3d> DoubleAt = new List<Point3d>();  // where a bead is laid into a bead already printed, or a travel goes through one
             public List<double> LayerTimes = new List<double>();   // seconds per layer, in print order
             /// <summary>Print speed (mm/min) at which the shortest layer reaches Min Layer Time; 0 = not needed or not checked.</summary>
             public double SuggestedSpeed;
@@ -901,6 +912,22 @@ namespace LARGERslicer.Toolpaths
             {
                 r.Ok = false;
                 r.Report.Add(Inv.F($"CROSSES ITSELF: the path runs across its own bead at {r.Crossings.Count} place(s). The nozzle would plough through material it has just laid. See the Crossings output."));
+            }
+
+            // ---- a bead takes room: no two beads may fill the same room, and no travel may go through one
+            {
+                var room = BeadRoom(tp, firstPrint);
+                r.DoubleAt.AddRange(room.DoubleAt);
+                if (room.DoubleAt.Count == 0)
+                    r.Report.Add("No double material: no bead is laid where another bead of the print already is (width and height of the beads counted).");
+                else
+                    r.Report.Add(Inv.F($"Double material: at {room.DoubleAt.Count} place(s) a bead is laid where a bead already is, about {room.ExtraVolume / 1000:0.0} cm3 in all, e.g. layer {room.WorstLayer + 1} at ({room.Worst.X:0}, {room.Worst.Y:0}, {room.Worst.Z:0}). There it bulges or the nozzle pushes into its own bead: a seam that closes over its own start, a link across a wall, or a part thinner than two beads (the first layers of angled printing, the crown of a dome), where both sides of a wall overlap. The places are in the Crossings output."));
+                if (room.TravelHits.Count > 0)
+                {
+                    r.Ok = false;
+                    r.DoubleAt.AddRange(room.TravelHits);
+                    r.Report.Add(Inv.F($"TRAVEL THROUGH THE PRINT: at {room.TravelHits.Count} place(s) a move without extrusion goes lower than the top of a bead printed before, e.g. at ({room.TravelHits[0].X:0}, {room.TravelHits[0].Y:0}, {room.TravelHits[0].Z:0}). The nozzle would drag through the part: lift it over."));
+                }
             }
 
             // the longest stretch of path that lies more than the limit beside the layer below, in one piece
@@ -1160,6 +1187,132 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>Where a path in flat layers (no non-planar path) crosses itself within a layer.</summary>
+        internal class RoomResult
+        {
+            public List<Point3d> DoubleAt = new List<Point3d>();
+            public List<Point3d> TravelHits = new List<Point3d>();
+            public double ExtraVolume; // mm3, about
+            public Point3d Worst = Point3d.Unset; public int WorstLayer;
+            public int Thinned;         // Fix: moves that got less material
+            public double Saved;        // Fix: material not laid any more, mm3
+        }
+
+        private struct BeadSample { public Point3d P; public Vector3d A; public double S, W, H; public int Seg; public bool Print; }
+
+        /// <summary>
+        /// Every printed move as the room its bead fills: w wide across, from its top (the nozzle tip) down
+        /// by its height along the tool axis. A move laid into the room of beads printed earlier (more than a
+        /// quarter of the height and closer than 0.7 w sideways, not counting the same stretch of bead around a
+        /// corner) has less room than its bead needs: the material beyond that room is double material. Travel
+        /// moves whose tip is lower than the top of a bead they pass over are reported too. Neighbouring beads
+        /// one spacing apart and stacked layers do not count.
+        /// fix = true: every such move gets only as much material as its room takes (its flow is lowered by
+        /// that share; with less than a fifth left it prints nothing), so the path lays no double material.
+        /// Run again on a fixed path it changes nothing.
+        /// </summary>
+        internal static RoomResult BeadRoom(Toolpath tp, int firstPrint, bool fix = false)
+        {
+            var res = new RoomResult();
+            int n = tp.Count;
+            if (n < 3) return res;
+            double wMed = tp.Settings.BeadWidth > 0 ? tp.Settings.BeadWidth : 5;
+            double step = 0.4 * wMed;
+            var S = new List<BeadSample>();
+            var segLen = new double[n];
+            double arc = 0;
+            for (int i = Math.Max(1, firstPrint); i < n; i++)
+            {
+                Point3d a = tp.Points[i - 1], b = tp.Points[i];
+                double L = a.DistanceTo(b); segLen[i] = L;
+                bool print = tp.Flows[i] > 0 && tp.Roles[i] != PathRole.Travel;
+                double hh = 0.5 * (tp.Heights[i] + tp.Heights[i - 1]);
+                double ww = 0.5 * (tp.Widths[i] + tp.Widths[i - 1]); if (ww <= 0) ww = wMed;
+                Vector3d ax = tp.Normals[i]; if (!ax.Unitize()) ax = Vector3d.ZAxis;
+                int k = Math.Max(1, (int)Math.Ceiling(L / step));
+                for (int j = 1; j <= k; j++)
+                {
+                    double u = (j - 0.5) / k;
+                    S.Add(new BeadSample { P = a + (b - a) * u, A = ax, S = arc + L * u, W = ww, H = print ? hh : 0, Seg = i, Print = print });
+                }
+                arc += L;
+            }
+            double cs = wMed;
+            var grid = new Dictionary<long, List<int>>();
+            Func<Point3d, int, int, int, long> key = (q, dx, dy, dz) =>
+            {
+                long x = (long)Math.Floor(q.X / cs) + dx, y = (long)Math.Floor(q.Y / cs) + dy, z = (long)Math.Floor(q.Z / cs) + dz;
+                return (x * 73856093L) ^ (y * 19349663L) ^ (z * 83492791L);
+            };
+            for (int i = 0; i < S.Count; i++) { if (!S[i].Print) continue; long kk = key(S[i].P, 0, 0, 0); if (!grid.TryGetValue(kk, out var l)) grid[kk] = l = new List<int>(); l.Add(i); }
+            var seenDouble = new HashSet<long>(); var seenTravel = new HashSet<long>();
+            double worst = 0;
+            // the move being looked at: the room its samples lose to earlier beads, in mm3
+            int seg = -1; double lost = 0; Point3d where = Point3d.Unset;
+            Action close = () =>
+            {
+                if (seg < 0 || lost <= 0 || tp.Flows[seg] <= 0) return;
+                double w0 = 0.5 * (tp.Widths[seg] + tp.Widths[seg - 1]); if (w0 <= 0) w0 = wMed;
+                double h0 = 0.5 * (tp.Heights[seg] + tp.Heights[seg - 1]);
+                double room = PrintSettings.BeadArea(w0, h0) * segLen[seg];
+                if (room <= 1e-9) return;
+                double share = Math.Min(1, lost / room);          // of its room already filled
+                double laid = tp.Flows[seg] * room, fits = (1 - share) * room;
+                double extra = laid - fits;
+                if (extra <= 0.08 * room) return;                 // a little squeeze: the bead takes it
+                if (fix)
+                {
+                    double f = Math.Max(0, 1 - share);
+                    if (f < 0.2) f = 0;                           // almost all taken: no material here
+                    res.Saved += laid - f * room; res.Thinned++;
+                    tp.Flows[seg] = Math.Min(tp.Flows[seg], f);
+                    return;
+                }
+                res.ExtraVolume += extra;
+                long cell = key(where, 0, 0, 0) ^ (long)tp.Layers[seg] * 2654435761L;
+                if (seenDouble.Add(cell)) res.DoubleAt.Add(where);
+                if (extra > worst) { worst = extra; res.Worst = where; res.WorstLayer = tp.Layers[seg]; }
+            };
+            for (int i = 0; i < S.Count; i++)
+            {
+                var si = S[i];
+                if (si.Seg != seg) { close(); seg = si.Seg; lost = 0; where = si.P; }
+                double best = 0;
+                for (int dx = -1; dx <= 1; dx++)
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dz = -1; dz <= 1; dz++)
+                        {
+                            if (!grid.TryGetValue(key(si.P, dx, dy, dz), out var l)) continue;
+                            foreach (int j in l)
+                            {
+                                if (j >= i) break; // printed before i (the lists are in print order)
+                                var sj = S[j];
+                                if (si.S - sj.S < 2.5 * Math.Max(si.W, sj.W)) continue; // the same stretch of bead
+                                Vector3d d = si.P - sj.P; double along = d * si.A; Vector3d lat = d - si.A * along; double dl = lat.Length;
+                                if (si.Print)
+                                {
+                                    double fj = tp.Flows[sj.Seg];
+                                    if (fj <= 0 || dl >= 0.7 * 0.5 * (si.W + sj.W) || si.H <= 0 || sj.H <= 0) continue;
+                                    double topI = along, botI = along - si.H; // in the frame of bead j: its top at 0, bottom at -H
+                                    double ov = Math.Min(topI, 0) - Math.Max(botI, -sj.H);
+                                    if (ov <= 0.25 * Math.Min(si.H, sj.H)) continue;
+                                    // the room of this sample that bead j fills (a thinner bead j fills less); the
+                                    // most any one earlier bead takes, so two beads below do not count twice
+                                    double take = Math.Min(1, fj) * ov * step * si.W * (1 - dl / si.W);
+                                    if (take > best) { best = take; }
+                                }
+                                else if (dl < 0.45 * sj.W && along < -0.3 * sj.H && along > -3 * sj.H)
+                                {
+                                    long cell = key(si.P, 0, 0, 0);
+                                    if (seenTravel.Add(cell)) res.TravelHits.Add(si.P);
+                                }
+                            }
+                        }
+                if (best > 0) { if (lost <= 0) where = si.P; lost += best; }
+            }
+            close();
+            return res;
+        }
+
         internal static List<Point3d> FindCrossings(Toolpath tp)
         {
             var byLayer = new SortedDictionary<int, List<int>>();

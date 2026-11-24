@@ -21,7 +21,7 @@ namespace LARGERslicer.Components.Robot
         private List<LARGERslicer.Components.OptionRow> _rows;
         public List<LARGERslicer.Components.OptionRow> Rows
         {
-            get { if (_rows == null) { _rows = new List<LARGERslicer.Components.OptionRow>(); try { Options(_rows); } catch { } if (Async != null) _rows.Add(Async.Row()); } return _rows; }
+            get { if (_rows == null) { _rows = new List<LARGERslicer.Components.OptionRow>(); try { Options(_rows); } catch { } } return _rows; }
         }
 
         // ---- calculating in the background (see AsyncSolve)

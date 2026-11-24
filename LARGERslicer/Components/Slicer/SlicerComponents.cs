@@ -66,7 +66,6 @@ namespace LARGERslicer.Components.Slicer
                 {
                     _rows = new List<LARGERslicer.Components.OptionRow>();
                     try { CreateAutoInputs(null); } catch { }
-                    if (Async != null) _rows.Add(Async.Row());
                     // settings first (in the order of the inputs), then buttons, then settings of the component itself
                     _rows = _rows.OrderBy(r => r.Input < 0 ? 2 : r.Kind == LARGERslicer.Components.RowKind.Button ? 1 : 0).ThenBy(r => r.Input).ToList();
                 }
@@ -179,7 +178,8 @@ namespace LARGERslicer.Components.Slicer
         /// <summary>A count (walls, layers, loops): whole numbers only.</summary>
         protected void AddCount(GH_Document doc, int input, string name, int min, int max, int value)
         {
-            var picks = max - min <= 6 ? Enumerable.Range(min, max - min + 1).Select(v => (double)v).ToArray() : null;
+            // every small count can be picked (0, 1, 2, 3 ... as one bottom layer), then the largest
+            var picks = Enumerable.Range(min, Math.Min(max, min + 5) - min + 1).Select(v => (double)v).Concat(new[] { (double)max }).Distinct().ToArray();
             AddSlider(doc, input, name, min, max, value, 0, "", picks);
         }
 
@@ -271,10 +271,12 @@ namespace LARGERslicer.Components.Slicer
             var relays = new List<IGH_DocumentObject>();
             var sectionTops = new List<float>();
             var grouped = new List<Tuple<int, string, IGH_DocumentObject[]>>();
+            var groupObjects = new List<Tuple<int, string, Grasshopper.Kernel.Special.GH_Group>>();
             Action<string, System.Drawing.Color, IGH_DocumentObject[]> group = (title, colour, members) =>
             {
                 grouped.Add(Tuple.Create(sectionTops.Count, title, members));
                 var g = new Grasshopper.Kernel.Special.GH_Group { NickName = title, Colour = colour };
+                groupObjects.Add(Tuple.Create(sectionTops.Count, title, g));
                 g.CreateAttributes();
                 doc.AddObject(g, false);
                 foreach (var m in members) g.AddObject(m.InstanceGuid);
@@ -715,6 +717,35 @@ namespace LARGERslicer.Components.Slicer
             // show only the finished paths, the guides and the checks
             foreach (var h in hide) h.Hidden = true;
 
+            // every example gets a Control Panel on its left and a Result on its right, members of all of its
+            // groups: the panel shows the settings of the example, the Result its checks, numbers and files
+            // (the robot simulation and the part name, grouped at the very end, belong to example 01)
+            {
+                Func<Tuple<int, string, Grasshopper.Kernel.Special.GH_Group>, int> exampleOf = t =>
+                    t.Item2.StartsWith("ROBOT SIMULATION  -  move the slider") || t.Item2.StartsWith("PART NAME") ? 1 : t.Item1;
+                foreach (var ex in groupObjects.GroupBy(exampleOf).OrderBy(x => x.Key))
+                {
+                    var gs = ex.Select(t => t.Item3).ToList();
+                    var members = gs.SelectMany(g => g.ObjectIDs).Distinct().Select(id => doc.FindObject(id, true)).Where(o => o != null && !(o is Grasshopper.Kernel.Special.GH_Group)).ToList();
+                    if (members.Count == 0) continue;
+                    foreach (var m in members) { m.Attributes.ExpireLayout(); m.Attributes.PerformLayout(); }
+                    float minX = members.Min(o => o.Attributes.Bounds.Left), maxX = members.Max(o => o.Attributes.Bounds.Right);
+                    // the top of the example's main chain (the group with the most members)
+                    var main = gs.OrderByDescending(g => g.ObjectIDs.Count).First();
+                    float top = main.ObjectIDs.Select(id => doc.FindObject(id, true)).Where(o => o != null).Min(o => o.Attributes.Bounds.Top);
+                    var panel = new ControlPanelComponent();
+                    panel.CreateAttributes(); panel.Attributes.Pivot = new System.Drawing.PointF(minX - 290, top); doc.AddObject(panel, false);
+                    foreach (var g in gs) g.AddObject(panel.InstanceGuid);
+                    if (ex.Key >= 1)
+                    {
+                        var result = new ResultComponent();
+                        result.CreateAttributes(); result.Attributes.Pivot = new System.Drawing.PointF(maxX + 50, top); doc.AddObject(result, false);
+                        foreach (var g in gs) g.AddObject(result.InstanceGuid);
+                    }
+                    foreach (var g in gs) g.ExpireCaches();
+                }
+            }
+
             // examples 02 to 08 stay locked until they are wanted: only example 01 computes when Quick Start is placed
             if (!BuildAllUnlocked)
             {
@@ -1111,7 +1142,7 @@ namespace LARGERslicer.Components.Slicer
             p[4].Optional = true;
         }
 
-        protected override OptionsPanelComponent CreatePanel() => new SliceOptionsComponent();
+        // the settings of Slice are set in the Control Panel (or on Slice itself); nothing docks beside it any more
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
@@ -1944,7 +1975,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("Report", "R", "What was checked and what was found", GH_ParamAccess.list);
             p.AddPointParameter("Unsupported", "U", "Path points that clearly do not lie on the layer below (more than 1.5 x the allowed offset). Smaller overshoots are counted in the report and visible in Offset", GH_ParamAccess.list);
             p.AddNumberParameter("Offset", "Off", "Sideways offset to the layer below for every path point (mm). Use it to colour the path", GH_ParamAccess.list);
-            p.AddPointParameter("Crossings", "X", "Places where the path crosses itself within a layer. Must be empty", GH_ParamAccess.list);
+            p.AddPointParameter("Crossings", "X", "Places where the path crosses itself within a layer, a bead is laid where a bead already is (double material), or a travel goes through the print. Should be empty", GH_ParamAccess.list);
             p.AddNumberParameter("Layer Times", "Lt", "Time of every layer at the print speed (s), from the first layer up", GH_ParamAccess.list);
         }
 
@@ -1965,7 +1996,7 @@ namespace LARGERslicer.Components.Slicer
             da.SetDataList(1, r.Report);
             da.SetDataList(2, r.Unsupported);
             da.SetDataList(3, r.Offsets);
-            da.SetDataList(4, r.Crossings);
+            da.SetDataList(4, r.Crossings.Concat(r.DoubleAt));
             if (Params.Output.Count > 5) da.SetDataList(5, r.LayerTimes);
         }
     }
