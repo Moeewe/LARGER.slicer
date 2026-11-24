@@ -281,9 +281,9 @@ Alle genannten Marken gehören ihren jeweiligen Inhabern. LARGER.slicer ist ein 
 ## Download
 
 📥 **[LARGERslicer-SETUP.zip](https://github.com/Moeewe/LARGER.slicer/releases/latest/download/LARGERslicer-SETUP.zip)** – immer die neueste Version.
-Enthält die Grasshopper-Definition, den Installer für Windows und macOS und die KUKA-KR120-Roboterbibliothek.
+Enthält die Hausdefinition für Weber DXR25 und Ginger One und den Installer für Windows und macOS (er richtet auch Robots, Pufferfish und die KUKA-KR120-Roboterbibliothek ein, die nur die erste Fassung der Definition braucht).
 
-🧩 **Nur das Plugin:** die `.yak`-Datei für die eigene Rhino-Version aus dem [neuesten Release](https://github.com/Moeewe/LARGER.slicer/releases/latest) auf das Rhino-Fenster ziehen, oder im Rhino Package Manager (Befehl `PackageManager` bzw. `PaketManager`) nach **LARGERslicer** suchen (dort kann noch eine ältere Version stehen als im Release).
+🧩 **Am einfachsten: der Rhino-Paketmanager.** In Rhino `PackageManager` eingeben (deutsches Rhino: `PaketManager`), nach **LARGERslicer** suchen, installieren, Rhino neu starten. Geht unter Windows und macOS, mit Rhino 7, 8 und 9, ohne Warnung. Oder die `.yak`-Datei für die eigene Rhino-Version aus dem [neuesten Release](https://github.com/Moeewe/LARGER.slicer/releases/latest) auf das Rhino-Fenster ziehen.
 
 ## Schnellstart
 
@@ -294,7 +294,7 @@ Enthält die Grasshopper-Definition, den Installer für Windows und macOS und di
 
    | Windows | macOS |
    |---|---|
-   | Doppelklick auf `Install Windows.bat` | Rechtsklick auf `Install Mac.command` → **Öffnen** → **Öffnen** |
+   | Doppelklick auf `Install Windows.bat` (zeigt Windows *Der Computer wurde durch Windows geschützt*: **Weitere Informationen** → **Trotzdem ausführen**) | Doppelklick auf `LARGER.slicer Installer.pkg` (von Apple signiert und notarisiert) |
 
 3. Rhino starten, eine Datei in **Millimetern** anlegen, Grasshopper öffnen und `LARGERslicer Weber Robot and Ginger V2.gh` (Fassung 2 braucht nur LARGER.slicer; die erste Fassung mit Robots und Pufferfish liegt daneben) aus dem Ordner `SETUP` öffnen.
 
@@ -306,7 +306,7 @@ Der Installer installiert **LARGERslicer** (aus dem Paket, das dem Download beil
 - **Vorhandene Installationen:** aktuelle Plugins bleiben unverändert, ältere werden aktualisiert, neuere (z. B. Beta-Versionen) bleiben erhalten.
 - **Alte manuelle Installationen:** `.gha`-Dateien, die von Hand in den Grasshopper-Libraries-Ordner kopiert wurden, werden erkannt und können in einen Backup-Ordner verschoben werden (sonst werden Komponenten doppelt geladen).
 - **Roboterbibliothek:** eine abweichende vorhandene Datei wird als `*.bak-<Datum>` gesichert, bevor sie ersetzt wird.
-- **macOS blockiert den Installer** („nicht verifizierter Entwickler“): Rechtsklick auf `Install Mac.command` → **Öffnen**.
+- **macOS:** Der Installer ist das signierte und notarisierte `LARGER.slicer Installer.pkg`; es öffnet sich ohne Warnung. Was er gemacht hat, steht in `~/Library/Logs/LARGERslicer-Installer.log`. `Install Mac.command` (im Repository) macht dasselbe im Terminal: `bash "Install Mac.command"`.
 - **Robotersystem `KR120_R2700_2` fehlt:** Installer erneut ausführen oder in der Komponente *Load Robot System* auf **Libraries** klicken und die Online-Bibliothek **FH Muenster MSA** herunterladen.
 - **Rhino 7:** erhält Robots 1.9 (Robots 2.x benötigt Rhino 8). Die Definition ist mit Rhino 8 getestet.
 - **Plugin-Version festlegen:** im Installer oben in der Liste `PACKAGES` die Version hinter den Paketnamen schreiben, z. B. `"Robots 2.4.4"`.

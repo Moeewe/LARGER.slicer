@@ -13,7 +13,7 @@ Dieser Ordner enthält alles, um die Grasshopper-Definition **`LARGERslicer Webe
 | `LARGERslicer Weber Robot and Ginger - corrected.gh` | Die erste Fassung mit Korrekturen (November 2026), braucht Robots und Pufferfish: 03 extrudiert Breite x Höhe x 1,128 x Länge (vorher etwa 11-mal zu wenig), 02 rechnet ebenfalls mit 1,128 und verlässt das Teil ohne Material und ohne die Hand zu drehen, der DXR File Health Check prüft den Code, den er bekommt, Liste der Plug-ins korrigiert. Die Änderungen stehen auf dem Canvas |
 | `LARGERslicer Extrusion Factor Test.gh` | Findet den Extrusionsfaktor: je drei Wände aus einer Bahn für den Ginger One (0,18 / 0,21 / 0,24) und den Weber DXR (1,0 / 1,128 / 1,258, P1 = 1 an der Steuerung). Wandstärke messen, eintragen, die Datei gibt den neuen Faktor. Nur LARGER.slicer |
 | `Install Windows.bat` (+ `setup-windows.ps1`) | Installer für Windows |
-| `Install Mac.command` | Installer für macOS |
+| `LARGER.slicer Installer.pkg` | Installer für macOS, signiert und notarisiert (nur im Release-Download; gebaut mit `macos-installer/build.sh` aus `Install Mac.command`) |
 | `RobotLibrary/` | KUKA-KR120-Roboterbibliothek der FH Münster MSA (`KR120_R2700_2`) |
 
 ## Installation
@@ -25,7 +25,7 @@ Dieser Ordner enthält alles, um die Grasshopper-Definition **`LARGERslicer Webe
 
    | Windows | macOS |
    |---|---|
-   | Doppelklick auf `Install Windows.bat` | Rechtsklick auf `Install Mac.command` → **Öffnen** → **Öffnen** |
+   | Doppelklick auf `Install Windows.bat` (zeigt Windows *Der Computer wurde durch Windows geschützt*: **Weitere Informationen** → **Trotzdem ausführen**) | Doppelklick auf `LARGER.slicer Installer.pkg` (von Apple signiert und notarisiert) |
 
 3. Rhino starten, eine Datei in **Millimetern** anlegen, Grasshopper öffnen und `LARGERslicer Weber Robot and Ginger V2.gh` aus diesem Ordner öffnen.
 
@@ -43,7 +43,7 @@ Dieser Ordner enthält alles, um die Grasshopper-Definition **`LARGERslicer Webe
 
 | Problem | Lösung |
 |---|---|
-| macOS: „kann nicht geöffnet werden, da es von einem nicht verifizierten Entwickler stammt“ | Rechtsklick auf `Install Mac.command` → **Öffnen** |
+| macOS: Was hat der Installer gemacht? | Siehe `~/Library/Logs/LARGERslicer-Installer.log`. Ohne das Paket: `bash "Install Mac.command"` im Terminal |
 | „Package-Server nicht erreichbar“ | Internetverbindung prüfen und Installer erneut ausführen |
 | Grasshopper: Robotersystem **KR120_R2700_2 missing** | Installer erneut ausführen oder in *Load Robot System* auf **Libraries** klicken und die Online-Bibliothek **FH Muenster MSA** herunterladen |
 | Komponenten fehlen oder sind doppelt | Installer erneut ausführen, alte manuelle Kopien verschieben lassen, Rhino neu starten |
