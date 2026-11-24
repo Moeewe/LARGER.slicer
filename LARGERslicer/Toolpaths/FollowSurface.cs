@@ -74,6 +74,11 @@ namespace LARGERslicer.Toolpaths
             var bottom = new List<int>();
             for (int i = 0; i < nv; i++) if (id[i] == i && v[i].Z < zmin + 1e-3) bottom.Add(i);
             if (bottom.Count < 3) { Problem = "the part needs a flat bottom to stand on"; return; }
+            // the ring the wall stands on: where the surface leaves the bottom. The points inside a finely meshed
+            // bottom face are further from the crown, and would count as more laps than the wall has room for
+            var onBottom = new HashSet<int>(bottom);
+            var ring = bottom.Where(i => adj[i].Count == 0 || adj[i].Any(e => !onBottom.Contains(e.Item1))).ToList();
+            if (ring.Count < 3) ring = bottom;
             top = id[top];
             Crown = v[top];
             // the crown: the highest point - or, on a part with a flat top (a vase, a box), the whole top face,
@@ -93,7 +98,7 @@ namespace LARGERslicer.Toolpaths
             // u: on the wall the way from the bottom ring over the mean way to the crown (laps one layer
             // height apart along the surface everywhere); towards the crown the share of the way, which
             // reaches 1 on the crown on every side (smooth step between CrownFrom and CrownTo of the share)
-            var md0 = bottom.Select(i => dt[i]).Where(d => d < double.MaxValue).ToList();
+            var md0 = ring.Select(i => dt[i]).Where(d => d < double.MaxValue).ToList();
             double mean = md0.Count > 0 ? md0.Average() : 0;
             for (int i = 0; i < nv; i++)
             {
@@ -103,7 +108,7 @@ namespace LARGERslicer.Toolpaths
                 double w = t * t * (3 - 2 * t);
                 _u[i] = (1 - w) * (a / mean) + w * r;
             }
-            var md = bottom.Select(i => dt[i]).Where(d => d < double.MaxValue).ToList();
+            var md = ring.Select(i => dt[i]).Where(d => d < double.MaxValue).ToList();
             if (md.Count == 0) { Problem = "the bottom and the crown are not connected by the surface"; return; }
             Meridian = md.Average(); MeridianMin = md.Min(); MeridianMax = md.Max();
             Valid = true;

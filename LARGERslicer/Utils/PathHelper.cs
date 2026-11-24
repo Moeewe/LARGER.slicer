@@ -72,13 +72,45 @@ namespace LARGERslicer.Utils
         }
 
         /// <summary>
-        /// Determines the correct offset direction for a curve based on its orientation.
-        /// Returns negative value for inward offset (outer boundaries) or positive for outward (holes).
+        /// The sign with which Curve.Offset (in the world XY plane) moves a closed curve inward, whichever
+        /// way round it runs: a small trial offset to either side, the side with the smaller area is inside.
+        /// Open curves and curves that cannot be offset: -1.
         /// </summary>
         public static double GetOffsetDirection(Curve curve, List<Curve> otherCurves = null, double tolerance = 0.01)
         {
-            bool fillInward = ShouldFillInward(curve, otherCurves, tolerance);
-            return fillInward ? -1.0 : 1.0; // Negative = inward, Positive = outward
+            if (curve == null || !curve.IsValid || !curve.IsClosed) return -1.0;
+            try
+            {
+                double trial = Math.Max(10 * tolerance, 0.002 * curve.GetBoundingBox(true).Diagonal.Length);
+                double minus = OffsetArea(curve, -trial, tolerance), plus = OffsetArea(curve, trial, tolerance);
+                if (minus > 0 && plus > 0) return minus <= plus ? -1.0 : 1.0;
+                // only one side worked: compare it with the curve itself
+                double own = AreaOf(curve);
+                if (own > 0 && minus > 0) return minus <= own ? -1.0 : 1.0;
+                if (own > 0 && plus > 0) return plus <= own ? 1.0 : -1.0;
+            }
+            catch
+            {
+                // fall through
+            }
+            return -1.0;
+        }
+
+        /// <summary>Area inside a closed curve, whichever way round it runs (0 = not known).</summary>
+        private static double AreaOf(Curve curve)
+        {
+            var area = AreaMassProperties.Compute(curve);
+            return area != null ? Math.Abs(area.Area) : 0;
+        }
+
+        /// <summary>Area of the largest piece of an offset (0 = no offset).</summary>
+        private static double OffsetArea(Curve curve, double distance, double tolerance)
+        {
+            var pieces = curve.Offset(Plane.WorldXY, distance, tolerance, CurveOffsetCornerStyle.Sharp);
+            if (pieces == null) return 0;
+            double best = 0;
+            foreach (var c in pieces) if (c != null && c.IsValid && c.IsClosed) best = Math.Max(best, AreaOf(c));
+            return best;
         }
 
         /// <summary>
@@ -94,7 +126,8 @@ namespace LARGERslicer.Utils
         {
             var offsets = new List<Curve>();
             Curve current = boundary.DuplicateCurve();
-            double previousArea = double.MaxValue;
+            double previousArea = AreaOf(boundary); // an offset that gets larger runs outward
+            if (previousArea <= 0) previousArea = double.MaxValue;
 
             // Determine offset direction based on curve orientation
             double offsetDirection = GetOffsetDirection(boundary, otherCurves);
@@ -116,7 +149,7 @@ namespace LARGERslicer.Utils
                         var areaProp = AreaMassProperties.Compute(c);
                         if (areaProp != null)
                         {
-                            validCurves.Add((c, areaProp.Area));
+                            validCurves.Add((c, Math.Abs(areaProp.Area)));
                         }
                     }
                 }
@@ -132,7 +165,7 @@ namespace LARGERslicer.Utils
                     break;
 
                 // Safety check: area should decrease with each offset
-                if (largest.area >= previousArea * 0.99) // Allow 1% tolerance
+                if (largest.area >= previousArea) // (on a large part one offset takes less than 1 %)
                     break; // Prevent infinite loop
 
                 // CRITICAL: Validate minimum spacing to previous curve

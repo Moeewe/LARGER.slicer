@@ -35,7 +35,7 @@ namespace LARGERslicer.Components.CNCUtilities
         {
             pManager.AddNumberParameter("Milling Depths", "Depths", "Calculated milling depth per board in mm", GH_ParamAccess.list);
             pManager.AddNumberParameter("Board Length", "Length", "Unified board length in mm", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Raw Depths", "Raw", "Unstepped maximum depth per board in mm", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Raw Depths", "Raw", "Unstepped maximum depth per board in mm, from the front (lowest Y) of the body", GH_ParamAccess.list);
             pManager.AddTextParameter("Info", "Info", "Depth calculation notes per board", GH_ParamAccess.list);
         }
 
@@ -78,6 +78,12 @@ namespace LARGERslicer.Components.CNCUtilities
                 return;
             }
 
+            if (solid == null || !solid.IsValid)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The oriented body is invalid.");
+                return;
+            }
+
             BoundingBox bb = solid.GetBoundingBox(true);
             double length = (bb.Max.X - bb.Min.X) + 2.0 * overhang;
 
@@ -87,7 +93,10 @@ namespace LARGERslicer.Components.CNCUtilities
 
             for (int i = 0; i < boards.Count; i++)
             {
-                double rawDepth = GetMaxDepthInZRange(solid, boards[i].ZMin, boards[i].ZMax);
+                // All boards stand flush at the front of the block (CNC Utilities 05), so the depth counts from there
+                double rawDepth = GetMaxDepthInZRange(solid, bb.Min.Y, boards[i].ZMin, boards[i].ZMax, out bool cut);
+                if (!cut)
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Board {i + 1} ({boards[i].Type}, Z {boards[i].ZMin:F1} to {boards[i].ZMax:F1}) does not meet the body: it gets the start depth.");
                 double need = rawDepth + pv + ph;
                 double stepped = StepUp(need, depthBase, depthStep);
 
@@ -103,9 +112,10 @@ namespace LARGERslicer.Components.CNCUtilities
             DA.SetDataList(3, info);
         }
 
-        private static double GetMaxDepthInZRange(Brep solid, double zMin, double zMax)
+        private static double GetMaxDepthInZRange(Brep solid, double front, double zMin, double zMax, out bool cut)
         {
-            int samples = 5;
+            cut = false;
+            int samples = Math.Max(5, (int)Math.Ceiling((zMax - zMin) / 2.0)); // a section every 2 mm: a bulge between two sections is not missed
             double maxDepth = 0.0;
 
             for (int i = 0; i <= samples; i++)
@@ -127,7 +137,8 @@ namespace LARGERslicer.Components.CNCUtilities
                     if (!cb.IsValid)
                         continue;
 
-                    double d = cb.Max.Y - cb.Min.Y;
+                    cut = true;
+                    double d = cb.Max.Y - front;
                     if (d > maxDepth)
                         maxDepth = d;
                 }

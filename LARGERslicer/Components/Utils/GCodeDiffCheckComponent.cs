@@ -80,7 +80,8 @@ namespace LARGERslicer.Components.Utils
 
                 if (coordsEqual)
                 {
-                    if (la.Contains("XE=[") && lb.Contains("XE=["))
+                    // only the extrusion: everything else of the line (A, B, C, F ...) is the same
+                    if (la.Contains("XE=[") && lb.Contains("XE=[") && WithoutXe(la) == WithoutXe(lb))
                     {
                         nXeOnly++;
                     }
@@ -106,8 +107,13 @@ namespace LARGERslicer.Components.Utils
             string report =
                 $"Lines A: {nA} | Lines B: {nB} {(nA == nB ? "(MATCH)" : "(DIFFER)")}\n" +
                 $"identical: {nIdent} | XE-only changed: {nXeOnly} | coordinates changed: {nCoordDiff} | other differences: {nOther}\n" +
-                "-> If 'coordinates changed' is 0, the output path is byte-identical to the original. " +
-                "Any visible deviation then comes from visualization, not from code changes.";
+                (nA == nB && nCoordDiff == 0 && nOther == 0
+                    ? "-> No difference except XE values: the output path is byte-identical to the original. " +
+                      "Any visible deviation then comes from visualization, not from code changes."
+                    : "-> The programs differ in more than XE values" +
+                      (nCoordDiff > 0 ? $"; {nCoordDiff} line(s) with other coordinates" : "") +
+                      (nOther > 0 ? $"; {nOther} line(s) with other angles, speeds or commands" : "") +
+                      (nA != nB ? $"; {Math.Abs(nA - nB)} line(s) only in {(nA > nB ? "A" : "B")}" : "") + ".");
 
             DA.SetData(0, report);
             DA.SetDataList(1, diffLines);
@@ -135,6 +141,20 @@ namespace LARGERslicer.Components.Utils
 
             string normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
             return normalized.Split(new[] { '\n' }, StringSplitOptions.None);
+        }
+
+        /// <summary>The line with every XE=[...] emptied.</summary>
+        private static string WithoutXe(string line)
+        {
+            int from = 0;
+            while ((from = line.IndexOf("XE=[", from, StringComparison.Ordinal)) >= 0)
+            {
+                from += 4;
+                int end = line.IndexOf(']', from);
+                if (end < 0) break;
+                line = line.Substring(0, from) + line.Substring(end);
+            }
+            return line;
         }
 
         private static List<string> CoordsOf(string line)

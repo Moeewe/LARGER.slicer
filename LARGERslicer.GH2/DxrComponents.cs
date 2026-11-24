@@ -87,18 +87,36 @@ namespace LARGERslicer.GH2
     public sealed class DxrGeneratorComponent : Component
     {
         public DxrGeneratorComponent() : base(Io.Name("DXR Generator", "Translates robot moves with extrusion and speed into a DXR file for the Weber DXR extruder, including the start and end sequence of the machine.", Io.Dxr, 0)) { }
-        public DxrGeneratorComponent(IReader reader) : base(reader) { }
+        public DxrGeneratorComponent(IReader reader) : base(reader)
+        {
+            // files saved before the lists were read as trees keep their inputs and wires
+            for (int i = 0; i < 3; i++) SetAccess(Parameters.Input(i), Access.Tree);
+        }
         protected override IIcon IconInternal => Io.Icon("DXRGeneratorIcon");
 
         protected override void AddInputs(InputAdder inputs)
         {
-            inputs.AddText("Robot Path", "Path", "Robot moves, one PTP line each.", Access.Twig);
-            inputs.AddNumber("Extrusion", "E", "Extrusion per move.", Access.Twig, Requirement.MayBeMissing);
-            inputs.AddNumber("Speed", "F", "Speed in mm/min per move.", Access.Twig, Requirement.MayBeMissing);
+            inputs.AddText("Robot Path", "Path", "Robot moves, one PTP line each. All branches together are one program.", Access.Tree);
+            inputs.AddNumber("Extrusion", "E", "Extrusion per move.", Access.Tree, Requirement.MayBeMissing);
+            inputs.AddNumber("Speed", "F", "Speed in mm/min per move.", Access.Tree, Requirement.MayBeMissing);
             inputs.AddGeneric("Machine Settings", "MS", "Machine Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Trim Last", "Tr", "Drop the last extrusion and speed value. Needed for lists that carry one value more than there are moves, as the Grasshopper 1 definitions do. Not needed after Toolpath to Robot Lines.").Set(false);
             inputs.AddText("File", "File", "Optional: file, folder or just a name (File Name of Robot Program). Empty = the Desktop. Full path of the .dxr file to write.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Save", "Save", "True writes the file.").Set(false);
+        }
+
+        /// <summary>Every item of an input in order, whatever its tree.</summary>
+        private List<object> All(IDataAccess access, int index)
+        {
+            if (Parameters.Input(index).Access == Access.Tree)
+                return access.GetITree(index, out var tree) && tree != null ? tree.NonNullItems.ToList() : new List<object>();
+            return access.ItemArray(index, out object[] items) ? items.Where(o => o != null).ToList() : new List<object>();
+        }
+
+        private static void SetAccess(IParameter p, Access access)
+        {
+            try { if (p != null && p.Access != access) typeof(AbstractParameter).GetProperty("Access").SetValue(p, access); }
+            catch { } // the input is then read branch by branch, as before
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -110,14 +128,20 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             string[] path; double[] e, f; bool trim, save; string file;
-            if (!access.ItemArray(0, out path) || path == null || path.Length == 0) { access.AddError("No robot path", "Connect robot moves, one PTP line each."); return; }
-            access.ItemArray(1, out e); access.ItemArray(2, out f);
+            // all branches are one program, as in Grasshopper 1 (a branch per layer must not become a file per layer)
+            path = All(access, 0).Select(o => o as string ?? o.ToString()).Where(l => l.Length > 0).ToArray();
+            if (path.Length == 0) { access.AddError("No robot path", "Connect robot moves, one PTP line each."); return; }
+            e = All(access, 1).Select(o => Convert.ToDouble(o, CultureInfo.InvariantCulture)).ToArray();
+            f = All(access, 2).Select(o => Convert.ToDouble(o, CultureInfo.InvariantCulture)).ToArray();
             var machine = Io.Get<MachineSettings>(access, 3);
             access.GetItem(4, out trim); access.GetItem(5, out file); access.GetItem(6, out save);
 
             var info = new List<string>();
             var p1 = (e ?? new double[0]).ToList(); var f1 = (f ?? new double[0]).ToList();
             if (trim) { if (p1.Count > 0) p1.RemoveAt(p1.Count - 1); if (f1.Count > 0) f1.RemoveAt(f1.Count - 1); }
+            if (f1.Count == 1 && path.Length > 1) { f1 = Enumerable.Repeat(f1[0], path.Length).ToList(); info.Add("One speed value: used for every move."); }
+            int linear = path.Count(l => l != null && (l.TrimStart().StartsWith("LIN", StringComparison.OrdinalIgnoreCase) || l.TrimStart().StartsWith("CIRC", StringComparison.OrdinalIgnoreCase)));
+            if (linear > 0) access.AddWarning("LIN or CIRC moves", $"{linear} robot line(s) are LIN or CIRC moves. Only PTP lines are converted: these moves are missing in the DXR file.");
             if (p1.Count == 0) access.AddWarning("No extrusion", "All moves get extrusion 0.");
             if (f1.Count == 0) access.AddWarning("No speed", "All moves get the default speed of 1000 mm/min.");
             if (f1.Any(v => v <= 0)) { access.AddError("Speed 0", "A move has speed 0; the machine would stop there."); return; }

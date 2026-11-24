@@ -173,6 +173,7 @@ namespace LARGERslicer.GH2
             set(tool, 0, "AE20_Extruder");
             set(tool, 1, new Plane(new Point3d(-460, 3, 108), Vector3d.YAxis, Vector3d.ZAxis));
             set(tool, 2, 46.0);
+            set(tool, 3, new Point3d(-61, -28, 113));
             wire(robot, 0, cell, 0); wire(tool, 0, cell, 1);
             wire(finish, 0, program, 0); wire(cell, 0, program, 1);
             wire(program, 0, dxr, 0); wire(program, 1, dxr, 1); wire(program, 2, dxr, 2); wire(machine, 0, dxr, 3);

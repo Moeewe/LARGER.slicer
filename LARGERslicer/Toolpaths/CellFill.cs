@@ -498,6 +498,157 @@ namespace LARGERslicer.Toolpaths
             return joined > 0 ? clean : null;
         }
 
+        private delegate List<SliceLayer> InfillOfBody(List<SliceLayer> part, List<string> log, out int count);
+
+        /// <summary>
+        /// Infill that is spliced into one wall (cells, waves, chambers), for every body of the part: several
+        /// bodies on the bed, the legs of a table, a post inside a ring. Each body is followed from layer to
+        /// layer and gets its infill on its own. One body: exactly as it is.
+        /// </summary>
+        private static List<SliceLayer> PerBody(List<SliceLayer> layers, List<string> log, out int count, InfillOfBody infill)
+        {
+            // the bodies of every layer: contour indices, the outer contour first
+            var split = layers.Select(BodiesOf).ToList();
+            if (split.All(b => b.Count <= 1)) return infill(layers, log, out count);
+
+            // follow the bodies from layer to layer
+            var order = Enumerable.Range(0, layers.Count).OrderBy(i => layers[i].Index).ToList();
+            var bodies = new List<List<KeyValuePair<int, List<int>>>>(); // per body: layer and its contours there
+            var last = new List<List<Point3d>>();                       // the outer contour of each body on its last layer
+            foreach (int li in order)
+            {
+                Cancel.Check();
+                var src = layers[li];
+                var here = split[li];
+                if (here.Count == 0 || src.ContourRoles != null && src.ContourRoles.Any(r => r == PathRole.Bottom)) continue;
+                var rings = here.Select(b => Ring2d(src.Plane, src.Contours[b[0]])).ToList();
+                var pairs = new List<Tuple<double, int, int>>();
+                for (int b = 0; b < here.Count; b++)
+                    for (int t = 0; t < last.Count; t++)
+                    {
+                        var ring = last[t].Select(q => Above2d(src.Plane, q)).ToList();
+                        if (!Overlap(rings[b], ring)) continue;
+                        double size = Math.Abs(Area(ring) - Area(rings[b])) / (1 + Math.Abs(Area(ring)));
+                        pairs.Add(Tuple.Create(Middle(rings[b]).DistanceTo(Middle(ring)) + size, b, t));
+                    }
+                var of = Enumerable.Repeat(-1, here.Count).ToArray(); var taken = new HashSet<int>();
+                foreach (var pr in pairs.OrderBy(x => x.Item1))
+                    if (of[pr.Item2] < 0 && taken.Add(pr.Item3)) of[pr.Item2] = pr.Item3;
+                for (int b = 0; b < here.Count; b++)
+                {
+                    if (of[b] < 0) { of[b] = bodies.Count; bodies.Add(new List<KeyValuePair<int, List<int>>>()); last.Add(null); }
+                    bodies[of[b]].Add(new KeyValuePair<int, List<int>>(li, here[b]));
+                    last[of[b]] = src.Contours[here[b][0]].ToList();
+                }
+            }
+
+            // each body on its own
+            var done = layers.Select(_ => new List<SliceLayer>()).ToArray();
+            var changed = new bool[layers.Count];
+            var counts = new List<int>();
+            var notes = new List<string>();
+            foreach (var body in bodies)
+            {
+                var part = body.Select(kv => OnlyContours(layers[kv.Key], kv.Value)).ToList();
+                var own = new List<string>();
+                var filled = infill(part, own, out int n);
+                counts.Add(n);
+                foreach (var l in own) notes.Add(l);
+                for (int k = 0; k < body.Count; k++)
+                {
+                    done[body[k].Key].Add(filled[k]);
+                    if (!ReferenceEquals(filled[k], part[k])) changed[body[k].Key] = true;
+                }
+            }
+            // up to so many on one layer: no body is counted with another one that stands above it
+            count = 0;
+            for (int li = 0; li < layers.Count; li++)
+            {
+                int sum = 0;
+                for (int b = 0; b < bodies.Count; b++) if (bodies[b].Any(kv => kv.Key == li)) sum += counts[b];
+                count = Math.Max(count, sum);
+            }
+            foreach (var g in notes.GroupBy(x => x)) log?.Add(g.Count() > 1 ? Inv.F($"{g.Key} ({g.Count()} bodies)") : g.Key);
+
+            var result = new List<SliceLayer>(layers.Count);
+            for (int li = 0; li < layers.Count; li++)
+            {
+                var src = layers[li];
+                if (!changed[li]) { result.Add(src); continue; }
+                var dst = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp, EntryHints = src.EntryHints };
+                dst.Reference = src.Reference ?? src.Contours.Select(c => new Polyline(c)).ToList();
+                if (src.Rings != null) dst.Rings = new List<int>();
+                if (src.ContourRoles != null) dst.ContourRoles = new List<PathRole>();
+                foreach (var part in done[li])
+                    for (int c = 0; c < part.Contours.Count; c++)
+                    {
+                        dst.Contours.Add(part.Contours[c]);
+                        dst.Rings?.Add(part.Rings != null && c < part.Rings.Count ? part.Rings[c] : 0);
+                        dst.ContourRoles?.Add(part.ContourRoles != null && c < part.ContourRoles.Count ? part.ContourRoles[c] : PathRole.Wall);
+                    }
+                result.Add(dst);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// The bodies of a layer: every wall that has material inside it (not the wall of an opening) with all
+        /// the contours that belong to it. Contour indices, the outer wall first; the bodies in contour order.
+        /// </summary>
+        private static List<List<int>> BodiesOf(SliceLayer layer)
+        {
+            int n = layer.Contours.Count;
+            var ring = new List<Point2d>[n]; var outer = new List<int>();
+            for (int c = 0; c < n; c++)
+                if (Geo.Closed(layer.Contours[c]) && layer.Contours[c].Count >= 4) ring[c] = Ring2d(layer.Plane, layer.Contours[c]);
+            Func<int, bool> first = c => ring[c] != null && (layer.Rings == null || c >= layer.Rings.Count || layer.Rings[c] == 0)
+                                         && (layer.ContourRoles == null || c >= layer.ContourRoles.Count || layer.ContourRoles[c] == PathRole.Wall);
+            for (int c = 0; c < n; c++)
+            {
+                if (!first(c)) continue;
+                int depth = 0;
+                for (int o = 0; o < n; o++) if (o != c && first(o) && Inside(ring[o], ring[c][0])) depth++;
+                if ((depth & 1) == 0) outer.Add(c);
+            }
+            var bodies = outer.Select(c => new List<int> { c }).ToList();
+            if (bodies.Count <= 1) return bodies;
+            var area = outer.Select(c => Math.Abs(Area(ring[c]))).ToList();
+            for (int c = 0; c < n; c++)
+            {
+                if (outer.Contains(c) || layer.Contours[c].Count == 0) continue;
+                // the smallest body around it; none (an open contour beside them): the nearest one
+                Point2d q = To2d(layer.Plane, layer.Contours[c][0]);
+                int best = -1;
+                for (int b = 0; b < outer.Count; b++)
+                    if (Inside(ring[outer[b]], q) && (best < 0 || area[b] < area[best])) best = b;
+                if (best < 0)
+                {
+                    double near = double.MaxValue;
+                    for (int b = 0; b < outer.Count; b++) { ClosestS(ring[outer[b]], Cumulative(ring[outer[b]]), q, out double d); if (d < near) { near = d; best = b; } }
+                }
+                bodies[best].Add(c);
+            }
+            foreach (var b in bodies) { var rest = b.Skip(1).OrderBy(c => c).ToList(); b.RemoveRange(1, b.Count - 1); b.AddRange(rest); }
+            return bodies;
+        }
+
+        private static SliceLayer OnlyContours(SliceLayer src, List<int> which)
+        {
+            var d = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp, Reference = src.Reference, EntryHints = src.EntryHints };
+            foreach (int c in which) d.Contours.Add(src.Contours[c]);
+            if (src.Rings != null) d.Rings = which.Select(c => c < src.Rings.Count ? src.Rings[c] : 0).ToList();
+            if (src.ContourRoles != null) d.ContourRoles = which.Select(c => c < src.ContourRoles.Count ? src.ContourRoles[c] : PathRole.Wall).ToList();
+            return d;
+        }
+
+        private static Point2d Middle(List<Point2d> r) => new Point2d(0.5 * (r.Min(p => p.X) + r.Max(p => p.X)), 0.5 * (r.Min(p => p.Y) + r.Max(p => p.Y)));
+
+        /// <summary>True if the boxes around two rings overlap.</summary>
+        private static bool Overlap(List<Point2d> a, List<Point2d> b)
+        {
+            return a.Min(p => p.X) <= b.Max(p => p.X) && a.Max(p => p.X) >= b.Min(p => p.X) && a.Min(p => p.Y) <= b.Max(p => p.Y) && a.Max(p => p.Y) >= b.Min(p => p.Y);
+        }
+
         /// <summary>
         /// Adds cell infill to every layer that has no bottom fill. The innermost outer wall of
         /// the layer and all cells become one closed contour.
@@ -505,6 +656,10 @@ namespace LARGERslicer.Toolpaths
         /// </summary>
         public static List<SliceLayer> Cells(List<SliceLayer> layers, PrintSettings settings, int pattern, double size,
             double angleDeg, Point3d? origin, List<string> log, out int cellCount, double stretch = 1.0)
+            => PerBody(layers, log, out cellCount, (List<SliceLayer> part, List<string> l, out int n) => CellsOfBody(part, settings, pattern, size, angleDeg, origin, l, out n, stretch));
+
+        private static List<SliceLayer> CellsOfBody(List<SliceLayer> layers, PrintSettings settings, int pattern, double size,
+            double angleDeg, Point3d? origin, List<string> log, out int cellCount, double stretch)
         {
             double spacing = settings.BeadSpacing;
             var result = new SliceLayer[layers.Count];
@@ -522,6 +677,7 @@ namespace LARGERslicer.Toolpaths
             var baseAbsorbed = new HashSet<int>();
             Action<int> one = li =>
             {
+                Cancel.Check();
                 var src = layers[li];
                 result[li] = src;
                 if (src.ContourRoles != null && src.ContourRoles.Any(r => r == PathRole.Bottom)) return;
@@ -821,6 +977,7 @@ namespace LARGERslicer.Toolpaths
             var scales = new[] { 1.0, 0.97, 0.94, 0.9, 0.85, 0.8, 0.7, 0.6, 0.5, 0.4 };
             for (int attempt = 0; attempt < scales.Length; attempt++)
             {
+                Cancel.Check();
                 double scale = scales[attempt];
                 double step = Math.Max(0.5, 0.25 * beadWidth);
                 var loop = new List<Point2d>();
@@ -1036,6 +1193,10 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Adds wave infill to every layer without bottom fill; the wave becomes part of the wall contour.</summary>
         public static List<SliceLayer> Waves(List<SliceLayer> layers, PrintSettings settings, int shape, double wavelength,
             double depth, Point3d? origin, List<string> log, out int waveCount, bool meet = true)
+            => PerBody(layers, log, out waveCount, (List<SliceLayer> part, List<string> l, out int n) => WavesOfBody(part, settings, shape, wavelength, depth, origin, l, out n, meet));
+
+        private static List<SliceLayer> WavesOfBody(List<SliceLayer> layers, PrintSettings settings, int shape, double wavelength,
+            double depth, Point3d? origin, List<string> log, out int waveCount, bool meet)
         {
             double spacing = settings.BeadSpacing, w = settings.BeadWidth;
             var result = new SliceLayer[layers.Count];
@@ -1050,6 +1211,7 @@ namespace LARGERslicer.Toolpaths
             var waveMemory = new List<Point3d>();
             foreach (int li in Enumerable.Range(0, layers.Count).OrderBy(i => layers[i].Index))
             {
+                Cancel.Check();
                 var src = layers[li];
                 result[li] = src;
                 if (src.ContourRoles != null && src.ContourRoles.Any(r => r == PathRole.Bottom)) continue;
@@ -1129,6 +1291,10 @@ namespace LARGERslicer.Toolpaths
         /// </summary>
         public static List<SliceLayer> Chambers(List<SliceLayer> layers, PrintSettings settings, int shape, double length, double depth,
             List<string> log, out int chamberCount)
+            => PerBody(layers, log, out chamberCount, (List<SliceLayer> part, List<string> l, out int n) => ChambersOfBody(part, settings, shape, length, depth, l, out n));
+
+        private static List<SliceLayer> ChambersOfBody(List<SliceLayer> layers, PrintSettings settings, int shape, double length, double depth,
+            List<string> log, out int chamberCount)
         {
             double spacing = settings.BeadSpacing, w = settings.BeadWidth;
             length = Math.Max(length, 5 * spacing); depth = Math.Max(depth, 4 * spacing);
@@ -1138,8 +1304,11 @@ namespace LARGERslicer.Toolpaths
             Point3d prevStation = Point3d.Unset; int prevN = 0; double prevD = 0;
             var chamberMemory = new List<Point3d>();
             List<Point3d> prevStations = null; var prevIsCorner = new List<bool>();
+            // the layer below: where the walls are the same, its line is printed again (chambers exactly above each other)
+            List<List<Point2d>> baseLoops = null; List<Point2d> baseLine = null; int baseJoined = 0; List<int> baseAbsorbed = null;
             foreach (int li in Enumerable.Range(0, layers.Count).OrderBy(i => layers[i].Index))
             {
+                Cancel.Check();
                 var src = layers[li];
                 result[li] = src;
                 if (src.ContourRoles != null && src.ContourRoles.Any(r => r == PathRole.Bottom)) continue;
@@ -1166,119 +1335,146 @@ namespace LARGERslicer.Toolpaths
                 if (d < 4 * spacing) { failed[li] = 1; continue; }
                 if (prevD > 0) d = Math.Max(prevD - 0.4 * w, Math.Min(prevD + 0.4 * w, d));
 
-                double[] cum = LoopCum(ring);
-                double len = cum[ring.Count];
-                // stations: every corner, and evenly in between
-                var stations = new List<double>();
-                var corners = LoopCorners(ring, cum, 1.5 * w, null);
-                bool smooth = corners.Count == 0;
-                var isCorner = new List<bool>();
-                // a round part has no corner to start from: start where the layer below started
-                if (smooth) corners.Add(prevStation.IsValid ? LoopClosest(ring, cum, Above2d(src.Plane, prevStation), out _) : 0);
-                for (int k = 0; k < corners.Count; k++)
+                // the walls of holes: the chambers end one bead spacing before them, and join them
+                var holeWalls = new List<List<Point2d>>(); var holeIndex = new List<int>(); var absorbed = new List<int>();
+                for (int c = 0; c < src.Contours.Count; c++)
                 {
-                    double sa = corners[k], sb = corners[(k + 1) % corners.Count];
-                    if (sb <= sa + 1e-9) sb += len;
-                    int n = Math.Max(1, (int)Math.Round((sb - sa) / length));
-                    if (smooth && prevN > 0 && len / prevN > 0.6 * length && len / prevN < 1.6 * length) n = prevN;
-                    if (smooth) prevN = n;
-                    for (int j = 0; j < n; j++) { stations.Add(sa + (sb - sa) * j / n); isCorner.Add(j == 0 && !smooth); }
+                    if (c == host || !Geo.Closed(src.Contours[c]) || src.Contours[c].Count < 4) continue;
+                    if (src.Rings != null && c < src.Rings.Count && src.Rings[c] != inner) continue;
+                    var hole = Ring2d(src.Plane, src.Contours[c]);
+                    if (hole.Count < 3 || !Inside(ring, hole[0])) continue;
+                    if (Area(hole) > 0) hole.Reverse();
+                    material.Add(new PathD(hole.Select(q => new PointD(q.X, q.Y))));
+                    holeWalls.Add(hole); holeIndex.Add(c);
                 }
-                // Stand on the chambers of the layer below: if every station of that layer has a place
-                // on this wall close by, take those places. The webs then follow a twisting or
-                // tapering part instead of being laid out afresh.
-                if (prevStations != null && prevStations.Count >= 3)
+
+                var loops = new List<List<Point2d>> { new List<Point2d>(ring) };
+                foreach (var hw in holeWalls) loops.Add(new List<Point2d>(hw));
+                List<Point2d> line; int joined;
+                bool same = baseLine != null && baseLoops.Count == loops.Count;
+                for (int k = 0; same && k < loops.Count; k++) same = SameLoop(loops[k], baseLoops[k], 0.05);
+                if (same)
                 {
-                    var mapped = new List<double>(); bool ok = true;
-                    foreach (var ps in prevStations)
-                    {
-                        double sm = LoopClosest(ring, cum, Above2d(src.Plane, ps), out double dist);
-                        if (dist > 1.5 * w) { ok = false; break; }
-                        mapped.Add(sm);
-                    }
-                    if (ok)
-                    {
-                        // must still run once around in the same order
-                        int wraps = 0; for (int q = 0; q < mapped.Count; q++) if (mapped[(q + 1) % mapped.Count] < mapped[q]) wraps++;
-                        if (wraps == 1) { stations = mapped; isCorner = prevIsCorner.Count == mapped.Count ? new List<bool>(prevIsCorner) : mapped.Select(_ => false).ToList(); }
-                    }
+                    line = new List<Point2d>(baseLine); joined = baseJoined; absorbed.AddRange(baseAbsorbed);
                 }
-                prevStations = stations.Select(sv => To3d(src.Plane, LoopAt(ring, cum, sv))).ToList(); prevIsCorner = new List<bool>(isCorner);
-                prevStation = To3d(src.Plane, LoopAt(ring, cum, stations[0]));
-                // inner point of a station: along the inward bisector, so neighbouring chambers share the web
-                double reach = d + 0.5 * spacing;
-                Func<double, Point2d> innerOf = sAt =>
+                else
                 {
-                    Point2d p = LoopAt(ring, cum, sAt), a = LoopAt(ring, cum, sAt - 0.5), b = LoopAt(ring, cum, sAt + 0.5);
-                    double ax = p.X - a.X, ay = p.Y - a.Y, bx = b.X - p.X, by = b.Y - p.Y;
-                    double la = Math.Sqrt(ax * ax + ay * ay), lb = Math.Sqrt(bx * bx + by * by);
-                    if (la < 1e-9 || lb < 1e-9) return p;
-                    double nx = -(ay / la + by / lb), ny = ax / la + bx / lb, nl = Math.Sqrt(nx * nx + ny * ny);
-                    if (nl < 1e-9) return p;
-                    nx /= nl; ny /= nl;
-                    double cosHalf = Math.Max(0.35, (-(ay / la) * nx + (ax / la) * ny));
-                    return new Point2d(p.X + nx * reach / cosHalf, p.Y + ny * reach / cosHalf);
-                };
-                var cells = new List<PathD>();
-                for (int k = 0; k < stations.Count; k++)
-                {
-                    double sa = stations[k], sb = stations[(k + 1) % stations.Count];
-                    if (sb <= sa + 1e-9) sb += len;
-                    var outer = new List<Point2d> { LoopAt(ring, cum, sa) };
-                    for (int i = 0; i < 2 * ring.Count; i++)
+                    double[] cum = LoopCum(ring);
+                    double len = cum[ring.Count];
+                    // stations: every corner, and evenly in between
+                    var stations = new List<double>();
+                    var corners = LoopCorners(ring, cum, 1.5 * w, null);
+                    bool smooth = corners.Count == 0;
+                    var isCorner = new List<bool>();
+                    // a round part has no corner to start from: start where the layer below started
+                    if (smooth) corners.Add(prevStation.IsValid ? LoopClosest(ring, cum, Above2d(src.Plane, prevStation), out _) : 0);
+                    for (int k = 0; k < corners.Count; k++)
                     {
-                        double sv = cum[i % ring.Count] + (i / ring.Count) * len;
-                        if (sv > sa + 1e-6 && sv < sb - 1e-6) outer.Add(ring[i % ring.Count]);
+                        double sa = corners[k], sb = corners[(k + 1) % corners.Count];
+                        if (sb <= sa + 1e-9) sb += len;
+                        int n = Math.Max(1, (int)Math.Round((sb - sa) / length));
+                        if (smooth && prevN > 0 && len / prevN > 0.6 * length && len / prevN < 1.6 * length) n = prevN;
+                        if (smooth) prevN = n;
+                        for (int j = 0; j < n; j++) { stations.Add(sa + (sb - sa) * j / n); isCorner.Add(j == 0 && !smooth); }
                     }
-                    outer.Add(LoopAt(ring, cum, sb));
-                    Point2d qa = innerOf(sa), qb = innerOf(sb);
-                    if (shape == 1 && outer.Count == 2 && !isCorner[k] && !isCorner[(k + 1) % stations.Count])
+                    // Stand on the chambers of the layer below: if every station of that layer has a place
+                    // on this wall close by, take those places. The webs then follow a twisting or
+                    // tapering part instead of being laid out afresh.
+                    if (prevStations != null && prevStations.Count >= 3)
                     {
-                        // truss: split the box by a diagonal that alternates
-                        if ((k & 1) == 0)
+                        var mapped = new List<double>(); bool ok = true;
+                        foreach (var ps in prevStations)
                         {
-                            cells.Add(new PathD { new PointD(outer[0].X, outer[0].Y), new PointD(outer[1].X, outer[1].Y), new PointD(qb.X, qb.Y) });
-                            cells.Add(new PathD { new PointD(outer[0].X, outer[0].Y), new PointD(qb.X, qb.Y), new PointD(qa.X, qa.Y) });
+                            double sm = LoopClosest(ring, cum, Above2d(src.Plane, ps), out double dist);
+                            if (dist > 1.5 * w) { ok = false; break; }
+                            mapped.Add(sm);
                         }
-                        else
+                        if (ok)
                         {
-                            cells.Add(new PathD { new PointD(outer[0].X, outer[0].Y), new PointD(outer[1].X, outer[1].Y), new PointD(qa.X, qa.Y) });
-                            cells.Add(new PathD { new PointD(outer[1].X, outer[1].Y), new PointD(qb.X, qb.Y), new PointD(qa.X, qa.Y) });
+                            // must still run once around in the same order
+                            int wraps = 0; for (int q = 0; q < mapped.Count; q++) if (mapped[(q + 1) % mapped.Count] < mapped[q]) wraps++;
+                            if (wraps == 1) { stations = mapped; isCorner = prevIsCorner.Count == mapped.Count ? new List<bool>(prevIsCorner) : mapped.Select(_ => false).ToList(); }
                         }
-                        continue;
                     }
-                    var poly = new PathD(outer.Select(q => new PointD(q.X, q.Y)));
-                    poly.Add(new PointD(qb.X, qb.Y));
-                    // follow a curved wall on the inside as well
-                    for (int i = outer.Count - 2; i >= 1; i--)
+                    prevStations = stations.Select(sv => To3d(src.Plane, LoopAt(ring, cum, sv))).ToList(); prevIsCorner = new List<bool>(isCorner);
+                    prevStation = To3d(src.Plane, LoopAt(ring, cum, stations[0]));
+                    // inner point of a station: along the inward bisector, so neighbouring chambers share the web
+                    double reach = d + 0.5 * spacing;
+                    Func<double, Point2d> innerOf = sAt =>
                     {
-                        Point2d q = innerOf(LoopClosest(ring, cum, outer[i], out _));
-                        poly.Add(new PointD(q.X, q.Y));
+                        Point2d p = LoopAt(ring, cum, sAt), a = LoopAt(ring, cum, sAt - 0.5), b = LoopAt(ring, cum, sAt + 0.5);
+                        double ax = p.X - a.X, ay = p.Y - a.Y, bx = b.X - p.X, by = b.Y - p.Y;
+                        double la = Math.Sqrt(ax * ax + ay * ay), lb = Math.Sqrt(bx * bx + by * by);
+                        if (la < 1e-9 || lb < 1e-9) return p;
+                        double nx = -(ay / la + by / lb), ny = ax / la + bx / lb, nl = Math.Sqrt(nx * nx + ny * ny);
+                        if (nl < 1e-9) return p;
+                        nx /= nl; ny /= nl;
+                        double cosHalf = Math.Max(0.35, (-(ay / la) * nx + (ax / la) * ny));
+                        return new Point2d(p.X + nx * reach / cosHalf, p.Y + ny * reach / cosHalf);
+                    };
+                    var cells = new List<PathD>();
+                    for (int k = 0; k < stations.Count; k++)
+                    {
+                        double sa = stations[k], sb = stations[(k + 1) % stations.Count];
+                        if (sb <= sa + 1e-9) sb += len;
+                        var outer = new List<Point2d> { LoopAt(ring, cum, sa) };
+                        for (int i = 0; i < 2 * ring.Count; i++)
+                        {
+                            double sv = cum[i % ring.Count] + (i / ring.Count) * len;
+                            if (sv > sa + 1e-6 && sv < sb - 1e-6) outer.Add(ring[i % ring.Count]);
+                        }
+                        outer.Add(LoopAt(ring, cum, sb));
+                        Point2d qa = innerOf(sa), qb = innerOf(sb);
+                        if (shape == 1 && outer.Count == 2 && !isCorner[k] && !isCorner[(k + 1) % stations.Count])
+                        {
+                            // truss: split the box by a diagonal that alternates
+                            if ((k & 1) == 0)
+                            {
+                                cells.Add(new PathD { new PointD(outer[0].X, outer[0].Y), new PointD(outer[1].X, outer[1].Y), new PointD(qb.X, qb.Y) });
+                                cells.Add(new PathD { new PointD(outer[0].X, outer[0].Y), new PointD(qb.X, qb.Y), new PointD(qa.X, qa.Y) });
+                            }
+                            else
+                            {
+                                cells.Add(new PathD { new PointD(outer[0].X, outer[0].Y), new PointD(outer[1].X, outer[1].Y), new PointD(qa.X, qa.Y) });
+                                cells.Add(new PathD { new PointD(outer[1].X, outer[1].Y), new PointD(qb.X, qb.Y), new PointD(qa.X, qa.Y) });
+                            }
+                            continue;
+                        }
+                        var poly = new PathD(outer.Select(q => new PointD(q.X, q.Y)));
+                        poly.Add(new PointD(qb.X, qb.Y));
+                        // follow a curved wall on the inside as well
+                        for (int i = outer.Count - 2; i >= 1; i--)
+                        {
+                            Point2d q = innerOf(LoopClosest(ring, cum, outer[i], out _));
+                            poly.Add(new PointD(q.X, q.Y));
+                        }
+                        poly.Add(new PointD(qa.X, qa.Y));
+                        cells.Add(poly);
                     }
-                    poly.Add(new PointD(qa.X, qa.Y));
-                    cells.Add(poly);
+                    var taken = new PathsD();
+                    var clean = new List<PathD>();
+                    foreach (var cell in cells)
+                    {
+                        var one = new PathsD { cell };
+                        if (Clipper.Area(cell) < 0) one[0].Reverse();
+                        PathsD rest = taken.Count == 0 ? one : Clipper.Difference(one, taken, FillRule.NonZero, 4);
+                        if (rest != null) foreach (var piece in rest) if (Clipper.Area(piece) > 0) clean.Add(piece);
+                        taken = taken.Count == 0 ? one : Clipper.Union(taken, one, FillRule.NonZero, 4);
+                    }
+                    var jointsNow = new List<Point2d>();
+                    line = CellLine(ring, material, spacing, 0, 0, 0, new Point2d(0, 0), out joined, out _, holeWalls, absorbed, 1.0, null, clean,
+                        chamberMemory.Select(q => Above2d(src.Plane, q)).ToList(), jointsNow);
+                    if (line != null && jointsNow.Count > 0) chamberMemory = jointsNow.Select(q => To3d(src.Plane, q)).ToList();
+                    if (line != null && joined > 0) { baseLoops = loops; baseLine = new List<Point2d>(line); baseJoined = joined; baseAbsorbed = new List<int>(absorbed); }
                 }
-                var taken = new PathsD();
-                var clean = new List<PathD>();
-                foreach (var cell in cells)
-                {
-                    var one = new PathsD { cell };
-                    if (Clipper.Area(cell) < 0) one[0].Reverse();
-                    PathsD rest = taken.Count == 0 ? one : Clipper.Difference(one, taken, FillRule.NonZero, 4);
-                    if (rest != null) foreach (var piece in rest) if (Clipper.Area(piece) > 0) clean.Add(piece);
-                    taken = taken.Count == 0 ? one : Clipper.Union(taken, one, FillRule.NonZero, 4);
-                }
-                var jointsNow = new List<Point2d>();
-                var line = CellLine(ring, material, spacing, 0, 0, 0, new Point2d(0, 0), out int joined, out _, null, null, 1.0, null, clean,
-                    chamberMemory.Select(q => Above2d(src.Plane, q)).ToList(), jointsNow);
-                if (line != null && jointsNow.Count > 0) chamberMemory = jointsNow.Select(q => To3d(src.Plane, q)).ToList();
                 if (line == null || joined == 0) { failed[li] = 1; continue; }
                 counts[li] = joined; prevD = d;
 
                 var dst = new SliceLayer { Index = src.Index, Plane = src.Plane, Height = src.Height, Warp = src.Warp };
                 dst.Reference = src.Reference ?? src.Contours.Select(c => new Polyline(c)).ToList();
                 dst.EntryHints = src.EntryHints;
-                var skip = new HashSet<int>();
+                // hole walls that are now part of the line are not printed a second time
+                var skip = new HashSet<int>(absorbed.Select(i => holeIndex[i]));
                 if (src.Rings != null) dst.Rings = new List<int>();
                 if (src.ContourRoles != null) dst.ContourRoles = new List<PathRole>();
                 for (int c = 0; c < src.Contours.Count; c++)

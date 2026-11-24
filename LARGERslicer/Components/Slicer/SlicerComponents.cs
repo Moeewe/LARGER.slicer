@@ -46,7 +46,7 @@ namespace LARGERslicer.Components.Slicer
         protected virtual bool CanRunInBackground => false;
         private LARGERslicer.Components.AsyncSolve _async;
         protected LARGERslicer.Components.AsyncSolve Async => CanRunInBackground ? (_async ?? (_async = new LARGERslicer.Components.AsyncSolve(this))) : null;
-        protected override void BeforeSolveInstance() { Async?.Before(); base.BeforeSolveInstance(); }
+        protected override void BeforeSolveInstance() { _written.Clear(); Async?.Before(); base.BeforeSolveInstance(); }
         protected override void AfterSolveInstance() { base.AfterSolveInstance(); Async?.After(); }
         /// <summary>While a component upstream still computes in the background, a missing input is waiting, not an error.</summary>
         public override void ComputeData() { base.ComputeData(); LARGERslicer.Components.AsyncSolve.ShowWaiting(this); }
@@ -54,7 +54,7 @@ namespace LARGERslicer.Components.Slicer
         public override void RemovedFromDocument(GH_Document document) { Async?.Cancel(); base.RemovedFromDocument(document); }
         public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context) { if (context == GH_DocumentContext.Close) Async?.Cancel(); base.DocumentContextChanged(document, context); }
         public override bool Write(GH_IO.Serialization.GH_IWriter writer) { Async?.Write(writer); return base.Write(writer); }
-        public override bool Read(GH_IO.Serialization.GH_IReader reader) { Async?.Read(reader); return base.Read(reader); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { _placed = true; Async?.Read(reader); return base.Read(reader); }
         protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu) { base.AppendAdditionalComponentMenuItems(menu); Async?.AppendMenu(menu); }
 
         private List<LARGERslicer.Components.OptionRow> _rows;
@@ -74,11 +74,56 @@ namespace LARGERslicer.Components.Slicer
             }
         }
 
+        /// <summary>An Options component for this one (null = none): a freshly placed component gets it
+        /// docked on its left, wired into the inputs of its settings. Rows of wired inputs are not drawn,
+        /// so the settings then sit on the Options component only, and the inputs stay for wires.</summary>
+        protected virtual OptionsPanelComponent CreatePanel() => null;
+        private bool _placed;
+
+        public override void AddedToDocument(GH_Document document)
+        {
+            base.AddedToDocument(document);
+            if (_placed) return;
+            _placed = true;
+            // only for a component placed from the toolbar: not for files, paste, undo or Quick Start
+            if (SuppressAutoInputs || Params.Input.Any(p => p.SourceCount > 0)) return;
+            var panel = CreatePanel();
+            if (panel != null) OptionsPanelComponent.Dock(document, this, panel);
+        }
+
+        /// <summary>The settings rows of the inputs (choices, numbers, switches), as declared, for the Options component.</summary>
+        internal List<LARGERslicer.Components.OptionRow> SettingRows()
+        {
+            var keep = _rows;
+            _rows = new List<LARGERslicer.Components.OptionRow>();
+            try { CreateAutoInputs(null); } catch { }
+            var all = _rows; _rows = keep;
+            return all.Where(r => r.Input >= 0 && r.Input < Params.Input.Count && r.Kind != LARGERslicer.Components.RowKind.Button).OrderBy(r => r.Input).ToList();
+        }
+
+        /// <summary>The rows are declared again (e.g. in another unit).</summary>
+        protected void ResetRows() { _rows = null; Attributes?.ExpireLayout(); }
+
         public override void CreateAttributes()
         {
             if (Rows.Count > 0) m_attributes = new LARGERslicer.Components.OptionAttributes(this);
             else base.CreateAttributes();
         }
+
+        // ---- files: several inputs (lists, trees) never write over each other
+        private readonly HashSet<string> _written = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>The path for a file of this solution: _2, _3 ... when this solution has written that one already.</summary>
+        protected string FreePath(string file, string defaultName)
+        {
+            string path = OutputFile.Resolve(file, defaultName), free = path;
+            string stem = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path) ?? "", System.IO.Path.GetFileNameWithoutExtension(path)), ext = System.IO.Path.GetExtension(path);
+            for (int n = 2; !_written.Add(free); n++) free = stem + "_" + n.ToString(System.Globalization.CultureInfo.InvariantCulture) + ext;
+            return free;
+        }
+
+        /// <summary>Writes the lines to a free path; returns the path written, or throws.</summary>
+        protected string Save(string file, string defaultName, IEnumerable<string> lines) => OutputFile.Write(FreePath(file, defaultName), defaultName, lines);
 
         protected void AddValueList(GH_Document doc, int input, string name, params string[] items) => AddValueListAt(doc, input, name, 0, items);
 
@@ -124,12 +169,22 @@ namespace LARGERslicer.Components.Slicer
             AddSlider(doc, input, name, (decimal)min, (decimal)max, (decimal)value, 0, "°", picks.OrderBy(a => a).ToArray());
         }
 
+        /// <summary>A speed in mm/s, or in mm/min where an old definition still reads it that way.</summary>
+        protected void AddSpeed(GH_Document doc, int input, string name, double min, double max, double value, double[] presets, bool old)
+        {
+            double f = old ? 60 : 1;
+            AddSlider(doc, input, name, (decimal)(min * f), (decimal)(max * f), (decimal)(value * f), 0, old ? "mm/min" : "mm/s", presets.Select(v => v * f).ToArray());
+        }
+
         /// <summary>A count (walls, layers, loops): whole numbers only.</summary>
         protected void AddCount(GH_Document doc, int input, string name, int min, int max, int value)
         {
             var picks = max - min <= 6 ? Enumerable.Range(min, max - min + 1).Select(v => (double)v).ToArray() : null;
             AddSlider(doc, input, name, min, max, value, 0, "", picks);
         }
+
+        /// <summary>The choice row of this input.</summary>
+        protected LARGERslicer.Components.OptionRow Choice(int input) => _rows?.Find(r => r.Input == input && r.Kind == LARGERslicer.Components.RowKind.Choice);
 
         /// <summary>An on/off switch on the component.</summary>
         protected void AddToggle(GH_Document doc, int input, string name, bool value, string on = null, string off = null)
@@ -152,6 +207,8 @@ namespace LARGERslicer.Components.Slicer
     public class QuickStartComponent : GH_Component
     {
         private bool _done;
+        /// <summary>Tests and example builders: build every example unlocked (computes all eight at once).</summary>
+        public static bool BuildAllUnlocked;
 
         public QuickStartComponent()
             : base("Quick Start", "Start",
@@ -212,8 +269,11 @@ namespace LARGERslicer.Components.Slicer
                 return r;
             };
             var relays = new List<IGH_DocumentObject>();
+            var sectionTops = new List<float>();
+            var grouped = new List<Tuple<int, string, IGH_DocumentObject[]>>();
             Action<string, System.Drawing.Color, IGH_DocumentObject[]> group = (title, colour, members) =>
             {
+                grouped.Add(Tuple.Create(sectionTops.Count, title, members));
                 var g = new Grasshopper.Kernel.Special.GH_Group { NickName = title, Colour = colour };
                 g.CreateAttributes();
                 doc.AddObject(g, false);
@@ -230,7 +290,10 @@ namespace LARGERslicer.Components.Slicer
                 sc.Attributes.Pivot = new System.Drawing.PointF(x0 + dx, y0 + dy);
                 doc.AddObject(sc, false);
             };
-            Action<string, string, float> section = (title, about, y) => { write(title, -200, y - 300, 44); write(about, -200, y - 232, 16); };
+            // every example after the first is placed locked, so Quick Start loads fast; its band on the canvas
+            // starts at its title (see LockLaterExamples at the end)
+            var before = new HashSet<Guid>(doc.Objects.Select(o => o.InstanceGuid));
+            Action<string, string, float> section = (title, about, y) => { write(title, -200, y - 300, 44); write(about, -200, y - 232, 16); sectionTops.Add(y0 + y - 300); };
             var yellow = System.Drawing.Color.FromArgb(255, 255, 250, 90);
             write("LARGER.slicer", -980, -640, 72);
             write("QUICK START  -  EIGHT EXAMPLES ON ONE PRINT BED\nLarge-format 3D printing as one continuous line, FH Muenster", -980, -540, 18);
@@ -428,7 +491,7 @@ namespace LARGERslicer.Components.Slicer
                 var slider3 = new Grasshopper.Kernel.Special.GH_NumberSlider();
                 slider3.CreateAttributes();
                 slider3.NickName = "Simulation (0 = start, 1 = end)";
-                slider3.Slider.Minimum = 0; slider3.Slider.Maximum = 1; slider3.Slider.DecimalPlaces = 3;
+                slider3.Slider.Minimum = 0; slider3.Slider.Maximum = 1; slider3.Slider.DecimalPlaces = 4; // skirt and brim take the first per cent
                 slider3.SetSliderValue(0.9m);
                 slider3.Attributes.Pivot = new System.Drawing.PointF(x0 + 1840, y0 + y3 + 20);
                 doc.AddObject(slider3, false);
@@ -622,7 +685,7 @@ namespace LARGERslicer.Components.Slicer
             var simSlider = new Grasshopper.Kernel.Special.GH_NumberSlider();
             simSlider.CreateAttributes();
             simSlider.NickName = "Simulation (0 = start, 1 = end)";
-            simSlider.Slider.Minimum = 0; simSlider.Slider.Maximum = 1; simSlider.Slider.DecimalPlaces = 3;
+            simSlider.Slider.Minimum = 0; simSlider.Slider.Maximum = 1; simSlider.Slider.DecimalPlaces = 4; // skirt and brim take the first per cent
             simSlider.SetSliderValue(0.5m);
             simSlider.Attributes.Pivot = new System.Drawing.PointF(x0 + 2810, y0 + y1 + 800);
             doc.AddObject(simSlider, false);
@@ -651,6 +714,30 @@ namespace LARGERslicer.Components.Slicer
 
             // show only the finished paths, the guides and the checks
             foreach (var h in hide) h.Hidden = true;
+
+            // examples 02 to 08 stay locked until they are wanted: only example 01 computes when Quick Start is placed
+            if (!BuildAllUnlocked)
+            {
+                var tops = sectionTops.ToList();
+                if (tops.Count > 1)
+                {
+                    // the groups of examples 02 to 08; the robot simulation and the part name of example 01 are grouped at the end
+                    var keep = new HashSet<Guid> { simulate.InstanceGuid, simSlider.InstanceGuid, jobName.InstanceGuid };
+                    var lockIt = new HashSet<Guid>();
+                    foreach (var gm in grouped)
+                        if (gm.Item1 >= 2 && !gm.Item2.StartsWith("ROBOT SIMULATION  -  move the slider") && !gm.Item2.StartsWith("PART NAME"))
+                            foreach (var m in gm.Item3) lockIt.Add(m.InstanceGuid);
+                    float firstLocked = tops[1];
+                    foreach (var o in doc.Objects.ToList())
+                    {
+                        if (before.Contains(o.InstanceGuid) || keep.Contains(o.InstanceGuid) || !(o is IGH_ActiveObject ao)) continue;
+                        // members of those groups, and components without a group that stand in their bands
+                        if (lockIt.Contains(o.InstanceGuid) || (o is IGH_Component && o.Attributes.Pivot.Y >= firstLocked - 1 && !grouped.Any(gm => gm.Item1 < 2 && gm.Item3.Contains(o)))) ao.Locked = true;
+                    }
+                    for (int k = 1; k < tops.Count; k++)
+                        write("LOCKED so that Quick Start loads fast. To compute this example: select its groups and press Ctrl+E (Mac: Cmd+E), or right-click > Enable.", -200, tops[k] - y0 + 100, 16);
+                }
+            }
 
             doc.RemoveObject(this, false);
         }
@@ -687,9 +774,13 @@ namespace LARGERslicer.Components.Slicer
             var layers = goos.OfType<GH_SliceLayer>().Select(g => g.Value).Where(l => l != null).OrderBy(l => l.Index).ToList();
             var curves = new Grasshopper.DataTree<Curve>();
             var roles = new Grasshopper.DataTree<string>();
+            // several parts (branches): the layers of every part stay apart, {part;layer}
+            var parts = Params.Input[0].VolatileData;
+            bool several = parts.PathCount > 1 && da.Iteration < parts.PathCount;
+            if (several && da.Iteration == 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"{parts.PathCount} branches of layers: the curves are sorted {{part;layer}}. Curves to Layers takes one part at a time.");
             for (int i = 0; i < layers.Count; i++)
             {
-                var branch = new Grasshopper.Kernel.Data.GH_Path(i);
+                var branch = several ? parts.get_Path(da.Iteration).AppendElement(i) : new Grasshopper.Kernel.Data.GH_Path(i);
                 for (int c = 0; c < layers[i].Contours.Count; c++)
                 {
                     curves.Add(new PolylineCurve(layers[i].Contours[c]), branch);
@@ -818,7 +909,7 @@ namespace LARGERslicer.Components.Slicer
             AddSlider(doc, 13, "First Layer", 0, 10, 0, 1, "mm", new double[] { 0, 1, 2, 3, 4, 5 });
             AddSlider(doc, 0, "Bead Width", 1m, 40m, 5m, 1, "mm", new double[] { 3, 4, 5, 6, 8, 10, 12, 15, 20 });
             AddSlider(doc, 1, "Layer Height", 0.5m, 20m, 2m, 1, "mm", new double[] { 1, 1.5, 2, 2.5, 3, 4, 5 });
-            AddSlider(doc, 2, "Speed", 5m, 200m, 50m, 0, "mm/s", new double[] { 10, 25, 30, 50, 80, 100, 150 });
+            AddSpeed(doc, 2, "Speed", 5, 200, 50, new double[] { 10, 25, 30, 50, 80, 100, 150 }, _oldSpeedUnit);
             AddToggle(doc, 10, "Preview", false);
             AddSlider(doc, 15, "First Layer Speed", 0m, 100m, 0m, 0, "mm/s", new double[] { 0, 15, 20, 25, 30, 40 });
         }
@@ -874,8 +965,13 @@ namespace LARGERslicer.Components.Slicer
         }
 
         private bool _oldSpeedUnit;
-        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { SpeedUnits.Mark(writer); return base.Write(writer); }
-        public override bool Read(GH_IO.Serialization.GH_IReader reader) { _oldSpeedUnit = SpeedUnits.IsOld(reader); return base.Read(reader); }
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { SpeedUnits.Mark(writer, _oldSpeedUnit); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { _oldSpeedUnit = SpeedUnits.IsOld(reader); bool ok = base.Read(reader); ResetRows(); return ok; }
+        protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu)
+        {
+            base.AppendAdditionalComponentMenuItems(menu);
+            if (_oldSpeedUnit) SpeedUnits.AppendMenu(menu, this, new[] { 2, 8, 9 }, () => { _oldSpeedUnit = false; ResetRows(); });
+        }
     }
 
     // ============================================================== design rules (CEAD and Ginger sheets)
@@ -1014,6 +1110,8 @@ namespace LARGERslicer.Components.Slicer
             p[1].Optional = true;
             p[4].Optional = true;
         }
+
+        protected override OptionsPanelComponent CreatePanel() => new SliceOptionsComponent();
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
@@ -1745,7 +1843,9 @@ namespace LARGERslicer.Components.Slicer
                 return;
             }
             var sw = Stopwatch.StartNew();
-            var rounded = PathEngine.Round(tp, r, rr, out int corners, out int tooSharp);
+            var log = new List<string>();
+            var rounded = PathEngine.Round(tp, r, rr, out int corners, out int tooSharp, log);
+            foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, l);
             sw.Stop();
             Message = $"R{r:0.#}";
             da.SetData(0, new GH_Toolpath(rounded));
@@ -2081,7 +2181,7 @@ namespace LARGERslicer.Components.Slicer
             Message = "1 : " + (1.0 / (scale > 0 ? scale : r.SuggestedScale)).ToString("0.#");
             if (save)
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, OutputFile.Name("TEST", TestName(da), r.Grams, r.Minutes, ".gcode"), r.Lines)); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + Save(file, OutputFile.Name("TEST", TestName(da), r.Grams, r.Minutes, ".gcode"), r.Lines)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             da.SetDataList(0, r.Lines);
@@ -2101,8 +2201,13 @@ namespace LARGERslicer.Components.Slicer
     public class EasySlicerComponent : SlicerComponent
     {
         private bool _oldSpeedUnit;
-        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { SpeedUnits.Mark(writer); return base.Write(writer); }
-        public override bool Read(GH_IO.Serialization.GH_IReader reader) { _oldSpeedUnit = SpeedUnits.IsOld(reader); return base.Read(reader); }
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { SpeedUnits.Mark(writer, _oldSpeedUnit); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { _oldSpeedUnit = SpeedUnits.IsOld(reader); bool ok = base.Read(reader); ResetRows(); return ok; }
+        protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu)
+        {
+            base.AppendAdditionalComponentMenuItems(menu);
+            if (_oldSpeedUnit) SpeedUnits.AppendMenu(menu, this, new[] { 3 }, () => { _oldSpeedUnit = false; ResetRows(); });
+        }
 
         public EasySlicerComponent()
             : base("Easy Slicer", "Easy",
@@ -2138,7 +2243,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddSlider(doc, 3, "Speed", 5m, 200m, 50m, 0, "mm/s", new double[] { 10, 25, 30, 50, 80, 100, 150 });
+            AddSpeed(doc, 3, "Speed", 5, 200, 50, new double[] { 10, 25, 30, 50, 80, 100, 150 }, _oldSpeedUnit);
             AddCount(doc, 5, "Walls", 1, 4, 1);
             AddCount(doc, 6, "Bottom Layers", 0, 10, 0);
             AddToggle(doc, 9, "Spiral", false);
@@ -2272,7 +2377,7 @@ namespace LARGERslicer.Components.Slicer
             foreach (var wmsg in r.Warnings) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, wmsg);
             if (save)
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, OutputFile.Name("GIN", part, tp, ".gcode"), r.Lines)); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + Save(file, OutputFile.Name("GIN", part, tp, ".gcode"), r.Lines)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             Message = r.Lines.Count + " lines";
@@ -2314,6 +2419,7 @@ namespace LARGERslicer.Components.Slicer
         {
             AddButton(doc, 8, "Save machine");
             AddValueList(doc, 0, "Machine", MachineDefinition.All().Select(m => m.Title).ToArray());
+            _choice.Attach(Choice(0));
             AddValueList(doc, 12, "Kind", "as the machine", "Gantry", "Bed slinger", "Delta", "Belt 45", "Robot");
         }
 
@@ -2325,6 +2431,11 @@ namespace LARGERslicer.Components.Slicer
             p.AddMeshParameter("Model", "3D", "The machine in 3D as the preview shows it: its own model, or its bed", GH_ParamAccess.list);
             p.HideParameter(3); // drawn by the component in its own colour
         }
+
+        // the machine chosen in the row, by name: new files in the folder move the numbers of the list
+        private readonly NamedChoice _choice = new NamedChoice();
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { _choice.Write(writer); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { _choice.Read(reader); return base.Read(reader); }
 
         private readonly LARGERslicer.Components.MachinePreview _preview = new LARGERslicer.Components.MachinePreview();
         protected override void BeforeSolveInstance() { _preview.Clear(); base.BeforeSolveInstance(); }
@@ -2365,6 +2476,7 @@ namespace LARGERslicer.Components.Slicer
             {
                 var all = MachineDefinition.All(log);
                 foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Machine file left out. " + l);
+                index = _choice.Resolve(this, 0, index, all.Select(a => a.Title).ToArray(), "machine", "Documents/LARGER/Machines");
                 if (index < 0 || index >= all.Count) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"There are {all.Count} machines (0 to {all.Count - 1}); using the first."); index = 0; }
                 m = all[index].Duplicate();
             }
@@ -2473,7 +2585,7 @@ namespace LARGERslicer.Components.Slicer
             string fileName = OutputFile.Name(machine.Prefix, part, named, machine.Extension);
             if (save)
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, fileName, r.Lines)); }
+                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + Save(file, fileName, r.Lines)); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             Message = machine.Name;

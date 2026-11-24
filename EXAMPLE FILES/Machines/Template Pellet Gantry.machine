@@ -1,0 +1,55 @@
+# LARGER.slicer machine: template for a large-format pellet printer on a gantry (Marlin), like the Ginger One.
+# Copy it into Documents/LARGER/Machines, rename it, change the values. Lines that begin with # are comments.
+# The pellet extruder runs as the E axis: E = bead width x layer height x length x flow x extrusion factor.
+# Find the factor with SETUP/LARGERslicer Extrusion Factor Test.gh (Ginger One: about 0.21).
+# The guide: docs/OWN_MACHINES.md
+
+name = Template Pellet Gantry
+manufacturer = Me
+kind = gantry
+prefix = TPP
+extension = .gcode
+bed = 1000 x 1000 x 1000
+
+extrusion factor = 0.21
+first layer factor = 1
+# 0 = no filament: E is the volume times the factor
+filament diameter = 0
+section = rectangle
+travel speed = 6000
+
+material = PETG
+# PLA 60-70, PETG 80-90
+bed temperature = 85
+fan = 60
+
+# the gantry model of the template; draw your own for the real size
+model = Template Gantry.3dm
+
+[start]
+; START CODE for {material}
+G21
+G90
+M140 S{bed}
+G28
+M190 S{bed}
+G92 E0
+M83
+; end of start code
+
+[layer]
+; layer {layer} at Z {z}
+
+# the fan stays off on the first 4 layers for adhesion (Ginger handbook); change the number in the brackets
+[after layer 4]
+M106 S{fan} ; fan {fan %} %
+
+[end]
+; END CODE
+G91
+G1 F200 Z20
+G90
+M107
+M140 S0
+M84
+; end of end code

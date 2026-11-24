@@ -47,7 +47,9 @@ namespace LARGERslicer.GH2
                 return;
             }
             var sw = Stopwatch.StartNew();
-            var rounded = PathEngine.Round(tp, r, rr, out int corners, out int tooSharp);
+            var log = new List<string>();
+            var rounded = PathEngine.Round(tp, r, rr, out int corners, out int tooSharp, log);
+            Io.Remarks(access, log);
             sw.Stop();
             if (tooSharp > 0) access.AddRemark("Smaller radius", $"{tooSharp} wall corner(s) have too little room for R{r:0.##} (another corner is too close); they got the largest arc that fits.");
             access.AddRemark($"R {r:0.##} mm", $"Wall corners are rounded with R {r:0.##} mm" + (rIn > 0 ? "." : " (Min Radius 0: from the Print Settings, half the bead width unless set there; the Ginger handbook asks for at least half the nozzle)."));

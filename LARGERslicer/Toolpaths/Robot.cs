@@ -164,6 +164,16 @@ namespace LARGERslicer.Toolpaths
 
         public bool HasSphericalWrist => Math.Abs(D[2]) < 1e-9 && Math.Abs(A[3]) < 1e-9 && Math.Abs(A[4]) < 1e-9 && Math.Abs(D[4]) < 1e-9 && Math.Abs(A[5]) < 1e-9 && Math.Abs(A[1]) > 1e-9;
 
+        /// <summary>
+        /// False for an arm of another maker. Its file is read all the same, but the axis angles, their
+        /// signs and their zero are taken as on a KUKA (ToDegrees), and the program is written in KRL.
+        /// </summary>
+        public bool IsKuka => string.IsNullOrWhiteSpace(Manufacturer) || Manufacturer.IndexOf("KUKA", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        /// <summary>What to know about an arm that is not a KUKA; null = nothing.</summary>
+        public string ConventionWarning => IsKuka ? null
+            : Inv.F($"{Manufacturer} {Name} is not a KUKA: its axis angles, axis ranges and home position are read by the KUKA convention (signs, zero of A2 and A3) and the program is KRL. Reach, range and collision results can be wrong, and the axis values are not those of its own controller.");
+
         /// <summary>Longest distance from the base axis the wrist centre can reach.</summary>
         public double Reach => A[0] + A[1] + Math.Sqrt(A[2] * A[2] + D[3] * D[3]) + D[5];
 
@@ -360,12 +370,18 @@ namespace LARGERslicer.Toolpaths
         public List<Point3d> Points = new List<Point3d>();
         /// <summary>Seconds from the start at which each move ends.</summary>
         public List<double> Seconds = new List<double>();
+        /// <summary>What each move prints (wall, skirt and brim, travel ...) and its layer; empty if not known.</summary>
+        public List<PathRole> Roles = new List<PathRole>();
+        public List<int> Layers = new List<int>();
         public double Duration => Seconds.Count > 0 ? Seconds[Seconds.Count - 1] : 0;
         public override string ToString() => Inv.F($"Robot run ({Points.Count} moves, {Duration / 60:0.#} min)");
 
         public static RobotRun Make(RobotProgramResult program, RobotCell cell, Toolpath tp)
         {
+            tp = program.PathFor(tp);
             var run = new RobotRun { Program = program, Cell = cell, Points = new List<Point3d>(tp.Points) };
+            if (tp.Roles.Count == tp.Count) run.Roles = new List<PathRole>(tp.Roles);
+            if (tp.Layers.Count == tp.Count) run.Layers = new List<int>(tp.Layers);
             double t = 0;
             for (int i = 0; i < tp.Count; i++)
             {
@@ -391,8 +407,8 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>
-        /// The axis angles at a moment of the run (seconds from the start), between the two
-        /// moves around it. move = the move the robot is on; null where it cannot get to.
+        /// The axis angles at a moment of the run (seconds from the start): the tool tip on the straight
+        /// way of the linear move. move = the move the robot is on; null where it cannot get to.
         /// </summary>
         public double[] AxesAt(double seconds, out int move, out double share)
         {
@@ -409,10 +425,8 @@ namespace LARGERslicer.Toolpaths
             var a = Program.Moves[lo - 1].Axes;
             double span = Seconds[lo] - Seconds[lo - 1];
             share = span > 1e-12 ? (seconds - Seconds[lo - 1]) / span : 1;
-            if (a == null) return (double[])b.Clone();
-            var q = new double[6];
-            for (int k = 0; k < 6; k++) q[k] = a[k] + (b[k] - a[k]) * share;
-            return q;
+            if (a == null || share >= 1 - 1e-9) return (double[])b.Clone();
+            return Program.AxesOnWay(Cell, lo, share);
         }
 
         /// <summary>The values of the external axes at a moment of the run (null if the cell has none).</summary>
@@ -432,6 +446,50 @@ namespace LARGERslicer.Toolpaths
             for (int k = 0; k < b.Length; k++) q[k] = a[k] + (b[k] - a[k]) * share;
             return q;
         }
+
+        /// <summary>
+        /// How far the print is at this moment: the number of points fully reached, and the tool tip
+        /// on the way to the next one (in the coordinates of the part, before a turntable turns it).
+        /// </summary>
+        public int ReachedAt(double seconds, out Point3d tip)
+        {
+            tip = Point3d.Unset;
+            int n = Math.Min(Seconds.Count, Points.Count);
+            if (n == 0) return 0;
+            seconds = Math.Max(0, Math.Min(Duration, seconds));
+            int lo = 0, hi = n;
+            while (lo < hi) { int mid = (lo + hi) / 2; if (Seconds[mid] <= seconds) lo = mid + 1; else hi = mid; }
+            int k = lo; // points 0..k-1 are reached
+            if (k == 0) { tip = Points[0]; return 0; }
+            if (k >= n) { tip = Points[n - 1]; return n; }
+            double span = Seconds[k] - Seconds[k - 1], u = span > 1e-12 ? (seconds - Seconds[k - 1]) / span : 1;
+            tip = Points[k - 1] + (Points[k] - Points[k - 1]) * u;
+            return k;
+        }
+
+        /// <summary>In words, what the robot prints at this move: approach, skirt and brim, layer n of m, exit.</summary>
+        public string PhaseAt(int move)
+        {
+            if (Roles.Count != Points.Count || Points.Count == 0) return "";
+            move = Math.Max(0, Math.Min(Points.Count - 1, move));
+            if (_firstPart < 0)
+            {
+                _firstPart = int.MaxValue; _lastPart = -1; _layerCount = 0;
+                for (int i = 0; i < Roles.Count; i++)
+                    if (Roles[i] != PathRole.Skirt && Roles[i] != PathRole.Travel)
+                    {
+                        _firstPart = Math.Min(_firstPart, i); _lastPart = i;
+                        if (i < Layers.Count) _layerCount = Math.Max(_layerCount, Layers[i] + 1);
+                    }
+            }
+            var role = Roles[move];
+            if (role == PathRole.Skirt) return "skirt and brim";
+            if (move > _lastPart) return "exit";
+            if (move < _firstPart) return role == PathRole.Travel ? "approach" : "start";
+            string layer = move < Layers.Count && _layerCount > 0 ? $"layer {Layers[move] + 1} of {_layerCount}" : "";
+            return role == PathRole.Travel ? (layer.Length > 0 ? layer + ", travel" : "travel") : layer;
+        }
+        private int _firstPart = -1, _lastPart = -1, _layerCount;
 
         /// <summary>The path printed up to this moment, where it is in the room (turned with the table).</summary>
         public Polyline PrintedAt(double seconds)
@@ -465,6 +523,8 @@ namespace LARGERslicer.Toolpaths
         public Frame Part = Frame.World;      // how the part is turned by a turntable at this move
         public Frame RobotBase = Frame.World; // where the robot foot is at this move (moved by a rail)
         public bool Reachable = true, InLimits = true, Singular;
+        /// <summary>Which of the eight ways to get there (shoulder 1, elbow 2, wrist 4); -1 = not calculated.</summary>
+        public int Config = -1;
     }
 
     public class RobotProgramResult
@@ -474,8 +534,20 @@ namespace LARGERslicer.Toolpaths
         public List<string> Krl = new List<string>();        // a complete KRL program
         public List<double> Extrusion = new List<double>(), Speed = new List<double>();
         public List<string> Report = new List<string>();
+        /// <summary>
+        /// True as long as nothing that was checked speaks against the program: reach, axis ranges, wrist and
+        /// axis speeds (with Check on), and collisions once CheckCollisions has run. What was not checked is
+        /// written in the Report; it does not make the program not OK.
+        /// </summary>
         public bool Ok = true;
         public int OutOfReach, OverLimit, Singular, ConfigChanges, Wound;
+        /// <summary>
+        /// The path the moves were made from, one point per move. The toolpath itself, unless its moves had to be
+        /// split (a turntable that is not coupled): use it, not the toolpath, with the numbers of the moves.
+        /// </summary>
+        public Toolpath Path;
+        /// <summary>How far the tool is turned about its own axis (degrees).</summary>
+        public double Turn;
         /// <summary>Problems found between two path points (long moves are checked in steps).</summary>
         public int BetweenProblems;
         public double[] AxisMin = new double[6], AxisMax = new double[6];
@@ -492,6 +564,117 @@ namespace LARGERslicer.Toolpaths
             Report.AddRange(Collision.Lines);
             if (Collision.Hits > 0) Ok = false;
             return Collision;
+        }
+
+        /// <summary>The path with one point per move: Path if the program has one, else the toolpath given.</summary>
+        public Toolpath PathFor(Toolpath tp) => Path != null && Path.Count == Moves.Count ? Path : tp;
+
+        /// <summary>The values of the external axes on the way to move i (share u of it); null = none.</summary>
+        public double[] ExternalOnWay(int i, double u)
+        {
+            var b = Moves[i].External;
+            if (b == null || i == 0 || u >= 1) return b;
+            var a = Moves[i - 1].External; if (a == null) return b;
+            var q = new double[b.Length];
+            for (int k = 0; k < b.Length; k++) q[k] = a[k] + (b[k] - a[k]) * u;
+            return q;
+        }
+
+        /// <summary>
+        /// The axis angles on the way to move i, at the share u of it: the tool tip on the straight line of the
+        /// linear move, the arm in the configuration of its ends. Where that cannot be solved, the angles
+        /// between those of the two ends. Null if one end was not calculated.
+        /// </summary>
+        public double[] AxesOnWay(RobotCell cell, int i, double u)
+        {
+            var b = Moves[i].Axes;
+            if (b == null || i == 0 || u >= 1) return b == null ? null : (double[])b.Clone();
+            var a = Moves[i - 1].Axes;
+            if (a == null) return null;
+            var q = new double[6];
+            for (int k = 0; k < 6; k++) q[k] = a[k] + (b[k] - a[k]) * u;
+            if (Path == null || Path.Count != Moves.Count || !Moves[i].Reachable || !Moves[i - 1].Reachable || Moves[i].Config != Moves[i - 1].Config) return q;
+            var ext = ExternalOnWay(i, u);
+            var part = cell.PartAt(ext);
+            Vector3d n = Path.Normals[i - 1] * (1 - u) + Path.Normals[i] * u;
+            var world = RobotProgram.Target(part.Pt(Path.Points[i - 1] + (Path.Points[i] - Path.Points[i - 1]) * u), part.Dir(n), Turn);
+            var solver = new ArmSolver(cell);
+            var best = solver.Solve(cell.RobotBaseAt(ext).Inverse(), world, q, Moves[i].Config);
+            return solver.Reach && solver.Config == Moves[i].Config ? best : q;
+        }
+    }
+
+    /// <summary>
+    /// Axis angles for one pose of a cell after another: of the eight ways to get there, the one nearest
+    /// to the last pose, keeping the arm configuration (shoulder, elbow, wrist) if it can. Axes that can
+    /// turn more than once round (4 and 6, and axis 1 of most arms) are followed round without a jump: their
+    /// value is the one nearest to the last value, even if that lies beyond the range - a real linear move
+    /// turns them that way and stops at the limit. (The program lines carry no status and turn, S and T: the
+    /// first move is written in axis angles, and a linear move keeps both as it goes.)
+    /// </summary>
+    internal sealed class ArmSolver
+    {
+        private readonly RobotArm _arm;
+        private readonly Frame _tcpInv;
+        /// <summary>Of the last pose: configuration, whether it is reached, within all ranges, next to the wrist singularity.</summary>
+        public int Config; public bool Reach, Limits, Singular;
+        /// <summary>Of the last pose: the axis that would have to be turned back a full turn to stay in its range; -1 = none.</summary>
+        public int WoundAxis;
+
+        public ArmSolver(RobotCell cell)
+        {
+            _arm = cell.Arm;
+            // the flange of the model looks the other way round than the flange the tool is measured from
+            _tcpInv = Frame.World.TurnedAboutZ(Math.PI).Times(cell.Tool.Tcp).Inverse();
+        }
+
+        private bool Outside(int ax, double v) => v < _arm.MinDeg[ax] - 1e-6 || v > _arm.MaxDeg[ax] + 1e-6;
+
+        public double[] Solve(Frame robotInv, Frame world, double[] prev, int prevCfg)
+        {
+            var arm = _arm;
+            Frame flange = robotInv.Times(world).Times(_tcpInv);
+            double[] best = null; double bestCost = double.MaxValue;
+            Config = -1; Reach = false; Limits = false; Singular = false; WoundAxis = -1;
+            for (int cfg = 0; cfg < 8; cfg++)
+            {
+                var deg = arm.Inverse(flange, (cfg & 1) != 0, (cfg & 2) != 0, (cfg & 4) != 0, out bool far, out bool sing);
+                int wound = -1;
+                for (int ax = 0; ax < 6; ax++)
+                {
+                    double before = deg[ax];
+                    bool round = ax == 3 || ax == 5 || (ax == 0 && arm.MaxDeg[0] - arm.MinDeg[0] > 360);
+                    if (!round)
+                    {
+                        // one turn at most: the same angle a full turn on, if that is the one in the range
+                        // (axis 3 of the KR120 goes to -120, which the calculation gives as 240)
+                        if (Outside(ax, before)) { if (!Outside(ax, before - 360)) deg[ax] = before - 360; else if (!Outside(ax, before + 360)) deg[ax] = before + 360; }
+                        continue;
+                    }
+                    double near = prev != null ? prev[ax] : ax == 0 ? before : 0;
+                    deg[ax] -= 360 * Math.Round((deg[ax] - near) / 360);
+                    if (prev == null)
+                    {
+                        // first pose: the turn inside the range that is nearest to 0
+                        while (deg[ax] > arm.MaxDeg[ax]) deg[ax] -= 360;
+                        while (deg[ax] < arm.MinDeg[ax]) deg[ax] += 360;
+                    }
+                    if (Outside(ax, deg[ax]) && !Outside(ax, before))
+                    {
+                        // a turn the other way round would stay inside, but only by turning back a full turn: that is
+                        // no linear move (another shoulder is a jump anyway)
+                        if (ax == 0 && prevCfg >= 0 && cfg != prevCfg) deg[ax] = before;
+                        else if (wound < 0) wound = ax;
+                    }
+                }
+                bool within = true;
+                for (int ax = 0; ax < 6; ax++) if (Outside(ax, deg[ax])) within = false;
+                double cost = (far ? 1e9 : 0) + (within ? 0 : 1e6) + (prevCfg >= 0 && cfg != prevCfg ? 1e4 : 0);
+                if (prev == null) cost += cfg;
+                else { double sum = 0; for (int ax = 0; ax < 6; ax++) sum += (deg[ax] - prev[ax]) * (deg[ax] - prev[ax]); cost += sum; }
+                if (cost < bestCost) { bestCost = cost; best = deg; Config = cfg; Reach = !far; Limits = within; Singular = sing; WoundAxis = within ? -1 : wound; }
+            }
+            return best;
         }
     }
 
@@ -550,18 +733,50 @@ namespace LARGERslicer.Toolpaths
             return prog;
         }
 
+        /// <summary>
+        /// The KRL program as it goes into a file: the controller takes a .src file only if the program in it (DEF)
+        /// has the name of the file. If they differ, DEF is named after the file. note = what was changed or is
+        /// still wrong, null = nothing (the names agreed and the lines are the same); bad = the file has to be renamed.
+        /// </summary>
+        public static List<string> KrlForFile(IList<string> krl, string file, out string note, out bool bad)
+        {
+            note = null; bad = false;
+            var lines = new List<string>(krl ?? new string[0]);
+            int def = lines.FindIndex(l => l.StartsWith("DEF ", StringComparison.Ordinal));
+            string stem = System.IO.Path.GetFileNameWithoutExtension(file ?? "");
+            if (def < 0 || stem.Length == 0) return lines;
+            string was = lines[def].Substring(4).Replace("()", "").Trim();
+            if (string.Equals(was, stem, StringComparison.OrdinalIgnoreCase)) return lines;
+            string prog = ProgramName(stem);
+            lines[def] = "DEF " + prog + "()";
+            bad = !string.Equals(prog, stem, StringComparison.OrdinalIgnoreCase);
+            note = bad ? Inv.F($"The controller takes the file only under the name of the program in it: rename it to {prog}.src (letters, digits and underscore, not more than 24).")
+                       : Inv.F($"The program in the file is called {prog}, as the file (the controller needs the same name for both).");
+            return lines;
+        }
+
         public static RobotProgramResult Build(Toolpath tp, RobotCell cell, double turnDeg, string name, bool checkAxes)
         {
             var r = new RobotProgramResult();
             if (tp == null || tp.Count < 2) { r.Ok = false; r.Report.Add("Empty toolpath."); return r; }
             var pr = PathEngine.Process(tp, false);
+            List<double> extrusion = pr.Extrusion, speed = pr.Speed;
             var arm = cell.Arm;
-            Frame baseInv = cell.WorkBase.Inverse(), robotInv = arm.Base.Inverse();
+            Frame baseInv = cell.WorkBase.Inverse();
             // external axes: rail and turntable values for every move, chosen before the arm
             var axesExt = cell.HasExternalAxes ? cell.ExternalAxes : null;
             if (axesExt != null) r.External = ExternalAxisSolver.Solve(tp, cell, pr.Speed);
             var table = axesExt?.FirstOrDefault(a => !a.IsRail);
             bool coupled = table != null && table.Coupled;
+            // a table that is not coupled turns under a move that is straight in the fixed base: on the part that
+            // is a bow. The moves are split until it stays straight there too
+            ExternalAxisSplit split = null;
+            if (table != null && !coupled)
+            {
+                split = ExternalAxisSolver.Split(tp, cell, r.External, extrusion, speed);
+                tp = split.Path; extrusion = split.Extrusion; speed = split.Speed;
+            }
+            r.Path = tp; r.Turn = turnDeg;
             Func<int, double, double[]> extAt = (i, u) =>
             {
                 if (r.External == null) return null;
@@ -571,53 +786,24 @@ namespace LARGERslicer.Toolpaths
                 for (int e = 0; e < b.Length; e++) q[e] = a[e] + (b[e] - a[e]) * u;
                 return q;
             };
-            // the flange of the model looks the other way round than the flange the tool is measured from
-            Frame tcpInv = Frame.World.TurnedAboutZ(Math.PI).Times(cell.Tool.Tcp).Inverse();
             for (int i = 0; i < 6; i++) { r.AxisMin[i] = double.MaxValue; r.AxisMax[i] = double.MinValue; }
 
             double[] prev = null; int prevCfg = -1; int firstBad = -1; string firstBadWhy = "";
             int firstConfig = -1, firstWound = -1, firstBetween = -1; string firstBetweenWhy = "";
-
-            // One pose: of the eight ways to get there, the one nearest to the last pose, keeping the
-            // arm configuration (shoulder, elbow, wrist) if it can. Axes 4 and 6 are followed round
-            // without a jump: their value is the one nearest to the last value, even if that lies
-            // beyond the range - a real linear move turns them that way and stops at the limit.
-            Func<Frame, double[]> solve = null;
-            int solvedCfg = -1; bool solvedReach = false, solvedLimits = false, solvedSing = false, solvedWound = false;
-            solve = world =>
+            int woundArm = 0, firstWoundArm = -1;
+            // the fastest an axis has to turn, as a share of its top speed
+            double worst = 0; int worstAxis = 0;
+            Action<double[], double[], double> turning = (from, to, seconds) =>
             {
-                Frame flange = robotInv.Times(world).Times(tcpInv);
-                double[] best = null; double bestCost = double.MaxValue;
-                solvedCfg = -1; solvedReach = false; solvedLimits = false; solvedSing = false; solvedWound = false;
-                for (int cfg = 0; cfg < 8; cfg++)
-                {
-                    var deg = arm.Inverse(flange, (cfg & 1) != 0, (cfg & 2) != 0, (cfg & 4) != 0, out bool far, out bool sing);
-                    bool wound = false;
-                    foreach (int ax in new[] { 3, 5 })
-                    {
-                        double near = prev != null ? prev[ax] : 0;
-                        double before = deg[ax];
-                        deg[ax] -= 360 * Math.Round((deg[ax] - near) / 360);
-                        if (prev == null)
-                        {
-                            // first pose: the turn inside the range that is nearest to 0
-                            while (deg[ax] > arm.MaxDeg[ax]) deg[ax] -= 360;
-                            while (deg[ax] < arm.MinDeg[ax]) deg[ax] += 360;
-                        }
-                        if (deg[ax] < arm.MinDeg[ax] - 1e-6 || deg[ax] > arm.MaxDeg[ax] + 1e-6)
-                        {
-                            // would a turn the other way round stay inside? Only by turning back a full turn: that is no linear move
-                            if (before >= arm.MinDeg[ax] && before <= arm.MaxDeg[ax]) wound = true;
-                        }
-                    }
-                    bool within = true;
-                    for (int ax = 0; ax < 6; ax++) if (deg[ax] < arm.MinDeg[ax] - 1e-6 || deg[ax] > arm.MaxDeg[ax] + 1e-6) within = false;
-                    double cost = (far ? 1e9 : 0) + (within ? 0 : 1e6) + (prevCfg >= 0 && cfg != prevCfg ? 1e4 : 0)
-                                  + (prev == null ? cfg : Enumerable.Range(0, 6).Sum(ax => (deg[ax] - prev[ax]) * (deg[ax] - prev[ax])));
-                    if (cost < bestCost) { bestCost = cost; best = deg; solvedCfg = cfg; solvedReach = !far; solvedLimits = within; solvedSing = sing; solvedWound = wound && !within; }
-                }
-                return best;
+                if (seconds < 1e-4) return;
+                for (int ax = 0; ax < 6; ax++)
+                    if (arm.MaxSpeed[ax] > 0) { double share = Math.Abs(to[ax] - from[ax]) / seconds / arm.MaxSpeed[ax]; if (share > worst) { worst = share; worstAxis = ax; } }
             };
+
+            // one pose after the other, see ArmSolver
+            var solver = new ArmSolver(cell);
+            Func<string> why = () => !solver.Reach ? "out of reach" : solver.WoundAxis == 0 ? "axis 1 would turn past its range" : solver.WoundAxis > 0 ? "axis 4 or 6 would wind past its range"
+                : !solver.Limits ? "outside an axis range" : (prevCfg >= 0 && solver.Config != prevCfg) ? "the arm would have to change its configuration" : solver.Singular ? "wrist singularity" : null;
 
             for (int i = 0; i < tp.Count; i++)
             {
@@ -635,39 +821,72 @@ namespace LARGERslicer.Toolpaths
                 if (checkAxes)
                 {
                     // a long move (a travel move, the way in, a long straight piece) is checked on the way too
+                    int steps = 0; double stepSeconds = 0, f0 = 0; double[] from = prev; int fromCfg = prevCfg; bool fromOk = i > 0 && r.Moves[i - 1].Reachable;
+                    // the pose at the share u of this move, after the last one
+                    Func<double, double[]> onWay = u =>
+                    {
+                        Vector3d nrm = tp.Normals[i - 1] * (1 - u) + tp.Normals[i] * u;
+                        var eu = extAt(i, u); var partU = cell.PartAt(eu);
+                        return solver.Solve(cell.RobotBaseAt(eu).Inverse(), Target(partU.Pt(tp.Points[i - 1] + (tp.Points[i] - tp.Points[i - 1]) * u), partU.Dir(nrm), turnDeg), prev, prevCfg);
+                    };
+                    Action<string> between = w => { r.BetweenProblems++; if (firstBetween < 0) { firstBetween = i; firstBetweenWhy = w; } };
+                    // the last piece of the way, from share f0 to f1: how fast the axes turn on it. Where axis 4 or 6 swings
+                    // (next to the wrist singularity) it is looked at in smaller steps
+                    Action<double[], double> piece = (to, f1) =>
+                    {
+                        if (!fromOk || from == null || !solver.Reach || solver.Config != fromCfg) return;
+                        double swing = Math.Max(Math.Abs(to[3] - from[3]), Math.Abs(to[5] - from[5]));
+                        if (swing <= 5) { turning(from, to, stepSeconds); return; }
+                        // prev is moved on by the caller; here it walks along the piece and is put back
+                        var keep = prev; int keepCfg = prevCfg, fine = (int)Math.Min(16, Math.Ceiling(swing / 2)); prev = from; prevCfg = fromCfg;
+                        var last = from; bool told = false;
+                        for (int m = 1; m < fine; m++)
+                        {
+                            var pose = onWay(f0 + (f1 - f0) * m / fine);
+                            string told1 = why();
+                            if (told1 != null && !told) { between(told1); told = true; }
+                            if (!solver.Reach || solver.Config != prevCfg) { last = null; break; }
+                            turning(last, pose, stepSeconds / fine); last = pose; prev = pose;
+                        }
+                        if (last != null) turning(last, to, stepSeconds / fine);
+                        prev = keep; prevCfg = keepCfg;
+                    };
                     if (i > 0 && prev != null)
                     {
                         double len = tp.Points[i].DistanceTo(tp.Points[i - 1]);
-                        int steps = (int)Math.Floor(len / 10.0);
+                        steps = (int)Math.Floor(len / 10.0);
+                        if (speed[i] > 0) stepSeconds = len / (steps + 1.0) / (speed[i] / 60.0);
                         for (int st = 1; st <= steps; st++)
                         {
                             double u = st / (steps + 1.0);
-                            Vector3d nrm = tp.Normals[i - 1] * (1 - u) + tp.Normals[i] * u;
-                            var eu = extAt(i, u); var partU = cell.PartAt(eu);
-                            robotInv = cell.RobotBaseAt(eu).Inverse();
-                            var q = solve(Target(partU.Pt(tp.Points[i - 1] + (tp.Points[i] - tp.Points[i - 1]) * u), partU.Dir(nrm), turnDeg));
-                            string why = !solvedReach ? "out of reach" : solvedWound ? "axis 4 or 6 would wind past its range" : !solvedLimits ? "outside an axis range" : (prevCfg >= 0 && solvedCfg != prevCfg) ? "the arm would have to change its configuration" : solvedSing ? "wrist singularity" : null;
-                            if (why != null) { r.BetweenProblems++; if (firstBetween < 0) { firstBetween = i; firstBetweenWhy = why; } }
-                            if (solvedReach) { prev = q; prevCfg = solvedCfg; }
+                            var q = onWay(u);
+                            string w = why();
+                            if (w != null) between(w);
+                            int cfg = solver.Config; bool reached = solver.Reach;
+                            piece(q, u);
+                            f0 = u; from = q; fromCfg = cfg; fromOk = reached;
+                            if (reached) { prev = q; prevCfg = cfg; }
                         }
                     }
-                    robotInv = mv.RobotBase.Inverse();
-                    var best = solve(world);
-                    mv.Axes = best; mv.Reachable = solvedReach; mv.InLimits = solvedLimits; mv.Singular = solvedSing;
-                    if (!solvedReach) { r.OutOfReach++; if (firstBad < 0) { firstBad = i; firstBadWhy = "out of reach"; } }
-                    else if (!solvedLimits) { r.OverLimit++; if (firstBad < 0) { firstBad = i; firstBadWhy = solvedWound ? "axis 4 or 6 would wind past its range" : "outside an axis range"; } }
-                    if (solvedWound) { r.Wound++; if (firstWound < 0) firstWound = i; }
-                    if (solvedSing) r.Singular++;
-                    if (solvedReach && prevCfg >= 0 && solvedCfg != prevCfg) { r.ConfigChanges++; if (firstConfig < 0) firstConfig = i; }
-                    if (solvedReach) { prev = best; prevCfg = solvedCfg; for (int ax = 0; ax < 6; ax++) { r.AxisMin[ax] = Math.Min(r.AxisMin[ax], best[ax]); r.AxisMax[ax] = Math.Max(r.AxisMax[ax], best[ax]); } }
+                    var best = solver.Solve(mv.RobotBase.Inverse(), world, prev, prevCfg);
+                    mv.Axes = best; mv.Reachable = solver.Reach; mv.InLimits = solver.Limits; mv.Singular = solver.Singular; mv.Config = solver.Config;
+                    int config = solver.Config, woundAxis = solver.WoundAxis;
+                    if (!mv.Reachable) { r.OutOfReach++; if (firstBad < 0) { firstBad = i; firstBadWhy = "out of reach"; } }
+                    else if (!mv.InLimits) { r.OverLimit++; if (firstBad < 0) { firstBad = i; firstBadWhy = woundAxis == 0 ? "axis 1 would turn past its range" : woundAxis > 0 ? "axis 4 or 6 would wind past its range" : "outside an axis range"; } }
+                    if (woundAxis == 0) { woundArm++; if (firstWoundArm < 0) firstWoundArm = i; }
+                    else if (woundAxis > 0) { r.Wound++; if (firstWound < 0) firstWound = i; }
+                    if (mv.Singular) r.Singular++;
+                    if (mv.Reachable && prevCfg >= 0 && config != prevCfg) { r.ConfigChanges++; if (firstConfig < 0) firstConfig = i; }
+                    if (steps > 0) piece(best, 1);
+                    if (mv.Reachable) { prev = best; prevCfg = config; for (int ax = 0; ax < 6; ax++) { r.AxisMin[ax] = Math.Min(r.AxisMin[ax], best[ax]); r.AxisMax[ax] = Math.Max(r.AxisMax[ax], best[ax]); } }
                 }
                 r.Moves.Add(mv);
                 // the layer goes along as a comment, so the DXR Generator marks the layers where the
                 // slicer made them, also where layers are not flat (non-planar, multi-axis)
                 r.Lines.Add("PTP {" + XyzAbc(mv.Xyzabc).Replace(",", ", ") + "} ; layer " + tp.Layers[i].ToString(CultureInfo.InvariantCulture));
             }
-            r.Extrusion.AddRange(pr.Extrusion);
-            r.Speed.AddRange(pr.Speed);
+            r.Extrusion.AddRange(extrusion);
+            r.Speed.AddRange(speed);
 
             // ---- report
             r.Report.Add(Inv.F($"{tp.Count} moves for {arm}, tool {cell.Tool.Name}, counted from '{cell.BaseName}'."));
@@ -675,7 +894,15 @@ namespace LARGERslicer.Toolpaths
             {
                 r.Report.AddRange(r.External.Report);
                 r.Report.Add("Robot Path lines for the DXR Generator carry no external axis values: with a rail or turntable use the KRL program.");
+                if (split != null)
+                {
+                    if (split.Added > 0)
+                        r.Report.Add(Inv.F($"{table.Name}: the table turns along while a move runs straight in the fixed base; {split.Added} points were added, so the path stays straight on the part (within {split.Deviation:0.##} mm). Extrusion and Feed have a value for each of them."));
+                    if (split.RoomLength < 0.98 * split.PartLength)
+                        r.Report.Add(Inv.F($"WARNING: {table.Name} is not coupled, so the print speed on the part is not kept. $VEL.CP is the speed of the tool tip in the fixed base, where it only goes {split.RoomLength / 1000:0.0} m of the {split.PartLength / 1000:0.0} m of the path; the table makes the rest, at the speed the controller gives its external axes ($VEL_EXTAX), not at the print speed. Set Coupled on External Axis (the base turns with the table, $VEL.CP then counts on the part), or set the speeds on the controller and test without material."));
+                }
             }
+            if (arm.ConventionWarning != null) r.Report.Add("WARNING: " + arm.ConventionWarning);
             if (checkAxes)
             {
                 if (r.OutOfReach == 0 && r.OverLimit == 0)
@@ -690,6 +917,8 @@ namespace LARGERslicer.Toolpaths
                 }
                 if (r.Wound > 0)
                     r.Report.Add(Inv.F($"NOT RUNNABLE: at {r.Wound} point(s) axis 4 or 6 would have to turn on past its range (first at point {firstWound + 1}). The tool keeps turning in one direction along the path; a linear move cannot turn it back. Start the print with the tool turned the other way (Turn), or print the part the other way round."));
+                if (woundArm > 0)
+                    r.Report.Add(Inv.F($"NOT RUNNABLE: at {woundArm} point(s) axis 1 would have to turn on past its range (first at point {firstWoundArm + 1}): the path goes round behind the robot. A linear move cannot turn the arm the other way round; move the part or the robot."));
                 if (r.ConfigChanges > 0)
                 {
                     r.Ok = false;
@@ -707,16 +936,12 @@ namespace LARGERslicer.Toolpaths
                     var p = tp.Points[firstBetween];
                     r.Report.Add(Inv.F($"NOT RUNNABLE between points: on {r.BetweenProblems} step(s) of long moves {firstBetweenWhy}, first on the way to point {firstBetween + 1} ({p.X:0}, {p.Y:0}, {p.Z:0}). The points themselves can be fine; the straight way between them is not."));
                 }
-                // how fast the axes have to turn at print speed
-                double worst = 0; int worstAxis = 0;
+                // how fast the axes have to turn at print speed (on long moves also on the way, see above)
                 for (int i = 1; i < r.Moves.Count; i++)
                 {
                     var a = r.Moves[i - 1].Axes; var b = r.Moves[i].Axes;
-                    if (a == null || b == null || !r.Moves[i].Reachable || !r.Moves[i - 1].Reachable || pr.Speed[i] <= 0) continue;
-                    double seconds = tp.Points[i].DistanceTo(tp.Points[i - 1]) / (pr.Speed[i] / 60.0);
-                    if (seconds < 1e-4) continue;
-                    for (int ax = 0; ax < 6; ax++)
-                        if (arm.MaxSpeed[ax] > 0) { double share = Math.Abs(b[ax] - a[ax]) / seconds / arm.MaxSpeed[ax]; if (share > worst) { worst = share; worstAxis = ax; } }
+                    if (a == null || b == null || !r.Moves[i].Reachable || !r.Moves[i - 1].Reachable || speed[i] <= 0) continue;
+                    turning(a, b, tp.Points[i].DistanceTo(tp.Points[i - 1]) / (speed[i] / 60.0));
                 }
                 if (worst > 1.0) { r.Ok = false; r.Report.Add(Inv.F($"NOT RUNNABLE at print speed: A{worstAxis + 1} would have to turn at {worst * 100:0} % of its top speed. The robot cannot keep the print speed there and the bead gets thick (usually next to a wrist singularity). Lower the speed or change the position of the part.")); }
                 else if (worst > 0) r.Report.Add(Inv.F($"Axis speed OK: at most {worst * 100:0} % of the top speed (A{worstAxis + 1})."));
@@ -745,7 +970,7 @@ namespace LARGERslicer.Toolpaths
                 foreach (var ax in axesExt)
                     k.Add("; " + ax + (ax.IsRail ? ": carries the robot ($ROBROOT kinematic), $WORLD = robot foot at " + ax.Name + " 0"
                         : ax.Coupled ? ": coupled, the targets are counted in the base that turns with the table"
-                        : ": not coupled, the targets are counted in the fixed base, the table turns along"));
+                        : ": not coupled, the targets are counted in the fixed base, the table turns along. $VEL.CP is not the speed on the part: check it"));
             }
             if (coupled)
             {
@@ -768,7 +993,7 @@ namespace LARGERslicer.Toolpaths
                     else k.Add("PTP {" + XyzAbc(mv.Xyzabc) + Ext(axesExt, mv) + "}");
                     continue;
                 }
-                double mps = Math.Max(1e-4, pr.Speed[i] / 60000.0); // mm/min -> m/s
+                double mps = Math.Max(1e-4, speed[i] / 60000.0); // mm/min -> m/s
                 if (Math.Abs(mps - lastSpeed) > 1e-9) { k.Add("$VEL.CP = " + N(mps, 5)); lastSpeed = mps; }
                 k.Add("LIN {" + XyzAbc(mv.Xyzabc) + Ext(axesExt, mv) + "} C_DIS");
             }

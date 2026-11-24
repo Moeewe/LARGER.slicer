@@ -29,6 +29,8 @@ namespace LARGERslicer.Components
         public string Label;
         public int Input = -1;
         public string[] Items;            // Choice: item i has the value i
+        public string Shown;              // Choice: the item really used, when it is not Items[value] (null = Items[value])
+        public Action<int> Picked;        // Choice: an item was picked in the menu (also the one picked before)
         // Number: drag left/right to change it, click to type a value, the arrow at the right for quick picks
         public double[] Presets;          // Number: quick picks (a handful)
         public int Decimals = 1;
@@ -42,10 +44,15 @@ namespace LARGERslicer.Components
         public bool Momentary;            // Button on a boolean input: true for one solution, then back to false
         public Func<bool> GetSetting;     // Toggle on a setting of the component (no input)
         public Action<bool> SetSetting;
+        public Func<double> Get;          // Choice / Number kept by the component itself (no input, Input = -1)
+        public Action<double> Put;
 
         internal double StepSize => Step > 0 ? Step : Math.Pow(10, -Math.Max(0, Decimals));
         internal bool HasRange => !double.IsNaN(Min) && !double.IsNaN(Max) && Max > Min;
     }
+
+    /// <summary>A component that wants to be at least this wide, so that its rows show their labels.</summary>
+    public interface IWideRows { float MinWidth { get; } }
 
     public interface IOptionRows
     {
@@ -55,8 +62,8 @@ namespace LARGERslicer.Components
     /// <summary>Draws the rows of an IOptionRows component under it and answers clicks and drags on them.</summary>
     public class OptionAttributes : GH_ComponentAttributes
     {
-        private const float RowHeight = 18f, Gap = 3f, ArrowWidth = 14f;
-        private readonly List<RectangleF> _rects = new List<RectangleF>();
+        protected const float RowHeight = 18f, Gap = 3f, ArrowWidth = 14f;
+        protected readonly List<RectangleF> _rects = new List<RectangleF>();
 
         /// <summary>True while a Save button quietly goes back to false (no new solution, nothing really changed).</summary>
         internal static bool QuietReset;
@@ -69,7 +76,7 @@ namespace LARGERslicer.Components
 
         public OptionAttributes(IGH_Component owner) : base(owner) { }
 
-        private List<OptionRow> Rows => (Owner as IOptionRows)?.Rows ?? new List<OptionRow>();
+        protected List<OptionRow> Rows => (Owner as IOptionRows)?.Rows ?? new List<OptionRow>();
 
         protected override void Layout()
         {
@@ -77,25 +84,54 @@ namespace LARGERslicer.Components
             _rects.Clear();
             var rows = Rows;
             if (rows.Count == 0) return;
+            // wide enough to read the labels of the rows
+            float wide = (Owner as IWideRows)?.MinWidth ?? 0;
+            if (Bounds.Width < wide)
+            {
+                float extra = wide - Bounds.Width;
+                m_innerBounds = new RectangleF(m_innerBounds.X, m_innerBounds.Y, m_innerBounds.Width + extra, m_innerBounds.Height);
+                foreach (var o in Owner.Params.Output)
+                {
+                    var r = o.Attributes.Bounds; r.X += extra; o.Attributes.Bounds = r;
+                    o.Attributes.Pivot = new PointF(o.Attributes.Pivot.X + extra, o.Attributes.Pivot.Y);
+                }
+                Bounds = new RectangleF(Bounds.X, Bounds.Y, wide, Bounds.Height);
+            }
             var b = Bounds;
             float y = b.Bottom + 2f;
+            _wiredAtLayout = WiredKey();
             foreach (var r in rows)
             {
+                // a row whose input has a wire is not drawn: the wire decides (e.g. an Options component)
+                if (Wired(r)) { _rects.Add(RectangleF.Empty); continue; }
                 _rects.Add(new RectangleF(b.X + 4f, y, b.Width - 8f, RowHeight));
                 y += RowHeight + Gap;
             }
-            Bounds = new RectangleF(b.X, b.Y, b.Width, y - b.Y + 2f);
+            Bounds = new RectangleF(b.X, b.Y, b.Width, y - b.Y + (y > b.Bottom + 2f ? 2f : 0f));
         }
+
+        private string _wiredAtLayout;
+        private bool Wired(OptionRow r) { var p = Param(r); return p != null && p.SourceCount > 0; }
+        private string WiredKey() => string.Concat(Rows.Select(r => Wired(r) ? '1' : '0'));
 
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
         {
+            // a wire was connected or removed since the last layout: rows come or go
+            if (Rows.Count > 0 && _wiredAtLayout != null && WiredKey() != _wiredAtLayout) { ExpireLayout(); PerformLayout(); }
             base.Render(canvas, graphics, channel);
             if (channel != GH_CanvasChannel.Objects) return;
+            RenderRows(graphics);
+        }
+
+        /// <summary>Draws the rows into their rectangles.</summary>
+        protected void RenderRows(Graphics graphics)
+        {
             var rows = Rows;
             for (int i = 0; i < rows.Count && i < _rects.Count; i++)
             {
                 var r = rows[i];
                 var rect = _rects[i];
+                if (rect.IsEmpty) continue;
                 string text = Text(r, i, out bool active, out bool connected);
                 bool number = r.Kind == RowKind.Number && !connected;
                 // a number keeps room for its arrow on the right
@@ -110,7 +146,7 @@ namespace LARGERslicer.Components
                 if (!number) continue;
 
                 // where the value sits in its range: a thin bar along the bottom
-                double v = _drag == i ? _dragValue : GetNumber(Param(r));
+                double v = _drag == i ? _dragValue : NumOf(r, Param(r));
                 if (r.HasRange)
                 {
                     float f = (float)Math.Max(0, Math.Min(1, (v - r.Min) / (r.Max - r.Min)));
@@ -156,12 +192,12 @@ namespace LARGERslicer.Components
             switch (r.Kind)
             {
                 case RowKind.Choice:
-                    int v = GetInt(p);
-                    string item = r.Items != null && v >= 0 && v < r.Items.Length ? Short(r.Items[v]) : v.ToString(CultureInfo.InvariantCulture);
+                    int v = IntOf(r, p);
+                    string item = r.Shown != null ? Short(r.Shown) : r.Items != null && v >= 0 && v < r.Items.Length ? Short(r.Items[v]) : v.ToString(CultureInfo.InvariantCulture);
                     return r.Label + ": " + item + "  ▾";
                 case RowKind.Number:
                     {
-                        double nv = _drag == index ? _dragValue : GetNumber(p);
+                        double nv = _drag == index ? _dragValue : NumOf(r, p);
                         if (r.ZeroText != null && Math.Abs(nv) < 1e-12) { string z = null; try { z = r.ZeroText(); } catch { } if (!string.IsNullOrEmpty(z)) return r.Label + ": " + z; }
                         return r.Label + ": " + WithUnit(r, nv);
                     }
@@ -170,11 +206,25 @@ namespace LARGERslicer.Components
                     if (!string.IsNullOrEmpty(r.On)) return active ? r.On : r.Off;
                     return r.Label + ": " + (active ? "on" : "off");
                 default:
-                    return r.Label;
+                    return r.Label + (_waiting.Contains(r.Input) ? " (when ready)" : "");
             }
         }
 
-        // ---- values live in the input's own (persistent) data
+        // ---- values live in the input's own (persistent) data, or in the component (Get / Put)
+        private static int IntOf(OptionRow r, IGH_Param p) => p == null && r.Get != null ? (int)Math.Round(r.Get()) : GetInt(p);
+        private static double NumOf(OptionRow r, IGH_Param p) => p == null && r.Get != null ? r.Get() : GetNumber(p);
+
+        /// <summary>A row kept by the component itself: store the value and solve again.</summary>
+        private bool PutOwn(OptionRow r, double value)
+        {
+            if (Param(r) != null || r.Put == null) return false;
+            var comp = (GH_Component)Owner;
+            comp.RecordUndoEvent("Change " + r.Label);
+            r.Put(value);
+            comp.ExpireSolution(true);
+            return true;
+        }
+
         private static int GetInt(IGH_Param p)
         {
             if (p is Param_Integer pi && pi.PersistentData.DataCount > 0) return pi.PersistentData.get_FirstItem(true).Value;
@@ -197,10 +247,11 @@ namespace LARGERslicer.Components
             return false;
         }
 
-        internal static void Set(GH_Component comp, int input, IGH_Goo value, bool recompute)
+        internal static void Set(GH_Component comp, int input, IGH_Goo value, bool recompute, Action afterUndoRecord = null, bool undo = true)
         {
             var p = comp.Params.Input[input];
-            comp.RecordUndoEvent("Change " + p.Name);
+            if (undo) comp.RecordUndoEvent("Change " + p.Name);
+            afterUndoRecord?.Invoke();
             if (p is Param_Integer pi && value is GH_Integer gi) { pi.PersistentData.Clear(); pi.PersistentData.Append(gi); }
             else if (p is Param_Integer pi2 && value is GH_Number gn2) { pi2.PersistentData.Clear(); pi2.PersistentData.Append(new GH_Integer((int)Math.Round(gn2.Value))); }
             else if (p is Param_Number pn && value is GH_Number gn) { pn.PersistentData.Clear(); pn.PersistentData.Append(gn); }
@@ -217,7 +268,8 @@ namespace LARGERslicer.Components
             var comp = (GH_Component)Owner;
             if (double.IsNaN(value) || double.IsInfinity(value)) return;
             if (Param(r) is Param_Integer) value = Math.Round(value);
-            if (Math.Abs(value - GetNumber(Param(r))) < 1e-12) return; // nothing changed: no new solution
+            if (Math.Abs(value - NumOf(r, Param(r))) < 1e-12) return; // nothing changed: no new solution
+            if (PutOwn(r, value)) return;
             Set(comp, r.Input, new GH_Number(value), true);
         }
 
@@ -237,7 +289,7 @@ namespace LARGERslicer.Components
 
         private int RowAt(PointF canvasPoint)
         {
-            for (int i = 0; i < Rows.Count && i < _rects.Count; i++) if (_rects[i].Contains(canvasPoint)) return i;
+            for (int i = 0; i < Rows.Count && i < _rects.Count; i++) if (!_rects[i].IsEmpty && _rects[i].Contains(canvasPoint)) return i;
             return -1;
         }
 
@@ -254,7 +306,7 @@ namespace LARGERslicer.Components
                     {
                         // the arrow: quick picks; elsewhere: drag to change it, or click to type
                         if (e.CanvasLocation.X >= _rects[i].Right - ArrowWidth) { NumberMenu(sender, e, r, i); return GH_ObjectResponse.Handled; }
-                        _drag = i; _dragStart = e.ControlLocation; _dragFrom = GetNumber(p); _dragValue = _dragFrom; _moved = false;
+                        _drag = i; _dragStart = e.ControlLocation; _dragFrom = NumOf(r, p); _dragValue = _dragFrom; _moved = false;
                         return GH_ObjectResponse.Capture;
                     }
                     Activate(sender, e, r);
@@ -314,7 +366,7 @@ namespace LARGERslicer.Components
             var rect = _rects[i];
             box.Bounds = GH_Convert.ToRectangle(new RectangleF(rect.X + 1, rect.Y, rect.Width - ArrowWidth - 1, rect.Height));
             box.Font = GH_FontServer.Small;
-            box.ShowTextInputBox(canvas, Num(GetNumber(Param(r)), r.Decimals), true, true, canvas.Viewport.XFormMatrix(GH_Viewport.GH_DisplayMatrix.CanvasToControl));
+            box.ShowTextInputBox(canvas, Num(NumOf(r, Param(r)), r.Decimals), true, true, canvas.Viewport.XFormMatrix(GH_Viewport.GH_DisplayMatrix.CanvasToControl));
         }
 
         private sealed class NumberBox : Grasshopper.GUI.Base.GH_TextBoxInputBase
@@ -328,7 +380,7 @@ namespace LARGERslicer.Components
         private void NumberMenu(GH_Canvas canvas, GH_CanvasMouseEvent e, OptionRow r, int i)
         {
             var menu = new ContextMenuStrip();
-            double now = GetNumber(Param(r));
+            double now = NumOf(r, Param(r));
             foreach (double v in r.Presets ?? new double[0])
             {
                 double value = v;
@@ -369,12 +421,12 @@ namespace LARGERslicer.Components
                 case RowKind.Choice:
                 {
                     var menu = new ContextMenuStrip();
-                    int now = GetInt(p);
+                    int now = IntOf(r, p);
                     for (int k = 0; r.Items != null && k < r.Items.Length; k++)
                     {
                         int value = k;
-                        var item = new ToolStripMenuItem(r.Items[k]) { Checked = k == now };
-                        item.Click += (s, a) => Set(comp, r.Input, new GH_Integer(value), true);
+                        var item = new ToolStripMenuItem(r.Items[k]) { Checked = r.Shown != null ? r.Items[k] == r.Shown : k == now };
+                        item.Click += (s, a) => { if (PutOwn(r, value)) { r.Picked?.Invoke(value); canvas.Refresh(); return; } Set(comp, r.Input, new GH_Integer(value), true, () => r.Picked?.Invoke(value)); };
                         menu.Items.Add(item);
                     }
                     menu.Show(canvas, e.ControlLocation);
@@ -392,37 +444,60 @@ namespace LARGERslicer.Components
                     else Set(comp, r.Input, new GH_Boolean(!GetBool(p)), true);
                     break;
                 case RowKind.Button:
-                    if (r.Momentary && p != null)
-                    {
-                        // true for one solution (writes the file), then quietly back to false
-                        var doc = comp.OnPingDocument();
-                        if (doc != null)
-                        {
-                            GH_Document.SolutionEndEventHandler back = null;
-                            // back to false once a solution has run with true (not an earlier one still running)
-                            back = (s, a) =>
-                            {
-                                if (!GetBool(p, true)) return;
-                                doc.SolutionEnd -= back;
-                                // only the value goes back: the stored one and the one the input holds now. The
-                                // component keeps its results (expiring it here left it blank until the next
-                                // solution, e.g. the DXR Generator without DXR and Info after Save).
-                                if (p is Param_Boolean pb)
-                                {
-                                    pb.PersistentData.Clear(); pb.PersistentData.Append(new GH_Boolean(false));
-                                    pb.ClearData();
-                                    pb.AddVolatileData(new Grasshopper.Kernel.Data.GH_Path(0), 0, new GH_Boolean(false));
-                                    comp.OnDisplayExpired(false);
-                                }
-                            };
-                            doc.SolutionEnd += back;
-                        }
-                        Set(comp, r.Input, new GH_Boolean(true), true);
-                    }
+                    if (r.Momentary && p != null && comp.Locked) return; // a disabled component does not solve: Save would stay true
+                    if (r.Momentary && p != null) Press(comp, r, p, true);
                     r.Click?.Invoke(comp);
                     break;
             }
             canvas.Refresh();
+        }
+
+        // Save rows (by input) pressed while the component waits for a background calculation above it
+        private readonly HashSet<int> _waiting = new HashSet<int>();
+
+        /// <summary>True for one solution (writes the file), then quietly back to false.</summary>
+        private void Press(GH_Component comp, OptionRow r, IGH_Param p, bool now)
+        {
+            var doc = comp.OnPingDocument();
+            if (doc != null)
+            {
+                GH_Document.SolutionEndEventHandler back = null;
+                // back to false once a solution has run with true (not an earlier one still running)
+                back = (s, a) =>
+                {
+                    if (!GetBool(p, true)) return;
+                    doc.SolutionEnd -= back;
+                    // only the value goes back: the stored one and the one the input holds now. The
+                    // component keeps its results (expiring it here left it blank until the next
+                    // solution, e.g. the DXR Generator without DXR and Info after Save).
+                    if (p is Param_Boolean pb)
+                    {
+                        pb.PersistentData.Clear(); pb.PersistentData.Append(new GH_Boolean(false));
+                        pb.ClearData();
+                        pb.AddVolatileData(new Grasshopper.Kernel.Data.GH_Path(0), 0, new GH_Boolean(false));
+                        comp.OnDisplayExpired(false);
+                    }
+                    // nothing to save yet: pressed again as soon as the result is there
+                    if (AsyncSolve.Waiting(comp) != null) PressLater(doc, comp, r, p);
+                };
+                doc.SolutionEnd += back;
+            }
+            Set(comp, r.Input, new GH_Boolean(true), now, null, now);
+        }
+
+        private void PressLater(GH_Document doc, GH_Component comp, OptionRow r, IGH_Param p)
+        {
+            if (!_waiting.Add(r.Input)) return;
+            GH_Document.SolutionEndEventHandler later = null;
+            later = (s, a) =>
+            {
+                bool gone = comp.OnPingDocument() != doc || comp.Locked || p.SourceCount > 0;
+                if (!gone && AsyncSolve.Waiting(comp) != null) return; // still waiting
+                doc.SolutionEnd -= later;
+                _waiting.Remove(r.Input);
+                if (!gone) doc.ScheduleSolution(1, d => { if (comp.OnPingDocument() == d && !comp.Locked && p.SourceCount == 0) Press(comp, r, p, false); });
+            };
+            doc.SolutionEnd += later;
         }
     }
 }

@@ -5,6 +5,98 @@ All notable changes to LARGERslicer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - not released yet
+
+Version 2.0: so much is new since 1.3.1 that this is a new major version. Everything the lab prints and mills now runs on LARGER.slicer's own components (robot, cell, machines, checks, CNC) instead of the old mix with the Robots and Pufferfish plug-ins and native clusters. 1.3.1 stays available as the previous version.
+
+### Added: machine templates you can shape (Machine, Grasshopper 1 and 2)
+- `.machine` files know `nozzle temperature` ({nozzle}), `fan` in percent ({fan} as 0..255 for `M106`, {fan %}) and values of your own: `set purge length = 40` is written where a code says {purge length}.
+- The templates in `EXAMPLE FILES/Machines` are named for what they are and explain every line: `Template Gantry` (+ `.3dm`), `Template Bed Slinger` and the new `Template Pellet Gantry` (a 1 m pellet printer, extrusion as a volume). Before: `My Gantry`, `My Bed Slinger`.
+
+### Fixed: bug hunt of November 2026 (files for the machine)
+- **DXR GCode Postprocessor**: relative moves (G91, as in the end code of Cura: `G91 / G1 Z10`) were written as absolute heights and would have driven the nozzle into the print; they are added up now. On a computer set to German `X10.5` was read as 105. A feed on a line of its own (`G1 F1500`), arcs (G2/G3), exponents, comments with numbers and `G92 E5` are read correctly; the last move keeps its extrusion and speed; start code before the first full position is left out. One parser for Grasshopper 1 and 2 (`Utils/GCodeToDxr.cs`).
+- **DXR Generator**: lines without a single PTP move gave a file with only the switch-off commands and no message (now an error); LIN and CIRC lines are reported; one speed value is used for every move (it was dropped, and the moves ran at 1000 mm/min); lists that fit the moves keep their last value.
+- **DXR File Health Check**: tests rapid moves (G0) and compact code (`X1Y2Z-1`) for Z below the bed, finds NaN and infinity, does not read G91 moves as heights, says when the given File Path was not the file that was checked; a space in the file name (as in the names this plug-in writes) is no reason for NO GO any more.
+- **Print Settings, Easy Slicer**: definitions from before mm/s were marked as mm/s when they were saved, copied or undone, so 3000 mm/min became 3000 mm/s. They stay mm/min until "Change speeds to mm/s" is chosen in the context menu.
+- **GCode E Remap MultiPart**: compared only parts of the text and could hand out the old program; compares everything now. **Safe Component**: a failed write is an error, not a line in Info. **GCode Diff Check**: changed angles or speeds are no longer "XE only".
+- **File names**: "Head v1.2" or "Vase 1.5mm" get their ending; several toolpaths in one solution do not overwrite each other's file.
+- **Robot Simulation** shows the print as it grows: the printed path thick and coloured by role (skirt and brim green, walls blue, travel thin), the rest of the path faint, turned with a turntable. Its Info says where the robot is: approach, skirt and brim, layer n of m, exit. Skirt, brim, approach and exit were always in the simulation, but hidden under the full path of Start and End and in the first per cent of the slider. The robot examples (Head, Curved Wall) hide the full path and the robot in its home position, and their Simulation slider has four decimals (also in Quick Start).
+
+### Fixed: slicing and path
+- **Slice** joins open contours whose ends meet: single surfaces that touch along an edge but are not joined in the model (a railing of strips and end pieces, as modelled for IGA) become one closed line; before 24 open pieces per layer, now a vase.
+- Parts that overlap or touch are printed as one part; before, a whole body (or its wall) was lost without a word. Grasshopper's Box is accepted by Slice, Easy Slicer and the checks.
+- **Round Corners** replaced chains of close corners (gears, corrugated walls, tubes tighter than Min Radius, narrow bottoms) by one arc, up to the whole part: a gear wall of 8.7 m became 0.16 m, with Path Check OK. The chains are taken apart; a layer that would lose its length keeps its corners.
+- **Exit of tilted layers** went into the bed (45 degree slab: Z -31.5). It never goes below the lowest bead now.
+- Skirt and brim are left out where the first layer is not flat (before, a ring in the plane of one point).
+- Contour fill no longer drops pockets; cells, waves and chambers fill every body; Start Feature works for layers of 3 mm and more and for an own first layer height; a rib shorter than 5 % of the wall is not printed as a spiral; fewer crossings with several walls.
+- **Path Check** samples long moves: bridges through the air, crossings of long diagonals, a first layer that hangs in the air and moves below the bed are found. Bridges of 4 to 12 bead widths are a note.
+
+### Fixed: robot
+- Turntable that is not coupled: long moves were straight in the room and bows on the part (400 mm side: 78 mm off); they are split (0.2 mm). A warning says that the table speed is not controlled.
+- A1 is followed round (a move across 180 degrees behind the robot was reported runnable), A3 between -120 and -90 is found, axis speed is checked inside long moves, Robot Simulation runs along the straight line of the program.
+- Collision check: places between the points of long moves, meshes with broken faces and blocks of a cell are no longer left out in silence, tool geometry below the TCP counts, pairs left out because they touch at home are listed, and a warning says when nothing was checked.
+- The KRL `DEF` agrees with the file name. Machine G-code lifts before the first move in XY if the start code does not.
+
+### Fixed: components
+- Background components give results inside clusters and without the editor (they stayed empty); no double calculation with several inputs; disabling a component stops its work; a Save click while waiting is kept; Machine and Material remember the chosen name when the list changes.
+- Stream Freeze holds lists and trees, Curve Fill Cross Lines respects holes, Layers to Curves keeps parts apart, Curve Bridge warns about curves left out, Date Timestamp recalculates once a minute instead of every second, Desktop Path follows a moved Desktop, previews.
+
+### Fixed: reading and checking finished paths
+- **Path Check** counts the move into the first point of a layer as part of that layer: a plain spiral vase was reported as "wall in the air" at every layer change.
+- **Import G-code** reads the A, B and C of a `.dxr` file as KUKA angles (A about Z, B about Y, C about X); the tool direction of tilted programs was wrong before.
+
+### Added: beads that interlock (Weave, Grasshopper 1 and 2)
+- **Weave Zones** finds where two beads lie side by side (two walls, wall and infill, a rib at a wall), with tolerances (Closer, Touch, Further as a share of the bead width) and places to add or leave out by hand.
+- **Weave** moves the beads of these places in and out from layer to layer, so that they grip into each other: Shift, Width (the outer side stays smooth), Snake, Teeth, Custom. Amplitude and wavelength are automatic or set; the shortest wave the bead can follow is kept. Needs layers (Continuous Path "Layered"); on a spiral the neighbours lie at different heights.
+- **Weave Variants** prints a table of 14 patterns on the same part (interlock, material, longest jump, what the check says). **Weave Test** makes a test series (195 specimens, with a record for the lab). **Joint Data** gives the joints as couplings with a stiffness for the IGA analysis.
+- Example file: `EXAMPLE FILES/02 - STRUCTURE - Weave and Reshape/Weave (beads that interlock).gh`.
+
+### Added: print height where it is needed (Reshape, Grasshopper 1 and 2)
+- **Shape Field**: where the part gets more and where less, as a profile along a line, from points and values (for example the utilisation of an analysis), from a surface, or by hand.
+- **Reshape Path** reshapes a finished path: the layers fan out (non-planar on a gantry, tilted tool on a robot), get wider, or get extra layers, with the same amount of material or a set one. Skirt and the way into the part stay as they are; the extrusion is worked out again from the distance to the bead below. Limits for layer height, slope, rounding and how fast the tool may turn are kept and reported.
+- **Compare Variants**: eight ways side by side in one table. **Reshape Code**: the same for a finished G-code or `.dxr` file. **Multi-Axis Check**: does the head stay free, tilt, turning speed, layer heights.
+- The reshaped part can be sliced again with its new top as a guide surface.
+- Example file: `EXAMPLE FILES/02 - STRUCTURE - Weave and Reshape/Reshape (print height where it is needed).gh`, with the robot cell of the FH Münster.
+
+### Tested on Grasshopper 2
+- Tested on the Grasshopper 2 canvas (Rhino 9): the ten Weave and Reshape components in one document on the paths of Quick Start, and CNC - Quick Start (about 34 min, as in Grasshopper 1). All solve without a fault; after saving and opening the file every output has the same number of items and the texts the same length (times and dates differ).
+
+
+- **CNC - Quick Start** places a complete example: a topography, the plate, two cutters, the milling, the report and the preview in colours. Also as a file: `Zünd Rough and Finish (height model).gh`.
+- **CNC - Plate**: the real plate (length, width, thickness, material, where it lies on the table) and where the model lies in it. A model that does not fit in is a STOP with the size it needs.
+- **CNC - Cutter**: choose the cutter and its place in the magazine, everything else is filled in. **CNC - Own Cutter** for the others.
+- **CNC - Rough and Finish**: 1 roughing in levels with rings from the middle outwards (climb, no zigzag, sinking in along the ring), 2 finishing with a ball in rings (or rows), 3 cutting out all round down to the table with tabs. The shape of the cutters and their shank is in the path (drop cutter), slopes stay slopes instead of terraces, what the thick cutter does not reach is taken out with the fine one first, steep drops run at a third of the feed. The result is simulated; the report begins with READY or STOP. One PLT with the changes of the cutter (`XX351`), or one per cutter. Cuts and the ways with the cutter lifted are separate outputs.
+- **CNC - Relief**: 13 parametric models to mill with an architectural background (site model, facade, scales and carved hollows that follow a flow, Voronoi, diamond facets, gyroid, labyrinth, flutes, cross vaults, star lattice, topography). CNC - Quick Start begins with it; the example file shrinks from 1.2 MB to 10 KB.
+- **Hold** of CNC - Rough and Finish: cut out with tabs (number, width and height), cut out but for a thin skin, stays in the plate, stays with a sloped border of 45 degrees, or loose. A warning when less than 10 mm of the plate stay as a frame.
+- The reliefs are rounded for the ball that finishes them (*Ball*), so nothing is left over: at most 0.2 mm on 99 % of the surface.
+- **First run** in CNC - Quick Start: mill the example *Topography* in foam first. Finishing moves X, Y and Z at the same time, so one run shows whether the machine counts Z as the plug-in does (the landscape stands as in the model, its deepest place as deep as the report says).
+- Holes through the model are cut out too, with tabs; holes narrower than the cutter are named in the report. Strips at the foot of walls inside a level and canyons narrower than the thick cutter are taken out before the finishing. The time counts speeding up and stopping. Dense meshes (640 000 faces) take 2 s instead of 2 min. A remark says when a smaller ball would reach further in or when the job takes hours.
+- `tests/ZundBench`: mills the finished PLT the way the Zünd does and compares the block with the model. 47 shapes in 3 settings: 138 of 141 good, 3 rightly refused (vase higher than 50 mm), never more than 0.01 mm too deep; 11 of 11 files broken on purpose are noticed.
+- Website page for it: `docs/zuend.html` (German).
+- Components may ask for a width at which their rows show their labels.
+
+### Changed: the PLT follows the HP-GL manual of the Zünd (also CNC - Program)
+- Speeds are **cm/s**, as the machine counts them; the inputs said mm/s. The numbers in the file are the same as before (7 stays `VS7` = 70 mm/s).
+- `SP` before `ZP` and `XX306` (every tool has its own values), `AS2,4` and `SV65000` without the comma before the first value, `VW` besides `VS` (3D moves take their speed from VW), `XX306` = material thickness + 3.3 mm, no `XX220` at a change of the tool (it takes the machine offline), `XX351` when the cutter has a Router Bit. `documentations/HPGL_XX_COMMANDS.md` says what was wrong.
+
+### Fixed: Zünd (CNC - Program, Grasshopper 1 and 2)
+- One core for both versions (`Toolpaths/ZundMill.cs`). The tool is lifted before the outline, before a tool change and wherever the way to the next row would leave the part (holes, gaps, other islands); before, it stayed down and cut diagonally through the part.
+- The outline is the real outline of the part in plan (also hollow shapes; one per island) and closed on all sides. **Its distance is the radius of the Cutter**; without a cutter the larger of Step X and Step Y as before (a 5 mm cutter with a 1 mm step cut 1.5 mm into the part).
+- A part below Z 0 is an error and no PLT is written (it would cut into the table). A path that leaves the table of 2500 x 1800 mm and material over 50 mm are warnings. Holes through the part are named: the outline does not cut them.
+- Rows reach the far edge (a last strip narrower than a step was left standing), steep steps between two samples are followed to 0.05 mm (the edges of pockets were cut off), separate runs of one row are no longer joined through what lies between, and heights at an edge no longer come from the underside.
+- Trims of Breps count (pockets were not milled); no crash at 45 degrees; Box, Extrusion and SubD are accepted.
+- The Cutter decides the tool position (the Tool input overruled it) and the spindle speed of the Cutter Selector is used. A thick board that is not cut through is a warning without a cutter, too. Z Up says that it is not used: the Zünd retracts to Material Thickness + 1 mm.
+- **CNC Utilities**: milling depths count from the front of the block and look at a section every 2 mm; block, joints, split and bill of materials agree with each other; a failed export is an error. `CNC Utilities 05` has a new input Front Buffer. **CAD Package Export**: several branches do not overwrite each other, failed exports are errors.
+- The Zünd guide named commands and a pass depth that do not exist.
+
+### Fixed: Grasshopper 2
+- **DXR Generator**: all branches are one program (a branch per layer gave one file per layer). **Robot Tool**: Centroid and Mesh. **Robot Program**: speed 0 is an error, the wrist singularity is named. **Robot Simulation** says when an axis is outside its range. **Cell Geometry** draws the cell; the collision check knows the walls also when they are not shown. **Machine**: Kind. **Print Bed** no longer says "fits" when nothing was checked.
+- Curve Fill Cross Lines respects holes, Curve Bridge warns about curves left out (as in Grasshopper 1). Files of 1.3.1 open with all their wires; the new inputs are added at the end.
+
+### Fixed: chambers and Follow the surface
+- **Chamber wall** ignored holes and printed its chambers into the opening of a tube. They end one bead spacing before the wall of a hole and join it; the same walls get the same chambers on every layer.
+- **Follow the surface**: a finely meshed flat bottom gave more laps than the wall has room for (the laps count from the ring the wall stands on now).
+
 ## [1.3.1] - 2026-11-15
 
 ### Fixed: non-planar extrusion (the law of the 2024 head over-extruded leaning laps)

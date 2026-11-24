@@ -112,11 +112,16 @@ namespace LARGERslicer.GH2
                 }
                 else foreach (var pr in problems) { info.Add("DOES NOT FIT: the path " + pr + "."); access.AddWarning("Does not fit", "The path " + pr + "."); }
             }
-            else info.Add("Connect the finished paths to Toolpath to check that they lie on the bed.");
+            else
+            {
+                fits = false; // nothing was checked
+                info.Add("Connect the finished paths to Toolpath to check that they lie on the bed.");
+                if (raw != null && raw.Any(o => o != null)) access.AddWarning("No toolpath", "Toolpath takes the paths of Start and End. Nothing was checked.");
+            }
             var grid = new List<Line>();
             for (double gx = 100; gx < x - 1e-6; gx += 100) grid.Add(new Line(gx, 0, 0, gx, y, 0));
             for (double gy = 100; gy < y - 1e-6; gy += 100) grid.Add(new Line(0, gy, 0, x, gy, 0));
-            Picture.Show(Plate(x, y, fits));
+            Picture.Show(Plate(x, y, fits || paths == 0));
             access.SetItem(0, new Rectangle3d(Plane.WorldXY, x, y).ToNurbsCurve());
             access.SetItem(1, fits);
             Io.Label(this, paths > 0 ? (fits ? "Fits" : "Does not fit") : $"{x:0} x {y:0}");

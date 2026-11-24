@@ -82,6 +82,8 @@ namespace LARGERslicer.Toolpaths
             public List<Point3d> BadHeights = new List<Point3d>();
             public double MinHeight = double.MaxValue, MaxHeight, MaxDeviation, MeanDeviation;
             public int Measured, TooHigh, TooThin, Deviating, CollisionMoves, SteepMoves, Ramp, GrazeMoves;
+            /// <summary>Of CollisionMoves: moves without extrusion.</summary>
+            public int TravelCollisions;
             /// <summary>Deepest reach of an earlier bead into the head's outline (mm), grazes included.</summary>
             public double MaxIntrusion;
             /// <summary>True when the extrusion follows the shell law (vertical gap to the lap below, or the sideways
@@ -265,6 +267,7 @@ namespace LARGERslicer.Toolpaths
                 if (r.Ramp > 0) r.Report.Add(Inv.F($"{r.Ramp} point(s) lie where the spiral starts or ends (second and last layer) and the bead runs out to nothing on purpose; the extrusion follows them. Not counted above."));
                 if (notMeasured > 0) r.Report.Add(Inv.F($"{notMeasured} point(s) have no layer below within two bead widths (first bead of an overhang or a bridge): not measured. Path Check tests their support."));
             }
+            else if (byLayer.Count > 1) r.Report.Add("Bead height NOT MEASURED: no point has a layer below within two bead widths" + (notMeasured > 0 ? Inv.F($" ({notMeasured} looked at)") : "") + ". Path Check tests the support.");
             else r.Report.Add("Bead height: only one layer, nothing to measure.");
 
             // ------------------------------------------------ 2. head clearance
@@ -273,50 +276,68 @@ namespace LARGERslicer.Toolpaths
             double reach = R + 0.5 * w;
             double hc = Math.Max(1.0, head.Radius);
             int rings = (int)Math.Ceiling(reach / hc);
+            // what was printed, as points: the ends of the moves, and on a long move points no further apart than Dense
+            // (paths of the slicer are denser anyway, the moves of a G-code file are not)
+            const double Dense = 5.0;
+            var bead = new List<Point3d>(); var beadMove = new List<int>(); var beadAlong = new List<double>();
             var cells = new Dictionary<long, List<int>>();
             var cellTop = new Dictionary<long, double>();
             var shown = new HashSet<long>();
             var hits = new List<string>();
+            Action<Point3d, int, double> lay = (q, move, at) =>
+            {
+                long own = Key((int)Math.Floor(q.X / hc), (int)Math.Floor(q.Y / hc));
+                if (!cells.TryGetValue(own, out var mine)) { cells[own] = mine = new List<int>(); cellTop[own] = q.Z; }
+                mine.Add(bead.Count);
+                bead.Add(q); beadMove.Add(move); beadAlong.Add(at);
+                if (q.Z > cellTop[own]) cellTop[own] = q.Z;
+            };
             for (int i = 1; i < n; i++)
             {
-                if (!Printing(tp, i)) continue;
-                Point3d p = tp.Points[i];
-                int cx = (int)Math.Floor(p.X / hc), cy = (int)Math.Floor(p.Y / hc);
+                bool print = Printing(tp, i);
+                if (!print && bead.Count == 0) continue; // the way in: nothing is printed yet
+                double len = along[i] - along[i - 1];
+                int parts = len > Dense ? (int)Math.Ceiling(len / Dense) : 1;
                 bool hit = false, grazed = false;
-                for (int gx = cx - rings; gx <= cx + rings && !hit; gx++)
-                    for (int gy = cy - rings; gy <= cy + rings && !hit; gy++)
-                    {
-                        long key = Key(gx, gy);
-                        if (!cellTop.TryGetValue(key, out double top) || top - p.Z <= 0.5 * h) continue;
-                        foreach (int j in cells[key])
+                for (int part = 1; part <= parts && !hit; part++)
+                {
+                    double u = part / (double)parts, alongP = along[i - 1] + len * u;
+                    Point3d p = part == parts ? tp.Points[i] : tp.Points[i - 1] + (tp.Points[i] - tp.Points[i - 1]) * u;
+                    int cx = (int)Math.Floor(p.X / hc), cy = (int)Math.Floor(p.Y / hc);
+                    for (int gx = cx - rings; gx <= cx + rings && !hit; gx++)
+                        for (int gy = cy - rings; gy <= cy + rings && !hit; gy++)
                         {
-                            Point3d q = tp.Points[j];
-                            double dz = q.Z - p.Z;
-                            if (dz <= 0.5 * h) continue;
-                            double dx = q.X - p.X, dy = q.Y - p.Y;
-                            double rxy = Math.Sqrt(dx * dx + dy * dy);
-                            // the bead just laid behind the nozzle (also across a layer change): the in-layer slope test below covers it
-                            if (along[i] - along[j] < 2 * reach) continue;
-                            double need = (dz < head.ConeLength ? head.TipRadius + dz * tan : R) + 0.5 * w;
-                            if (rxy >= need) continue;
-                            if (need - rxy > r.MaxIntrusion) r.MaxIntrusion = need - rxy;
-                            if (need - rxy <= head.Graze) { grazed = true; continue; }
-                            hit = true;
-                            r.CollisionMoves++;
-                            r.Collisions.Add(p);
-                            long pair = ((long)tp.Layers[i] << 32) ^ (uint)tp.Layers[j];
-                            if (hits.Count < 20 && shown.Add(pair))
+                            long key = Key(gx, gy);
+                            if (!cellTop.TryGetValue(key, out double top) || top - p.Z <= 0.5 * h) continue;
+                            foreach (int b in cells[key])
                             {
-                                hits.Add(Inv.F($"HEAD COLLISION at move {i}, layer {tp.Layers[i] + 1}, with layer {tp.Layers[j] + 1} (dz {dz:0.#} mm, r {rxy:0.#} mm, needs {need:0.#} mm)"));
+                                Point3d q = bead[b]; int j = beadMove[b];
+                                double dz = q.Z - p.Z;
+                                if (dz <= 0.5 * h) continue;
+                                double dx = q.X - p.X, dy = q.Y - p.Y;
+                                double rxy = Math.Sqrt(dx * dx + dy * dy);
+                                // the bead just laid behind the nozzle (also across a layer change): the in-layer slope test below covers it
+                                if (alongP - beadAlong[b] < 2 * reach) continue;
+                                double need = (dz < head.ConeLength ? head.TipRadius + dz * tan : R) + 0.5 * w;
+                                if (rxy >= need) continue;
+                                if (need - rxy > r.MaxIntrusion) r.MaxIntrusion = need - rxy;
+                                if (need - rxy <= head.Graze) { grazed = true; continue; }
+                                hit = true;
+                                r.CollisionMoves++; if (!print) r.TravelCollisions++;
+                                r.Collisions.Add(p);
+                                long pair = ((long)tp.Layers[i] << 32) ^ (uint)tp.Layers[j];
+                                if (hits.Count < 20 && shown.Add(pair))
+                                {
+                                    hits.Add(Inv.F($"HEAD COLLISION at move {i}{(print ? "" : " (without extrusion)")}, layer {tp.Layers[i] + 1}, with layer {tp.Layers[j] + 1} (dz {dz:0.#} mm, r {rxy:0.#} mm, needs {need:0.#} mm)"));
+                                }
+                                break;
                             }
-                            break;
                         }
-                    }
+                }
                 if (grazed && !hit) r.GrazeMoves++;
-                long own = Key(cx, cy);
-                if (!cells.TryGetValue(own, out var mine)) { cells[own] = mine = new List<int>(); cellTop[own] = p.Z; }
-                mine.Add(i);
-                if (p.Z > cellTop[own]) cellTop[own] = p.Z;
+                if (!print) continue;
+                for (int part = 1; part < parts; part++) { double u = part / (double)parts; lay(tp.Points[i - 1] + (tp.Points[i] - tp.Points[i - 1]) * u, i, along[i - 1] + len * u); }
+                lay(tp.Points[i], i, along[i]);
             }
 
             // the path must not climb within a layer more steeply than the flank of the cone
@@ -340,7 +361,7 @@ namespace LARGERslicer.Toolpaths
                 r.Ok = false;
                 if (r.CollisionMoves > 0)
                 {
-                    r.Report.Add(Inv.F($"HEAD COLLISION: at {r.CollisionMoves} move(s) the head ({head}) hits beads printed before, by more than {head.Graze:0.##} mm (deepest {r.MaxIntrusion:0.##} mm). With a vertical nozzle a layer must not lie lower than the layers already printed next to it.") + graze);
+                    r.Report.Add(Inv.F($"HEAD COLLISION: at {r.CollisionMoves} move(s){(r.TravelCollisions > 0 ? Inv.F($" ({r.TravelCollisions} of them without extrusion)") : "")} the head ({head}) hits beads printed before, by more than {head.Graze:0.##} mm (deepest {r.MaxIntrusion:0.##} mm). With a vertical nozzle a layer must not lie lower than the layers already printed next to it.") + graze);
                     r.Report.AddRange(hits);
                 }
                 if (r.SteepMoves > 0) r.Report.Add(Inv.F($"TOO STEEP: {r.SteepMoves} move(s) climb within a layer more steeply than the cone's flank allows (up to {Math.Atan(r.MaxSlope) * 180 / Math.PI:0} deg, allowed {90 - head.HalfAngle:0} deg). The cone would scrape the bead beside it."));

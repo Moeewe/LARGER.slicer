@@ -66,17 +66,31 @@ namespace LARGERslicer.Components.CNCUtilities
             }
 
             int createdSplits = 0;
+            const double tol = 0.01; // thinner than this is no board: the joint lies between two boards
             foreach (var b in inputBoards)
             {
                 bool doSplit = b.ContainsFuge && b.FugeCenter > b.ZMin && b.FugeCenter < b.ZMax;
-                double fw = Math.Max(4.0, b.FugeWidth);
+                double fw = b.FugeWidth > 0 ? b.FugeWidth : 4.0;
 
                 if (doSplit)
                 {
                     double lo = b.FugeCenter - fw * 0.5;
                     double hi = b.FugeCenter + fw * 0.5;
 
-                    if (lo > b.ZMin && hi < b.ZMax)
+                    bool below = lo > b.ZMin + tol, above = hi < b.ZMax - tol;
+                    if (!below && above && lo > b.ZMin - tol)
+                    {
+                        // the joint lies right below a whole board
+                        outBoards.Add(WholeBoard(b, hi, b.ZMax));
+                        info.Add($"Joint at Z={b.FugeCenter:F2} lies between two boards.");
+                    }
+                    else if (below && !above && hi < b.ZMax + tol)
+                    {
+                        // the joint lies right above a whole board
+                        outBoards.Add(WholeBoard(b, b.ZMin, lo));
+                        info.Add($"Joint at Z={b.FugeCenter:F2} lies between two boards.");
+                    }
+                    else if (below && above)
                     {
                         outBoards.Add(new ThekenBoard
                         {
@@ -112,6 +126,14 @@ namespace LARGERslicer.Components.CNCUtilities
             DA.SetDataList(0, outBoards);
             DA.SetDataList(1, info);
         }
+
+        private static ThekenBoard WholeBoard(ThekenBoard source, double zMin, double zMax) => new ThekenBoard
+        {
+            ZMin = zMin,
+            ZMax = zMax,
+            Type = "Mittelbrett",
+            SourceIndex = source.SourceIndex
+        };
 
         private static bool TryGetBoard(object input, out ThekenBoard board)
         {

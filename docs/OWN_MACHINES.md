@@ -11,8 +11,10 @@ This guide takes you through four cases:
 3. [A gantry with its 3D model](#3-a-gantry-with-its-3d-model) – it moves in Printer Simulation and is checked for collisions
 4. [A robot (Robots library)](#4-a-robot-robots-library)
 
-A complete template lies in `EXAMPLE FILES/Machines/`: `My Gantry.machine` + `My Gantry.3dm`
-(a 300 x 300 mm gantry with frame, bed, Z rails, beam and head) and `My Bed Slinger.machine`.
+Three templates lie in `EXAMPLE FILES/Machines/`: `Template Gantry.machine` + `Template Gantry.3dm`
+(a 300 x 300 mm filament gantry with frame, bed, Z rails, beam and head), `Template Bed Slinger.machine`
+and `Template Pellet Gantry.machine` (a 1 m pellet printer like the Ginger One, extrusion as a volume).
+Copy one, rename it to your printer and change the values; every line is explained in the file.
 
 ---
 
@@ -36,10 +38,10 @@ comments. Keys and blocks:
 
 | Key | Example | Meaning |
 |---|---|---|
-| `name` | `My Gantry` | Name of the machine (required) |
+| `name` | `Template Gantry` | Name of the machine (required) |
 | `manufacturer` | `Me` | Shown before the name in the list |
 | `kind` | `gantry` | How it moves: `gantry`, `bedslinger`, `delta`, `belt 45`, `robot` (see below). Default `gantry` |
-| `prefix` | `MYG` | Start of the file names (at most 6 letters) |
+| `prefix` | `TPG` | Start of the file names (at most 6 letters) |
 | `extension` | `.gcode` | File ending |
 | `bed` | `300 x 300 x 300` | Print area X x Y (x height) in mm, from 0, 0 in the front left corner of the bed |
 | `extrusion factor` | `1` | E = bead width x layer height x length x flow x this factor |
@@ -49,7 +51,10 @@ comments. Keys and blocks:
 | `travel speed` | `6000` | mm/min for moves without extrusion; 0 = the highest speed of the print settings |
 | `material` | `PLA` | Written where a code says `{material}` |
 | `bed temperature` | `60` | Written where a code says `{bed}` |
-| `model` | `My Gantry.3dm` | The 3D model (`.3dm` or `.obj`), relative to the `.machine` file |
+| `nozzle temperature` | `210` | Written where a code says `{nozzle}` |
+| `fan` | `100` | Percent; written as 0..255 where a code says `{fan}` (Marlin `M106 S{fan}`), as the percent where it says `{fan %}` |
+| `set <name>` | `set purge length = 40` | Any value of your own, written where a code says `{purge length}` |
+| `model` | `Template Gantry.3dm` | The 3D model (`.3dm` or `.obj`), relative to the `.machine` file |
 
 | Block | Written |
 |---|---|
@@ -73,7 +78,7 @@ it does not use.
 
 `Machine G-code` checks every layer of the path: a layer in one tilted plane needs a tilting tool,
 a curved layer can be printed with a vertical nozzle. What the machine cannot print is an **error**
-("NOT PRINTABLE on My Gantry [Gantry (X, Y, Z)]: 12 layer(s) lean up to 45 degrees ..."); the G-code
+("NOT PRINTABLE on Template Gantry [Gantry (X, Y, Z)]: 12 layer(s) lean up to 45 degrees ..."); the G-code
 is still written, so you can look at it, but do not run it. Non-planar layers on a gantry get a
 grey remark (allowed, worth knowing): check the head against the part in `Printer Simulation`.
 
@@ -113,7 +118,7 @@ high) over the nozzle.
 
 ## 2. A bed slinger
 
-Write `kind = bedslinger` (see `EXAMPLE FILES/Machines/My Bed Slinger.machine`). The G-code is
+Write `kind = bedslinger` (see `EXAMPLE FILES/Machines/Template Bed Slinger.machine`). The G-code is
 the same as for a gantry: the path is in the coordinates of the bed. What changes:
 
 - `Printer Simulation` moves the **bed** (layer `Bed`, and layer `Y` if you have one) by -Y, so the
@@ -124,7 +129,7 @@ the same as for a gantry: the path is in the coordinates of the bed. What change
 
 ## 3. A gantry with its 3D model
 
-Start from `EXAMPLE FILES/Machines/My Gantry.3dm` or draw your own in Rhino:
+Start from `EXAMPLE FILES/Machines/Template Gantry.3dm` or draw your own in Rhino:
 
 1. **Units and origin.** Millimetres. The origin is the point the G-code counts from (X0 Y0 Z0),
    on the top of the bed – usually its front left corner. X to the right, Y to the back, Z up.
@@ -141,11 +146,11 @@ Start from `EXAMPLE FILES/Machines/My Gantry.3dm` or draw your own in Rhino:
    | `X` | X, Y and Z | the head: carriage, extruder, hot end, nozzle (also `Head` or `Effector`) |
    | `TCP` | – | **one point** exactly at the nozzle tip in the pose you drew |
 
-   Sublayers count by their last name (`My Gantry::X` is `X`).
+   Sublayers count by their last name (`Template Gantry::X` is `X`).
 4. **Colours.** Every object keeps its object colour (or its layer colour); the model is drawn
    matte in these colours, like the robot. Edges sharper than 35 degrees are kept crisp.
-5. Save it next to the `.machine` file with the same name (`My Gantry.3dm`), or write
-   `model = My Gantry.3dm` into the file. An `.obj` with one group (`g X`, `g Y` ...) per layer
+5. Save it next to the `.machine` file with the same name (`Template Gantry.3dm`), or write
+   `model = Template Gantry.3dm` into the file. An `.obj` with one group (`g X`, `g Y` ...) per layer
    works too.
 
 **How it moves.** For the nozzle at the path point (x, y, z) and the TCP point at (x0, y0, z0):

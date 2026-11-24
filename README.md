@@ -281,6 +281,7 @@ All brands named belong to their respective owners. LARGER.slicer is an independ
 - **Variable line widths** – `DXR Variable Width` scales the extrusion along X, Y or Z with a colored width preview.
 - **Preflight safety** – `DXR File Health Check` validates file name, readability and content before printing, and fails any move with feed rate 0.
 - **CNC toolpaths** – zigzag (boustrophedon) toolpaths with HPGL/PLT output for the Zünd G3.
+- **Roughing, finishing, cutting out** – topographies and reliefs from a plate on the Zünd G3 with two cutters, an automatic change of the cutter and tabs, simulated before milling (`CNC - Quick Start`).
 - **One-click setup** – the installer sets up all plugins and the KUKA KR120 robot library on Windows and macOS.
 - **Machine guides** – operating and troubleshooting guides for every supported machine (German and English).
 

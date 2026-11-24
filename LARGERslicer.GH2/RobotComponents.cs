@@ -63,7 +63,11 @@ namespace LARGERslicer.GH2
     public sealed class RobotToolComponent : Component
     {
         public RobotToolComponent() : base(Io.Name("Robot Tool", "The tool on the flange: where its tip is and what it weighs. The TCP plane is given relative to the flange; its Z axis points out of the nozzle.", Io.Robot, 0)) { }
-        public RobotToolComponent(IReader reader) : base(reader) { }
+        public RobotToolComponent(IReader reader) : base(reader)
+        {
+            // files saved before Centroid and Mesh existed: add them at the end, the wires stay
+            if (Parameters.InputCount == 3) AddLoad(new InputAdder(this));
+        }
         protected override IIcon IconInternal => Io.Icon("RobotToolIcon");
 
         protected override void AddInputs(InputAdder inputs)
@@ -71,6 +75,13 @@ namespace LARGERslicer.GH2
             inputs.AddText("Name", "N", "Name of the tool.").Set("Extruder");
             inputs.AddPlane("TCP", "TCP", "Tool centre point relative to the flange, as in the Robots plug-in: origin = nozzle tip, Z axis = from the tip back into the tool. The AE20 extruder of the FH Muenster: a YZ plane at -460, 3, 108. Default: a straight tool on the flange.").Set(new Plane(Point3d.Origin, Vector3d.XAxis, -Vector3d.YAxis));
             inputs.AddNumber("Weight", "W", "Weight of the tool in kg. 0 = not written to the program.").Set(0.0);
+            AddLoad(inputs);
+        }
+
+        private static void AddLoad(InputAdder inputs)
+        {
+            inputs.AddPoint("Centroid", "C", "Centre of mass relative to the flange, written to the program with the weight. The AE20 extruder of the FH Muenster: -61, -28, 113.").Set(Point3d.Origin);
+            inputs.AddMesh("Mesh", "M", "Optional. The tool as a 3D model, drawn where it sits on the flange: the flange is the world XY plane at the origin, as in the Robots plug-in. Shown on the robot and used by the collision check.", Access.Twig, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -86,11 +97,21 @@ namespace LARGERslicer.GH2
             if (!access.GetItem(1, out tcp)) tcp = new Plane(Point3d.Origin, Vector3d.XAxis, -Vector3d.YAxis);
             access.GetItem(2, out weight);
             if (weight < 0) { access.AddError("Invalid weight", "The weight cannot be negative."); return; }
-            var tool = new RobotTool { Name = string.IsNullOrWhiteSpace(name) ? "Extruder" : name.Trim(), Tcp = Frame.FromPlane(tcp), Weight = weight };
-            tool.Mesh = RobotGeometry.BuiltInTool(tool.Name);
+            Point3d centroid = Point3d.Origin;
+            if (Parameters.InputCount > 3 && (!access.GetItem(3, out centroid) || !centroid.IsValid)) centroid = Point3d.Origin;
+            var tool = new RobotTool { Name = string.IsNullOrWhiteSpace(name) ? "Extruder" : name.Trim(), Tcp = Frame.FromPlane(tcp), Weight = weight, Centroid = centroid };
+            if (Parameters.InputCount > 4 && access.ItemArray(4, out Mesh[] meshes))
+            {
+                var joined = new Mesh();
+                foreach (var m in meshes) if (m != null && m.IsValid) joined.Append(m);
+                if (joined.Vertices.Count > 0) tool.Mesh = joined;
+            }
+            bool builtIn = false;
+            if (tool.Mesh == null) { tool.Mesh = RobotGeometry.BuiltInTool(tool.Name); builtIn = tool.Mesh != null; }
             var abc = tool.Tcp.Abc();
             access.SetItem(0, tool);
-            access.SetItem(1, string.Format(CultureInfo.InvariantCulture, "{0}: X {1:0.###}, Y {2:0.###}, Z {3:0.###}, A {4:0.###}, B {5:0.###}, C {6:0.###}, {7:0.##} kg", tool.Name, tcp.OriginX, tcp.OriginY, tcp.OriginZ, abc[0], abc[1], abc[2], weight));
+            access.SetItem(1, string.Format(CultureInfo.InvariantCulture, "{0}: X {1:0.###}, Y {2:0.###}, Z {3:0.###}, A {4:0.###}, B {5:0.###}, C {6:0.###}, {7:0.##} kg{8}", tool.Name, tcp.OriginX, tcp.OriginY, tcp.OriginZ, abc[0], abc[1], abc[2], weight,
+                builtIn ? ", 3D model that comes with the plug-in" : tool.Mesh != null ? ", with your 3D model" : ", no 3D model"));
         }
     }
 
@@ -123,7 +144,12 @@ namespace LARGERslicer.GH2
             var tool = Io.Get<RobotTool>(access, 1) ?? new RobotTool();
             Plane wb; if (!access.GetItem(2, out wb)) wb = Plane.WorldXY;
             var cell = new RobotCell { Arm = arm, Tool = tool, WorkBase = Frame.FromPlane(wb) };
-            Mesh[] env; if (access.ItemArray(3, out env) && env != null) cell.Environment = env.Where(m => m != null && m.IsValid).ToList();
+            Mesh[] env; if (access.ItemArray(3, out env) && env != null) {
+                // a mesh with broken faces is repaired, never left out without a word
+                var notes = new List<string>();
+                cell.Environment = RobotGeometry.Usable(env, "Environment mesh", notes);
+                foreach (var note in notes) access.AddWarning("Environment", note);
+            }
             object[] ext;
             if (access.ItemArray(4, out ext) && ext != null)
                 foreach (var o in ext)
@@ -207,7 +233,11 @@ namespace LARGERslicer.GH2
             if (!access.GetItem(9, out poses)) poses = 500;
             if (Io.Step(access, 5)) return; // progress; stop if the inputs changed meanwhile
             var r = RobotProgram.Build(tp, cell, turn, name, true);
+            var path = r.PathFor(tp); // with a turntable the program has more points than the toolpath
             if (!r.Ok) access.AddWarning("Not runnable", string.Join("\n", r.Report.Where(l => l.StartsWith("NOT"))));
+            foreach (var l in r.Report.Where(l => l.StartsWith("WARNING: "))) access.AddWarning("Robot Program", l.Substring(9));
+            if (r.Ok && r.Singular > 0) access.AddRemark("Wrist", r.Report.FirstOrDefault(l => l.StartsWith("Wrist")) ?? "The wrist comes close to its singularity.");
+            if (r.Speed.Any(v => v <= 0)) access.AddError("Speed 0", "A move has speed 0; the machine would stop there.");
             if (collide && poses != 0)
             {
                 if (Io.Step(access, 50)) return; // progress; stop if the inputs changed meanwhile
@@ -215,15 +245,22 @@ namespace LARGERslicer.GH2
                 if (col.Hits > 0)
                 {
                     access.AddWarning("Collision", string.Join("\n", col.Lines.Take(4)));
-                    access.SetTwig(11, col.Moves.Select(i => r.Moves[i].Part.Pt(tp.Points[i])).ToArray(), null, null);
+                    access.SetTwig(11, col.Moves.Select(i => r.Moves[i].Part.Pt(path.Points[i])).ToArray(), null, null);
                 }
                 else if (col.Checked) access.AddRemark("No collision", col.Summary);
+                else access.AddWarning("Collisions not checked", col.Summary);
                 access.SetTwig(12, col.Moves.ToArray(), null, null);
                 access.SetTwig(13, col.Bodies.ToArray(), null, null);
             }
             else r.Report.Add("Collisions were not checked (Check Collisions is off).");
             access.SetItem(10, RobotRun.Make(r, cell, tp));
-            Files.Save(access, this, 6, save, file, r.Krl, () => RobotProgram.ProgramName(name) + ".src");
+            var krl = r.Krl;
+            if (save)
+            {
+                krl = RobotProgram.KrlForFile(r.Krl, OutputFile.Resolve(file, RobotProgram.ProgramName(name) + ".src"), out string note, out bool bad);
+                if (!string.IsNullOrEmpty(note)) { if (bad) access.AddWarning("File name", note); else access.AddRemark("File name", note); }
+            }
+            Files.Save(access, this, 6, save, file, krl, () => RobotProgram.ProgramName(name) + ".src");
             access.SetItem(8, OutputFile.Name("DXR", name, tp, ""));
             access.SetTwig(0, r.Lines.ToArray(), null, null);
             access.SetTwig(1, r.Extrusion.ToArray(), null, null);
@@ -231,12 +268,12 @@ namespace LARGERslicer.GH2
             access.SetTwig(3, r.Krl.ToArray(), null, null);
             access.SetItem(4, r.Ok);
             access.SetTwig(5, r.Report.ToArray(), null, null);
-            access.SetTwig(6, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => r.Moves[i].Part.Pt(tp.Points[i])).ToArray(), null, null);
+            access.SetTwig(6, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => r.Moves[i].Part.Pt(path.Points[i])).ToArray(), null, null);
             int at = Math.Max(0, Math.Min(r.Moves.Count - 1, (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (r.Moves.Count - 1))));
             if (r.Moves[at].Axes != null)
             {
                 var pts = cell.Arm.Skeleton(r.Moves[at].Axes, r.Moves[at].RobotBase);
-                pts.Add(r.Moves[at].Part.Pt(tp.Points[at]));
+                pts.Add(r.Moves[at].Part.Pt(path.Points[at]));
                 access.SetItem(7, new Polyline(pts));
                 var robot = RobotGeometry.Pose(cell, r.Moves[at].Axes, r.Moves[at].External) ?? new List<Mesh>();
                 var axesModel = ExternalAxisGeometry.Pose(cell, r.Moves[at].External);
@@ -331,11 +368,14 @@ namespace LARGERslicer.GH2
                     if (hitEnv.Contains(i)) frame.Hit(run.Cell.Environment[i]); else frame.Mesh(run.Cell.Environment[i], MachineLook.Cell, 0.55);
             Picture.Show(frame);
             Frame tip = run.Cell.RobotBaseAt(ext).Times(arm.Forward(axes)).Times(Frame.World.TurnedAboutZ(Math.PI)).Times(run.Cell.Tool.Tcp);
+            bool inRange = true;
+            for (int k = 0; k < 6; k++) if (axes[k] < arm.MinDeg[k] - 1e-6 || axes[k] > arm.MaxDeg[k] + 1e-6) inRange = false;
+            if (!inRange) access.AddWarning("Axis range", "At this moment an axis is outside its range.");
             access.SetTwig(1, axes, null, null);
             access.SetItem(2, tip.ToPlane());
             var ci = CultureInfo.InvariantCulture;
             access.SetItem(5, TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", ci) + " of " + TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci) + $", move {move}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci)))
-                + (ext == null ? "" : string.Concat(ext.Select((v, k) => ", " + run.Cell.ExternalAxes[k].Name + " " + v.ToString("0.0", ci)))) + collision);
+                + (ext == null ? "" : string.Concat(ext.Select((v, k) => ", " + run.Cell.ExternalAxes[k].Name + " " + v.ToString("0.0", ci)))) + (inRange ? "" : " - OUTSIDE THE AXIS RANGE") + collision);
         }
     }
 
@@ -388,15 +428,17 @@ namespace LARGERslicer.GH2
 
     // ============================================================== cell geometry
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d4006")]
-    public sealed class CellGeometryComponent : Component
+    public sealed class CellGeometryComponent : PreviewComponent
     {
         public CellGeometryComponent() : base(Io.Name("Cell Geometry", "The print cell in 3D and where the robot stands in it, in the coordinates of the print bed. The cell of the FH Muenster is built in; your own cells are .3dm files in Documents/LARGER/Cells, one part per layer: Bed, Robot Base (a point and a line along the robot's X axis), Work Base (optional) and any other layer for the collision check. Export writes the chosen cell there as a start.", Io.Robot, 0)) { }
         public CellGeometryComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("RobotCellGeometryIcon");
+        // the cell is drawn here, without the walls unless they are asked for (as in Grasshopper 1)
+        protected override int[] OwnOutputs => new[] { 0, 1 };
 
         protected override void AddInputs(InputAdder inputs)
         {
-            inputs.AddBoolean("Walls", "W", "Add the walls of the room. They hide the view from outside; the fence stands in front of them, so they rarely matter for the collision check.").Set(false);
+            inputs.AddBoolean("Walls", "W", "Show the walls of the room. They hide the view from outside, so they are off by default; the collision check knows them either way.").Set(false);
             inputs.AddInteger("Cell", "C", "0 = FH Muenster, then your own cells from Documents/LARGER/Cells in the order of their file names.").Set(0);
             inputs.AddText("File", "File", "Optional. A cell as a .3dm file anywhere on the computer, used instead of the list.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Export", "Exp", "True writes the chosen cell as a .3dm into Documents/LARGER/Cells: open it in Rhino, change it and save it under the name of your cell.").Set(false);
@@ -404,7 +446,7 @@ namespace LARGERslicer.GH2
 
         protected override void AddOutputs(OutputAdder outputs)
         {
-            outputs.AddMesh("Environment", "Env", "Everything but the bed (the walls only if asked), for the collision check: connect to Environment of Robot Cell.", Access.Twig);
+            outputs.AddMesh("Environment", "Env", "Everything but the bed, the walls too, for the collision check: connect to Environment of Robot Cell.", Access.Twig);
             outputs.AddMesh("Bed", "Bed", "The print bed. Not part of the collision check: the nozzle runs right above it.");
             outputs.AddPlane("Robot Base", "RB", "Where the robot stands: connect to Base of Robot.");
             outputs.AddPlane("Work Base", "WB", "The corner of the bed the print counts from: connect to Work Base of Robot Cell.");
@@ -412,6 +454,7 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
+            Picture.Clear();
             bool walls, export; int index; string file;
             access.GetItem(0, out walls); access.GetItem(1, out index); access.GetItem(2, out file); access.GetItem(3, out export);
             CellModel cell;
@@ -435,8 +478,18 @@ namespace LARGERslicer.GH2
             {
                 try { access.AddRemark("Written", CellLibrary.Export(cell)); }
                 catch (Exception ex) { access.AddError("Could not write the cell", ex.Message); }
+                Files.Reset(this, 3);
             }
-            access.SetTwig(0, CellLibrary.Environment(cell, walls).ToArray(), null, null);
+            var frame = new ShadedPreview.Frame();
+            foreach (var kv in cell.Parts)
+            {
+                string n = kv.Key.ToLowerInvariant();
+                if (n == "walls" && !walls) continue;
+                if (n == "bed") frame.Mesh(kv.Value, System.Drawing.Color.FromArgb(70, 72, 78));
+                else frame.Mesh(kv.Value, MachineLook.Cell, n == "glass" ? 0.75 : n == "walls" ? 0.6 : 0);
+            }
+            Picture.Show(frame);
+            access.SetTwig(0, CellLibrary.Environment(cell, true).ToArray(), null, null); // the collision check knows the walls even when they are not shown
             if (cell.Parts.TryGetValue("Bed", out Mesh bed)) access.SetItem(1, bed);
             access.SetItem(2, cell.RobotBase);
             access.SetItem(3, cell.WorkBase);

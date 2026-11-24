@@ -87,12 +87,18 @@ namespace LARGERslicer.Components.CNC
                 }
             }
 
-            // Create cutter object (with optional custom spindle speed)
+            List<Cutter> sameTool = Cutter.Ambiguous(cutters, cutterName);
+            if (sameTool.Count > 1)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    $"Tool position {selectedCutter.ToolPosition} holds more than one cutter: {string.Join(", ", sameTool.Select(c => c.Name))}. Using {selectedCutter.Name}. Enter the cutter name to choose another one.");
+            }
+
+            // Create cutter object (with optional custom spindle speed, used by CNC - Program)
             Cutter outputCutter = selectedCutter;
             if (customSpindleSpeed.HasValue && customSpindleSpeed.Value > 0)
             {
-                // Note: Spindle speed is not stored in Cutter class, but can be passed separately
-                // For now, we'll just output the cutter and note the custom speed in info
+                outputCutter.SpindleSpeed = customSpindleSpeed.Value;
             }
 
             // Output cutter object
@@ -108,7 +114,7 @@ namespace LARGERslicer.Components.CNC
             
             if (customSpindleSpeed.HasValue)
             {
-                info += $"\nCustom Spindle Speed: {customSpindleSpeed.Value:F0} RPM";
+                info += $"\nCustom Spindle Speed: {customSpindleSpeed.Value:F0} RPM (used by CNC - Program unless its own Spindle Speed is wired)";
             }
 
             DA.SetData(1, info);

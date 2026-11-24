@@ -43,6 +43,15 @@ namespace LARGERslicer.Components.Export
             pManager.AddTextParameter("Log", "Log", "Export log.", GH_ParamAccess.list);
         }
 
+        // names written in this solution: several branches must not write over each other
+        private readonly HashSet<string> _written = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        protected override void BeforeSolveInstance()
+        {
+            _written.Clear();
+            base.BeforeSolveInstance();
+        }
+
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             var inputBreps = new List<Brep>();
@@ -141,6 +150,11 @@ namespace LARGERslicer.Components.Export
                 return;
             }
 
+            string plainName = baseName;
+            for (int n = 2; !_written.Add(Path.Combine(folder, baseName)); n++)
+                baseName = plainName + " (" + n.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")";
+            DA.SetData(1, baseName);
+
             log.Add($"Input Breps total: {inputBreps.Count}");
             log.Add($"Valid Breps: {validBreps.Count}");
             log.Add("Union: disabled (1:1 export).");
@@ -155,6 +169,7 @@ namespace LARGERslicer.Components.Export
                 }
                 else
                 {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "3DM file not written: " + message);
                     log.Add("Error 3DM: " + message);
                 }
             }
@@ -169,6 +184,7 @@ namespace LARGERslicer.Components.Export
                 }
                 else
                 {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "STEP file not written: " + message);
                     log.Add("Error STEP: " + message);
                 }
             }
@@ -183,6 +199,7 @@ namespace LARGERslicer.Components.Export
                 }
                 else
                 {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "IGES file not written: " + message);
                     log.Add("Error IGES: " + message);
                 }
             }
@@ -203,7 +220,11 @@ namespace LARGERslicer.Components.Export
                     f3.Objects.AddBrep(b.DuplicateBrep());
                 }
 
-                f3.Write(path, 7);
+                if (!f3.Write(path, 7) || !File.Exists(path))
+                {
+                    message = "Rhino could not write " + path;
+                    return false;
+                }
                 message = $"3DM file written ({breps.Count} Breps).";
                 return true;
             }
@@ -239,6 +260,7 @@ namespace LARGERslicer.Components.Export
                 }
 
                 doc.Objects.UnselectAll();
+                int selected = 0;
 
                 for (int i = 0; i < breps.Count; i++)
                 {
@@ -246,7 +268,7 @@ namespace LARGERslicer.Components.Export
                     if (id != Guid.Empty)
                     {
                         addedIds.Add(id);
-                        doc.Objects.Select(id);
+                        if (doc.Objects.Select(id)) selected++;
                     }
                 }
 
@@ -256,6 +278,14 @@ namespace LARGERslicer.Components.Export
                     return false;
                 }
 
+                if (selected < addedIds.Count)
+                {
+                    message = "The geometry could not be selected for the export: is the current layer locked or hidden?";
+                    return false;
+                }
+
+                // the file must be new or newer afterwards: the command also ends well when nothing was written
+                DateTime before = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
                 string escapedPath = path.Replace("\\", "\\\\").Replace("\"", "\\\"");
                 // "!" ends any pending command state; extra Enter confirms exporter options.
                 string script = "! _-Export \"" + escapedPath + "\" _Enter _Enter _Enter";
@@ -264,6 +294,12 @@ namespace LARGERslicer.Components.Export
                 if (!ok)
                 {
                     message = "Rhino export command failed.";
+                    return false;
+                }
+
+                if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) <= before)
+                {
+                    message = "Rhino did not write " + path;
                     return false;
                 }
 

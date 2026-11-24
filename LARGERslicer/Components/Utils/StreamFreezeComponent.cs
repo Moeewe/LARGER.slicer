@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using LARGERslicer.Utils;
 
@@ -9,7 +11,7 @@ namespace LARGERslicer.Components.Utils
     public class StreamFreezeComponent : GH_Component
     {
         private bool _holdData = false;
-        private object _lastData = null;
+        private GH_Structure<IGH_Goo> _held; // everything that passed last (the whole list or tree)
 
         public StreamFreezeComponent()
           : base("Stream Freeze", "Freeze",
@@ -46,18 +48,27 @@ namespace LARGERslicer.Components.Utils
             DA.GetData(1, ref holdData);
 
             _holdData = holdData;
+            DA.SetData(0, data); // replaced by the held data after the last item (AfterSolveInstance)
+        }
 
-            if (_holdData && _lastData != null)
+        protected override void BeforeSolveInstance()
+        {
+            base.BeforeSolveInstance();
+            // also when no data arrives (then SolveInstance does not run)
+            var hold = Params.Input[1].VolatileData;
+            _holdData = !hold.IsEmpty && GH_Convert.ToBoolean(hold.AllData(true).FirstOrDefault(), out bool on, GH_Conversion.Both) && on;
+        }
+
+        protected override void AfterSolveInstance()
+        {
+            base.AfterSolveInstance();
+            var output = Params.Output[0];
+            if (_holdData && _held != null)
             {
-                // Return last held data
-                DA.SetData(0, _lastData);
+                output.VolatileData.Clear();
+                output.AddVolatileDataTree(_held);
             }
-            else
-            {
-                // Pass through current data
-                _lastData = data;
-                DA.SetData(0, data);
-            }
+            else if (output.VolatileData is GH_Structure<IGH_Goo> now && !now.IsEmpty) _held = now.ShallowDuplicate();
         }
 
         public bool HoldData

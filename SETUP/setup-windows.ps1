@@ -11,7 +11,7 @@
 #   alte manuelle .gha-Kopie   -> anbieten, sie in einen Backup-Ordner zu verschieben
 #
 # Liegt im Ordner "packages" neben diesem Skript ein Paket (z.B.
-# largerslicer-1.3.1-rh8_0-any.yak), das neuer ist als die Version auf dem
+# largerslicer-2.0.0-rh8_0-any.yak), das neuer ist als die Version auf dem
 # Package-Server, wird dieses Paket installiert. So passt das Plug-in immer zur
 # Definition in diesem Ordner, auch wenn der Package-Server noch eine aeltere Version hat.
 

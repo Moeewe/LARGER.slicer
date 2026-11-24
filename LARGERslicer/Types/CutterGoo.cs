@@ -24,14 +24,7 @@ namespace LARGERslicer.Types
         public override IGH_Goo Duplicate()
         {
             if (Value == null) return new GH_Cutter();
-            return new GH_Cutter(new Cutter(
-                Value.Name,
-                Value.ToolPosition,
-                Value.Diameter,
-                Value.MaxCuttingDepth,
-                Value.MaxSurfaceDepth,
-                Value.Description
-            ));
+            return new GH_Cutter(Value.Copy());
         }
 
         public override string ToString()

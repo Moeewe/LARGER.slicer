@@ -13,9 +13,9 @@ namespace LARGERslicer.Components.Utils
     public class FastGCodeDxrPreviewComponent : GH_Component
     {
         private const int ChunkSize = 4000;
-        private static readonly object CacheLock = new object();
-        private static readonly Dictionary<Guid, PreviewCache> Caches = new Dictionary<Guid, PreviewCache>();
-        private static readonly Dictionary<Guid, GCodeLineConduit> Conduits = new Dictionary<Guid, GCodeLineConduit>();
+        // per component and iteration (several programs in a tree); never shared with a copy of the file
+        private readonly List<PreviewCache> _caches = new List<PreviewCache>();
+        private readonly List<GCodeLineConduit> _conduits = new List<GCodeLineConduit>();
 
         public FastGCodeDxrPreviewComponent()
           : base("Fast GCode DXR Preview", "GPreview",
@@ -83,7 +83,7 @@ namespace LARGERslicer.Components.Utils
             string text = NormalizeTextInput(raw);
             ParseSig parseSig = CheapSig(text);
 
-            PreviewCache cache = GetOrCreateCache();
+            PreviewCache cache = GetOrCreateCache(DA.Iteration);
 
             string parseStatus;
             if (cache.ParseSig.Equals(parseSig))
@@ -114,8 +114,6 @@ namespace LARGERslicer.Components.Utils
             int totalLines = cache.Segments.Count;
             int limitIdx = (int)(fortschritt * totalLines) - 1;
 
-            cache.DisposePartialMesh();
-
             var activeDrawGroups = new List<DrawGroup>();
             var activeMeshes = new List<Mesh>();
 
@@ -137,7 +135,6 @@ namespace LARGERslicer.Components.Utils
                         if (partial != null && partial.Faces.Count > 0)
                         {
                             activeMeshes.Add(partial);
-                            cache.PartialMesh = partial;
                         }
                     }
                 }
@@ -169,15 +166,11 @@ namespace LARGERslicer.Components.Utils
                 }
             }
 
-            DisableConduit(InstanceGuid);
             if (aktiv && !vorschau3D && activeDrawGroups.Count > 0)
             {
                 var conduit = new GCodeLineConduit(this, activeDrawGroups, cache.BBox);
                 conduit.Enabled = true;
-                lock (CacheLock)
-                {
-                    Conduits[InstanceGuid] = conduit;
-                }
+                _conduits.Add(conduit);
             }
 
             try
@@ -214,58 +207,38 @@ namespace LARGERslicer.Components.Utils
         public override void RemovedFromDocument(Grasshopper.Kernel.GH_Document document)
         {
             base.RemovedFromDocument(document);
-            DisableConduit(InstanceGuid);
-            lock (CacheLock)
-            {
-                if (Caches.TryGetValue(InstanceGuid, out PreviewCache cache))
-                {
-                    cache.DisposeAllMeshes();
-                    Caches.Remove(InstanceGuid);
-                }
-            }
+            DisableConduits();
+            _caches.Clear();
         }
 
         protected override void BeforeSolveInstance()
         {
             base.BeforeSolveInstance();
-            if (Locked)
-            {
-                DisableConduit(InstanceGuid);
-            }
+            DisableConduits();
         }
 
-        private PreviewCache GetOrCreateCache()
+        protected override void AfterSolveInstance()
         {
-            lock (CacheLock)
-            {
-                if (!Caches.TryGetValue(InstanceGuid, out PreviewCache cache))
-                {
-                    cache = new PreviewCache();
-                    Caches[InstanceGuid] = cache;
-                }
-
-                return cache;
-            }
+            base.AfterSolveInstance();
+            // programs that are no longer there
+            int used = Math.Max(1, RunCount);
+            if (_caches.Count > used) _caches.RemoveRange(used, _caches.Count - used);
         }
 
-        private static void DisableConduit(Guid key)
+        private PreviewCache GetOrCreateCache(int iteration)
         {
-            lock (CacheLock)
+            while (_caches.Count <= iteration) _caches.Add(new PreviewCache());
+            return _caches[iteration];
+        }
+
+        private void DisableConduits()
+        {
+            foreach (var conduit in _conduits)
             {
-                if (!Conduits.TryGetValue(key, out GCodeLineConduit oldConduit))
-                    return;
-
-                try
-                {
-                    oldConduit.Enabled = false;
-                }
-                catch
-                {
-                    // Ignore conduit shutdown errors.
-                }
-
-                Conduits.Remove(key);
+                try { conduit.Enabled = false; }
+                catch { } // Ignore conduit shutdown errors.
             }
+            _conduits.Clear();
         }
 
         private static string NormalizeTextInput(List<IGH_Goo> raw)
@@ -313,12 +286,18 @@ namespace LARGERslicer.Components.Utils
             if (string.IsNullOrEmpty(s))
                 return new ParseSig(0, 0, 0, 0);
 
-            int n = s.Length;
-            string a = s.Substring(0, Math.Min(64, n));
-            int mid = n / 2;
-            string b = s.Substring(mid, Math.Min(64, n - mid));
-            string c = s.Substring(Math.Max(0, n - 64), Math.Min(64, n));
-            return new ParseSig(n, a.GetHashCode(), b.GetHashCode(), c.GetHashCode());
+            // the whole text counts: a changed layer keeps length, start and end the same
+            unchecked
+            {
+                ulong h = 14695981039346656037UL;
+                int d = 5381;
+                for (int i = 0; i < s.Length; i++)
+                {
+                    h = (h ^ s[i]) * 1099511628211UL;
+                    d = d * 33 + s[i];
+                }
+                return new ParseSig(s.Length, (int)h, (int)(h >> 32), d);
+            }
         }
 
         private static void ParseRaw(string txt, List<Segment> coords, List<double> epm)
@@ -575,11 +554,10 @@ namespace LARGERslicer.Components.Utils
             public readonly List<Mesh> MeshChunks = new List<Mesh>();
 
             public BoundingBox BBox = BoundingBox.Empty;
-            public Mesh PartialMesh;
 
             public void ClearDisplayCache()
             {
-                DisposeAllMeshes();
+                MeshChunks.Clear();
                 BucketIds.Clear();
                 BucketLines.Clear();
                 BucketColors.Clear();
@@ -587,44 +565,9 @@ namespace LARGERslicer.Components.Utils
                 BBox = BoundingBox.Empty;
             }
 
-            public void DisposePartialMesh()
-            {
-                if (PartialMesh == null)
-                    return;
-
-                try
-                {
-                    PartialMesh.Dispose();
-                }
-                catch
-                {
-                    // Ignore dispose errors.
-                }
-
-                PartialMesh = null;
-            }
-
-            public void DisposeAllMeshes()
-            {
-                DisposePartialMesh();
-                for (int i = 0; i < MeshChunks.Count; i++)
-                {
-                    try
-                    {
-                        MeshChunks[i]?.Dispose();
-                    }
-                    catch
-                    {
-                        // Ignore dispose errors.
-                    }
-                }
-
-                MeshChunks.Clear();
-            }
-
             public void RebuildDisplayCache(double bMin, double bMax, int nBuck, double minRel)
             {
-                DisposeAllMeshes();
+                MeshChunks.Clear(); // not disposed: the meshes are outputs and may still be in use
                 BucketIds.Clear();
                 BucketLines.Clear();
                 BucketColors.Clear();
@@ -833,14 +776,11 @@ namespace LARGERslicer.Components.Utils
             private readonly WeakReference<FastGCodeDxrPreviewComponent> _owner;
             private readonly List<DrawGroup> _drawGroups;
             private readonly BoundingBox _box;
-            private int _frame;
-
             public GCodeLineConduit(FastGCodeDxrPreviewComponent owner, List<DrawGroup> drawGroups, BoundingBox box)
             {
                 _owner = new WeakReference<FastGCodeDxrPreviewComponent>(owner);
                 _drawGroups = drawGroups ?? new List<DrawGroup>();
                 _box = box;
-                _frame = 0;
             }
 
             protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e)
@@ -851,23 +791,13 @@ namespace LARGERslicer.Components.Utils
 
             protected override void DrawForeground(DrawEventArgs e)
             {
-                _frame++;
-                if (_frame % 30 == 1)
+                if (!_owner.TryGetTarget(out FastGCodeDxrPreviewComponent comp) || comp == null || comp.OnPingDocument() == null || comp.Locked)
                 {
-                    bool alive = false;
-                    if (_owner.TryGetTarget(out FastGCodeDxrPreviewComponent comp) && comp != null)
-                    {
-                        var doc = comp.OnPingDocument();
-                        alive = doc != null && !comp.Locked;
-                    }
-
-                    if (!alive)
-                    {
-                        Enabled = false;
-                        _drawGroups.Clear();
-                        return;
-                    }
+                    Enabled = false;
+                    _drawGroups.Clear();
+                    return;
                 }
+                if (comp.Hidden) return;
 
                 try
                 {

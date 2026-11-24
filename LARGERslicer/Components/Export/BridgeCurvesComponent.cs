@@ -29,7 +29,7 @@ namespace LARGERslicer.Components.Export
         {
             pManager.AddCurveParameter("Curves", "C", "Curves to connect with bridges", GH_ParamAccess.list);
             pManager.AddNumberParameter("Bridge Density", "Density", "Density of bridges (0-1). Higher = more bridges, lower = fewer bridges.", GH_ParamAccess.item, 0.3);
-            pManager.AddNumberParameter("Bridge Length", "Length", "Maximum length for bridges (mm). Longer distances won't be bridged.", GH_ParamAccess.item, 10.0);
+            pManager.AddNumberParameter("Bridge Length", "Length", "Maximum length for bridges (mm) with Random on: longer distances are not bridged. With Random off every gap is bridged, so that the path is one line.", GH_ParamAccess.item, 10.0);
             pManager.AddBooleanParameter("Random", "Random", "Use random bridge placement. If false, uses greedy nearest-neighbor.", GH_ParamAccess.item, true);
             pManager.AddIntegerParameter("Seed", "Seed", "Random seed for reproducible results", GH_ParamAccess.item, 42);
         }
@@ -142,9 +142,26 @@ namespace LARGERslicer.Components.Export
             var joined = Curve.JoinCurves(pathSegments, 0.01);
             Curve finalPath = joined != null && joined.Length > 0 ? joined[0] : pathSegments[0];
 
+            // what is not on the path: never drop curves without saying so
+            int leftOut = 0;
+            double leftLength = 0;
+            if (joined != null && joined.Length > 1)
+            {
+                foreach (var c in orderedCurves)
+                {
+                    if (finalPath.ClosestPoint(c.PointAt(c.Domain.Mid), out double _, 0.05)) continue;
+                    leftOut++;
+                    leftLength += c.GetLength();
+                }
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    $"Path is only one of {joined.Length} pieces: {leftOut} of {orderedCurves.Count} curves are not on it and would not be printed." +
+                    (random ? " Set Random to False to bridge every gap, or raise Bridge Density and Bridge Length." : ""));
+            }
+
             // Create info string with more details
             string info = $"Bridged {validCurves.Count} curves with {bridges.Count} bridges. ";
             info += $"Bridge density: {bridgeDensity:P0}, Max length: {bridgeLength:F2}mm. ";
+            if (leftOut > 0) info += $"NOT on the path: {leftOut} curve(s), {leftLength:F0}mm. ";
             
             // Add diagnostic info
             if (bridges.Count == 0 && validCurves.Count > 1)

@@ -27,6 +27,7 @@ namespace LARGERslicer.Components.CNCUtilities
             pManager.AddNumberParameter("Milling Depths", "Depths", "Milling depth per board from CNC Utilities 04 Milling Depth", GH_ParamAccess.list);
             pManager.AddNumberParameter("Board Length", "Length", "Unified board length from CNC Utilities 04 Milling Depth", GH_ParamAccess.item);
             pManager.AddNumberParameter("Side Overhang", "Overhang", "Overhang used for placement in mm", GH_ParamAccess.item, 100.0);
+            pManager.AddNumberParameter("Front Buffer", "Front", "How far the boards stand out in front of the body in mm: the Front Buffer of CNC Utilities 04 Milling Depth", GH_ParamAccess.item, 5.0);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -43,6 +44,7 @@ namespace LARGERslicer.Components.CNCUtilities
             var depths = new List<double>();
             double boardLength = 0;
             double overhang = 100;
+            double frontBuffer = 5;
 
             if (!DA.GetData(0, ref refSolid))
                 return;
@@ -53,6 +55,7 @@ namespace LARGERslicer.Components.CNCUtilities
             if (!DA.GetData(3, ref boardLength))
                 return;
             DA.GetData(4, ref overhang);
+            if (Params.Input.Count > 5) DA.GetData(5, ref frontBuffer);
 
             var boards = new List<ThekenBoard>();
             foreach (var o in boardsRaw)
@@ -75,7 +78,7 @@ namespace LARGERslicer.Components.CNCUtilities
 
             BoundingBox sbb = refSolid.GetBoundingBox(true);
             double x0 = sbb.Min.X - overhang;
-            double y0 = sbb.Min.Y;
+            double y0 = sbb.Min.Y - frontBuffer;
 
             var breps = new List<Brep>();
             BoundingBox all = BoundingBox.Empty;

@@ -67,6 +67,7 @@ namespace LARGERslicer.Components
         private readonly object _lock = new object();
         private int _generation;
         private bool _deliver, _selfExpire, _dirty;
+        private bool _launching; // this solution still starts tasks (one per iteration)
         private Dictionary<int, AsyncJob> _done = new Dictionary<int, AsyncJob>();
         private int _started, _pending;
         private readonly Stopwatch _clock = new Stopwatch();
@@ -77,15 +78,15 @@ namespace LARGERslicer.Components
         // Components whose background work is not handed out yet. Their outputs stay empty meanwhile,
         // so a component further down would complain about a missing input: it asks WaitingFor and
         // shows a grey "waiting for ..." instead.
-        private static readonly HashSet<GH_Component> Working = new HashSet<GH_Component>();
+        private static readonly Dictionary<GH_Component, AsyncSolve> Working = new Dictionary<GH_Component, AsyncSolve>();
 
         private void SetWorking(bool on)
         {
-            lock (Working) { if (on) Working.Add(_owner); else Working.Remove(_owner); }
+            lock (Working) { if (on) Working[_owner] = this; else Working.Remove(_owner); }
         }
 
         /// <summary>True while this component's background work runs or waits to be handed out.</summary>
-        public static bool IsWorking(GH_Component c) { lock (Working) return c != null && Working.Contains(c); }
+        public static bool IsWorking(GH_Component c) { lock (Working) return c != null && Working.ContainsKey(c); }
 
         /// <summary>
         /// The name of a component upstream of c (through wires, parameters and relays) whose background
@@ -123,14 +124,32 @@ namespace LARGERslicer.Components
         /// </summary>
         public static void ShowWaiting(GH_Component c)
         {
-            if (c == null || IsWorking(c)) return;
-            string who = WaitingFor(c);
+            if (c == null) return;
+            if (c.Locked) { StopLocked(c); return; }
+            string who = Waiting(c);
             if (who == null) return;
-            // only when this component is short of data (an empty input or no result), not when it has a result
-            bool empty = c.Params.Input.Any(p => !p.Optional && p.VolatileDataCount == 0) || c.Params.Output.All(p => p.VolatileDataCount == 0);
-            if (!empty) return;
             c.ClearRuntimeMessages();
             c.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "waiting for " + who + " (still computing)...");
+        }
+
+        /// <summary>The name of the component upstream this one waits for, or null: only when it is short of
+        /// data (an empty input or no result), not when it has a result.</summary>
+        internal static string Waiting(GH_Component c)
+        {
+            if (c == null || IsWorking(c)) return null;
+            string who = WaitingFor(c);
+            if (who == null) return null;
+            bool empty = c.Params.Input.Any(p => !p.Optional && p.VolatileDataCount == 0) || c.Params.Output.All(p => p.VolatileDataCount == 0);
+            return empty ? who : null;
+        }
+
+        /// <summary>A component disabled while it computes: its work is not needed and nobody waits for it any more.</summary>
+        private static void StopLocked(GH_Component c)
+        {
+            AsyncSolve work;
+            lock (Working) if (!Working.TryGetValue(c, out work)) return;
+            work.Cancel();
+            if (c.Message != null && c.Message.StartsWith("computing", StringComparison.Ordinal)) c.Message = null;
         }
 
         /// <summary>Calculate in the background (default on; kept in the file).</summary>
@@ -177,7 +196,7 @@ namespace LARGERslicer.Components
                 CancelTasks();
                 _generation++;
                 _done = new Dictionary<int, AsyncJob>();
-                _started = 0; _pending = 0; _dirty = false;
+                _started = 0; _pending = 0; _dirty = false; _launching = true;
                 _cts = new CancellationTokenSource();
                 _clock.Restart();
             }
@@ -199,7 +218,7 @@ namespace LARGERslicer.Components
         /// Grasshopper or the component: everything goes through the job.</summary>
         public void Run(IGH_DataAccess da, Action<AsyncJob> work)
         {
-            if (!Enabled || _cts == null || _deliver)
+            if (!Enabled || _cts == null || _deliver || !CanDeliverLater())
             {
                 var now = new AsyncJob(CancellationToken.None);
                 try { work(now); } catch (Exception e) { now.Error = e; }
@@ -220,6 +239,18 @@ namespace LARGERslicer.Components
             });
         }
 
+        /// <summary>
+        /// Results come in a later solution of the document. A cluster takes its outputs right away and
+        /// never solves its inner document again, and without the Grasshopper editor (Hops, Rhino Compute,
+        /// Grasshopper Player) no later solution runs: there the calculation is done right away.
+        /// </summary>
+        private bool CanDeliverLater()
+        {
+            if (Rhino.RhinoApp.IsRunningHeadless || Grasshopper.Instances.DocumentEditor == null) return false;
+            var doc = _owner.OnPingDocument();
+            return doc != null && Grasshopper.Instances.DocumentServer.IndexOf(doc) >= 0;
+        }
+
         /// <summary>AfterSolveInstance.</summary>
         public void After()
         {
@@ -229,9 +260,12 @@ namespace LARGERslicer.Components
                 StopTimer();
                 return;
             }
-            bool running;
-            lock (_lock) running = _pending > 0;
+            bool running, finished;
+            int generation;
+            lock (_lock) { _launching = false; generation = _generation; running = _pending > 0; finished = _started > 0 && !running; }
             if (running) { ShowClock(); StartTimer(); }
+            // all tasks were done before this solution was: hand out now (Finished waits while tasks are started)
+            else if (finished) Ready(generation);
             else
             {
                 // nothing started (e.g. an input is missing now): no clock left standing
@@ -252,7 +286,7 @@ namespace LARGERslicer.Components
         /// <summary>The component left the document or the document closes: forget the work.</summary>
         public void Cancel()
         {
-            lock (_lock) { CancelTasks(); _generation++; _pending = 0; }
+            lock (_lock) { CancelTasks(); _generation++; _pending = 0; _launching = false; }
             SetWorking(false);
             StopTimer();
             _deliver = false;
@@ -271,7 +305,8 @@ namespace LARGERslicer.Components
                 if (generation != _generation) return; // the inputs changed meanwhile
                 _done[iteration] = job;
                 _pending--;
-                if (_pending > 0) return;
+                // more iterations may still be started in this solution: After hands out then
+                if (_pending > 0 || _launching) return;
             }
             Rhino.RhinoApp.InvokeOnUiThread((Action)(() => Ready(generation)));
         }

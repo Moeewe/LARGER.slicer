@@ -601,7 +601,7 @@ namespace LARGERslicer.GH2
             double radius, exit, lift; int loops;
             access.GetItem(1, out radius); access.GetItem(2, out loops); access.GetItem(3, out exit); access.GetItem(4, out lift);
             var log = new List<string>();
-            var rounded = PathEngine.Round(tp, radius > 0 ? radius : tp.Settings.EffectiveMinRadius, 0, out int corners, out int tooSharp);
+            var rounded = PathEngine.Round(tp, radius > 0 ? radius : tp.Settings.EffectiveMinRadius, 0, out int corners, out int tooSharp, log);
             int brim, brimLoops; access.GetItem(5, out brim); access.GetItem(6, out brimLoops);
             var result = LeadEngine.StartEnd(rounded, Math.Max(0, loops), 0, Math.Max(0, brimLoops), Math.Max(0, Math.Min(3, brim)), Math.Max(0, exit), Math.Max(0, lift), null, 0, log);
             Io.Remarks(access, log);

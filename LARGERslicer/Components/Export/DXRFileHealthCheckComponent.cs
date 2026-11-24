@@ -18,11 +18,15 @@ namespace LARGERslicer.Components.Export
     public class DXRFileHealthCheckComponent : GH_Component
     {
         private static readonly Regex DxrMoveRegex = new Regex(@"^\s*N\d+\s+G1\b", RegexOptions.IgnoreCase);
-        private static readonly Regex GCodeMoveRegex = new Regex(@"^\s*G0?1\b", RegexOptions.IgnoreCase);
+        private static readonly Regex GCodeMoveRegex = new Regex(@"^\s*(?:N\d+\s*)?G0*[123](?![0-9.])", RegexOptions.IgnoreCase);
         // feed word: an F followed by a number, not part of a longer name
         private static readonly Regex FeedRegex = new Regex(@"(?<![A-Za-z_.])F\s*(-?\d+(?:\.\d+)?)");
-        private static readonly Regex ZValueRegex = new Regex(@"(?:^|\s)Z(?<z>[+-]?\d+(?:[\.,]\d+)?)\b", RegexOptions.IgnoreCase);
-        private static readonly Regex SafeBaseNameRegex = new Regex(@"^[A-Za-z0-9_-]+$");
+        private static readonly Regex ZValueRegex = new Regex(@"(?<![A-Za-z_.])Z\s*(?<z>[+-]?(?:\d+(?:[\.,]\d+)?|\.\d+))", RegexOptions.IgnoreCase);
+        // a number that is none: "XNaN", "E-Infinity", in any spelling .NET or Python writes
+        private static readonly Regex NotANumberRegex = new Regex(@"(?<![A-Za-z])(?:[XYZABCEF]|XE)\s*=?\s*\[?[+-]?(?:NaN|Inf(?:inity)?|n\. def\.|∞)", RegexOptions.IgnoreCase);
+        // rapid moves of plain G-code carry positions too
+        private static readonly Regex GCodeAnyMoveRegex = new Regex(@"^\s*(?:N\d+\s*)?G0*[0-3](?![0-9.])", RegexOptions.IgnoreCase);
+        private static readonly Regex SafeBaseNameRegex = new Regex(@"^[A-Za-z0-9_ -]+$");
 
         public DXRFileHealthCheckComponent()
           : base("DXR File Health Check", "DXR Check",
@@ -150,6 +154,8 @@ namespace LARGERslicer.Components.Export
                 }
 
                 report.Add($"Selected file: {resolvedPath}");
+                if (useLatest && !string.IsNullOrWhiteSpace(filePath) && !string.Equals(filePath.Trim(), resolvedPath, StringComparison.OrdinalIgnoreCase))
+                    warnings.Add($"File Path ({filePath.Trim()}) was NOT checked: Use Latest From Folder is True, so the newest file was. Set it to False to check the given file.");
 
                 if (!File.Exists(resolvedPath))
                     fatalIssues.Add("File does not exist.");
@@ -201,6 +207,8 @@ namespace LARGERslicer.Components.Export
             double? currentFeed = null;   // feed is modal: it stays until the next F word
             int zeroFeedMoves = 0, firstZeroFeedLine = -1;
             bool firstMoveSeen = false, firstMoveWithoutFeed = false;
+            int notNumbers = 0, firstNotNumberLine = -1;
+            bool relativeMode = false;
 
             if (fatalIssues.Count == 0)
             {
@@ -243,7 +251,7 @@ namespace LARGERslicer.Components.Export
                         }
                     }
 
-                    Match feedMatch = FeedRegex.Match(line);
+                    Match feedMatch = FeedRegex.Match(StripComment(line));
                     if (feedMatch.Success && double.TryParse(feedMatch.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double feed))
                         currentFeed = feed;
                     if (isMoveLine)
@@ -260,12 +268,26 @@ namespace LARGERslicer.Components.Export
                         }
                     }
 
-                    if (isMoveLine && TryExtractZValue(line, out double z))
+                    if (NotANumberRegex.IsMatch(StripComment(line)))
+                    {
+                        notNumbers++;
+                        if (firstNotNumberLine < 0) firstNotNumberLine = i + 1;
+                    }
+                    // G91 / G90 as lines of their own (the DXR switches inside its move lines, for the extruder only)
+                    string plain = StripComment(line).Trim();
+                    if (extension != ".dxr")
+                    {
+                        if (Regex.IsMatch(plain, @"^G91\b", RegexOptions.IgnoreCase)) relativeMode = true;
+                        else if (Regex.IsMatch(plain, @"^G90\b", RegexOptions.IgnoreCase)) relativeMode = false;
+                    }
+                    bool positionLine = isMoveLine || extension != ".dxr" && GCodeAnyMoveRegex.IsMatch(line);
+                    // rapid moves count for the bed check only; a relative Z is no height above the bed
+                    if (positionLine && !relativeMode && TryExtractZValue(StripComment(line), out double z))
                     {
                         if (!minDetectedZ.HasValue || z < minDetectedZ.Value)
                             minDetectedZ = z;
 
-                        if (z > 0.0 && !firstPositiveZ.HasValue)
+                        if (isMoveLine && z > 0.0 && !firstPositiveZ.HasValue)
                             firstPositiveZ = z;
                     }
                 }
@@ -277,6 +299,9 @@ namespace LARGERslicer.Components.Export
                 report.Add(firstPositiveZ.HasValue
                     ? $"Detected first positive layer Z: {firstPositiveZ.Value:0.###} mm"
                     : "Detected first positive layer Z: (none)");
+
+                if (notNumbers > 0)
+                    fatalIssues.Add($"Broken numbers: {notNumbers} line(s) contain NaN or infinity instead of a number, first in line {firstNotNumberLine}.");
 
                 if (zeroFeedMoves > 0)
                 {
@@ -387,6 +412,12 @@ namespace LARGERslicer.Components.Export
             return string.Join("\n", parts);
         }
 
+        private static string StripComment(string line)
+        {
+            int c = line.IndexOf(';');
+            return c >= 0 ? line.Substring(0, c) : line;
+        }
+
         private static bool TryExtractZValue(string line, out double z)
         {
             z = 0.0;
@@ -429,7 +460,7 @@ namespace LARGERslicer.Components.Export
 
             if (!SafeBaseNameRegex.IsMatch(baseName))
             {
-                fatalIssues.Add("Filename contains special characters. Allowed: A-Z, a-z, 0-9, underscore, hyphen.");
+                fatalIssues.Add("Filename contains special characters. Allowed: A-Z, a-z, 0-9, underscore, hyphen, space.");
                 ok = false;
             }
 

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
+using LARGERslicer.Toolpaths;
 using LARGERslicer.Types;
 using LARGERslicer.Utils;
 using Rhino.Geometry;
@@ -108,8 +109,8 @@ namespace LARGERslicer.Components.CNCUtilities
             foreach (var g in groups)
             {
                 int count = g.Count();
-                string remark = g.Key.T.Contains("Fuge") ? "Fuge" : "";
-                panel.Add($"{pos} | {g.Key.T} | {g.Key.L:F1} | {g.Key.D:F1} | {g.Key.H:F1} | {count} | {material} | {remark}");
+                string remark = g.Key.T.Contains("Fuge") ? "Fuge" : g.Key.T.Contains("Joint") ? "Joint" : "";
+                panel.Add(Inv.F($"{pos} | {g.Key.T} | {g.Key.L:F1} | {g.Key.D:F1} | {g.Key.H:F1} | {count} | {material} | {remark}"));
                 csv.Add(string.Join(";", new[]
                 {
                     pos.ToString(CultureInfo.InvariantCulture),
@@ -150,7 +151,7 @@ namespace LARGERslicer.Components.CNCUtilities
         {
             if (t.Contains("unten")) return 0;
             if (t.Contains("Mittel")) return 1;
-            if (t.Contains("Fuge")) return 2;
+            if (t.Contains("Fuge") || t.Contains("Joint")) return 2;
             if (t.Contains("oben")) return 3;
             return 4;
         }
@@ -162,7 +163,7 @@ namespace LARGERslicer.Components.CNCUtilities
             double d = bb.Max.Y - bb.Min.Y;
             double h = bb.Max.Z - bb.Min.Z;
 
-            panel.Add($"{pos} | {type} | {l:F1} | {d:F1} | {h:F1} | 1 | {material} | Fixture geometry");
+            panel.Add(Inv.F($"{pos} | {type} | {l:F1} | {d:F1} | {h:F1} | 1 | {material} | Fixture geometry"));
             csv.Add(string.Join(";", new[]
             {
                 pos.ToString(CultureInfo.InvariantCulture),

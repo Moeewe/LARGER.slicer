@@ -188,7 +188,15 @@ namespace LARGERslicer.Toolpaths
             catch (OperationCanceledException) when (token.CanBeCanceled) { return null; } // (an outer calculation's token: the exception goes on)
 
             if (openSkipped > 0) log?.Add("Open contours keep a single wall centred on the surface; extra walls are only added to closed contours.");
-            if (vanished > 0) log?.Add(Inv.F($"{vanished} layer(s) are narrower than one bead width and have no wall."));
+            if (vanished > 0)
+            {
+                // the lowest ones are worse than the others: the print then starts in the air
+                int lost = 0;
+                if (layers.Count > 0 && layers[0].Warp == null && Math.Abs(layers[0].Plane.ZAxis.Z) > 0.999)
+                    while (lost < result.Length && result[lost].Contours.Count == 0) lost++;
+                log?.Add(Inv.F($"{vanished} layer(s) are narrower than one bead width and have no wall.") +
+                         (lost > 0 && lost < result.Length ? Inv.F($" {lost} of them are the lowest layer(s): the print would start in the air above the bed. Give the part a flat foot of at least two bead widths or use a narrower bead.") : ""));
+            }
             return result.Where(l => l.Contours.Count > 0).ToList();
         }
 
@@ -808,7 +816,7 @@ namespace LARGERslicer.Toolpaths
             // and then one layer would not lie squarely on the other.
             List<List<Point2d>> previousRings = null, previousFills = null;
             List<Point2d> previousEntries = null;
-            List<int> previousAbsorbed = null;
+            List<List<Point2d>> previousAbsorbed = null; // the hole walls that became part of the fill line
 
             for (int li = 0; li < ordered.Count; li++)
             {
@@ -861,10 +869,13 @@ namespace LARGERslicer.Toolpaths
                 Func<List<List<Point2d>>> contourFill = () =>
                 {
                     usedContour = true;
-                    if (previousFills != null && previousAbsorbed.Count <= holeWalls.Count && SameOutline(regionRings, previousRings, 0.1 * spacing))
+                    // (the same holes may come in another order on this layer)
+                    var sameHoles = previousFills != null && SameOutline(regionRings, previousRings, 0.1 * spacing)
+                        ? previousAbsorbed.Select(h => holeWalls.FindIndex(q => SameLoop(q, h, 0.1 * spacing))).ToList() : null;
+                    if (sameHoles != null && !sameHoles.Contains(-1) && sameHoles.Distinct().Count() == sameHoles.Count)
                     {
                         fermatEntries.AddRange(previousEntries);
-                        absorbed.AddRange(previousAbsorbed);
+                        absorbed.AddRange(sameHoles);
                         return previousFills.Select(f => new List<Point2d>(f)).ToList();
                     }
                     return FermatFill.Build(region, spacing, lastEnd.IsValid ? (Point2d?)To2d(src.Plane, lastEnd) : null, fermatEntries, holeWalls, absorbed);
@@ -938,7 +949,7 @@ namespace LARGERslicer.Toolpaths
                         if (moves > 0 && PathTools.CountCrossings(fixedLine) == 0) { fills[f] = fixedLine.Select(q => new Point2d(q.X, q.Y)).ToList(); uncrossed++; }
                     }
                     previousRings = regionRings; previousFills = fills.Select(f => new List<Point2d>(f)).ToList();
-                    previousEntries = new List<Point2d>(fermatEntries); previousAbsorbed = new List<int>(absorbed);
+                    previousEntries = new List<Point2d>(fermatEntries); previousAbsorbed = absorbed.Select(k => holeWalls[k]).ToList();
                 }
                 else previousRings = null;
                 if (lastEnd.IsValid)
