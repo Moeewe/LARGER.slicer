@@ -43,6 +43,7 @@ namespace LARGERslicer.Components.Slicer
         {
             AddButton(doc, 11, "Save material");
             AddValueList(doc, 0, "Material", MaterialDefinition.All().Select(m => m.Name).ToArray());
+            _choice.Attach(Choice(0));
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -57,12 +58,18 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("Info", "I", "Where the values come from", GH_ParamAccess.item);
         }
 
+        // the material chosen in the row, by name: new files in the folder move the numbers of the list
+        private readonly NamedChoice _choice = new NamedChoice();
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { _choice.Write(writer); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { _choice.Read(reader); return base.Read(reader); }
+
         protected override void SolveInstance(IGH_DataAccess da)
         {
             int index = 0; da.GetData(0, ref index);
             var log = new List<string>();
             var all = MaterialDefinition.All(log);
             foreach (var l in log) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Material file left out. " + l);
+            index = _choice.Resolve(this, 0, index, all.Select(a => a.Name).ToArray(), "material", "Documents/LARGER/Materials");
             if (index < 0 || index >= all.Count) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"There are {all.Count} materials (0 to {all.Count - 1}); using the first."); index = 0; }
             var m = all[index].Duplicate();
 
@@ -243,7 +250,8 @@ namespace LARGERslicer.Components.Slicer
             if (!File.Exists(path)) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The file " + path + " does not exist."); return; }
 
             var info = new FileInfo(path);
-            string key = string.Join("|", path, info.Length, info.LastWriteTimeUtc.Ticks, w, h, density, keep, machine?.ToString() ?? "-", machine?.FilamentDiameter ?? 0);
+            string key = string.Join("|", path, info.Length, info.LastWriteTimeUtc.Ticks, w, h, density, keep, machine?.ToString() ?? "-", machine?.FilamentDiameter ?? 0,
+                machine?.Factor ?? 0, machine?.FirstLayerFactor ?? 0, machine?.RectangleSection ?? false);
             GCodeImport.Result r;
             if (key == _key && _cache != null) r = _cache;
             else

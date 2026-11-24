@@ -195,5 +195,88 @@ namespace LARGERslicer.Toolpaths
             if (loft == null || loft.Length == 0) return null;
             return loft[0].CapPlanarHoles(0.01) ?? loft[0];
         }
+
+        /// <summary>CNC Quick Start: a topography of 240 x 160 mm, 14 mm high: hills, a ridge and a river.</summary>
+        public static Mesh Topography()
+        {
+            var m = new Mesh();
+            const int nx = 240, ny = 160;
+            double lo = double.MaxValue, hi = double.MinValue;
+            var h = new double[nx + 1, ny + 1];
+            for (int j = 0; j <= ny; j++)
+                for (int i = 0; i <= nx; i++)
+                {
+                    double x = i, y = j, river = y - 78 - 24 * Math.Sin(x / 38.0) - 6 * Math.Sin(x / 13.0);
+                    double z = 5.5 * Math.Sin(x / 31.0 + 0.6) * Math.Cos(y / 36.0) + 2.6 * Math.Sin((x + 1.7 * y) / 21.0) + 1.0 * Math.Cos((2 * x - y) / 14.0);
+                    z += 9 * Math.Exp(-((x - 180) * (x - 180) + (y - 122) * (y - 122)) / 900.0) + 7 * Math.Exp(-((x - 62) * (x - 62) + (y - 34) * (y - 34)) / 700.0);
+                    z -= 8 * Math.Exp(-river * river / 150.0);
+                    h[i, j] = z; lo = Math.Min(lo, z); hi = Math.Max(hi, z);
+                }
+            for (int j = 0; j <= ny; j++) for (int i = 0; i <= nx; i++) m.Vertices.Add(i, j, 14.0 * (h[i, j] - lo) / (hi - lo));
+            for (int j = 0; j < ny; j++) for (int i = 0; i < nx; i++) m.Faces.AddFace(j * (nx + 1) + i, j * (nx + 1) + i + 1, (j + 1) * (nx + 1) + i + 1, (j + 1) * (nx + 1) + i);
+            m.Normals.ComputeNormals();
+            return m;
+        }
+
+        /// <summary>
+        /// CNC Quick Start: the first thing to mill. Five steps of 2 mm that rise to the right (X), 100 x 50 mm, the lowest step first.
+        /// If the steps rise to the left or the heights are wrong, the machine counts Z in another way than the plug-in.
+        /// </summary>
+        public static Mesh TestStairs()
+        {
+            var m = new Mesh();
+            Action<double, double, double, double> quad = (x0, x1, z0, z1) =>
+            {
+                int a = m.Vertices.Add(x0, 0, z0); m.Vertices.Add(x1, 0, z1); m.Vertices.Add(x1, 50, z1); m.Vertices.Add(x0, 50, z0);
+                m.Faces.AddFace(a, a + 1, a + 2, a + 3);
+            };
+            for (int i = 0; i < 5; i++)
+            {
+                quad(20 * i, 20 * (i + 1), 2 + 2 * i, 2 + 2 * i);
+                if (i > 0) quad(20 * i, 20 * i, 2 * i, 2 + 2 * i);
+            }
+            m.Vertices.CombineIdentical(true, true);
+            m.Normals.ComputeNormals();
+            return m;
+        }
+
+        /// <summary>
+        /// Example for weaving: a sandwich panel of one closed line, 480 x 45 x 80 mm. The front is straight, the back runs in
+        /// waves and nearly touches the front at four knots (centre lines 5 mm apart); the waves lean, so the knots move with the height.
+        /// </summary>
+        public static Mesh SandwichPanel(Point3d corner, double knot = 5.0)
+        {
+            const double L = 480, W = 40, H = 80; const int n = 240, nz = 20;
+            var m = new Mesh();
+            Action<double, double, double> add = (x, y, z) => m.Vertices.Add(corner.X + x, corner.Y + y, corner.Z + z);
+            int ring = 0;
+            for (int k = 0; k <= nz; k++)
+            {
+                double z = H * k / nz; int before = m.Vertices.Count;
+                for (int i = 0; i <= n; i++) add(L * i / n, 0, z);
+                for (int i = 1; i < 10; i++) add(L, W * i / 10.0, z);
+                for (int i = n; i >= 0; i--)
+                {
+                    double x = L * i / n, edge = Math.Min(1, Math.Min(x, L - x) / 40);
+                    edge = edge * edge * (3 - 2 * edge);
+                    double wave = 0.5 + 0.5 * Math.Cos(2 * Math.PI * (x - 0.35 * (z - 0.5 * H)) / 120.0 + Math.PI);   // 0 at the knots
+                    add(x, W - edge * (W - knot) * (1 - wave), z);
+                }
+                for (int i = 9; i > 0; i--) add(0, W * i / 10.0, z);
+                ring = m.Vertices.Count - before;
+            }
+            for (int k = 0; k < nz; k++)
+                for (int i = 0; i < ring; i++)
+                {
+                    int a = k * ring + i, b = k * ring + (i + 1) % ring;
+                    m.Faces.AddFace(a, b, b + ring, a + ring);
+                }
+            m.Normals.ComputeNormals();
+            m.Compact();
+            return m;
+        }
+
+        /// <summary>Example for reshaping: a rectangle 600 x 200 x 100 mm, printed lying as a vase; the print height is the depth of the part.</summary>
+        public static Brep ReshapeBox(Point3d corner) => new Box(new BoundingBox(corner, corner + new Vector3d(600, 200, 100))).ToBrep();
     }
 }

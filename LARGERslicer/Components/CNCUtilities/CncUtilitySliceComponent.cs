@@ -73,12 +73,20 @@ namespace LARGERslicer.Components.CNCUtilities
                 return;
             }
 
-            int middleCount = (int)Math.Floor((inner - fw * fn) / mb);
-            middleCount = Math.Max(1, middleCount);
+            int middleCount = (int)Math.Floor((inner - fw * fn) / mb + 1e-6);
+            if (middleCount < 1)
+            {
+                // less than one board would make the joints narrower than the minimum (or negative)
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Total height is too small: one middle board ({mb:F2} mm) and {fn} joint(s) of {fw:F2} mm need {ru + ro + mb + fw * fn:F2} mm, the total height is {h:F2} mm.");
+                return;
+            }
 
             double usedMiddle = middleCount * mb;
             double rest = inner - usedMiddle;
             double actualFugeWidth = rest / fn;
+
+            if (manual.Count > 0 && manual.Count != fn)
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"{manual.Count} joint position(s) for {fn} joint(s): the positions are not used. Give one position per joint.");
 
             var fugenMitten = new List<double>();
             if (manual.Count == fn)

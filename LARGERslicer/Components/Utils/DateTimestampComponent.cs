@@ -8,10 +8,11 @@ namespace LARGERslicer.Components.Utils
     public class DateTimestampComponent : GH_Component
     {
         private System.Windows.Forms.Timer _updateTimer;
+        private string _shown = "";
 
         public DateTimestampComponent()
           : base("Date Timestamp", "Timestamp",
-              "Generates a timestamp string with automatic update every second. Format: yymmddHHMM_",
+              "Generates a timestamp string that follows the clock. Format: yymmddHHMM_",
               "", "")
         {
         }
@@ -33,7 +34,8 @@ namespace LARGERslicer.Components.Utils
         {
             // Generate current timestamp
             DateTime now = DateTime.Now;
-            string timestamp = now.ToString("yyMMddHHmm") + "_";
+            string timestamp = now.ToString("yyMMddHHmm", System.Globalization.CultureInfo.InvariantCulture) + "_";
+            _shown = timestamp;
 
             DA.SetData(0, timestamp);
 
@@ -44,7 +46,9 @@ namespace LARGERslicer.Components.Utils
                 _updateTimer.Interval = 1000;
                 _updateTimer.Tick += (sender, e) =>
                 {
-                    if (OnPingDocument() != null)
+                    // the text only changes once a minute: a new solution every second would calculate
+                    // everything after this component again and again (and cancel what runs in the background)
+                    if (OnPingDocument() != null && !Locked && DateTime.Now.ToString("yyMMddHHmm", System.Globalization.CultureInfo.InvariantCulture) + "_" != _shown)
                     {
                         OnPingDocument().ScheduleSolution(100, (doc) => ExpireSolution(false));
                     }

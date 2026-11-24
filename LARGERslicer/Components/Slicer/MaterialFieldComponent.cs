@@ -84,6 +84,7 @@ namespace LARGERslicer.Components.Slicer
             da.GetData(11, ref tc);
             string file = null; int format = 0; bool save = false;
             da.GetData(12, ref file); da.GetData(13, ref format); da.GetData(14, ref save);
+            if (save) file = FreePath(file, OutputFile.Name("MAT", "Material Field", null, ".csv")); // several toolpaths do not write over each other
             var brepCopies = breps.Where(b => b != null).Select(b => b.DuplicateBrep()).ToList(); // copies for the background
 
             Async.Run(da, job =>

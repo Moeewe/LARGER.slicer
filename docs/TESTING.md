@@ -240,6 +240,15 @@ therefore kept in `<temp>/LARGERslicer/collision/`. Delete that folder to measur
 
 ---
 
+
+### Zünd bench (`tests/ZundBench`)
+
+Reads the PLT of CNC - Rough and Finish the way the Zünd does (slot, router bit, `ZP`, lifts, speeds in cm/s,
+acceleration), mills a block with it and compares the block with the model: material left, cut too deep, cut
+deeper than one step, sinking in too steeply, moves through the material while lifted, spindle or bit missing. `Run.All(log, filter)` runs
+47 shapes in 3 settings, `Run.Mutations(log)` breaks a good PLT in 11 ways and has to notice each of them.
+Run it from a Rhino 9 slot as in `tests/ZundBench/run.csx`; all shapes take a few minutes (use the log file).
+
 ## 3. Metrics and how results were judged
 
 - **Path Check** on every path: 0 crossings, support, layer times; `Non-Planar Check` on vertical-nozzle

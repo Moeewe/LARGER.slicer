@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runs the PLT of CNC - Rough and Finish through a model of the Zünd, inside Rhino (see run.csx). -->
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><LangVersion>latest</LangVersion><AssemblyName>ZundBench</AssemblyName><Nullable>disable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <PropertyGroup><Rhino9 Condition="'$(Rhino9)' == ''">/Applications/Rhino 9.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources</Rhino9>
+  <Gha Condition="'$(Gha)' == ''">../../LARGERslicer/bin/Release/net8.0/LARGERslicer.gha</Gha></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="LARGERslicer"><HintPath>$(Gha)</HintPath><Private>false</Private></Reference>
+    <Reference Include="RhinoCommon"><HintPath>$(Rhino9)/RhinoCommon.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

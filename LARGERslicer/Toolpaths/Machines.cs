@@ -112,6 +112,9 @@ namespace LARGERslicer.Toolpaths
     /// Lines that begin with # are comments of the file and are not written into the G-code.
     /// In [layer], {layer} is the number of the layer (1, 2, 3 ...) and {z} its height.
     /// In every block, {material} is the material and {bed} the bed temperature.
+    ///   nozzle temperature = 220     (optional: replaces {nozzle})
+    ///   fan = 60                     (optional, percent: replaces {fan} with 0..255 and {fan %} with the percent)
+    ///   set purge length = 50        (optional: any value of your own, replaces {purge length} in the codes)
     /// </summary>
     public class MachineDefinition
     {
@@ -141,6 +144,8 @@ namespace LARGERslicer.Toolpaths
         /// <summary>Fill {material} and {bed} in the codes.</summary>
         public string Material = "PLA";
         public double BedTemperature = 90;
+        /// <summary>Further values for the codes: {nozzle}, {fan}, {fan %} and your own ("set name = value" gives {name}).</summary>
+        public SortedDictionary<string, string> Values = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         /// <summary>Something to know about this machine, shown in the Machine component's info.</summary>
         public string Note = "";
         /// <summary>Where the definition comes from: "built in", or the path of its file.</summary>
@@ -155,11 +160,18 @@ namespace LARGERslicer.Toolpaths
             d.Start = new List<string>(Start); d.Layer = new List<string>(Layer); d.End = new List<string>(End);
             d.AfterLayer = new SortedDictionary<int, List<string>>();
             foreach (var kv in AfterLayer) d.AfterLayer[kv.Key] = new List<string>(kv.Value);
+            d.Values = new SortedDictionary<string, string>(Values, StringComparer.OrdinalIgnoreCase);
             return d;
         }
 
         /// <summary>A line of code with {material} and {bed} filled in.</summary>
-        public string Fill(string line) => (line ?? "").Replace("{material}", Material ?? "").Replace("{bed}", Num(BedTemperature));
+        public string Fill(string line)
+        {
+            var r = (line ?? "").Replace("{material}", Material ?? "").Replace("{bed}", Num(BedTemperature));
+            if (r.IndexOf('{') < 0) return r;
+            foreach (var kv in Values) r = r.Replace("{" + kv.Key + "}", kv.Value);
+            return r;
+        }
 
         // ---------------------------------------------------------------- the machines of the house
 
@@ -255,6 +267,12 @@ namespace LARGERslicer.Toolpaths
                 "material = " + Material,
                 "bed temperature = " + Num(BedTemperature),
             };
+            foreach (var kv in Values)
+            {
+                if (kv.Key.Equals("nozzle", StringComparison.OrdinalIgnoreCase)) t.Add("nozzle temperature = " + kv.Value);
+                else if (kv.Key.Equals("fan %", StringComparison.OrdinalIgnoreCase)) t.Add("fan = " + kv.Value);
+                else if (!kv.Key.Equals("fan", StringComparison.OrdinalIgnoreCase)) t.Add("set " + kv.Key + " = " + kv.Value);
+            }
             if (!string.IsNullOrWhiteSpace(Model)) t.Add("model = " + Path.GetFileName(Model));
             t.Add(""); t.Add("[start]");
             t.AddRange(Start); t.Add(""); t.Add("[layer]"); t.AddRange(Layer); t.Add("");
@@ -339,7 +357,13 @@ namespace LARGERslicer.Toolpaths
                         else if (v.ToLowerInvariant() == "bead") m.Profile.RectangleSection = false;
                         else { error = Inv.F($"line {n}: section is rectangle or bead."); return null; }
                         break;
-                    default: error = Inv.F($"line {n}: unknown key '{k}'."); return null;
+                    case "nozzle temperature": if (!isNumber) goto bad; m.Values["nozzle"] = Num(d); break;
+                    case "fan":
+                        if (!isNumber || d < 0 || d > 100) { error = Inv.F($"line {n}: fan is a percent from 0 to 100, got '{v}'."); return null; }
+                        m.Values["fan %"] = Num(d); m.Values["fan"] = Num(Math.Round(d * 2.55)); break;
+                    default:
+                        if (k.StartsWith("set ") && k.Length > 4) { m.Values[k.Substring(4).Trim()] = v; break; }
+                        error = Inv.F($"line {n}: unknown key '{k}'. Your own values start with set, like: set purge length = 50"); return null;
                 }
                 continue;
                 bad: error = Inv.F($"line {n}: '{k}' needs a number, got '{v}'."); return null;
@@ -377,7 +401,8 @@ namespace LARGERslicer.Toolpaths
             else if (!string.IsNullOrWhiteSpace(Model) && File.Exists(Model) && !string.Equals(Path.GetDirectoryName(Path.GetFullPath(Model)), Path.GetFullPath(Folder), StringComparison.OrdinalIgnoreCase))
             {
                 // keep the model with the machine, so the folder can be passed on as it is
-                string mp = Path.ChangeExtension(path, ".3dm");
+                // (in its own format: an .obj stays an .obj)
+                string mp = Path.ChangeExtension(path, Path.GetExtension(Model));
                 File.Copy(Model, mp, true); Model = mp;
             }
             else if (string.IsNullOrWhiteSpace(Model) && !string.IsNullOrWhiteSpace(BuiltInModel))
@@ -467,6 +492,7 @@ namespace LARGERslicer.Toolpaths
             if (!string.IsNullOrWhiteSpace(Model))
             {
                 var m = PrinterModel.FromFile(Model, out string error);
+                if (m != null && m.Blocks > 0) note = Inv.F($"{m.Blocks} block(s) of the 3D model are left out (not drawn, not checked for collisions): explode blocks before saving.");
                 if (m != null) return m;
                 note = "The 3D model could not be read: " + error;
             }
@@ -484,6 +510,29 @@ namespace LARGERslicer.Toolpaths
     public static class MachineGCode
     {
         private static string N(double v, int digits) => Math.Round(v, digits).ToString("0." + new string('#', digits), CultureInfo.InvariantCulture);
+
+        /// <summary>
+        /// True when the start code homes Z and leaves the nozzle there (a gantry or bed slinger homes onto the bed): after
+        /// its last G28 no move has a Z. With a macro (START_PRINT, PRINT_START ...) or without homing nobody knows
+        /// where the nozzle stands: then nothing is added.
+        /// </summary>
+        internal static bool StartsOnBed(MachineDefinition machine)
+        {
+            if (machine.Kind != MachineKind.Gantry && machine.Kind != MachineKind.BedSlinger) return false;
+            bool homed = false;
+            foreach (string raw in machine.Start)
+            {
+                string line = (raw ?? "").Split(';')[0].Trim().ToUpperInvariant();
+                if (line.Length == 0) continue;
+                var w = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (!(w[0].Length > 1 && "GMTN".IndexOf(w[0][0]) >= 0 && char.IsDigit(w[0][1]))) return false; // a macro
+                bool z = w.Skip(1).Any(x => x[0] == 'Z');
+                if (w[0] == "G28") { if (w.Length == 1 || z || !w.Skip(1).Any(x => x[0] == 'X' || x[0] == 'Y')) homed = true; }
+                else if (z && (w[0] == "G0" || w[0] == "G1" || w[0] == "G00" || w[0] == "G01" || w[0] == "G92")) homed = false;
+                else if (w[0] == "G27" || w[0] == "G29") homed = false; // parking and bed levelling end above the bed
+            }
+            return homed;
+        }
 
         public static GingerGCode.Result Build(Toolpath source, MachineDefinition machine) => Build(source, machine, out _);
 
@@ -521,6 +570,9 @@ namespace LARGERslicer.Toolpaths
 
             double travel = machine.TravelSpeed > 0 ? machine.TravelSpeed : Math.Max(st.Speed, st.MaxSpeed);
             Point3d p0 = tp.Points[0];
+            // after homing the nozzle stands on the bed: it must not be dragged over it to the start
+            if (StartsOnBed(machine))
+                L.Add("G0 Z" + N(Math.Max(p0.Z, 10), 3) + " F" + N(Math.Min(travel, 600), 0) + " ; lift before the way to the start (the start code does not)");
             L.Add("G0 X" + N(p0.X, 3) + " Y" + N(p0.Y, 3) + " F" + N(travel, 0));
             L.Add("G0 Z" + N(p0.Z, 3) + " F" + N(travel, 0));
             int layer = int.MinValue, number = 0; double total = 0; int zero = 0;

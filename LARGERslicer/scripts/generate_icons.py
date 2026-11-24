@@ -567,6 +567,134 @@ def _(g):
     g.rrect(10.4, 9, 13.6, 20.5, 1.6, None, 0, GREEN)
     g.poly([(16.4, 9), (19.6, 9), (19.6, 16), (18, 20), (16.4, 16)], INK)
 
+@icon('CNCCutterIcon')
+def _(g):
+    # one ball cutter
+    g.line([(12, 3), (12, 8.5)], INK, 3.4)
+    g.rrect(8.6, 8.5, 15.4, 21, 3.4, None, 0, GREEN)
+
+@icon('CNCRoughFinishIcon')
+def _(g):
+    # the terraces of the thick cutter, the smooth line of the fine one
+    g.line([(3, 8), (7, 8), (7, 12.4), (11.4, 12.4), (11.4, 16.6), (16, 16.6), (16, 12.4), (21, 12.4)], INK, 1.9)
+    g.line([(3, 13.6), (5.4, 14.2), (7.6, 16.4), (10.4, 20), (13.6, 21), (16.6, 20), (18.8, 17.4), (21, 16.8)], GREEN, 2.1)
+    g.line([(13.8, 3), (13.8, 11)], GREEN, 3)
+
+@icon('CNCReliefIcon')
+def _(g):
+    # scales on a plate
+    g.poly([(2.5, 13), (12, 7.5), (21.5, 13), (12, 18.5)], INK)
+    g.line([(2.5, 16.4), (12, 21.6), (21.5, 16.4)], INK, 1.8)
+    for x, y in ((12, 9.8), (8, 12.2), (16, 12.2), (12, 14.6)):
+        g.d.pieslice([(x - 2.4) * S, (y - 2.2) * S, (x + 2.4) * S, (y + 2.2) * S], 180, 360, fill=GREEN)
+
+# ---- weaving
+def _pair(g, a, col, phase=0, w=2.0, k=1.0):
+    for q, off in ((INK, -2.6), (col, 2.6)):
+        g.line([(3 + i * 0.5, 12 + off + a * math.sin(i * 0.5 / 18 * 2 * math.pi * k + phase)) for i in range(37)], q, w)
+
+@icon('SlicerWeaveZonesIcon')
+def _(g):
+    # two beads that come together, the place marked
+    for m in (-1, 1):
+        g.line([(3 + i * 0.5, 12 + m * (2.0 + 5.4 * ((i * 0.5 - 9) / 9) ** 2)) for i in range(37)], INK, 2.1)
+    g.circle(12, 12, 5.2, BLUE, 1.9)
+
+@icon('SlicerWeaveIcon')
+def _(g):
+    # two lines that cross like a braid
+    for q, ph in ((INK, 0), (BLUE, math.pi)):
+        g.line([(3 + i * 0.5, 12 + 5 * math.sin(i * 0.5 / 18 * 2 * math.pi * 1.5 + ph)) for i in range(37)], q, 2.4)
+
+@icon('SlicerWeaveVariantsIcon')
+def _(g):
+    # three seams one above the other: straight, wave, teeth
+    g.line([(3.5, 5), (20.5, 5)], INK, 2)
+    g.line([(3.5 + i * 0.5, 12 + 2.2 * math.sin(i * 0.5 / 17 * 2 * math.pi * 2)) for i in range(35)], BLUE, 2)
+    g.line([(3.5, 20), (8, 20), (9.5, 17), (11, 20), (14, 20), (15.5, 17), (17, 20), (20.5, 20)], INK, 2)
+
+@icon('SlicerWeaveTestIcon')
+def _(g):
+    # a coupon pulled apart across the seam
+    g.rrect(7, 5, 11.4, 19, 1.4, INK, 1.9); g.rrect(12.6, 5, 17, 19, 1.4, INK, 1.9)
+    g.line([(5.4, 12), (2, 12)], BLUE, 2.2); g.line([(18.6, 12), (22, 12)], BLUE, 2.2)
+    g.poly([(0.6, 12), (4, 9.4), (4, 14.6)], BLUE); g.poly([(23.4, 12), (20, 9.4), (20, 14.6)], BLUE)
+
+@icon('SlicerJointIcon')
+def _(g):
+    # two surfaces and the springs between them
+    g.line([(5, 3.5), (5, 20.5)], INK, 2.4); g.line([(19, 3.5), (19, 20.5)], INK, 2.4)
+    for y in (7, 12, 17):
+        g.line([(5, y), (8, y), (9.5, y - 2), (12, y + 2), (14.5, y - 2), (16, y), (19, y)], BLUE, 1.6)
+
+# ---- reshaping
+@icon('SlicerShapeFieldIcon')
+def _(g):
+    # a wanted top over the plan
+    g.line([(3, 20), (21, 20)], SOFT, 1.6)
+    for i, h in enumerate((5, 9, 13, 9, 5)):
+        x = 4 + 4 * i; g.line([(x, 20), (x, 20 - h)], INK, 1.8); g.dot(x, 20 - h, 1.7, BLUE)
+
+@icon('SlicerReshapeIcon')
+def _(g):
+    # laps that fan out
+    for k in range(5):
+        y0 = 20 - k * 3.9; y1 = 20 - k * 1.5
+        g.line([(3 + i, y0 + (y1 - y0) * (i / 18) ** 0.8) for i in range(19)], BLUE if k == 4 else INK, 1.9)
+
+@icon('SlicerCompareIcon')
+def _(g):
+    # two shapes side by side, one better
+    g.poly([(2.5, 20), (2.5, 12), (10.5, 12), (10.5, 20)], INK)
+    g.poly([(13.5, 20), (13.5, 6), (21.5, 15), (21.5, 20)], BLUE)
+
+@icon('SlicerReshapeCodeIcon')
+def _(g):
+    doc(g)
+    for k in range(3):
+        g.line([(8, 17.4 - k * 3.4), (16, 17.4 - k * 1.4)], BLUE if k == 2 else SOFT, 1.7)
+
+@icon('SlicerMultiAxisIcon')
+def _(g):
+    # a tilted nozzle square to a slope, and a tick
+    g.line([(3, 20), (20, 13)], INK, 2)
+    g.poly([(12.2, 15), (6.6, 8.8), (11.8, 6.6)], BLUE)
+    g.line([(14.2, 6.4), (16.6, 8.8), (21.4, 3.4)], INK, 2)
+
+# ---- analysis
+@icon('SlicerShellsIcon')
+def _(g):
+    # a bead section and the surface through its middle
+    for y in (6, 12, 18): g.rrect(4, y - 2.4, 13, y + 2.4, 2.4, INK, 1.7)
+    g.line([(8.5, 2.5), (8.5, 21.5)], BLUE, 2.2)
+    g.line([(16, 12), (21, 12)], BLUE, 2); g.poly([(22.5, 12), (19, 9.6), (19, 14.4)], BLUE)
+
+@icon('SlicerResultFieldIcon')
+def _(g):
+    # a strip with its weak place
+    g.rrect(8, 2.5, 16, 21.5, 2.2, INK, 2)
+    g.poly([(8.8, 20.7), (15.2, 20.7), (15.2, 14.5), (8.8, 16.5)], BLUE)
+    g.line([(8.8, 11), (15.2, 9.4)], SOFT, 1.5)
+
+@icon('SlicerRecordIcon')
+def _(g):
+    doc(g)
+    g.line([(8, 16), (10, 13.4), (12.4, 15), (16, 10.4)], BLUE, 1.9)
+    g.dot(16, 10.4, 1.4, BLUE)
+
+@icon('CNCPlateIcon')
+def _(g):
+    # a plate in perspective, the model in its middle
+    g.poly([(2.5, 13), (12, 7.5), (21.5, 13), (12, 18.5)], INK)
+    g.line([(2.5, 16.4), (12, 21.6), (21.5, 16.4)], INK, 1.8)
+    g.poly([(7.6, 13), (12, 10.4), (16.4, 13), (12, 15.6)], GREEN)
+
+@icon('CNCQuickStartIcon')
+def _(g):
+    # the cutter, and a play sign
+    g.line([(8, 3), (8, 9)], INK, 3.2); g.rrect(5.4, 9, 10.6, 20, 2.6, None, 0, INK)
+    g.poly([(13.4, 8), (21.5, 13.5), (13.4, 19)], GREEN)
+
 @icon('CncUtilityOrientIcon')
 def _(g):
     g.rrect(8, 8, 16, 16, 1.8, INK, 2); g.line(arc(12, 12, 9, 200, 320, 20), GREEN, 2)

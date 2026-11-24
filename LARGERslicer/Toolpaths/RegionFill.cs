@@ -211,6 +211,7 @@ namespace LARGERslicer.Toolpaths
             bool closed = pl.Count > 2 && pl[0].DistanceTo(pl[pl.Count - 1]) < 1e-6;
             for (int i = 0; i < n - 1; i++)
             {
+                if ((i & 0xFF) == 0) Cancel.Check();
                 Point3d a = pl[i], b = pl[i + 1];
                 double minX = Math.Min(a.X, b.X), maxX = Math.Max(a.X, b.X), minY = Math.Min(a.Y, b.Y), maxY = Math.Max(a.Y, b.Y);
                 for (int j = i + 2; j < n; j++)

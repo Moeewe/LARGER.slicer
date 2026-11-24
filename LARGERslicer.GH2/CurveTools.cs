@@ -54,109 +54,63 @@ namespace LARGERslicer.GH2
             boundary.Transform(Transform.Translation(0, 0, zHeight - boundary.PointAtStart.Z));
             if (!boundary.IsValid) { access.AddError("No boundary", "Failed to create boundary from curves."); return; }
 
-            // 2 offset: the given one, or half a layer width inward
-            double offset = boundaryOffset != 0.0 ? boundaryOffset : layerWidth * 0.5;
-            {
-                double offsetDistance = offset * PathHelper.GetOffsetDirection(boundary, holes);
-                var offsetCurves = boundary.Offset(Plane.WorldXY, offsetDistance, 0.01, CurveOffsetCornerStyle.Sharp);
-                var valid = offsetCurves?.Where(c => c != null && c.IsValid).ToList();
-                if (valid != null && valid.Count > 0)
-                    boundary = valid.OrderByDescending(c => AreaMassProperties.Compute(c)?.Area ?? 0).First();
-            }
+            // 2 the wall bead: the given offset, or half a layer width inward
+            Curve wall = Inset(boundary, boundaryOffset != 0.0 ? boundaryOffset : layerWidth * 0.5);
+            if (wall != null) boundary = wall;
 
-            // 3 offsets inward by layer width
-            var offsetList = PathHelper.GenerateOffsetCurves(boundary, layerWidth, 1000, holes);
-            if (offsetList.Count == 0)
+            // 3 the cross lines end one layer width inside the wall bead. The fill engine stays half a
+            // layer width inside the region it gets, and half a layer width away from the holes.
+            Curve region = Inset(boundary, layerWidth * 0.5);
+            RegionFillResult fill = region == null ? null : FillEngine.FillRegion(region, holes, layerWidth, false, angle, false, 0.0, null);
+            if (fill?.Path == null || fill.Path.Count < 2)
             {
-                access.AddWarning("No offsets", "No offset curves generated. Boundary may be too small.");
+                access.AddWarning("No cross lines", "No cross lines fit. Boundary may be too small.");
                 access.SetItem(0, boundary); access.SetItem(1, boundary);
                 CurveIo.SetCurves(access, 2, new[] { boundary });
                 return;
             }
+            if (fill.Note.Length > 0) access.AddRemark("Fill", fill.Note);
+            if (fill.Links.Count > 0) access.AddRemark("Links", fill.Links.Count + " link(s) join separate parts of the fill across open space.");
 
-            // 4 boustrophedon over all offsets
-            var segments = Boustrophedon(offsetList, boundary, layerWidth, angle, startLeft, zHeight, out List<Point3d> pathPoints);
-            Curve infillPath = null;
-            if (pathPoints.Count >= 2)
+            // 4 at the Z height, beginning left or right (along the lines)
+            var path = new Polyline(fill.Path.Select(q => new Point3d(q.X, q.Y, zHeight)));
+            var along = new Vector3d(Math.Cos(angle * Math.PI / 180.0), Math.Sin(angle * Math.PI / 180.0), 0);
+            bool beginsLeft = (path[0] - path[1]) * along <= 0;
+            if (beginsLeft != startLeft) path.Reverse();
+
+            // the single cross lines (the whole path where the fill follows the outline instead)
+            var rows = new List<Curve>();
+            for (int i = 1; i < path.Count; i++)
             {
-                var cleaned = Clean(pathPoints, 0.01);
-                if (cleaned.Count >= 2) { var pl = new Polyline(cleaned); if (pl.IsValid) infillPath = new PolylineCurve(pl); }
+                Vector3d step = path[i] - path[i - 1];
+                if (step.Length > 0.01 && Math.Abs(step * along) > 0.999 * step.Length) rows.Add(new LineCurve(path[i - 1], path[i]));
             }
-            var segmentCurves = new List<Curve>();
-            foreach (var seg in segments)
-            {
-                var cleaned = Clean(seg, 0.01);
-                if (cleaned.Count < 2) continue;
-                var pl = new Polyline(cleaned);
-                if (pl.IsValid) segmentCurves.Add(new PolylineCurve(pl));
-            }
+            if (rows.Count == 0) rows.Add(new PolylineCurve(path));
             access.SetItem(0, boundary);
-            if (infillPath != null) access.SetItem(1, infillPath);
-            CurveIo.SetCurves(access, 2, segmentCurves);
+            access.SetItem(1, new PolylineCurve(path));
+            CurveIo.SetCurves(access, 2, rows);
         }
 
-        private static List<List<Point3d>> Boustrophedon(List<Curve> offsetCurves, Curve boundary, double layerWidth, double angle, bool startLeft, double zHeight, out List<Point3d> pathPoints)
+        /// <summary>The curve moved inward by a distance (negative = outward), whatever its direction; null = nothing left.</summary>
+        private static Curve Inset(Curve curve, double distance)
         {
-            pathPoints = new List<Point3d>();
-            var segments = new List<List<Point3d>>();
-            BoundingBox bbox = boundary.GetBoundingBox(true);
-            var allLines = PathHelper.GenerateParallelLines(boundary, layerWidth, angle * Math.PI / 180.0, bbox.Center, bbox);
-            bool forward = startLeft;
-            foreach (var line in allLines)
+            double area = AreaMassProperties.Compute(curve)?.Area ?? 0.0;
+            Curve best = null;
+            double bestArea = 0.0;
+            foreach (double side in new[] { -distance, distance })
             {
-                if (line == null || !line.IsValid) continue;
-                var hits = new List<(double param, Point3d point)>();
-                foreach (var oc in offsetCurves)
+                var offsets = curve.Offset(Plane.WorldXY, side, 0.01, CurveOffsetCornerStyle.Sharp);
+                if (offsets == null) continue;
+                foreach (var c in offsets)
                 {
-                    if (oc == null || !oc.IsValid) continue;
-                    var ix = Rhino.Geometry.Intersect.Intersection.CurveCurve(line, oc, 0.01, 0.01);
-                    if (ix == null) continue;
-                    foreach (var e in ix) { Point3d pt = line.PointAt(e.ParameterA); pt.Z = zHeight; hits.Add((e.ParameterA, pt)); }
+                    if (c == null || !c.IsValid || !c.IsClosed) continue;
+                    double a = AreaMassProperties.Compute(c)?.Area ?? 0.0;
+                    bool inside = a < area;
+                    if (a <= 0 || inside != distance > 0) continue;
+                    if (a > bestArea) { best = c; bestArea = a; }
                 }
-                hits.Sort((a, b) => a.param.CompareTo(b.param));
-                for (int i = 0; i + 1 < hits.Count; i += 2)
-                {
-                    double t1 = hits[i].param, t2 = hits[i + 1].param;
-                    if (Math.Abs(t2 - t1) <= 0.01) continue;
-                    if (!forward) { double tmp = t1; t1 = t2; t2 = tmp; }
-                    Curve trimmed = line.Trim(t1, t2);
-                    if (trimmed == null || !trimmed.IsValid || trimmed.GetLength() <= layerWidth * 0.1) continue;
-                    int n = Math.Max(2, (int)Math.Ceiling(trimmed.GetLength() / (layerWidth * 0.5)));
-                    var pts = new List<Point3d>();
-                    for (int p = 0; p <= n; p++) { Point3d pt = trimmed.PointAt(trimmed.Domain.ParameterAt((double)p / n)); pt.Z = zHeight; pts.Add(pt); }
-                    segments.Add(pts);
-                }
-                forward = !forward;
             }
-            if (segments.Count == 0) return segments;
-            pathPoints.AddRange(segments[0]);
-            for (int i = 1; i < segments.Count; i++)
-            {
-                var seg = segments[i];
-                if (seg.Count == 0) continue;
-                Point3d last = pathPoints[pathPoints.Count - 1], first = seg[0];
-                double d = last.DistanceTo(first);
-                if (d > layerWidth * 0.1)
-                {
-                    int steps = Math.Max(2, (int)Math.Ceiling(d / (layerWidth * 0.5)));
-                    for (int s = 1; s < steps; s++)
-                    {
-                        double t = (double)s / steps;
-                        pathPoints.Add(new Point3d(last.X + t * (first.X - last.X), last.Y + t * (first.Y - last.Y), zHeight));
-                    }
-                }
-                pathPoints.AddRange(seg);
-            }
-            return segments;
-        }
-
-        private static List<Point3d> Clean(List<Point3d> points, double minDistance)
-        {
-            var cleaned = new List<Point3d>();
-            if (points == null || points.Count == 0) return cleaned;
-            cleaned.Add(points[0]);
-            for (int i = 1; i < points.Count; i++) if (points[i].DistanceTo(cleaned[cleaned.Count - 1]) >= minDistance) cleaned.Add(points[i]);
-            return cleaned;
+            return best;
         }
     }
 
@@ -359,7 +313,7 @@ namespace LARGERslicer.GH2
         {
             inputs.AddCurve("Curves", "C", "Curves to connect with bridges", Access.Twig);
             inputs.AddNumber("Bridge Density", "Density", "Density of bridges (0-1). Higher = more bridges, lower = fewer bridges.").Set(0.3);
-            inputs.AddNumber("Bridge Length", "Length", "Maximum length for bridges (mm). Longer distances won't be bridged.").Set(10.0);
+            inputs.AddNumber("Bridge Length", "Length", "Maximum length for bridges (mm) with Random on: longer distances are not bridged. With Random off every gap is bridged, so that the path is one line.").Set(10.0);
             inputs.AddBoolean("Random", "Random", "Use random bridge placement. If false, uses greedy nearest-neighbor.").Set(true);
             inputs.AddInteger("Seed", "Seed", "Random seed for reproducible results").Set(42);
         }
@@ -410,7 +364,23 @@ namespace LARGERslicer.GH2
             var joined = Curve.JoinCurves(pieces, 0.01);
             Curve final = joined != null && joined.Length > 0 ? joined[0] : pieces[0];
 
+            // what is not on the path: never drop curves without saying so
+            int leftOut = 0;
+            double leftLength = 0;
+            if (joined != null && joined.Length > 1)
+            {
+                foreach (var c in ordered)
+                {
+                    if (final.ClosestPoint(c.PointAt(c.Domain.Mid), out double _, 0.05)) continue;
+                    leftOut++;
+                    leftLength += c.GetLength();
+                }
+                access.AddWarning("Curves left out", $"Path is only one of {joined.Length} pieces: {leftOut} of {ordered.Count} curves are not on it and would not be printed." +
+                    (random ? " Set Random to False to bridge every gap, or raise Bridge Density and Bridge Length." : ""));
+            }
+
             string info = $"Bridged {valid.Count} curves with {bridges.Count} bridges. Bridge density: {density:P0}, Max length: {maxLength:F2}mm. ";
+            if (leftOut > 0) info += $"NOT on the path: {leftOut} curve(s), {leftLength:F0}mm. ";
             if (bridges.Count == 0)
             {
                 var d = new List<double>();

@@ -20,6 +20,35 @@ namespace LARGERslicer.Toolpaths
             public Dictionary<string, Mesh> Meshes = new Dictionary<string, Mesh>(StringComparer.OrdinalIgnoreCase);
             public Dictionary<string, List<Point3d>> Points = new Dictionary<string, List<Point3d>>(StringComparer.OrdinalIgnoreCase);
             public Dictionary<string, List<Line>> Lines = new Dictionary<string, List<Line>>(StringComparer.OrdinalIgnoreCase);
+            /// <summary>What could not be read, in plain words.</summary>
+            public List<string> Notes = new List<string>();
+        }
+
+        /// <summary>
+        /// Everything that stands in the model, with the layer it lies on: the objects themselves, and the pieces of
+        /// block instances where the instance stands (as Explode in Rhino, so every piece keeps its own layer). The
+        /// pieces a block is defined by are not objects of the model.
+        /// </summary>
+        private static void Collect(File3dm f, File3dmObject o, Transform t, int depth, List<KeyValuePair<int, GeometryBase>> list, ref int lost)
+        {
+            if (!(o.Geometry is InstanceReferenceGeometry ir))
+            {
+                var g = o.Geometry;
+                if (depth > 0 && g != null) { g = g.Duplicate(); if (!g.Transform(t)) { lost++; return; } }
+                if (g != null) list.Add(new KeyValuePair<int, GeometryBase>(o.Attributes.LayerIndex, g));
+                return;
+            }
+            var ids = depth < 20 ? f.AllInstanceDefinitions.FirstOrDefault(d => d.Id == ir.ParentIdefId)?.GetObjectIds() : null;
+            int found = 0;
+            if (ids != null)
+                foreach (var id in ids)
+                {
+                    var part = f.Objects.FirstOrDefault(x => x.Attributes.ObjectId == id);
+                    if (part == null) continue;
+                    found++;
+                    Collect(f, part, t * ir.Xform, depth + 1, list, ref lost);
+                }
+            if (found == 0) lost++; // a linked block: its file is not in here
         }
 
         public static Content Read(string path, out string error)
@@ -35,18 +64,26 @@ namespace LARGERslicer.Toolpaths
                     foreach (var l in f.AllLayers) names[l.Index] = l.Name;
                     var solids = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase);
                     var c = new Content();
+                    var objects = new List<KeyValuePair<int, GeometryBase>>();
+                    int lost = 0;
                     foreach (var o in f.Objects)
+                        if (!o.Attributes.IsInstanceDefinitionObject) Collect(f, o, Transform.Identity, 0, objects, ref lost);
+                    if (lost > 0) c.Notes.Add(Inv.F($"{lost} block(s) could not be opened (linked blocks?) and are left out, also of the collision check: explode them before saving."));
+                    foreach (var o in objects)
                     {
-                        if (!names.TryGetValue(o.Attributes.LayerIndex, out string layer)) layer = "Default";
-                        var g = o.Geometry;
+                        if (!names.TryGetValue(o.Key, out string layer)) layer = "Default";
+                        var g = o.Value;
                         if (g is Point pt) Add(c.Points, layer, pt.Location);
                         else if (g is Curve cv) { if (cv.IsLinear()) Add(c.Lines, layer, new Line(cv.PointAtStart, cv.PointAtEnd)); }
                         else if (g is Mesh || g is Brep || g is Extrusion || g is Surface || g is SubD) Add(solids, layer, (object)g);
                     }
                     foreach (var kv in solids)
                     {
-                        var m = SliceEngine.ToMesh(kv.Value, 0.5, null);
+                        var log = new List<string>();
+                        var m = SliceEngine.ToMesh(kv.Value, 0.5, log);
+                        foreach (var l in log) c.Notes.Add("Layer " + kv.Key + ": " + l + " They are left out, also of the collision check.");
                         if (m != null && m.Faces.Count > 0) c.Meshes[kv.Key] = m;
+                        else if (log.Count == 0) c.Notes.Add("Layer " + kv.Key + ": nothing on it could be meshed; it is left out, also of the collision check.");
                     }
                     if (c.Meshes.Count == 0) { error = path + " has no meshes, surfaces or solids."; return null; }
                     return c;
@@ -113,6 +150,8 @@ namespace LARGERslicer.Toolpaths
         public Dictionary<string, Mesh> Parts = new Dictionary<string, Mesh>(StringComparer.OrdinalIgnoreCase);
         public Plane RobotBase = Plane.WorldXY;
         public Plane WorkBase = Plane.WorldXY;
+        /// <summary>What could not be read from the file, in plain words.</summary>
+        public List<string> Notes = new List<string>();
         public override string ToString() => Inv.F($"Cell {Name} ({Source})");
     }
 
@@ -158,6 +197,29 @@ namespace LARGERslicer.Toolpaths
             return list;
         }
 
+        /// <summary>
+        /// The list of cells is counted in the order of the file names, so a new file can move the ones behind it on. What
+        /// to say after writing one (before = Files() before it was written); null = no cell has changed its number.
+        /// </summary>
+        public static string Moved(IList<string> before)
+        {
+            var now = Files();
+            var moved = new List<string>();
+            for (int i = 0; i < (before?.Count ?? 0); i++)
+            {
+                int k = now.FindIndex(x => string.Equals(x, before[i], StringComparison.OrdinalIgnoreCase));
+                if (k >= 0 && k != i) moved.Add(Inv.F($"{Path.GetFileNameWithoutExtension(before[i])}: {i + 1} -> {k + 1}"));
+            }
+            return moved.Count == 0 ? null : "The new file changes the numbers of cells in the list (Cell). Definitions that use them by number now get another cell, choose it again there: " + string.Join(", ", moved) + ".";
+        }
+
+        /// <summary>The cell files in the order of the list (the built-in cell is number 0, the first of these 1).</summary>
+        public static List<string> Files()
+        {
+            try { return Directory.Exists(Folder) ? Directory.GetFiles(Folder, "*.3dm").OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList() : new List<string>(); }
+            catch { return new List<string>(); }
+        }
+
         public static string[] Names() => All().Select(c => c.Name).ToArray();
 
         public static CellModel Load(string path, out string error)
@@ -166,7 +228,7 @@ namespace LARGERslicer.Toolpaths
             if (content == null) return null;
             var robot = ModelFile.Frame(content, RobotBaseLayer);
             if (robot == null) { error = "it has no layer 'Robot Base' with a point where the robot stands."; return null; }
-            var c = new CellModel { Name = Path.GetFileNameWithoutExtension(path), Source = path, RobotBase = robot.Value, WorkBase = ModelFile.Frame(content, WorkBaseLayer) ?? Plane.WorldXY };
+            var c = new CellModel { Name = Path.GetFileNameWithoutExtension(path), Source = path, RobotBase = robot.Value, WorkBase = ModelFile.Frame(content, WorkBaseLayer) ?? Plane.WorldXY, Notes = content.Notes };
             foreach (var kv in content.Meshes)
                 if (!kv.Key.Equals(RobotBaseLayer, StringComparison.OrdinalIgnoreCase) && !kv.Key.Equals(WorkBaseLayer, StringComparison.OrdinalIgnoreCase)) c.Parts[kv.Key] = kv.Value;
             return c;

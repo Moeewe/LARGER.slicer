@@ -142,6 +142,9 @@ namespace LARGERslicer.GH2
 
         internal static string DesktopFolder()
         {
+            // the Desktop the system uses (on Windows often inside OneDrive)
+            string system = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (!string.IsNullOrEmpty(system) && Directory.Exists(system)) return system;
             string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             // common names of the desktop folder in several languages
             string[] candidates = { "Desktop", "Schreibtisch", "Escritorio", "Bureau", "Рабочий стол" };
@@ -193,6 +196,7 @@ namespace LARGERslicer.GH2
 
             if (string.IsNullOrWhiteSpace(folder))
             {
+                if (write) access.AddError("No folder", "Folder Path is empty."); else access.AddWarning("No folder", "Folder Path is empty.");
                 info.Add("ERROR: Folder path is empty or null");
                 info.Add("Please provide a valid folder path (e.g., use Desktop Path component)");
                 Done(string.Empty);
@@ -203,6 +207,7 @@ namespace LARGERslicer.GH2
             name = name?.TrimStart('/', '\\') ?? string.Empty;
             if (folder == "/" || folder == "\\" || folder == string.Empty || (folder.Length == 2 && folder[1] == ':'))
             {
+                if (write) access.AddError("No folder", "Cannot write to the root of a drive."); else access.AddWarning("No folder", "Cannot write to the root of a drive.");
                 info.Add("ERROR: Cannot write to root directory or drive root");
                 info.Add("Please provide a valid folder path:");
                 info.Add("  Windows: C:\\Users\\username\\Desktop");
@@ -227,6 +232,7 @@ namespace LARGERslicer.GH2
             }
             catch (Exception ex)
             {
+                if (write) access.AddError("Invalid path", ex.Message); else access.AddWarning("Invalid path", ex.Message);
                 info.Add($"ERROR: Invalid path - {ex.Message}");
                 Done(filePath);
                 return;
@@ -243,6 +249,7 @@ namespace LARGERslicer.GH2
 
             try
             {
+                if (string.IsNullOrWhiteSpace(name)) throw new IOException("File Name is empty.");
                 info.Add($"Attempting to write to: {filePath}");
                 info.Add($"Directory exists: {Directory.Exists(folder)}");
                 info.Add($"File will be created: {!File.Exists(filePath)}");
@@ -265,6 +272,7 @@ namespace LARGERslicer.GH2
             }
             catch (Exception ex)
             {
+                access.AddError("File not written", ex.Message);
                 info.Add("ERROR: Failed to write file");
                 info.Add($"Error message: {ex.Message}");
                 info.Add($"Error type: {ex.GetType().Name}");

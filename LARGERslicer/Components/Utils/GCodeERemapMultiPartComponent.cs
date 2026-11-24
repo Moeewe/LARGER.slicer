@@ -92,7 +92,7 @@ namespace LARGERslicer.Components.Utils
             if (dezimal < 0)
                 dezimal = 6;
 
-            ParseSig textSig = CheapSig(text);
+            ParseSig textSig = TextSig(text);
 
             double vx = 0.0;
             double vy = 0.0;
@@ -161,7 +161,7 @@ namespace LARGERslicer.Components.Utils
                 cache.SampleInfo = new SampleInfo(0, 0, 0);
             }
 
-            string mapSig = BuildMapSig(textSig, xform, teilBboxes);
+            string mapSig = BuildMapSig(textSig, xform, teilBboxes, teilGeo);
             if (!string.Equals(cache.MapSig, mapSig, StringComparison.Ordinal))
             {
                 BuildMappedCache(cache, mapSig, teilGeo, centersXYZ, xform);
@@ -522,17 +522,23 @@ namespace LARGERslicer.Components.Utils
             return val as string ?? val.ToString();
         }
 
-        private static ParseSig CheapSig(string s)
+        private static ParseSig TextSig(string s)
         {
             if (string.IsNullOrEmpty(s))
                 return new ParseSig(0, 0, 0, 0);
 
-            int n = s.Length;
-            string a = s.Substring(0, Math.Min(64, n));
-            int mid = n / 2;
-            string b = s.Substring(mid, Math.Min(64, n - mid));
-            string c = s.Substring(Math.Max(0, n - 64), Math.Min(64, n));
-            return new ParseSig(n, a.GetHashCode(), b.GetHashCode(), c.GetHashCode());
+            // the whole text counts: a changed temperature or layer keeps length, start and end the same
+            unchecked
+            {
+                ulong h = 14695981039346656037UL;
+                int d = 5381;
+                for (int i = 0; i < s.Length; i++)
+                {
+                    h = (h ^ s[i]) * 1099511628211UL;
+                    d = d * 33 + s[i];
+                }
+                return new ParseSig(s.Length, (int)h, (int)(h >> 32), d);
+            }
         }
 
         private static bool TryGetBoundingBox(GeometryBase g, out BoundingBox bb)
@@ -633,7 +639,7 @@ namespace LARGERslicer.Components.Utils
             return 0.0;
         }
 
-        private static string BuildMapSig(ParseSig textSig, Transform xf, List<BoundingBox> bbs)
+        private static string BuildMapSig(ParseSig textSig, Transform xf, List<BoundingBox> bbs, List<GeometryBase> geos)
         {
             var sb = new StringBuilder(512);
             sb.Append(textSig.GetHashCode().ToString(CultureInfo.InvariantCulture));
@@ -663,7 +669,40 @@ namespace LARGERslicer.Components.Utils
                 AppendRounded(sb, bb.Max.Z, 2);
             }
 
+            // the shape itself: another part may have the same box
+            for (int i = 0; i < geos.Count; i++)
+                sb.Append(ShapeHash(geos[i]).ToString(CultureInfo.InvariantCulture)).Append(';');
+
             return sb.ToString();
+        }
+
+        /// <summary>A number for the shape: mesh vertices, or points on the edges and faces of a Brep.</summary>
+        private static int ShapeHash(GeometryBase g)
+        {
+            unchecked
+            {
+                int h = 17;
+                void Add(Point3d p) { h = h * 31 + p.X.GetHashCode(); h = h * 31 + p.Y.GetHashCode(); h = h * 31 + p.Z.GetHashCode(); }
+                try
+                {
+                    if (g is Mesh m)
+                    {
+                        h = h * 31 + m.Faces.Count;
+                        for (int i = 0; i < m.Vertices.Count; i++) Add(m.Vertices.Point3dAt(i));
+                        return h;
+                    }
+                    Brep b = g as Brep ?? (g is Surface sf ? sf.ToBrep() : g == null ? null : Brep.TryConvertBrep(g));
+                    if (b == null) return h;
+                    foreach (var v in b.Vertices) Add(v.Location);
+                    foreach (var e in b.Edges) Add(e.PointAt(e.Domain.Mid));
+                    foreach (var f in b.Faces)
+                        for (int u = 0; u <= 4; u++)
+                            for (int v = 0; v <= 4; v++)
+                                Add(f.PointAt(f.Domain(0).ParameterAt(u / 4.0), f.Domain(1).ParameterAt(v / 4.0)));
+                }
+                catch { } // the bounding box still counts
+                return h;
+            }
         }
 
         private static void AppendRounded(StringBuilder sb, double v, int decimals)

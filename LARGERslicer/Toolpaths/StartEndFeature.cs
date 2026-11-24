@@ -45,13 +45,17 @@ namespace LARGERslicer.Toolpaths
             Vector3d side = Vector3d.CrossProduct(Vector3d.ZAxis, front); side.Unitize();
             double sin = Math.Sqrt(n.X * n.X + n.Y * n.Y);
             double L = startLayers * h / Math.Max(0.05, sin);
+            // the part's first layer lies its own height above the last start layer
+            Func<int, double> back = j => first.Height + (j - 1) * h;
 
             var pts = first.Contours.SelectMany(c => c).ToList();
             if (pts.Count == 0) return layers;
             var early = layers.Take(Math.Min(layers.Count, startLayers + 1)).SelectMany(l => l.Contours).SelectMany(c => c).ToList();
             double t0 = early.Min(q => (Vector3d)q * side), t1 = early.Max(q => (Vector3d)q * side);
             if (t1 - t0 < 1) { t0 -= 5; t1 += 5; }
-            var low = pts.Where(q => q.Z < bedZ + 1.0).ToList();
+            // (the first contour is cut in the middle of its layer and lifted to the top: half a layer higher)
+            double lift = Math.Max(1.0, 0.5 * first.Height * Math.Abs(n.Z) + 0.25);
+            var low = pts.Where(q => q.Z < bedZ + lift).ToList();
             bool onBed = low.Count > 0;
             double sA = onBed ? low.Max(q => (Vector3d)q * front) : 0;
 
@@ -66,7 +70,7 @@ namespace LARGERslicer.Toolpaths
             var added = new List<SliceLayer>();
             for (int j = startLayers; j >= 1; j--)
             {
-                var pl = p0; pl.Origin = p0.Origin - n * (j * h);
+                var pl = p0; pl.Origin = p0.Origin - n * back(j);
                 Func<Point3d, PointD> to2 = q => { Vector3d v = q - pl.Origin; return new PointD(v * pl.XAxis, v * pl.YAxis); };
                 // where this plane meets a vertical line at (s, t)
                 Func<double, double, Point3d> onPlane = (sv, tv) => { Point3d b = Point3d.Origin + front * sv + side * tv; double z = (n * (pl.Origin - b) + n.Z * b.Z) / n.Z; return new Point3d(b.X, b.Y, z); };

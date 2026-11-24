@@ -284,7 +284,7 @@ namespace LARGERslicer.Toolpaths
                     continue;
                 }
                 if (isG92) continue;
-                bool axisWords = nx.HasValue || ny.HasValue || nz.HasValue || na.HasValue || nb.HasValue || nc.HasValue || hasE;
+                bool axisWords = nx.HasValue || ny.HasValue || nz.HasValue || na.HasValue || nb.HasValue || nc.HasValue || hasE || motion >= 2 && hasIJ;
                 if (!axisWords) continue;
                 // a line with axis words and no G word moves with the motion that is in force
                 arc = motion == 2 || motion == 3; cw = motion == 2;
@@ -294,7 +294,7 @@ namespace LARGERslicer.Toolpaths
                 double dist = Math.Sqrt((tx - x) * (tx - x) + (ty - y) * (ty - y) + (tz - z) * (tz - z));
                 if (na.HasValue || nb.HasValue || nc.HasValue) r.HasRotation = true;
 
-                if (dist < 1e-9 && !rotates)
+                if (dist < 1e-9 && !rotates && !(arc && hasIJ))
                 {
                     // E only: a retraction or the push back after it. The bead stops here.
                     if (dE < -1e-9) { r.Retractions++; if (!printed) r.RetractionsOutside++; }
@@ -304,7 +304,7 @@ namespace LARGERslicer.Toolpaths
                 if (dE < -1e-9) { r.Retractions++; if (!printed) r.RetractionsOutside++; stopPending = true; }
 
                 var segs = new List<double[]>();
-                if (arc && (hasIJ || hasR) && dist > 1e-9)
+                if (arc && (hasIJ || hasR && dist > 1e-9)) // a full circle ends where it began
                     segs = Arc(x, y, z, tx, ty, tz, ai, aj, ar, hasR, cw, Math.Max(0.1, o.ArcResolution));
                 if (segs.Count == 0) segs.Add(new[] { tx, ty, tz });
                 double total = 0; { double px = x, py = y, pz = z; foreach (var s in segs) { total += Math.Sqrt((s[0] - px) * (s[0] - px) + (s[1] - py) * (s[1] - py) + (s[2] - pz) * (s[2] - pz)); px = s[0]; py = s[1]; pz = s[2]; } }
@@ -433,7 +433,7 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>G2 / G3 in the XY plane as short straight pieces; Z changes evenly (helix).</summary>
-        private static List<double[]> Arc(double x0, double y0, double z0, double x1, double y1, double z1, double i, double j, double rad, bool useR, bool cw, double step)
+        internal static List<double[]> Arc(double x0, double y0, double z0, double x1, double y1, double z1, double i, double j, double rad, bool useR, bool cw, double step)
         {
             var pts = new List<double[]>();
             double cx, cy;
@@ -644,7 +644,8 @@ namespace LARGERslicer.Toolpaths
             for (int k = 0; k < moves.Count; k++)
             {
                 var m = moves[k];
-                Vector3d n = r.HasRotation ? AxisOf(m.A, m.B, m.C) : axis;
+                // a .dxr file holds the angles of the KUKA robot (A about Z, B about Y, C about X), as Robot Program writes them
+                Vector3d n = r.HasRotation ? (r.Format != null && r.Format.Contains("Weber DXR") ? Frame.FromAbc(Point3d.Origin, m.A, m.B, m.C).Z : AxisOf(m.A, m.B, m.C)) : axis;
                 double flow = 0; PathRole role = PathRole.Travel;
                 if (k > 0 && m.E > eps)
                 {

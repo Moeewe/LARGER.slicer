@@ -1,5 +1,9 @@
 # Automatic Tool Change Strategy for Multiple Cutting Passes
 
+> **Planning notes, partly wrong.** `XX220` does not change a tool (it takes the machine offline); a router bit is
+> changed with `XX351`. What the plug-in writes today: [HPGL_XX_COMMANDS.md](HPGL_XX_COMMANDS.md). Roughing and
+> finishing with a change of the bit: `CNC - Rough and Finish`.
+
 ## Overview
 
 This document outlines strategies for implementing automatic tool changes when different cutting passes require different cutters. This is useful for multi-pass operations where different tools are needed for roughing, finishing, or different depth ranges.

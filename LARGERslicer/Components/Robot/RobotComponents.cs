@@ -96,6 +96,7 @@ namespace LARGERslicer.Components.Robot
             // the file may carry its own base; the plane in the model is applied on top of it
             arm.Base = Frame.FromPlane(basePlane).Times(arm.Base);
             Message = arm.Name;
+            if (arm.ConventionWarning != null) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, arm.ConventionWarning);
             string libFile = !string.IsNullOrWhiteSpace(lib) && !lib.TrimStart().StartsWith("<") ? lib.Trim() : null;
             string found = RobotGeometry.Load(arm, geo, libFile, out string why);
             var info = new List<string> { arm.ToString() };
@@ -148,8 +149,9 @@ namespace LARGERslicer.Components.Robot
                 var meshes = new List<Mesh>();
                 if (da.GetDataList(4, meshes) && meshes.Count > 0)
                 {
-                    var joined = new Mesh();
-                    foreach (var m in meshes) if (m != null && m.IsValid) joined.Append(m);
+                    var joined = new Mesh(); var notes = new List<string>();
+                    foreach (var m in RobotGeometry.Usable(meshes, "Tool mesh", notes)) joined.Append(m);
+                    foreach (var l in notes) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
                     if (joined.Vertices.Count > 0) tool.Mesh = joined;
                 }
             }
@@ -198,7 +200,7 @@ namespace LARGERslicer.Components.Robot
             da.GetData(2, ref wb); da.GetData(3, ref name);
             if (!wb.IsValid) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The work base plane is not valid."); return; }
             var cell = new RobotCell { Arm = arm, Tool = tool, WorkBase = Frame.FromPlane(wb), BaseName = string.IsNullOrWhiteSpace(name) ? "Bed" : name.Trim() };
-            if (Params.Input.Count > 4) { var env = new List<Mesh>(); if (da.GetDataList(4, env)) cell.Environment = env.Where(m => m != null && m.IsValid).ToList(); }
+            if (Params.Input.Count > 4) { var env = new List<Mesh>(); if (da.GetDataList(4, env)) { var notes = new List<string>(); cell.Environment = RobotGeometry.Usable(env, "Environment mesh", notes); foreach (var l in notes) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l); } }
             if (Params.Input.Count > 5)
             {
                 var goos = new List<IGH_Goo>();
@@ -273,7 +275,7 @@ namespace LARGERslicer.Components.Robot
             p.AddNumberParameter("Extrusion", "E", "Extrusion per line, plus one closing value (the DXR Generator drops the last value)", GH_ParamAccess.list);
             p.AddNumberParameter("Feed", "F", "Feed F for the machine, in mm/min (mm/s x 60), per line, plus one closing value", GH_ParamAccess.list);
             p.AddTextParameter("KRL", "KRL", "The path as a KUKA program (.src): tool, base and linear moves", GH_ParamAccess.list);
-            p.AddBooleanParameter("OK", "OK", "True if the robot reaches every point within its axis ranges", GH_ParamAccess.item);
+            p.AddBooleanParameter("OK", "OK", "True if nothing that was checked speaks against the program: the robot reaches every point within its axis ranges, and nothing collides. What was not checked (Check off, no 3D model of the robot) is written in Report", GH_ParamAccess.item);
             p.AddTextParameter("Report", "R", "Reach, axis ranges, wrist and axis speed", GH_ParamAccess.list);
             p.AddTextParameter("Axes", "A", "Axis angles A1 to A6 of every point", GH_ParamAccess.list);
             p.AddPointParameter("Unreachable", "U", "Points the robot cannot get to", GH_ParamAccess.list);
@@ -354,7 +356,8 @@ namespace LARGERslicer.Components.Robot
                 if (Params.Input.Count > 10) da.GetData(10, ref collide);
                 if (Params.Input.Count > 11) da.GetData(11, ref clearance);
             }
-            env = env.Where(m => m != null && m.IsValid).Select(m => m.DuplicateMesh()).ToList(); // copies for the background
+            var envNotes = new List<string>();
+            env = RobotGeometry.Usable(env, "Environment mesh", envNotes).Select(m => m.DuplicateMesh()).ToList(); // copies for the background
             int outputs = Params.Output.Count;
             // with a Robot Simulation connected, that one shows the robot
             bool simulated = outputs > 12 && Params.Output[12].Recipients.Count > 0;
@@ -369,11 +372,19 @@ namespace LARGERslicer.Components.Robot
                 if (shownCell != null) job.OnApply(() => _env.AddRange(shownCell));
                 var r = RobotProgram.Build(tp, cell, turn, name, check);
                 if (!r.Ok) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.FirstOrDefault(l => l.StartsWith("NOT")) ?? "The robot cannot run this path.");
-                else if (r.Singular > 0) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, r.Report.First(l => l.StartsWith("Wrist")));
+                foreach (var l in r.Report.Where(l => l.StartsWith("WARNING: "))) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l.Substring(9));
+                foreach (var l in envNotes) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, l);
+                var path = r.PathFor(tp); // one point per move
                 if (r.Speed.Any(v => v <= 0)) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A move has speed 0; the machine would stop there.");
                 if (save)
                 {
-                    try { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, RobotProgram.ProgramName(name) + ".src", r.Krl)); }
+                    try
+                    {
+                        string def = RobotProgram.ProgramName(name) + ".src";
+                        var lines = RobotProgram.KrlForFile(r.Krl, OutputFile.Resolve(file, def), out string note, out bool bad);
+                        job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + OutputFile.Write(file, def, lines));
+                        if (note != null) job.AddRuntimeMessage(bad ? GH_RuntimeMessageLevel.Warning : GH_RuntimeMessageLevel.Remark, note);
+                    }
                     catch (Exception ex) { job.AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
                 }
                 job.Message = r.Ok ? r.Moves.Count + " moves" : "not reachable";
@@ -390,12 +401,12 @@ namespace LARGERslicer.Components.Robot
                 {
                     job.SetDataList(6, r.Moves.Select(m => m.Axes == null ? "" : string.Join(", ", m.Axes.Select((v, i) => "A" + (i + 1) + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)))
                         + (m.External == null ? "" : string.Concat(m.External.Select((v, i) => ", " + cell.ExternalAxes[i].Name + " " + v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))))));
-                    job.SetDataList(7, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => r.Moves[i].Part.Pt(tp.Points[i])));
+                    job.SetDataList(7, Enumerable.Range(0, r.Moves.Count).Where(i => !r.Moves[i].Reachable || !r.Moves[i].InLimits).Select(i => r.Moves[i].Part.Pt(path.Points[i])));
                     int at = Math.Max(0, Math.Min(r.Moves.Count - 1, (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (r.Moves.Count - 1))));
                     if (r.Moves[at].Axes != null)
                     {
                         var pts = cell.Arm.Skeleton(r.Moves[at].Axes, r.Moves[at].RobotBase);
-                        pts.Add(r.Moves[at].Part.Pt(tp.Points[at])); // flange to tool tip
+                        pts.Add(r.Moves[at].Part.Pt(path.Points[at])); // flange to tool tip
                         job.SetData(8, new PolylineCurve(pts));
                         if (outputs > 9)
                         {
@@ -422,16 +433,27 @@ namespace LARGERslicer.Components.Robot
                             if (col.Hits > 0)
                             {
                                 job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, string.Join("\n", col.Lines.Take(4)));
-                                job.SetDataList(10, col.Moves.Select(i => r.Moves[i].Part.Pt(tp.Points[i])));
+                                job.SetDataList(10, col.Moves.Select(i => r.Moves[i].Part.Pt(path.Points[i])));
                                 job.Message = "collision";
                             }
                             else if (col.Checked) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, col.Summary);
+                            else job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, col.Summary);
                             if (outputs > 14) { job.SetDataList(13, col.Moves); job.SetDataList(14, col.Bodies); }
                             int atPose = Math.Max(0, Math.Min(r.Moves.Count - 1, (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (r.Moves.Count - 1))));
                             if (!simulated && r.Moves[atPose].Axes != null) job.OnApply(() => MarkHits(col.Model, r.Moves[atPose].Axes, r.Moves[atPose].External, atPose, _hitRobot, _hitAxes, _hitOther));
                         }
                         else r.Report.Add(collide ? "Collisions were not checked (Collision Poses is 0)." : "Collisions were not checked (Check Collisions is off).");
                     }
+                }
+                else
+                {
+                    // OK then only means that nothing was found, as nothing was looked at: say so
+                    if (collisionIO && collide && poses != 0)
+                    {
+                        const string why = "Collisions were not checked: Check reach is off, and the check needs the axis angles.";
+                        r.Report.Add(why); job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, why);
+                    }
+                    job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Check reach is off: OK says nothing about reach and axis ranges.");
                 }
                 job.SetData(4, r.Ok);
                 job.SetDataList(5, r.Report);
@@ -483,7 +505,82 @@ namespace LARGERslicer.Components.Robot
             p.AddMeshParameter("Environment", "Env", "What stands around the robot (the Environment of the cell); drawn with the simulation when Show Cell is on", GH_ParamAccess.list);
             p.AddMeshParameter("Colliding", "Col", "What collides at this moment (drawn red): robot links, tool, rail, table, environment, and a ball where it touches. Empty = clear", GH_ParamAccess.list);
             p.HideParameter(0); // drawn by the component, in colour
+            p.HideParameter(7); // the printed path is drawn by the component, thick and by role
             p.HideParameter(8); p.HideParameter(9); p.HideParameter(10);
+        }
+
+        public override void AddedToDocument(GH_Document document)
+        {
+            base.AddedToDocument(document);
+            // files saved before 2.0 show Printed as a thin line on top of the component's own drawing
+            if (Params.Output.Count > 7 && Params.Output[7] is IGH_PreviewObject pr) pr.Hidden = true;
+        }
+
+        // ---- the print as it grows: printed part thick and coloured by role, the rest faint
+        private RobotRun _drawRun;
+        private List<KeyValuePair<PathRole, int[]>> _segs; // role, first and last point index
+        private List<Point3d[]> _segPts;
+        private int _reached;
+        private Point3d _tip = Point3d.Unset;
+        private Transform _partX = Transform.Identity;
+        private BoundingBox _pathBox = BoundingBox.Empty;
+        private static readonly System.Drawing.Color Ahead = System.Drawing.Color.FromArgb(205, 208, 212);
+
+        private void PrepareDrawing(RobotRun run)
+        {
+            if (ReferenceEquals(run, _drawRun)) return;
+            _drawRun = run; _segs = new List<KeyValuePair<PathRole, int[]>>(); _segPts = new List<Point3d[]>();
+            int n = run.Points.Count;
+            _pathBox = n > 0 ? new BoundingBox(run.Points) : BoundingBox.Empty;
+            if (n < 2) return;
+            bool roles = run.Roles.Count == n;
+            int start = 1;
+            for (int i = 2; i <= n; i++)
+            {
+                if (i < n && (!roles || run.Roles[i] == run.Roles[start])) continue;
+                var pts = new Point3d[i - start + 1];
+                for (int k = 0; k < pts.Length; k++) pts[k] = run.Points[start - 1 + k];
+                _segs.Add(new KeyValuePair<PathRole, int[]>(roles ? run.Roles[start] : PathRole.Wall, new[] { start - 1, i - 1 }));
+                _segPts.Add(pts);
+                start = i;
+            }
+        }
+
+        private static Transform ToTransform(Frame f)
+        {
+            var x = Transform.Identity;
+            x.M00 = f.X.X; x.M10 = f.X.Y; x.M20 = f.X.Z;
+            x.M01 = f.Y.X; x.M11 = f.Y.Y; x.M21 = f.Y.Z;
+            x.M02 = f.Z.X; x.M12 = f.Z.Y; x.M22 = f.Z.Z;
+            x.M03 = f.O.X; x.M13 = f.O.Y; x.M23 = f.O.Z;
+            return x;
+        }
+
+        public override void DrawViewportWires(IGH_PreviewArgs args)
+        {
+            base.DrawViewportWires(args);
+            if (Hidden || Locked || _drawRun == null || _segs == null || _segs.Count == 0) return;
+            bool moved = !_partX.Equals(Transform.Identity);
+            if (moved) args.Display.PushModelTransform(_partX);
+            int thick = Math.Max(3, args.DefaultCurveThickness + 2);
+            for (int s = 0; s < _segs.Count; s++)
+            {
+                var role = _segs[s].Key; int a = _segs[s].Value[0], b = _segs[s].Value[1];
+                var pts = _segPts[s];
+                var col = GH_Toolpath.RoleColor(role);
+                int w = role == PathRole.Travel ? 1 : thick;
+                if (b < _reached) { args.Display.DrawPolyline(pts, col, w); continue; }       // printed
+                if (a >= _reached) { args.Display.DrawPolyline(pts, Ahead, 1); continue; }    // still to come
+                // the run the robot is on: printed up to the tool tip, the rest ahead
+                int m = _reached - a; // points a.._reached-1 are printed (m >= 1)
+                var done = new Point3d[m + 1];
+                Array.Copy(pts, 0, done, 0, m); done[m] = _tip.IsValid ? _tip : pts[m - 1];
+                args.Display.DrawPolyline(done, col, w);
+                var rest = new Point3d[pts.Length - m + 1];
+                rest[0] = done[m]; Array.Copy(pts, m, rest, 1, pts.Length - m);
+                if (rest.Length > 1) args.Display.DrawPolyline(rest, Ahead, 1);
+            }
+            if (moved) args.Display.PopModelTransform();
         }
 
         private readonly List<Mesh> _robot = new List<Mesh>();
@@ -496,7 +593,15 @@ namespace LARGERslicer.Components.Robot
         protected override void BeforeSolveInstance() { _robot.Clear(); _axes.Clear(); _env.Clear(); _hitRobot.Clear(); _hitAxes.Clear(); _hitOther.Clear(); _preview.Clear(); base.BeforeSolveInstance(); }
         protected override void AfterSolveInstance() { RobotProgramComponent.Fill(_preview, _robot, _axes, _env, _hitRobot, _hitAxes, _hitOther); base.AfterSolveInstance(); }
 
-        public override BoundingBox ClippingBox => _preview.Box(base.ClippingBox);
+        public override BoundingBox ClippingBox
+        {
+            get
+            {
+                var b = _preview.Box(base.ClippingBox);
+                if (_drawRun != null && _pathBox.IsValid) { var pb = _pathBox; pb.Transform(_partX); b.Union(pb); }
+                return b;
+            }
+        }
 
         public override void DrawViewportMeshes(IGH_PreviewArgs args)
         {
@@ -507,6 +612,7 @@ namespace LARGERslicer.Components.Robot
         protected override void SolveInstance(IGH_DataAccess da)
         {
             var run = SlicerIO.Get<RobotRun>(da, 0);
+            if (run == null || run.Points.Count == 0) _drawRun = null;
             if (run == null || run.Points.Count == 0)
             {
                 // Robot Program calculates in the background: its Program comes when it is done
@@ -521,6 +627,9 @@ namespace LARGERslicer.Components.Robot
             if (Params.Input.Count > 4) da.GetData(4, ref showCell);
             time = _clock.Position(this, play, time, film);
             double seconds = time * run.Duration;
+            PrepareDrawing(run);
+            _reached = run.ReachedAt(seconds, out _tip);
+            _partX = ToTransform(run.Cell.PartAt(run.ExternalAt(seconds)));
             var axes = run.AxesAt(seconds, out int move, out double share);
             if (axes == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"The robot cannot get to move {move}: nothing to show here. Read the Report of Robot Program."); da.SetData(3, move); da.SetData(4, seconds); return; }
             var arm = run.Cell.Arm;
@@ -566,7 +675,8 @@ namespace LARGERslicer.Components.Robot
             da.SetData(3, move);
             da.SetData(4, seconds);
             if (_clock.Playing) Message = "> " + Message;
-            da.SetData(5, $"{Message} of {TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci)}, move {move} of {run.Points.Count - 1}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci)))
+            string phase = run.PhaseAt(move);
+            da.SetData(5, $"{Message} of {TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci)}, move {move} of {run.Points.Count - 1}" + (phase.Length > 0 ? " (" + phase + ")" : "") + ", " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci)))
                 + (ext == null ? "" : string.Concat(ext.Select((v, k) => ", " + run.Cell.ExternalAxes[k].Name + " " + v.ToString("0.0", ci)))) + (inRange ? "" : " - OUTSIDE THE AXIS RANGE") + collision);
         }
     }
@@ -736,9 +846,16 @@ namespace LARGERslicer.Components.Robot
             }
             if (export)
             {
-                try { AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Written " + CellLibrary.Export(cell) + ". Open it in Rhino, change it and save it under the name of your cell."); }
+                try
+                {
+                    var before = CellLibrary.Files();
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Written " + CellLibrary.Export(cell) + ". Open it in Rhino, change it and save it under the name of your cell.");
+                    string moved = CellLibrary.Moved(before);
+                    if (moved != null) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, moved);
+                }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the cell: " + ex.Message); }
             }
+            foreach (var l in cell.Notes) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, cell.Name + ": " + l);
             Func<string, Mesh> part = name => cell.Parts.TryGetValue(name, out Mesh m) ? m : null;
             var env = CellLibrary.Environment(cell, true); // the collision check knows the walls even when they are not shown
             // With a Robot Program or Robot Simulation further down, their Show Cell decides whether the

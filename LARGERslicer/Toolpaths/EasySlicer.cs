@@ -124,7 +124,7 @@ namespace LARGERslicer.Toolpaths
             if (o.MinLayerTime > 0 || o.MaxVolumeRate > 0) { st = st.Duplicate(); st.MinLayerTime = Math.Max(0, o.MinLayerTime); st.MaxVolumeRate = Math.Max(0, o.MaxVolumeRate); }
             var tp = PathEngine.Build(layers, st, spiral ? ContinuousMode.Spiral : ContinuousMode.Layered, null, 0, false, log, o.Bridge, (SeamMode)Math.Max(0, Math.Min(2, o.Seam)));
             if (tp.Count < 2) { r.Notes.Add("No printable contour was found."); r.Notes.AddRange(log); return r; }
-            tp = PathEngine.Round(tp, st.EffectiveMinRadius, 0, out int corners, out _);
+            tp = PathEngine.Round(tp, st.EffectiveMinRadius, 0, out int corners, out _, log);
             tp = LeadEngine.StartEnd(tp, Math.Max(0, o.SkirtLoops), 0, Math.Max(0, o.BrimLoops), o.BrimSide, 10 * st.BeadWidth, 4 * st.BeadWidth, null, 0, log);
             r.Path = tp;
             r.Steps.Add((spiral ? "spiral path" : "flat layers with an open seam (gap of one bead width)") + Inv.F($", {corners} corner(s) rounded, skirt{(o.BrimSide > 0 && o.BrimLoops > 0 ? ", brim" : "")} and exit"));
@@ -183,7 +183,8 @@ namespace LARGERslicer.Toolpaths
             if (System.IO.Directory.Exists(file)) return System.IO.Path.Combine(file, defaultName);
             // a name ending like the weight or the time of a print ("..._53min") is not a file ending
             string given = System.IO.Path.GetExtension(file);
-            if (string.IsNullOrEmpty(given) || given.Length > 6 || given.Contains(" ")) file += ext;
+            // nor is a number ("Part 1.5mm", "v1.2"): an ending begins with a letter
+            if (string.IsNullOrEmpty(given) || given.Length > 6 || given.Length < 2 || !char.IsLetter(given[1]) || given.Contains(" ")) file += ext;
             // a bare name goes to the Desktop
             if (string.IsNullOrEmpty(System.IO.Path.GetDirectoryName(file))) file = System.IO.Path.Combine(desktop, file);
             return file;

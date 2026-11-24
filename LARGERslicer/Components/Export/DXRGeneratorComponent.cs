@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
@@ -31,8 +32,8 @@ namespace LARGERslicer.Components.Export
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Robot Path", "Path", "Robot movement data (tree branches, list, or single value)", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Extrusion", "E", "Material extrusion values (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Speed", "F", "Movement speed values in mm/min (tree branches, list, or single value). Last value auto-removed.", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Extrusion", "E", "Material extrusion values (tree branches, list, or single value). A closing value (one more than there are moves) is dropped.", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Speed", "F", "Movement speed values in mm/min (tree branches, list, or single value). A closing value (one more than there are moves) is dropped.", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Machine Settings", "MS", "Printer configuration (connect Machine Settings component)", GH_ParamAccess.item);
             
             pManager.AddTextParameter("File", "File", "Optional. File, folder or just a name (File Name of Robot Program). Empty = the Desktop, named DXR, date and time", GH_ParamAccess.item);
@@ -80,18 +81,28 @@ namespace LARGERslicer.Components.Export
 
                 processInfo.Add($"Processing: {robotLines.Count} robot path lines, P1={P1_list.Count} values, F1={F1_list.Count} values");
 
-                // Remove last values (matching original behavior)
-                if (P1_list.Count > 0)
+                // Lists with one value more than there are moves (Robot Program, the older definitions)
+                // carry a closing value: drop it. A list that fits the moves keeps its last value.
+                int moves = robotLines.Count(l => l.IndexOf("PTP", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (P1_list.Count > moves)
                 {
                     P1_list.RemoveAt(P1_list.Count - 1);
                     processInfo.Add($"Removed last P1 value. Count: {P1_list.Count}");
                 }
-
-                if (F1_list.Count > 0)
+                // one speed for everything
+                if (F1_list.Count == 1 && moves > 1)
+                {
+                    F1_list = Enumerable.Repeat(F1_list[0], moves).ToList();
+                    processInfo.Add("One speed value: used for every move.");
+                }
+                else if (F1_list.Count > moves)
                 {
                     F1_list.RemoveAt(F1_list.Count - 1);
                     processInfo.Add($"Removed last F1 value. Count: {F1_list.Count}");
                 }
+                int linear = robotLines.Count(l => l.TrimStart().StartsWith("LIN", StringComparison.OrdinalIgnoreCase) || l.TrimStart().StartsWith("CIRC", StringComparison.OrdinalIgnoreCase));
+                if (linear > 0)
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"{linear} robot line(s) are LIN or CIRC moves. Only PTP lines are converted: these moves are missing in the DXR file.");
 
                 // Validate counts BEFORE processing (will be validated again in DXRHelper, but early warning is helpful)
                 // Note: Exact count matching will be checked after parsing robot lines (some lines might be invalid)
@@ -109,6 +120,14 @@ namespace LARGERslicer.Components.Export
 
                 // Process robot lines using the DXR conversion logic
                 var dxrLines = DXRHelper.ProcessRobotLinesToDXR(robotLines, P1_list, F1_list, processInfo, machineSettings);
+                if (dxrLines.Count == 0)
+                {
+                    // no moves: a file with only the switch-off lines would look like a finished print
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No PTP lines with coordinates found in Robot Path. Nothing was generated.");
+                    DA.SetDataList(0, result);
+                    DA.SetDataList(1, processInfo);
+                    return;
+                }
                 result.AddRange(dxrLines);
 
                 // Add machine end settings (always turns everything off)
@@ -144,6 +163,7 @@ namespace LARGERslicer.Components.Export
             }
             catch (Exception ex)
             {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DXR generation failed: " + ex.Message);
                 processInfo.Add($"Error during processing: {ex.Message}");
                 processInfo.Add($"Stack trace: {ex.StackTrace}");
                 result.Clear();

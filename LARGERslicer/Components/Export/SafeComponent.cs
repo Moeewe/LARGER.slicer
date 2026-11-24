@@ -37,6 +37,9 @@ namespace LARGERslicer.Components.Export
             pManager.AddTextParameter("Info", "Info", "Information about file operation", GH_ParamAccess.list);
         }
 
+        private readonly HashSet<string> _written = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        protected override void BeforeSolveInstance() { _written.Clear(); base.BeforeSolveInstance(); }
+
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             string folder = string.Empty;
@@ -57,6 +60,7 @@ namespace LARGERslicer.Components.Export
             // Validate folder path
             if (string.IsNullOrWhiteSpace(folder))
             {
+                AddRuntimeMessage(write ? GH_RuntimeMessageLevel.Error : GH_RuntimeMessageLevel.Warning, "Folder Path is empty.");
                 info.Add("ERROR: Folder path is empty or null");
                 info.Add("Please provide a valid folder path (e.g., use Desktop Path component)");
                 DA.SetData(0, string.Empty);
@@ -80,6 +84,7 @@ namespace LARGERslicer.Components.Export
             if (folder == "/" || folder == "\\" || folder == string.Empty || 
                 (folder.Length == 2 && folder[1] == ':'))  // Windows drive letter like C:
             {
+                AddRuntimeMessage(write ? GH_RuntimeMessageLevel.Error : GH_RuntimeMessageLevel.Warning, "Cannot write to the root of a drive.");
                 info.Add("ERROR: Cannot write to root directory or drive root");
                 info.Add("Please provide a valid folder path:");
                 info.Add("  Windows: C:\\Users\\username\\Desktop");
@@ -115,12 +120,20 @@ namespace LARGERslicer.Components.Export
             }
             catch (Exception ex)
             {
+                AddRuntimeMessage(write ? GH_RuntimeMessageLevel.Error : GH_RuntimeMessageLevel.Warning, "Invalid path: " + ex.Message);
                 info.Add($"ERROR: Invalid path - {ex.Message}");
                 DA.SetData(0, filePath); // Still output the attempted path
                 DA.SetDataList(1, info);
                 return;
             }
             
+            // several programs with one name: the ones after the first get _2, _3 ...
+            if (write && !string.IsNullOrWhiteSpace(name))
+            {
+                string stem = filePath.Substring(0, filePath.Length - Path.GetExtension(filePath).Length), ending = Path.GetExtension(filePath);
+                for (int n = 2; !_written.Add(filePath); n++) filePath = stem + "_" + n + ending;
+            }
+
             // Always output the file path, even if we can't write yet
             DA.SetData(0, filePath);
 
@@ -135,8 +148,7 @@ namespace LARGERslicer.Components.Export
 
             try
             {
-                // Normalize path separators for current OS
-                filePath = Path.GetFullPath(filePath);
+                if (string.IsNullOrWhiteSpace(name)) throw new IOException("File Name is empty.");
 
                 info.Add($"Attempting to write to: {filePath}");
                 info.Add($"Directory exists: {Directory.Exists(folder)}");
@@ -179,6 +191,7 @@ namespace LARGERslicer.Components.Export
             }
             catch (Exception ex)
             {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "File not written: " + ex.Message);
                 info.Add($"ERROR: Failed to write file");
                 info.Add($"Error message: {ex.Message}");
                 info.Add($"Error type: {ex.GetType().Name}");

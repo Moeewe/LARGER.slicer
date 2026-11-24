@@ -10,6 +10,8 @@ Dieser Ordner enthält alles, um die Grasshopper-Definition **`LARGERslicer Webe
 |---|---|
 | `LARGERslicer Weber Robot and Ginger V2.gh` | **Aktuell.** 01 Easy Ginger and Robot Slicer, 02 Advanced Multiaxial Robot Slicer, 03 Custom Robot Path Creator; nur LARGER.slicer |
 | `LARGERslicer Weber Robot and Ginger.gh` | Erste Fassung (braucht Robots und Pufferfish), zum Nachschlagen |
+| `LARGERslicer Weber Robot and Ginger - corrected.gh` | Die erste Fassung mit Korrekturen (November 2026), braucht Robots und Pufferfish: 03 extrudiert Breite x Höhe x 1,128 x Länge (vorher etwa 11-mal zu wenig), 02 rechnet ebenfalls mit 1,128 und verlässt das Teil ohne Material und ohne die Hand zu drehen, der DXR File Health Check prüft den Code, den er bekommt, Liste der Plug-ins korrigiert. Die Änderungen stehen auf dem Canvas |
+| `LARGERslicer Extrusion Factor Test.gh` | Findet den Extrusionsfaktor: je drei Wände aus einer Bahn für den Ginger One (0,18 / 0,21 / 0,24) und den Weber DXR (1,0 / 1,128 / 1,258, P1 = 1 an der Steuerung). Wandstärke messen, eintragen, die Datei gibt den neuen Faktor. Nur LARGER.slicer |
 | `Install Windows.bat` (+ `setup-windows.ps1`) | Installer für Windows |
 | `Install Mac.command` | Installer für macOS |
 | `RobotLibrary/` | KUKA-KR120-Roboterbibliothek der FH Münster MSA (`KR120_R2700_2`) |

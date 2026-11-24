@@ -1,0 +1,70 @@
+# LARGER.slicer machine: template for your own G-code printer with a moving gantry (Marlin or Klipper).
+# 1  Copy this file and "Template Gantry.3dm" into Documents/LARGER/Machines.
+# 2  Rename both to the name of your printer (same name, e.g. "Big Printer.machine" + "Big Printer.3dm").
+# 3  Change the values below. Lines that begin with # are comments.
+# 4  In Grasshopper: Machine > choose it from the list. Machine G-code writes the file, Printer Simulation plays it.
+# The guide: docs/OWN_MACHINES.md
+
+# ---- the machine
+name = Template Gantry
+manufacturer = Me
+# gantry | bedslinger | delta | belt 45 | robot: decides what it can print and how its model moves
+kind = gantry
+# the first letters of every file name, and its ending
+prefix = TPG
+extension = .gcode
+# print area X x Y x height in mm, from 0, 0 in the front left corner of the bed
+bed = 300 x 300 x 300
+
+# ---- extrusion: E = bead width x layer height x length x flow x extrusion factor (/ filament area if a diameter is set)
+# Filament: filament diameter = 1.75 (or 2.85), extrusion factor = 1.
+# Pellets: filament diameter = 0 and the factor of your extruder (Ginger One 0.21). Find it with the Extrusion Factor Test.
+extrusion factor = 1
+first layer factor = 1
+filament diameter = 1.75
+# rectangle = width x height, bead = a squashed bead with round sides
+section = bead
+# mm/min for moves without extrusion; 0 = the highest speed of the print settings
+travel speed = 6000
+
+# ---- values for the codes below ({material}, {bed}, {nozzle}, {fan}, {fan %} and your own with "set")
+material = PLA
+bed temperature = 60
+nozzle temperature = 210
+# percent; {fan} is written as 0..255 (Marlin M106), {fan %} as the percent
+fan = 100
+set purge length = 40
+
+# ---- the 3D model: layers Frame, Bed, Z, Y, X and a point on layer TCP at the nozzle tip
+model = Template Gantry.3dm
+
+[start]
+; START CODE for {material}
+G21 ; millimetres
+G90 ; absolute positions
+M140 S{bed} ; bed temperature
+M104 S{nozzle} ; nozzle temperature
+G28 ; home
+M190 S{bed} ; wait for the bed
+M109 S{nozzle} ; wait for the nozzle
+G92 E0
+M83 ; extrusion as relative distances
+G1 F300 E{purge length} ; purge
+; end of start code
+
+[layer]
+; layer {layer} at Z {z}
+
+[after layer 2]
+M106 S{fan} ; fan on ({fan %} %) after layer 2
+
+[end]
+; END CODE
+G91
+G1 F600 Z20 ; lift
+G90
+M107 ; fan off
+M104 S0
+M140 S0
+M84 ; motors off
+; end of end code

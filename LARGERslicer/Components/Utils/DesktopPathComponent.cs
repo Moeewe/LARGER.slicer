@@ -43,6 +43,10 @@ namespace LARGERslicer.Components.Utils
 
         private string GetDesktopPath()
         {
+            // The Desktop the system uses (on Windows often inside OneDrive)
+            string system = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (!string.IsNullOrEmpty(system) && Directory.Exists(system)) return system;
+
             // Get home directory
             string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 

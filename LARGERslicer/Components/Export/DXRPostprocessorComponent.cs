@@ -83,7 +83,8 @@ namespace LARGERslicer.Components.Export
 
                     // Parse GCode to extract movement data and analyze header/footer
                     processInfo.Add("Parsing GCode to extract movement data and analyze header/footer");
-                    var parsedData = ParseGCode(gCodeInput, processInfo, machineSettings);
+                    var parsedData = GCodeToDxr.Parse(gCodeInput, processInfo, machineSettings);
+                    foreach (var w in parsedData.Warnings) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, w); processInfo.Add("WARNING: " + w); }
                     
                     List<string> robotLines = parsedData.RobotLines;
                     List<double> P1_list = parsedData.ExtrusionAmounts;
@@ -111,6 +112,14 @@ namespace LARGERslicer.Components.Export
 
                     // Process robot lines using the DXR conversion logic
                     var dxrLines = DXRHelper.ProcessRobotLinesToDXR(robotLines, P1_list, F1_list, processInfo, finalSettings, layerTypes, isRetraction);
+                    if (dxrLines.Count == 0)
+                    {
+                        // no moves: a file with only the switch-off lines would look like a finished print
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No moves found in the G-code (G0, G1, G2, G3 with X, Y, Z). Nothing was generated.");
+                        DA.SetDataList(0, result);
+                        DA.SetDataList(1, processInfo);
+                        return;
+                    }
                     result.AddRange(dxrLines);
 
                     // Add machine end settings (always turns everything off)
@@ -148,6 +157,7 @@ namespace LARGERslicer.Components.Export
                 {
                     processInfo.Add($"Error during DXR processing: {innerEx.Message}");
                     processInfo.Add($"Stack trace: {innerEx.StackTrace}");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The G-code could not be converted: " + innerEx.Message);
                     result.Clear();
                 }
             }
@@ -155,380 +165,13 @@ namespace LARGERslicer.Components.Export
             {
                 processInfo.Add($"Error during processing: {ex.Message}");
                 processInfo.Add($"Stack trace: {ex.StackTrace}");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The G-code could not be converted: " + ex.Message);
                 result.Clear();
             }
 
             DA.SetDataList(0, result);
             DA.SetDataList(1, processInfo);
         }
-
-        private class ParsedGCodeData
-        {
-            public List<string> RobotLines { get; set; }
-            public List<double> ExtrusionAmounts { get; set; }
-            public List<double> PrintSpeeds { get; set; }
-            public List<string> LayerTypes { get; set; } // Layer type for each movement (SKIRT, SKIN, WALL-OUTER, WALL-INNER, INFILL, etc.)
-            public List<bool> IsRetraction { get; set; } // True if this is a retraction without movement
-            public MachineSettings ExtractedSettings { get; set; }
-
-            public ParsedGCodeData()
-            {
-                RobotLines = new List<string>();
-                ExtrusionAmounts = new List<double>();
-                PrintSpeeds = new List<double>();
-                LayerTypes = new List<string>();
-                IsRetraction = new List<bool>();
-                ExtractedSettings = null;
-            }
-        }
-
-        private ParsedGCodeData ParseGCode(string gCode, List<string> processInfo, MachineSettings providedSettings)
-        {
-            var result = new ParsedGCodeData();
-            
-            if (string.IsNullOrEmpty(gCode))
-            {
-                processInfo.Add("ERROR: GCode input is empty");
-                return result;
-            }
-
-            // Regex patterns for GCode parsing
-            var rx = new Regex(@"X\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
-            var ry = new Regex(@"Y\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
-            var rz = new Regex(@"Z\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
-            var re = new Regex(@"E\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
-            var rf = new Regex(@"F\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
-            var rg = new Regex(@"G\s*([01])", RegexOptions.IgnoreCase);
-            var rg92 = new Regex(@"G92\s+E\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
-
-            // Patterns for extracting temperature settings from GCode header
-            var rBedTemp = new Regex(@"(?:M140|M190)\s+S\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
-            var rNozzleTemp = new Regex(@"(?:M104|M109)\s+S\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
-            var rFanSpeed = new Regex(@"M106\s+S\s*([-+]?[0-9]*\.?[0-9]+)", RegexOptions.IgnoreCase);
-
-            string[] lines = gCode.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            
-            // Extract settings from GCode header (first 50 lines typically contain setup)
-            double? extractedBedTemp = null;
-            double? extractedNozzleTemp = null;
-            double? extractedFanSpeed = null;
-            bool foundHeaderSettings = false;
-            
-            int headerEndIndex = Math.Min(50, lines.Length);
-            for (int i = 0; i < headerEndIndex; i++)
-            {
-                string line = lines[i].Trim().ToUpper();
-                if (string.IsNullOrEmpty(line) || line.StartsWith(";"))
-                    continue;
-                
-                // Look for temperature commands (with safe parsing)
-                var bedMatch = rBedTemp.Match(lines[i]);
-                if (bedMatch.Success && double.TryParse(bedMatch.Groups[1].Value, out double bedTemp))
-                {
-                    extractedBedTemp = bedTemp;
-                    foundHeaderSettings = true;
-                }
-                
-                var nozzleMatch = rNozzleTemp.Match(lines[i]);
-                if (nozzleMatch.Success && double.TryParse(nozzleMatch.Groups[1].Value, out double nozzleTemp))
-                {
-                    extractedNozzleTemp = nozzleTemp;
-                    foundHeaderSettings = true;
-                }
-                
-                var fanMatch = rFanSpeed.Match(lines[i]);
-                if (fanMatch.Success && double.TryParse(fanMatch.Groups[1].Value, out double fanSpeed))
-                {
-                    extractedFanSpeed = fanSpeed;
-                    foundHeaderSettings = true;
-                }
-            }
-            
-            // Create machine settings from extracted values or use provided ones
-            if (foundHeaderSettings)
-            {
-                double bedTemp = extractedBedTemp ?? (providedSettings?.BedTemperature ?? 60.0);
-                double nozzleTemp = extractedNozzleTemp ?? (providedSettings?.NozzleTemperature ?? 200.0);
-                double fanSpeed = extractedFanSpeed ?? (providedSettings?.CoolingPercentage ?? 50.0);
-                
-                // Check if provided settings are in advanced format
-                if (providedSettings != null && providedSettings.UseAdvancedFormat)
-                {
-                    // Preserve advanced format settings, but update temperatures if extracted
-                    result.ExtractedSettings = new MachineSettings(
-                        bedTemp: bedTemp,
-                        nozzleTemp: nozzleTemp,
-                        cooling: fanSpeed,
-                        useAdvancedFormat: true,
-                        bedZone1Enabled: providedSettings.BedZone1Enabled,
-                        bedZone1Temp: extractedBedTemp.HasValue ? bedTemp : providedSettings.BedZone1Temperature,
-                        bedZone2Enabled: providedSettings.BedZone2Enabled,
-                        bedZone2Temp: extractedBedTemp.HasValue ? bedTemp : providedSettings.BedZone2Temperature,
-                        bedZone3Enabled: providedSettings.BedZone3Enabled,
-                        bedZone3Temp: extractedBedTemp.HasValue ? bedTemp : providedSettings.BedZone3Temperature,
-                        bedZone4Enabled: providedSettings.BedZone4Enabled,
-                        bedZone4Temp: extractedBedTemp.HasValue ? bedTemp : providedSettings.BedZone4Temperature,
-                        fillingZoneEnabled: providedSettings.FillingZoneCoolingEnabled,
-                        fillingZoneTemp: providedSettings.FillingZoneTemperature,
-                        extruderZone1Enabled: providedSettings.ExtruderZone1Enabled,
-                        extruderZone1Temp: extractedNozzleTemp.HasValue ? (nozzleTemp - 10.0) : providedSettings.ExtruderZone1Temperature,
-                        extruderZone2Enabled: providedSettings.ExtruderZone2Enabled,
-                        extruderZone2Temp: extractedNozzleTemp.HasValue ? (nozzleTemp - 5.0) : providedSettings.ExtruderZone2Temperature,
-                        nozzleZoneEnabled: providedSettings.NozzleZoneEnabled,
-                        nozzleZoneTemp: extractedNozzleTemp.HasValue ? nozzleTemp : providedSettings.NozzleZoneTemperature,
-                        fanEnabled: providedSettings.FanEnabled,
-                        fanSpeed: extractedFanSpeed.HasValue ? fanSpeed : providedSettings.FanSpeed
-                    );
-                    processInfo.Add("Preserved Extended Format settings (V.E.GLOBAL_*)");
-                }
-                else
-                {
-                    // Simple format: create new simple settings
-                    double fanPercent = extractedFanSpeed.HasValue ? ((extractedFanSpeed.Value / 255.0) * 100.0) : fanSpeed;
-                    result.ExtractedSettings = new MachineSettings(bedTemp, nozzleTemp, fanPercent);
-                    processInfo.Add("Created Simple Format settings (V.P.VAR_*) from extracted GCode values");
-                }
-                
-                processInfo.Add("=== GCode Header Analysis ===");
-                if (extractedBedTemp.HasValue)
-                {
-                    processInfo.Add($"Extracted Bed Temperature: {extractedBedTemp.Value}°C");
-                    if (providedSettings != null && Math.Abs(extractedBedTemp.Value - providedSettings.BedTemperature) > 0.1)
-                    {
-                        processInfo.Add($"  → Changed from {providedSettings.BedTemperature}°C to {extractedBedTemp.Value}°C");
-                    }
-                }
-                if (extractedNozzleTemp.HasValue)
-                {
-                    processInfo.Add($"Extracted Nozzle Temperature: {extractedNozzleTemp.Value}°C");
-                    if (providedSettings != null && Math.Abs(extractedNozzleTemp.Value - providedSettings.NozzleTemperature) > 0.1)
-                    {
-                        processInfo.Add($"  → Changed from {providedSettings.NozzleTemperature}°C to {extractedNozzleTemp.Value}°C");
-                    }
-                }
-                if (extractedFanSpeed.HasValue)
-                {
-                    double fanPercent = (extractedFanSpeed.Value / 255.0) * 100.0; // M106 S value is 0-255
-                    processInfo.Add($"Extracted Fan Speed: {extractedFanSpeed.Value} ({(int)fanPercent}%)");
-                    if (providedSettings != null && Math.Abs(fanPercent - providedSettings.CoolingPercentage) > 1.0)
-                    {
-                        processInfo.Add($"  → Changed from {providedSettings.CoolingPercentage}% to {(int)fanPercent}%");
-                    }
-                }
-            }
-            else if (providedSettings != null)
-            {
-                processInfo.Add("No temperature settings found in GCode header - using provided Machine Settings");
-                if (providedSettings.UseAdvancedFormat)
-                {
-                    processInfo.Add("  → Using Extended Format (V.E.GLOBAL_*)");
-                }
-                else
-                {
-                    processInfo.Add("  → Using Simple Format (V.P.VAR_*)");
-                }
-            }
-            else
-            {
-                processInfo.Add("No temperature settings found in GCode header - using default values");
-            }
-            
-            // State tracking
-            double lastX = 0, lastY = 0, lastZ = 0;
-            double cumulativeE = 0; // Track cumulative extrusion for relative mode
-            double lastF = 1000.0; // Default speed in mm/min
-            bool extrusionModeRelative = false; // Track if M83 (relative) or M82 (absolute) is active
-            string currentLayerType = ""; // Current layer type from comments (TYPE:SKIRT, TYPE:SKIN, etc.)
-
-            int movementCount = 0;
-            int extrusionCount = 0;
-            int speedCount = 0;
-            int retractionCount = 0;
-
-            foreach (string rawLine in lines)
-            {
-                string line = rawLine.Trim();
-                
-                // Check for layer type comments (e.g., ;TYPE:SKIRT, ;TYPE:SKIN, ;TYPE:WALL-OUTER)
-                if (line.StartsWith(";"))
-                {
-                    string commentUpper = line.ToUpper();
-                    if (commentUpper.Contains("TYPE:SKIRT") || commentUpper.Contains("TYPE:SUPPORT-INTERFACE"))
-                    {
-                        currentLayerType = "SKIRT";
-                        continue;
-                    }
-                    else if (commentUpper.Contains("TYPE:SKIN"))
-                    {
-                        currentLayerType = "SKIN";
-                        continue;
-                    }
-                    else if (commentUpper.Contains("TYPE:WALL-OUTER") || commentUpper.Contains("TYPE:WALL-INNER") || commentUpper.Contains("BRIDGE"))
-                    {
-                        currentLayerType = "WALL";
-                        continue;
-                    }
-                    else if (commentUpper.Contains("TYPE:INFILL"))
-                    {
-                        currentLayerType = "INFILL";
-                        continue;
-                    }
-                    else if (commentUpper.Contains("LAYER:"))
-                    {
-                        // Layer change comment - keep current layer type
-                        continue;
-                    }
-                    else
-                    {
-                        // Other comments - skip
-                        continue;
-                    }
-                }
-                
-                // Skip empty lines
-                if (string.IsNullOrEmpty(line))
-                    continue;
-
-                // Check for M83 (relative extrusion) or M82 (absolute extrusion)
-                string lineUpper = line.ToUpper();
-                if (lineUpper.Contains("M83"))
-                {
-                    extrusionModeRelative = true;
-                    processInfo.Add("Detected M83: Using relative extrusion mode");
-                    continue;
-                }
-                if (lineUpper.Contains("M82"))
-                {
-                    extrusionModeRelative = false;
-                    processInfo.Add("Detected M82: Using absolute extrusion mode");
-                    continue;
-                }
-
-                // Check for G92 E0 (reset extrusion)
-                var g92Match = rg92.Match(line);
-                if (g92Match.Success)
-                {
-                    cumulativeE = 0;
-                    processInfo.Add("Detected G92 E0: Reset extrusion counter");
-                    continue;
-                }
-
-                // Check if this is a G0 or G1 movement command (with safe parsing)
-                var gMatch = rg.Match(line);
-                if (!gMatch.Success)
-                    continue;
-
-                if (!int.TryParse(gMatch.Groups[1].Value, out int gCommand))
-                    continue;
-                    
-                if (gCommand != 0 && gCommand != 1)
-                    continue;
-
-                // Extract coordinates (with safe parsing)
-                double? x = null, y = null, z = null;
-                double? e = null;
-                double? f = null;
-
-                var mx = rx.Match(line);
-                var my = ry.Match(line);
-                var mz = rz.Match(line);
-                var me = re.Match(line);
-                var mf = rf.Match(line);
-
-                if (mx.Success && double.TryParse(mx.Groups[1].Value, out double xVal)) x = xVal;
-                if (my.Success && double.TryParse(my.Groups[1].Value, out double yVal)) y = yVal;
-                if (mz.Success && double.TryParse(mz.Groups[1].Value, out double zVal)) z = zVal;
-                if (me.Success && double.TryParse(me.Groups[1].Value, out double eVal)) e = eVal;
-                if (mf.Success && double.TryParse(mf.Groups[1].Value, out double fVal)) f = fVal;
-
-                // Use previous values if not specified (absolute coordinates)
-                double currentX = x ?? lastX;
-                double currentY = y ?? lastY;
-                double currentZ = z ?? lastZ;
-                double currentF = f ?? lastF;
-
-                // Handle extrusion based on mode
-                double deltaE = 0;
-                if (e.HasValue)
-                {
-                    if (extrusionModeRelative)
-                    {
-                        // M83: E values are already relative, use directly
-                        deltaE = e.Value;
-                        cumulativeE += deltaE;
-                    }
-                    else
-                    {
-                        // M82: E values are absolute, calculate delta
-                        deltaE = e.Value - cumulativeE;
-                        cumulativeE = e.Value;
-                    }
-                }
-
-                // Check if this is retraction without movement (negative E, no X/Y/Z change)
-                bool hasMovement = (x.HasValue || y.HasValue || z.HasValue);
-                bool hasExtrusion = e.HasValue;
-                bool isRetraction = hasExtrusion && !hasMovement && deltaE < 0;
-
-                if (hasMovement || hasExtrusion)
-                {
-                    if (isRetraction)
-                    {
-                        // Retraction without movement: Create special retraction command
-                        // Format: PTP with last position, but mark as retraction
-                        string robotLine = $"PTP X{lastX:F3} Y{lastY:F3} Z{lastZ:F3}";
-                        result.RobotLines.Add(robotLine);
-                        result.ExtrusionAmounts.Add(deltaE);
-                        result.PrintSpeeds.Add(currentF);
-                        result.LayerTypes.Add(currentLayerType);
-                        result.IsRetraction.Add(true);
-                        retractionCount++;
-                    }
-                    else
-                    {
-                        // Normal movement (with or without extrusion)
-                    // Create robot path line in PTP format
-                    string robotLine = $"PTP X{currentX:F3} Y{currentY:F3} Z{currentZ:F3}";
-                    result.RobotLines.Add(robotLine);
-                    movementCount++;
-
-                    // Add relative extrusion amount (always relative for DXR output)
-                    result.ExtrusionAmounts.Add(deltaE);
-                    if (Math.Abs(deltaE) > 0.0001) extrusionCount++;
-
-                    // Add speed value
-                    result.PrintSpeeds.Add(currentF);
-                    speedCount++;
-                        
-                        // Add layer type
-                        result.LayerTypes.Add(currentLayerType);
-                        result.IsRetraction.Add(false);
-
-                    // Update state
-                    lastX = currentX;
-                    lastY = currentY;
-                    lastZ = currentZ;
-                    lastF = currentF;
-                    }
-                }
-            }
-
-            processInfo.Add($"Parsed GCode: {movementCount} movements, {extrusionCount} extrusions, {speedCount} speed values, {retractionCount} retractions");
-            processInfo.Add($"Extrusion mode: {(extrusionModeRelative ? "Relative (M83)" : "Absolute (M82)")}");
-            
-            // Remove last values from extrusion and speed lists (matching original behavior)
-            if (result.ExtrusionAmounts.Count > 0)
-            {
-                result.ExtrusionAmounts.RemoveAt(result.ExtrusionAmounts.Count - 1);
-            }
-            if (result.PrintSpeeds.Count > 0)
-            {
-                result.PrintSpeeds.RemoveAt(result.PrintSpeeds.Count - 1);
-            }
-
-            return result;
-        }
-
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("DXRPostprocessorIcon.png", this);
         public override Guid ComponentGuid => new Guid("B8E9A1F2-4C7D-4E5F-9A2B-3C8D9E0F1A2B");

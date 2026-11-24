@@ -79,23 +79,23 @@ The **CNC Program** component generates boustrophedon (zigzag) toolpaths from 3D
 ### Speed and Movement Parameters
 
 #### Feed Speed (VW)
-- **Type:** Number (mm/s)
+- **Type:** Number (cm/s)
 - **Default:** 10.0
 - **Description:** Feed speed (VS) for cutting movements
 - **Range:** > 0
-- **Example:** 7.0 = 7mm/s cutting speed
+- **Example:** 7.0 = 7 cm/s = 70 mm/s cutting speed
 
 #### Rapid Speed (VF)
-- **Type:** Number (mm/s)
+- **Type:** Number (cm/s)
 - **Default:** 50.0
 - **Description:** Rapid speed (VU) for non-cutting movements
 - **Range:** > 0
-- **Example:** 100.0 = 100mm/s rapid movement speed
+- **Example:** 100.0 = 100 cm/s = 1 m/s, the most the machine takes
 
 #### Z Up
 - **Type:** Number (mm)
 - **Default:** 5.0
-- **Description:** Z retract height for rapid movements
+- **Description:** Not used: the Zünd retracts to Material Thickness + 1 mm (ZP)
 - **Usage:** Height to retract tool when moving between disconnected path segments
 
 ---
@@ -250,8 +250,8 @@ The **CNC Program** component generates boustrophedon (zigzag) toolpaths from 3D
 ### Stats
 - **Type:** String
 - **Description:** Statistics about the generated toolpath
-- **Format:** `Boustrophedon [+ Outline] | Segments={count} | Points={count} | Length={mm} mm | VS={mm/s} mm/s, VU={mm/s} mm/s`
-- **Example:** `Boustrophedon + Outline | Segments=45 | Points=1234 | Length=5678.90 mm | VS=7.000 mm/s, VU=100.000 mm/s`
+- **Format:** `Boustrophedon [+ Outline] | Segments={count} | Points={count} | Length={mm} mm | VS={cm/s} cm/s, VU={cm/s} cm/s`
+- **Example:** `Boustrophedon + Outline | Segments=45 | Points=1234 | Length=5678.90 mm | VS=7 cm/s (70 mm/s), VU=100 cm/s`
 
 ---
 
@@ -259,15 +259,7 @@ The **CNC Program** component generates boustrophedon (zigzag) toolpaths from 3D
 
 The component generates the following HPGL commands:
 
-### Header Commands
-- `IN;` - Initialize plotter
-- `VS{feedSpeed};` - Set feed speed (mm/s)
-- `VU{rapidSpeed};` - Set rapid speed (mm/s)
-- `SV{vacuumZone};` - Set vacuum zone width (increments)
-- `XX306,{extractionHeight};` - Set extraction position height (material thickness + 3.3mm)
-- `XX308,1,{underlayThickness};` - Enable underlay support
-- `AS,{accelDown},{accelUp};` - Set acceleration
-- `ZP{zpValue},{zpOffset};` - Set Z-axis top position (material thickness + 1mm safety)
+The commands, their order and their units: [HPGL_XX_COMMANDS.md](HPGL_XX_COMMANDS.md).
 
 ### Toolpath Commands
 - `SP{tool};` - Select tool (11, 21, or 31)
@@ -278,13 +270,14 @@ The component generates the following HPGL commands:
   - Example: `MW10000,20000,-500;` = move to (100mm, 200mm) cutting to -5mm depth
 
 ### Tool Change Sequence
-When tool changes occur:
-1. `ZP{zpValue},{zpOffset};` - Retract to safe position
-2. `XX220;` - Move to tool change position
-3. `SP{newTool};` - Select new tool
-4. `ZP{zpValue},{zpOffset};` - Set Z-axis position after tool change
+When the module slot changes (Tool List):
+1. `PU{x},{y};` - Lift the tool
+2. `ZP{zpValue},{zpOffset};` - up position before the change
+3. `SP{newTool};` - the other module
+4. `ZP{zpValue},{zpOffset};` and `XX306,{height};` - again for the new tool
 5. `XX150,{rpm};` - Set spindle speed for new tool
-6. `XX306,{extractionHeight};` - Set extraction height (after every tool change)
+
+A router bit of the magazine is changed with `XX351,{bit}`: see `CNC - Cutter` and `CNC - Rough and Finish`.
 
 ### Trailer Commands
 - `PU{x},{y};` - Pen up (lift tool at end)
@@ -299,7 +292,7 @@ When tool changes occur:
 ### Z-Axis Coordinate System
 - **Z=0**: Table surface (where material is placed)
 - **Material Top Surface**: Negative value = -materialThickness (e.g., -30mm for 30mm material)
-- **Cutting Depth**: More negative = deeper cut (e.g., -5mm = 5mm material remain, 25mm removed for 30mm material)
+- **The material lies between the two**: its top at -thickness, the table at 0. The closer to 0, the deeper the cut (30 mm plate: -2500 = 5 mm deep, 25 mm remain; -500 = 25 mm deep, 5 mm remain)
 - **Positive Z values are NOT allowed** (would cut into table!)
 
 ### Geometry Z Coordinates
@@ -338,8 +331,8 @@ Toolpath Parameters:
   - Add Outline: False
 
 Speed Parameters:
-  - Feed Speed: 7.0 mm/s
-  - Rapid Speed: 100.0 mm/s
+  - Feed Speed: 7.0 cm/s
+  - Rapid Speed: 100.0 cm/s
   - Z Up: 0.0 mm (Sicherheitsabstand)
 
 Material Parameters:
@@ -380,7 +373,7 @@ Output:
 
 3. **Speed Settings:**
    - Feed Speed: Match to material and tool capabilities
-   - Rapid Speed: Can be higher (50-100 mm/s typical)
+   - Rapid Speed: Can be higher (50-100 cm/s typical)
    - Spindle Speed: Match to tool manufacturer recommendations
 
 4. **Material Settings:**

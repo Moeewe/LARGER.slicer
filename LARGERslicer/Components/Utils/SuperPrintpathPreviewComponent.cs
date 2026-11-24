@@ -82,7 +82,7 @@ namespace LARGERslicer.Components.Utils
             }
 
             // Store data for conduit
-            _previewData = new PreviewData
+            var previewData = new PreviewData
             {
                 Curve = curve,
                 CumulativeExtrusion = cumulativeExtrusion,
@@ -91,15 +91,10 @@ namespace LARGERslicer.Components.Utils
                 TotalExtrusion = cumulative
             };
 
-            // Enable conduit if not already enabled
-            if (!_conduitEnabled)
-            {
-                _conduit.Enabled = true;
-                _conduitEnabled = true;
-            }
-
             // Update conduit data
-            _conduit.SetPreviewData(_previewData);
+            if (_conduit == null) _conduit = new ExtrusionPreviewConduit(this);
+            _conduit.Add(previewData);
+            _conduit.Enabled = true;
 
             var info = new List<string>
             {
@@ -108,7 +103,7 @@ namespace LARGERslicer.Components.Utils
                 $"Extrusion points: {extrusionAmounts.Count}",
                 $"Total extrusion: {cumulative:F3} mm",
                 $"Pipe radius: {pipeRadius:F3} mm",
-                $"Preview enabled: {_conduitEnabled}",
+                $"Preview enabled: {_conduit.Enabled}",
                 "",
                 "Using Rhino DisplayConduit for fast rendering",
                 "Binary search enabled for sequential extrusion lookup"
@@ -117,9 +112,13 @@ namespace LARGERslicer.Components.Utils
             DA.SetDataList(0, info);
         }
 
-        private PreviewData _previewData = null;
-        private static bool _conduitEnabled = false;
-        private static readonly ExtrusionPreviewConduit _conduit = new ExtrusionPreviewConduit();
+        private ExtrusionPreviewConduit _conduit; // one per component
+
+        protected override void BeforeSolveInstance()
+        {
+            base.BeforeSolveInstance();
+            if (_conduit != null) { _conduit.Clear(); _conduit.Enabled = false; }
+        }
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SuperPrintpathPreviewIcon.png", this);
         public override Guid ComponentGuid => new Guid("B2C3D4E5-F6A7-8901-BCDE-F123456789AB");
@@ -127,10 +126,11 @@ namespace LARGERslicer.Components.Utils
         public override void RemovedFromDocument(GH_Document document)
         {
             // Disable conduit when component is removed
-            if (_conduitEnabled)
+            if (_conduit != null)
             {
                 _conduit.Enabled = false;
-                _conduitEnabled = false;
+                _conduit.Clear();
+                _conduit = null;
             }
             base.RemovedFromDocument(document);
         }
@@ -154,36 +154,35 @@ namespace LARGERslicer.Components.Utils
     /// </summary>
     internal class ExtrusionPreviewConduit : DisplayConduit
     {
-        private Curve _curve = null;
-        private double _pipeRadius = 0;
-        private System.Drawing.Color _color = System.Drawing.Color.Empty;
-        private BoundingBox _bbox = BoundingBox.Unset;
+        private readonly SuperPrintpathPreviewComponent _owner;
+        private readonly List<PreviewData> _items = new List<PreviewData>();
+        private BoundingBox _bbox = BoundingBox.Empty;
 
-        public void SetPreviewData(PreviewData data)
+        public ExtrusionPreviewConduit(SuperPrintpathPreviewComponent owner) { _owner = owner; }
+
+        public void Clear()
         {
-            if (data == null || data.Curve == null || data.PipeRadius <= 0)
-            {
-                _curve = null;
-                _bbox = BoundingBox.Unset;
-                return;
-            }
+            _items.Clear();
+            _bbox = BoundingBox.Empty;
+        }
 
-            _curve = data.Curve;
-            _pipeRadius = data.PipeRadius;
-            _color = data.Color;
+        public void Add(PreviewData data)
+        {
+            if (data == null || data.Curve == null || data.PipeRadius <= 0) return;
+            _items.Add(data);
 
             // Precompute bounding box (with radius padding)
-            var curveBBox = _curve.GetBoundingBox(true);
-            _bbox = new BoundingBox(
-                curveBBox.Min - new Vector3d(_pipeRadius, _pipeRadius, _pipeRadius),
-                curveBBox.Max + new Vector3d(_pipeRadius, _pipeRadius, _pipeRadius)
-            );
+            var box = data.Curve.GetBoundingBox(true);
+            box.Inflate(data.PipeRadius);
+            _bbox.Union(box);
         }
+
+        private bool Visible => _items.Count > 0 && !_owner.Hidden && !_owner.Locked && _owner.OnPingDocument() != null;
 
         protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e)
         {
             // CRITICAL: Include bounding box so the curve is not clipped
-            if (_curve != null && _bbox.IsValid)
+            if (Visible && _bbox.IsValid)
             {
                 e.IncludeBoundingBox(_bbox);
             }
@@ -192,15 +191,17 @@ namespace LARGERslicer.Components.Utils
         protected override void PostDrawObjects(DrawEventArgs e)
         {
             // Draw curve directly with thick line - NO geometry creation!
-            if (_curve == null || _pipeRadius <= 0)
-                return;
+            if (!Visible) return;
 
-            var rhinoColor = System.Drawing.Color.FromArgb(_color.R, _color.G, _color.B);
-            
-            // Draw curve with thickness = 2 * radius (diameter)
-            // This is MUCH faster than creating Brep/Mesh
-            int thickness = Math.Max(1, (int)(_pipeRadius * 2.0));
-            e.Display.DrawCurve(_curve, rhinoColor, thickness);
+            foreach (var d in _items)
+            {
+                var rhinoColor = System.Drawing.Color.FromArgb(d.Color.R, d.Color.G, d.Color.B);
+
+                // Draw curve with thickness = 2 * radius (diameter)
+                // This is MUCH faster than creating Brep/Mesh
+                int thickness = Math.Max(1, (int)(d.PipeRadius * 2.0));
+                e.Display.DrawCurve(d.Curve, rhinoColor, thickness);
+            }
         }
 
     }

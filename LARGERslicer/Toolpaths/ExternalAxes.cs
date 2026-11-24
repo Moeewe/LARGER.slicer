@@ -99,6 +99,17 @@ namespace LARGERslicer.Toolpaths
         public List<string> Report = new List<string>();
     }
 
+    /// <summary>A path whose moves were split for a turntable that is not coupled, with its lists.</summary>
+    public class ExternalAxisSplit
+    {
+        public Toolpath Path;
+        public List<double> Extrusion, Speed;
+        /// <summary>Points added, and how far the path still bows out on the part between two points (mm).</summary>
+        public int Added; public double Deviation;
+        /// <summary>Way of the tool tip in the fixed base and on the part, over the printing moves (mm).</summary>
+        public double RoomLength, PartLength;
+    }
+
     /// <summary>
     /// Chooses the values of the external axes for every move of a toolpath.
     ///  - Turntable: turns the part so that the point being printed faces the robot (at a fixed
@@ -198,6 +209,84 @@ namespace LARGERslicer.Toolpaths
                     plan.Report.Add(string.Format(ci, "{0}: too slow to follow the path, it trails up to {1:0} {2} behind. The arm makes up for it if it can; a higher top speed or a lower print speed helps.", ax.Name, plan.Lag[k], u));
             }
             return plan;
+        }
+
+        /// <summary>The path may bow out this far on the part between two points (mm).</summary>
+        public const double SplitTolerance = 0.2;
+
+        /// <summary>
+        /// For a turntable that is not coupled: a linear move is straight in the fixed base while the table turns,
+        /// so on the part it is a bow (a 400 mm side of a square that the table turns through 90 degrees: 80 mm). The
+        /// moves are split until the bow stays below SplitTolerance. The added points lie on the straight line on
+        /// the part, the axes in between in even steps, the extrusion of the move is shared out by length, the speed
+        /// stays. plan.Values gets a value for every point. Without a move to split the path stays the one given.
+        /// </summary>
+        public static ExternalAxisSplit Split(Toolpath tp, RobotCell cell, ExternalAxisPlan plan, List<double> extrusion, List<double> speed)
+        {
+            var r = new ExternalAxisSplit { Path = tp, Extrusion = extrusion, Speed = speed };
+            int n = tp.Count;
+            var parts = new int[n];
+            Func<double[], double[], double, double[]> at = (a, b, u) => { var q = new double[b.Length]; for (int k = 0; k < q.Length; k++) q[k] = a[k] + (b[k] - a[k]) * u; return q; };
+            for (int i = 1; i < n; i++)
+            {
+                parts[i] = 1;
+                var a = plan.Values[i - 1]; var b = plan.Values[i];
+                Point3d p = tp.Points[i - 1], d = tp.Points[i];
+                Vector3d pd = d - p;
+                bool turns = false;
+                for (int k = 0; k < b.Length; k++) if (!cell.ExternalAxes[k].IsRail && Math.Abs(b[k] - a[k]) > 1e-9) turns = true;
+                double room = turns ? 0 : pd.Length;
+                if (turns)
+                {
+                    double dev = 0;
+                    for (int m = 1; ; )
+                    {
+                        // the largest bow over all pieces
+                        dev = 0; room = 0;
+                        Point3d w0 = cell.PartAt(a).Pt(p);
+                        for (int k = 0; k < m; k++)
+                        {
+                            double u0 = k / (double)m, u1 = (k + 1) / (double)m;
+                            Point3d w1 = cell.PartAt(at(a, b, u1)).Pt(p + pd * u1);
+                            room += w0.DistanceTo(w1);
+                            for (int s = 1; s <= 3; s++)
+                            {
+                                double v = s / 4.0, u = u0 + (u1 - u0) * v;
+                                Point3d on = cell.PartAt(at(a, b, u)).Inverse().Pt(w0 + (w1 - w0) * v);
+                                dev = Math.Max(dev, on.DistanceTo(p + pd * u));
+                            }
+                            w0 = w1;
+                        }
+                        parts[i] = m;
+                        if (dev <= SplitTolerance || m >= 4000) break;
+                        // the bow falls with the square of the number of pieces
+                        m = Math.Max(m + 1, Math.Min(4000, (int)Math.Ceiling(m * Math.Sqrt(dev / SplitTolerance))));
+                    }
+                    r.Deviation = Math.Max(r.Deviation, dev);
+                }
+                if (tp.Flows[i] > 0) { r.RoomLength += room; r.PartLength += pd.Length; }
+                r.Added += parts[i] - 1;
+            }
+            if (r.Added == 0) return r;
+
+            var path = new Toolpath { Settings = tp.Settings, Warp = tp.Warp };
+            var e = new List<double>(n + r.Added); var f = new List<double>(n + r.Added); var values = new List<double[]>(n + r.Added);
+            for (int i = 0; i < n; i++)
+            {
+                int m = Math.Max(1, parts[i]);
+                for (int k = 1; k < m; k++)
+                {
+                    double u = k / (double)m;
+                    Vector3d nrm = tp.Normals[i - 1] * (1 - u) + tp.Normals[i] * u; if (!nrm.Unitize()) nrm = tp.Normals[i];
+                    path.Add(tp.Points[i - 1] + (tp.Points[i] - tp.Points[i - 1]) * u, nrm, tp.Heights[i - 1] + (tp.Heights[i] - tp.Heights[i - 1]) * u,
+                        tp.Widths[i - 1] + (tp.Widths[i] - tp.Widths[i - 1]) * u, tp.Flows[i], tp.Roles[i], tp.Layers[i]);
+                    e.Add(extrusion[i] / m); f.Add(speed[i]); values.Add(at(plan.Values[i - 1], plan.Values[i], u));
+                }
+                path.AddFrom(tp, i);
+                e.Add(extrusion[i] / m); f.Add(speed[i]); values.Add(plan.Values[i]);
+            }
+            r.Path = path; r.Extrusion = e; r.Speed = f; plan.Values = values;
+            return r;
         }
 
         /// <summary>Smooth, keep below the top speed, keep in range; then note what was used.</summary>

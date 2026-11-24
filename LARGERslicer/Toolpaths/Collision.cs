@@ -18,6 +18,8 @@ namespace LARGERslicer.Toolpaths
         public int Poses = 500;
         /// <summary>A pose is critical (always checked) where the tool axis has turned this much (degrees) since the last checked pose.</summary>
         public double TurnStep = 5;
+        /// <summary>Long moves are also checked on the way, in steps no longer than this (mm). 0 = half the width of the tool, 15 to 50 mm; below 0 = only at the points.</summary>
+        public double Step = 0;
     }
 
     /// <summary>One finding: a collision (Hit) or a near miss, at one move.</summary>
@@ -36,11 +38,14 @@ namespace LARGERslicer.Toolpaths
         /// <summary>How many checked poses show this, and the first and last move of them.</summary>
         public int Count = 1, FirstMove = -1, LastMove = -1;
         public int BodyA = -1, BodyB = -1;
+        /// <summary>Where on the way to the move it happens: 1 = at its end.</summary>
+        public double Share = 1;
+        internal double[] Axes, External;
 
         public string Text()
         {
             var ci = CultureInfo.InvariantCulture;
-            string where = string.Format(ci, "move {0} (layer {1})", Move, Layer);
+            string where = string.Format(ci, Share < 1 ? "the way to move {0} (layer {1})" : "move {0} (layer {1})", Move, Layer);
             string more = Count > 1 ? string.Format(ci, "; {0} checked poses, moves {1} to {2}", Count, FirstMove, LastMove) : "";
             if (Hit)
             {
@@ -56,6 +61,8 @@ namespace LARGERslicer.Toolpaths
     {
         public bool Checked;
         public int Poses, Critical, Stride = 1;
+        /// <summary>Places between two points of long moves that were checked, of how many there are, and how far apart they lie (mm).</summary>
+        public int Between, BetweenAll; public double Step;
         public double Seconds;
         /// <summary>The worst collision and the closest near miss of every pair of bodies.</summary>
         public List<CollisionEvent> Events = new List<CollisionEvent>();
@@ -323,20 +330,22 @@ namespace LARGERslicer.Toolpaths
                 // layers and as wide as the nozzle there, plus a bead
                 Vector3d za = tcp.Z; za.Unitize();
                 NozzleHeight = 2 * h + 2;
-                double rad = 0;
+                double rad = 0, lowest = 0;
                 var v = toolMesh.Vertices;
                 for (int k = 0; k < v.Count; k++)
                 {
                     Vector3d d = (Point3d)v[k] - tcp.O; double u = d * za;
-                    if (u < NozzleHeight) rad = Math.Max(rad, (d - za * u).Length);
+                    lowest = Math.Min(lowest, u);
+                    if (InZone(u, NozzleHeight)) rad = Math.Max(rad, (d - za * u).Length);
                 }
+                if (lowest < -NozzleHeight) Notes.Add(Inv.F($"The tool model reaches {-lowest:0} mm below the TCP: is the TCP at the nozzle tip? What lies below it is checked, only the zone round the TCP is left out."));
                 NozzleRadius = Math.Min(Math.Max(w, rad + w / 2), Math.Max(6 * w, 40));
                 var nozzle = new bool[shape.Samples.Length]; var height = new double[shape.Samples.Length];
                 for (int k = 0; k < nozzle.Length; k++)
                 {
                     Vector3d d = shape.Samples[k] - tcp.O; double u = d * za;
                     height[k] = u;
-                    nozzle[k] = u < NozzleHeight && (d - za * u).Length < NozzleRadius;
+                    nozzle[k] = InZone(u, NozzleHeight) && (d - za * u).Length < NozzleRadius;
                 }
                 // the shape is shared (cache): the zone depends on the path, so keep a copy
                 shape = shape.With(nozzle, height);
@@ -378,8 +387,16 @@ namespace LARGERslicer.Toolpaths
                 for (int e = 0; e < Cell.Environment.Count; e++)
                 {
                     var env = Cell.Environment[e];
-                    if (env == null || !env.IsValid) continue;
+                    if (env == null) continue;
+                    // (an invalid mesh comes here only past Robot Cell, which has done this already)
                     string name = "the " + EnvName(env, e);
+                    if (!env.IsValid)
+                    {
+                        var notes = new List<string>();
+                        env = RobotGeometry.Usable(new[] { env }, name, notes).FirstOrDefault();
+                        Notes.AddRange(notes);
+                        if (env == null) continue;
+                    }
                     string key = Fingerprint(env) + "|pieces";
                     Shape[] shapes;
                     lock (PieceCache) PieceCache.TryGetValue(key, out shapes);
@@ -406,16 +423,18 @@ namespace LARGERslicer.Toolpaths
             int robotCount = 8;
             // the arm with itself: not neighbouring links, not pairs that touch already in the home position
             var homeFrames = RobotFrames(RobotGeometry.HomePose, null);
+            var touching = new List<string>();
             for (int i = 0; i < robotCount; i++)
                 for (int j = i + 2; j < robotCount; j++)
                 {
                     if (_bodies[i].Shape == null || _bodies[j].Shape == null) continue;
                     var pr = new Pair { A = j, B = i, Mode = Mode.Full };
                     var t = TestPair(new Posed(_bodies[j], homeFrames[j]), new Posed(_bodies[i], homeFrames[i]), R, false);
-                    if (t.Hit || t.Distance < 1) { pr.Mode = Mode.Skip; continue; }
+                    if (t.Hit || t.Distance < 1) { pr.Mode = Mode.Skip; touching.Add(_bodies[j].Name + " and " + _bodies[i].Name); continue; }
                     if (t.Distance < R) pr.Mode = Mode.CollisionOnly;
                     _pairs.Add(pr);
                 }
+            if (touching.Count > 0) Notes.Add("Not checked against each other, as they touch already in the home position (A2 -90, A3 90): " + string.Join(", ", touching) + ".");
             bool rail = Cell.ExternalAxes != null && Cell.ExternalAxes.Any(a => a.IsRail);
             for (int i = rail ? 0 : 1; i < robotCount; i++)
             {
@@ -767,6 +786,9 @@ namespace LARGERslicer.Toolpaths
             return t;
         }
 
+        /// <summary>Is this height over the tip in the zone round the nozzle? Not what reaches clearly below the tip: that is no nozzle standing on its bead.</summary>
+        internal static bool InZone(double u, double zone) => u < zone && u > -zone;
+
         private static bool InNozzle(Point3d local, Shape tool)
         {
             // the zone is stored per sample; for any point take the nearest sample's flag
@@ -928,7 +950,10 @@ namespace LARGERslicer.Toolpaths
         /// Checks one pose. move: the move whose beads are the newest already laid (the robot is
         /// on its way to move+1, or at move). Events of near misses only if near is true.
         /// </summary>
-        public PoseCollision Check(double[] axes, double[] ext, int move, bool near = false)
+        public PoseCollision Check(double[] axes, double[] ext, int move, bool near = false) => Check(axes, ext, move, near, move, 1);
+
+        /// <summary>The same on the way to a move: laid = the last move whose beads are laid, share = how much of the move is done.</summary>
+        internal PoseCollision Check(double[] axes, double[] ext, int move, bool near, int laid, double share)
         {
             var res = new PoseCollision();
             if (axes == null) return res;
@@ -941,7 +966,7 @@ namespace LARGERslicer.Toolpaths
             Action<int, int, Test, string> record = (ia, ib, t, other) =>
             {
                 if (!t.Hit && !(near && t.Distance < R)) return;
-                var ev = new CollisionEvent { Move = move, Layer = layer, A = posed[ia].Body.Name, B = other ?? posed[ib].Body.Name, Hit = t.Hit, Depth = t.Depth, Distance = t.Distance, Where = t.Where, Tilt = tilt, ToolHeight = t.ToolHeight, FirstMove = move, LastMove = move, BodyA = ia, BodyB = ib };
+                var ev = new CollisionEvent { Move = move, Layer = layer, A = posed[ia].Body.Name, B = other ?? posed[ib].Body.Name, Hit = t.Hit, Depth = t.Depth, Distance = t.Distance, Where = t.Where, Tilt = tilt, ToolHeight = t.ToolHeight, FirstMove = move, LastMove = move, BodyA = ia, BodyB = ib, Share = share, Axes = axes, External = ext };
                 res.Events.Add(ev);
                 if (!t.Hit) return;
                 Mark(res, posed[ia].Body);
@@ -959,7 +984,7 @@ namespace LARGERslicer.Toolpaths
                 if (pr.Mode == Mode.CollisionOnly && !t.Hit) continue;
                 record(pr.A, pr.B, t, null);
             }
-            foreach (int i in _toPrinted) record(i, -1, TestPrinted(posed[i], partInv, part, move, R), "printed part");
+            foreach (int i in _toPrinted) record(i, -1, TestPrinted(posed[i], partInv, part, laid, R), "printed part");
             foreach (int i in _toBed) record(i, -1, TestBed(posed[i], partInv, part, R), "bed");
             return res;
         }
@@ -986,6 +1011,16 @@ namespace LARGERslicer.Toolpaths
                 else if (t.Distance < R) pr.Mode = Mode.CollisionOnly;
             }
             if (left.Count > 0) Notes.Add("Not checked, as they stand on each other from the start: " + string.Join(", ", left.Distinct()) + ".");
+        }
+
+        /// <summary>Step for long moves (mm): half the width of the tool, so nothing as thick as a post slips between two steps.</summary>
+        internal double StepLength()
+        {
+            if (Options.Step != 0) return Options.Step;
+            var tool = _bodies[7].Shape;
+            if (tool == null) return 50;
+            var d = tool.Box.Diagonal;
+            return Math.Max(15, Math.Min(50, 0.5 * Math.Min(d.X, Math.Min(d.Y, d.Z))));
         }
 
         /// <summary>Angle of the tool axis to the bed normal at a move, degrees.</summary>
@@ -1030,6 +1065,7 @@ namespace LARGERslicer.Toolpaths
             var ci = CultureInfo.InvariantCulture;
             if (!opt.Enabled) { r.Lines.Add("Collisions were not checked (Check Collisions is off)."); return r; }
             if (cell.Arm.Links == null) { r.Lines.Add("Collisions were not checked: the robot has no 3D model (see the Info of Robot)."); return r; }
+            tp = program.PathFor(tp); // one point per move
             var usable = new List<int>();
             for (int i = 0; i < program.Moves.Count; i++) if (program.Moves[i].Axes != null && program.Moves[i].Reachable) usable.Add(i);
             if (usable.Count == 0) { r.Lines.Add("Collisions were not checked: the robot reaches no pose."); return r; }
@@ -1068,6 +1104,28 @@ namespace LARGERslicer.Toolpaths
                 r.Critical = picks.Count - evenly;
             }
 
+            // ---- between the points: a long move (a travel move, a straight wall of two points) is looked at on the way
+            // too. Moves without extrusion always; of the printing ones in fast mode as many places as poses, spread evenly
+            var ways = new List<KeyValuePair<int, double>>();
+            r.Step = model.StepLength();
+            if (r.Step > 0)
+            {
+                var printing = new List<KeyValuePair<int, double>>();
+                for (int i = 1; i < program.Moves.Count; i++)
+                {
+                    double len = tp.Points[i].DistanceTo(tp.Points[i - 1]);
+                    if (len <= r.Step || program.Moves[i].Axes == null || program.Moves[i - 1].Axes == null || !program.Moves[i].Reachable || !program.Moves[i - 1].Reachable) continue;
+                    int n = (int)Math.Ceiling(len / r.Step);
+                    bool travel = i < program.Extrusion.Count && program.Extrusion[i] <= 0;
+                    for (int k = 1; k < n; k++) (travel ? ways : printing).Add(new KeyValuePair<int, double>(i, k / (double)n));
+                }
+                r.BetweenAll = ways.Count + printing.Count;
+                if (opt.Poses < 0 || printing.Count <= Math.Max(2, opt.Poses)) ways.AddRange(printing);
+                else { double st = printing.Count / (double)Math.Max(2, opt.Poses); for (double k = 0; k < printing.Count; k += st) ways.Add(printing[(int)k]); }
+                ways = ways.OrderBy(w => w.Key).ThenBy(w => w.Value).ToList();
+                r.Between = ways.Count;
+            }
+
             // ---- run them
             var worst = new Dictionary<string, CollisionEvent>();
             var hitMoves = new SortedDictionary<int, Point3d>();
@@ -1083,13 +1141,26 @@ namespace LARGERslicer.Toolpaths
                 var m = program.Moves[order[k]];
                 found[k] = model.Check(m.Axes, m.External, order[k], true);
             });
-            for (int k = 0; k < order.Count; k++)
+            var foundWay = new PoseCollision[ways.Count];
+            System.Threading.Tasks.Parallel.For(0, ways.Count, po, k =>
             {
-                int i = order[k];
+                int i = ways[k].Key; double u = ways[k].Value;
+                foundWay[k] = model.Check(program.AxesOnWay(cell, i, u), program.ExternalOnWay(i, u), i, true, i - 1, u);
+            });
+            var all = order.Select((i, k) => new KeyValuePair<int, PoseCollision>(i, found[k])).ToList();
+            r.Poses = order.Count;
+            if (ways.Count > 0)
+            {
+                // on the way to a move comes before its end
+                for (int k = 0; k < ways.Count; k++) all.Add(new KeyValuePair<int, PoseCollision>(ways[k].Key, foundWay[k]));
+                all = all.OrderBy(x => x.Key).ToList();
+            }
+            foreach (var item in all)
+            {
+                int i = item.Key;
                 var mv = program.Moves[i];
-                var pc = found[k];
-                r.Poses++;
-                if (pc.Any) hitMoves[i] = pc.Where.Count > 0 ? pc.Where[0] : mv.Part.Pt(tp.Points[i]);
+                var pc = item.Value;
+                if (pc.Any && !hitMoves.ContainsKey(i)) hitMoves[i] = pc.Where.Count > 0 ? pc.Where[0] : mv.Part.Pt(tp.Points[i]);
                 foreach (var ev in pc.Events)
                 {
                     string key = ev.A + "|" + ev.B + "|" + (ev.Hit ? "hit" : "near");
@@ -1109,7 +1180,11 @@ namespace LARGERslicer.Toolpaths
             r.Seconds = sw.Elapsed.TotalSeconds;
 
             // ---- report
+            string way = r.Between == 0 ? "" : r.Between < r.BetweenAll
+                ? string.Format(ci, " and {0} of {1} places between the points of long moves ({2:0} mm steps; all moves without extrusion, the others spread evenly)", r.Between, r.BetweenAll, r.Step)
+                : string.Format(ci, " and {0} places between the points of long moves ({1:0} mm steps)", r.Between, r.Step);
             string poses = r.Stride > 1 ? string.Format(ci, "{0} poses (every {1}th move and {2} critical ones)", r.Poses, r.Stride, r.Critical) : string.Format(ci, "{0} poses (every move)", r.Poses);
+            poses += way;
             string scope = "itself, the tool, the printed part, the bed" + (cell.HasExternalAxes ? ", rail and turntable" : "") + (cell.Environment != null && cell.Environment.Count > 0 ? ", the environment" : "");
             r.Lines.Add(hits.Count == 0
                 ? string.Format(ci, "No collision: {0} checked in {1:0.0} s, {2:0} mm clearance, robot against {3}{4}.", poses, r.Seconds, opt.Clearance, scope, nears.Count > 0 ? Inv.F($"; {nears.Count} near miss(es)") : "")
@@ -1126,8 +1201,9 @@ namespace LARGERslicer.Toolpaths
             foreach (var e in hits.Take(6))
             {
                 var mv = program.Moves[e.Move];
-                if (e.BodyA >= 0) { var m = model.BodyMesh(e.BodyA, mv.Axes, mv.External); if (m != null) r.Bodies.Add(m); }
-                if (e.BodyB >= 0) { var m = model.BodyMesh(e.BodyB, mv.Axes, mv.External); if (m != null) r.Bodies.Add(m); }
+                double[] axes = e.Axes ?? mv.Axes, ext = e.Axes != null ? e.External : mv.External;
+                if (e.BodyA >= 0) { var m = model.BodyMesh(e.BodyA, axes, ext); if (m != null) r.Bodies.Add(m); }
+                if (e.BodyB >= 0) { var m = model.BodyMesh(e.BodyB, axes, ext); if (m != null) r.Bodies.Add(m); }
                 if (e.Where.IsValid) r.Bodies.Add(Mesh.CreateFromSphere(new Sphere(e.Where, Math.Max(5, Math.Min(50, e.Depth + 5))), 16, 12));
             }
             return r;
@@ -1275,7 +1351,7 @@ namespace LARGERslicer.Toolpaths
             NozzleHeight = 2 * h + 2;
             double rad = 0;
             if (headMesh != null)
-                foreach (var v in headMesh.Vertices) { Vector3d d = (Point3d)v - _tcp; if (d.Z < NozzleHeight) rad = Math.Max(rad, Math.Sqrt(d.X * d.X + d.Y * d.Y)); }
+                foreach (var v in headMesh.Vertices) { Vector3d d = (Point3d)v - _tcp; if (CollisionModel.InZone(d.Z, NozzleHeight)) rad = Math.Max(rad, Math.Sqrt(d.X * d.X + d.Y * d.Y)); }
             NozzleRadius = Math.Min(Math.Max(w, rad + w / 2), Math.Max(6 * w, 40));
             if (_head != null)
             {
@@ -1284,7 +1360,7 @@ namespace LARGERslicer.Toolpaths
                 {
                     Vector3d d = _head.Samples[k] - _tcp;
                     height[k] = d.Z;
-                    noz[k] = d.Z < NozzleHeight && Math.Sqrt(d.X * d.X + d.Y * d.Y) < NozzleRadius;
+                    noz[k] = CollisionModel.InZone(d.Z, NozzleHeight) && Math.Sqrt(d.X * d.X + d.Y * d.Y) < NozzleRadius;
                 }
                 _head = _head.With(noz, height);
             }
@@ -1374,6 +1450,14 @@ namespace LARGERslicer.Toolpaths
             }
         }
 
+        /// <summary>Step for long moves (mm): half the width of the head, 15 to 50 mm.</summary>
+        private double StepLength()
+        {
+            if (_head == null) return 50;
+            var d = _head.Box.Diagonal;
+            return Math.Max(15, Math.Min(50, 0.5 * Math.Min(d.X, d.Y)));
+        }
+
         /// <summary>The check along the whole path: about n poses spread evenly, both ends of every travel move, the last point of every layer.</summary>
         public CollisionResult Run(int n)
         {
@@ -1394,13 +1478,31 @@ namespace LARGERslicer.Toolpaths
             }
             r.Critical = picks.Count - evenly;
             r.Stride = Math.Max(1, (int)Math.Round(stride));
+            // between the points of long moves: all moves without extrusion, of the printing ones about n places
+            r.Step = StepLength();
+            var ways = new List<KeyValuePair<int, double>>(); var printing = new List<KeyValuePair<int, double>>();
+            for (int i = 1; i < m; i++)
+            {
+                double len = Path.Points[i].DistanceTo(Path.Points[i - 1]);
+                if (len <= r.Step) continue;
+                int steps = (int)Math.Ceiling(len / r.Step);
+                bool travel = Path.Flows[i] <= 0 || Path.Roles[i] == PathRole.Travel;
+                for (int k = 1; k < steps; k++) (travel ? ways : printing).Add(new KeyValuePair<int, double>(i, k / (double)steps));
+            }
+            r.BetweenAll = ways.Count + printing.Count;
+            if (printing.Count <= Math.Max(2, n)) ways.AddRange(printing);
+            else { double st = printing.Count / (double)Math.Max(2, n); for (double k = 0; k < printing.Count; k += st) ways.Add(printing[(int)k]); }
+            r.Between = ways.Count;
+            r.Poses = picks.Count;
+            foreach (int i in picks) ways.Add(new KeyValuePair<int, double>(i, 1));
             var worst = new Dictionary<string, CollisionEvent>();
             var hitMoves = new SortedDictionary<int, Point3d>();
-            foreach (int i in picks)
+            foreach (var w0 in ways.OrderBy(x => x.Key).ThenBy(x => x.Value))
             {
-                var pc = Check(Path.Points[i], i);
-                r.Poses++;
-                if (pc.Any) hitMoves[i] = pc.Where.Count > 0 ? pc.Where[0] : Path.Points[i];
+                int i = w0.Key;
+                var pc = Check(w0.Value >= 1 ? Path.Points[i] : Path.Points[i - 1] + (Path.Points[i] - Path.Points[i - 1]) * w0.Value, i);
+                foreach (var ev in pc.Events) ev.Share = w0.Value;
+                if (pc.Any && !hitMoves.ContainsKey(i)) hitMoves[i] = pc.Where.Count > 0 ? pc.Where[0] : Path.Points[i];
                 foreach (var ev in pc.Events)
                 {
                     string key = ev.A + "|" + ev.B;
@@ -1414,10 +1516,15 @@ namespace LARGERslicer.Toolpaths
             var hits = worst.Values.OrderByDescending(e => e.Depth).ToList();
             r.Events.AddRange(hits);
             r.Seconds = sw.Elapsed.TotalSeconds;
-            string scope = "the head" + (_beam != null ? " and the beam" : "") + " against the printed part and the bed" + (_frame.Count > 0 ? ", the head against the frame" : "");
+            string scope = _head == null ? (_beam != null ? "the beam against the printed part and the bed (NOT the head: the model has nothing on layer X)" : "NOTHING: the model has no head (layer X) and no beam")
+                : "the head" + (_beam != null ? " and the beam" : "") + " against the printed part and the bed" + (_frame.Count > 0 ? ", the head against the frame" : "");
+            if (_head == null && _beam == null) r.Checked = false;
+            string way = r.Between == 0 ? "" : r.Between < r.BetweenAll
+                ? string.Format(ci, " and {0} of {1} places between the points of long moves", r.Between, r.BetweenAll)
+                : string.Format(ci, " and {0} places between the points of long moves", r.Between);
             r.Lines.Add(hits.Count == 0
-                ? string.Format(ci, "No collision: {0} poses checked in {1:0.0} s, {2}.", r.Poses, r.Seconds, scope)
-                : string.Format(ci, "COLLISIONS at {0} of {1} checked poses ({2:0.0} s): {3} pair(s) of bodies collide, first at move {4}.", r.Moves.Count, r.Poses, r.Seconds, hits.Count, r.FirstMove));
+                ? string.Format(ci, !r.Checked ? "Collisions were not checked: the 3D model has no head (layer X) and no beam." : "No collision: {0} poses{3} checked in {1:0.0} s, {2}.", r.Poses, r.Seconds, scope, way)
+                : string.Format(ci, "COLLISIONS at {0} moves, {1} poses" + way + " checked ({2:0.0} s): {3} pair(s) of bodies collide, first at move {4}.", r.Moves.Count, r.Poses, r.Seconds, hits.Count, r.FirstMove));
             foreach (var e in hits.Take(12)) r.Lines.Add(e.Text());
             r.Lines.AddRange(Notes);
             r.Lines.Add(string.Format(ci, "Collision check: {0}; printed part as {1} bead pieces, nozzle zone {2:0} mm wide and {3:0} mm high left out.", scope, Printed.Count, 2 * NozzleRadius, NozzleHeight));

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Clipper2Lib;
 using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 
@@ -32,7 +33,8 @@ namespace LARGERslicer.Toolpaths
                 SimplePlanes = true
             };
 
-            var joined = new Mesh();
+            var loose = new Mesh();          // surfaces and open meshes: joined along their common edges
+            var solids = new List<Mesh>();   // closed bodies stay apart, so that bodies touching each other keep their own contours
             int used = 0, skipped = 0;
             foreach (var item in geometry)
             {
@@ -41,15 +43,16 @@ namespace LARGERslicer.Toolpaths
                 if (o is IGH_Goo goo) o = goo.ScriptVariable();
 
                 Brep brep = null;
-                if (o is Mesh m) { joined.Append(m); used++; continue; }
+                if (o is Mesh m) { Take(m.DuplicateMesh(), loose, solids); used++; continue; }
                 if (o is Brep b) brep = b;
                 else if (o is Extrusion ex) brep = ex.ToBrep();
                 else if (o is Surface srf) brep = srf.ToBrep();
+                else if (o is Box box && box.IsValid) brep = box.ToBrep(); // Grasshopper's Box is a primitive, no Brep
                 else if (o is SubD sd)
                 {
                     Mesh sm;
                     lock (MeshLock) sm = Mesh.CreateFromSubD(sd, 3);
-                    if (sm != null) { joined.Append(sm); used++; } else skipped++;
+                    if (sm != null) { Take(sm, loose, solids); used++; } else skipped++;
                     continue;
                 }
 
@@ -59,19 +62,37 @@ namespace LARGERslicer.Toolpaths
                 Mesh[] parts;
                 lock (MeshLock) parts = Mesh.CreateFromBrep(brep.DuplicateBrep(), mp);
                 if (parts == null || parts.Length == 0) { skipped++; continue; }
-                foreach (var p in parts) joined.Append(p);
+                var whole = new Mesh();
+                foreach (var p in parts) whole.Append(p);
+                Take(whole, loose, solids);
                 used++;
             }
 
             if (skipped > 0) log?.Add(Inv.F($"{skipped} input(s) could not be meshed and were skipped."));
-            if (used == 0 || joined.Vertices.Count == 0) return null;
+            if (used == 0 || loose.Vertices.Count == 0 && solids.Count == 0) return null;
 
             Cancel.Check();
-            joined.Faces.ConvertQuadsToTriangles();
-            joined.Vertices.CombineIdentical(true, true);
-            joined.Weld(Math.PI);
+            var joined = new Mesh();
+            if (loose.Vertices.Count > 0) { Join(loose); joined.Append(loose); }
+            foreach (var sm in solids) joined.Append(sm);
             joined.Compact();
             return joined;
+        }
+
+        /// <summary>Puts a part with the closed bodies, or with the loose surfaces that are joined later.</summary>
+        private static void Take(Mesh part, Mesh loose, List<Mesh> solids)
+        {
+            var own = part.DuplicateMesh();
+            Join(own);
+            if (own.IsClosed) solids.Add(own); else loose.Append(part);
+        }
+
+        private static void Join(Mesh mesh)
+        {
+            mesh.Faces.ConvertQuadsToTriangles();
+            mesh.Vertices.CombineIdentical(true, true);
+            mesh.Weld(Math.PI);
+            mesh.Compact();
         }
 
         /// <summary>
@@ -162,6 +183,7 @@ namespace LARGERslicer.Toolpaths
                 tris.Add(f.A); tris.Add(f.B); tris.Add(f.C);
                 if (f.IsQuad) { tris.Add(f.A); tris.Add(f.C); tris.Add(f.D); }
             }
+            var body = Bodies(verts.Length, tris);
             var buckets = new List<int>[count];
             for (int i = 0; i < count; i++) buckets[i] = new List<int>();
             Cancel.Check();
@@ -179,6 +201,7 @@ namespace LARGERslicer.Toolpaths
             }
 
             var result = new SliceLayer[count];
+            int merged = 0, chained = 0;
             Parallel.For(0, count, new ParallelOptions { CancellationToken = Cancel.Token }, i =>
             {
                 if (Cancel.Requested) return; // Parallel.For then ends with OperationCanceledException
@@ -191,12 +214,16 @@ namespace LARGERslicer.Toolpaths
                     Plane = Geo.PlaneFromAxes(basePlane.Origin + n * top[i], basePlane.XAxis, basePlane.YAxis)
                 };
                 Vector3d lift = n * (top[i] - z);
-                foreach (var pl in CutLayer(verts, dist, tris, buckets[i], z))
+                var bodies = new List<int>();
+                foreach (var pl in CutLayer(verts, dist, tris, buckets[i], z, out var at))
                 {
+                    int b = body[at[0]]; at.RemoveAt(0);
                     if (pl.Count < 2 || pl.Length < minSpacing) continue;
                     for (int k = 0; k < pl.Count; k++) pl[k] += lift;
-                    layer.Contours.Add(pl);
+                    layer.Contours.Add(pl); bodies.Add(b);
                 }
+                if (JoinEnds(layer.Contours, bodies, Math.Min(0.3, 0.15 * Math.Max(0.1, minSpacing)))) System.Threading.Interlocked.Increment(ref chained);
+                if (MergeBodies(layer, bodies)) System.Threading.Interlocked.Increment(ref merged);
                 result[i] = layer;
             });
 
@@ -206,6 +233,8 @@ namespace LARGERslicer.Toolpaths
                 if (l.Contours.Count == 0) { empty++; continue; }
                 layers.Add(l);
             }
+            if (merged > 0) log?.Add(Inv.F($"{merged} layer(s): parts that overlap or touch are printed as one part (their outlines were united)."));
+            if (chained > 0) log?.Add(Inv.F($"{chained} layer(s): open contours whose ends meet were joined (surfaces that touch along an edge, but are not joined in the model)."));
             if (empty > 0) log?.Add(Inv.F($"{empty} layer(s) had no contour and were dropped."));
             if (warp == null && Math.Abs(n.Z) > 0.999)
             {
@@ -220,12 +249,154 @@ namespace LARGERslicer.Toolpaths
         }
 
         /// <summary>
+        /// Open contours whose ends meet become one: single surfaces (strips, end pieces) that touch along an edge but are
+        /// meshed apart. Only ends that have exactly one partner within the tolerance are joined, so a T stays a T.
+        /// </summary>
+        private static bool JoinEnds(List<Polyline> lines, List<int> bodies, double tol)
+        {
+            bool any = false;
+            while (true)
+            {
+                var ends = new List<KeyValuePair<int, bool>>(); // contour, at its end
+                for (int i = 0; i < lines.Count; i++)
+                    if (!Geo.Closed(lines[i])) { ends.Add(new KeyValuePair<int, bool>(i, false)); ends.Add(new KeyValuePair<int, bool>(i, true)); }
+                if (ends.Count < 2) return any;
+                Func<int, Point3d> at = e => ends[e].Value ? lines[ends[e].Key][lines[ends[e].Key].Count - 1] : lines[ends[e].Key][0];
+                var partner = new int[ends.Count];
+                for (int a = 0; a < ends.Count; a++)
+                {
+                    partner[a] = -1; int close = 0;
+                    for (int b = 0; b < ends.Count; b++)
+                        if (b != a && at(a).DistanceTo(at(b)) <= tol) { close++; partner[a] = b; }
+                    if (close != 1) partner[a] = -1;
+                }
+                int from = -1;
+                for (int a = 0; a < ends.Count && from < 0; a++) if (partner[a] >= 0 && partner[partner[a]] == a) from = a;
+                if (from < 0) return any;
+                int to = partner[from], ia = ends[from].Key, ib = ends[to].Key;
+                any = true;
+                if (ia == ib)
+                {
+                    // its own ends: close it, exactly
+                    if (lines[ia].Count < 4) { partner = null; return any; }
+                    lines[ia][lines[ia].Count - 1] = lines[ia][0];
+                    continue;
+                }
+                var first = new Polyline(lines[ia]); var second = new Polyline(lines[ib]);
+                if (!ends[from].Value) first.Reverse();
+                if (ends[to].Value) second.Reverse();
+                for (int k = 1; k < second.Count; k++) first.Add(second[k]);
+                int lo = Math.Min(ia, ib), hi = Math.Max(ia, ib);
+                lines[lo] = first;
+                lines.RemoveAt(hi);
+                if (hi < bodies.Count) bodies.RemoveAt(hi);
+            }
+        }
+
+        /// <summary>Per mesh vertex the body it belongs to (vertices connected by triangles).</summary>
+        private static int[] Bodies(int count, List<int> tris)
+        {
+            var root = new int[count];
+            for (int i = 0; i < count; i++) root[i] = i;
+            int Find(int v) { while (root[v] != v) { root[v] = root[root[v]]; v = root[v]; } return v; }
+            for (int t = 0; t < tris.Count; t += 3)
+            {
+                int a = Find(tris[t]), b = Find(tris[t + 1]), c = Find(tris[t + 2]);
+                if (b != a) root[b] = a;
+                if (c != a) root[c] = a;
+            }
+            for (int i = 0; i < count; i++) root[i] = Find(i);
+            return root;
+        }
+
+        /// <summary>
+        /// Bodies that overlap or touch are one part for the printer: their outlines are united.
+        /// Taken one by one they would be read as outline and hole, and a wall would be missing.
+        /// A body that lies completely inside another one stays what it was: a hole (an inner shell).
+        /// </summary>
+        private static bool MergeBodies(SliceLayer layer, List<int> bodies)
+        {
+            if (bodies.Count < 2) return false;
+            var closed = new Dictionary<int, PathsD>();
+            var box = new Dictionary<int, BoundingBox>();
+            for (int k = 0; k < bodies.Count; k++)
+            {
+                var c = layer.Contours[k];
+                if (!Geo.Closed(c) || c.Count < 4) continue;
+                var path = new PathD(c.Count);
+                for (int q = 0; q < c.Count - 1; q++)
+                {
+                    Vector3d d = c[q] - layer.Plane.Origin;
+                    path.Add(new PointD(d * layer.Plane.XAxis, d * layer.Plane.YAxis));
+                }
+                if (!closed.TryGetValue(bodies[k], out var list)) { closed[bodies[k]] = list = new PathsD(); box[bodies[k]] = BoundingBox.Empty; }
+                list.Add(path);
+                var bb = box[bodies[k]];
+                foreach (var p in path) bb.Union(new Point3d(p.x, p.y, 0));
+                box[bodies[k]] = bb;
+            }
+            if (closed.Count < 2) return false;
+
+            var ids = closed.Keys.OrderBy(v => v).ToList();
+            var region = new Dictionary<int, PathsD>();
+            PathsD Region(int id) { if (!region.TryGetValue(id, out var r)) region[id] = r = Clipper.Union(closed[id], new PathsD(), FillRule.EvenOdd, 5); return r; }
+            var group = ids.ToDictionary(v => v, v => v);
+            int Find(int v) { while (group[v] != v) v = group[v]; return v; }
+            const double eps = 0.001;
+            bool any = false;
+            for (int a = 0; a < ids.Count; a++)
+                for (int b = a + 1; b < ids.Count; b++)
+                {
+                    var ba = box[ids[a]]; var bb = box[ids[b]];
+                    if (ba.Min.X > bb.Max.X + eps || bb.Min.X > ba.Max.X + eps || ba.Min.Y > bb.Max.Y + eps || bb.Min.Y > ba.Max.Y + eps) continue;
+                    PathsD ra = Region(ids[a]), rb = Region(ids[b]);
+                    double areaA = Math.Abs(Clipper.Area(ra)), areaB = Math.Abs(Clipper.Area(rb));
+                    double common = Math.Abs(Clipper.Area(Clipper.Intersect(ra, rb, FillRule.NonZero, 5)));
+                    double small = Math.Min(areaA, areaB), large = Math.Max(areaA, areaB);
+                    bool one;
+                    if (common > 1e-3 * small + 1e-6)
+                        // partly overlapping, or the same body twice; completely inside: an inner shell, left alone
+                        one = common < 0.999 * small || small > 0.999 * large;
+                    else
+                        // side by side: one part if they share an edge
+                        one = Clipper.Union(ra, rb, FillRule.NonZero, 5).Count < ra.Count + rb.Count;
+                    if (one) { group[Find(ids[b])] = Find(ids[a]); any = true; }
+                }
+            if (!any) return false;
+
+            var contours = new List<Polyline>();
+            for (int k = 0; k < bodies.Count; k++)
+            {
+                var c = layer.Contours[k];
+                bool alone = !Geo.Closed(c) || c.Count < 4 || ids.Count(v => Find(v) == Find(bodies[k])) < 2;
+                if (alone) contours.Add(c);
+            }
+            foreach (var g in ids.GroupBy(Find).Where(v => v.Count() > 1))
+            {
+                var sum = new PathsD();
+                foreach (int id in g) sum.AddRange(Region(id));
+                foreach (var path in Clipper.Union(sum, new PathsD(), FillRule.NonZero, 5))
+                {
+                    if (path.Count < 3) continue;
+                    var pl = new Polyline(path.Count + 1);
+                    foreach (var p in path) pl.Add(layer.Plane.Origin + layer.Plane.XAxis * p.x + layer.Plane.YAxis * p.y);
+                    pl.Add(pl[0]);
+                    contours.Add(pl);
+                }
+            }
+            layer.Contours = contours;
+            return true;
+        }
+
+        /// <summary>
         /// Cuts the given triangles at one level and chains the pieces into polylines. Every cut
         /// point lies on a mesh edge, so pieces are linked exactly through shared edges - no
         /// tolerance matching needed. A vertex exactly on the level counts as above it.
         /// </summary>
-        private static List<Polyline> CutLayer(Point3d[] verts, double[] dist, List<int> tris, List<int> bucket, double z)
+        private static List<Polyline> CutLayer(Point3d[] verts, double[] dist, List<int> tris, List<int> bucket, double z, out List<int> at)
         {
+            at = new List<int>(); // per polyline: a mesh vertex beside it, which tells its body
+            var beside = new List<int>();
             var polylines = new List<Polyline>();
             if (bucket.Count == 0) return polylines;
 
@@ -241,6 +412,7 @@ namespace LARGERslicer.Toolpaths
                 double du = dist[u] - z, dv = dist[v] - z;
                 double t = du / (du - dv);
                 id = points.Count;
+                beside.Add(u);
                 points.Add(verts[u] + (verts[v] - verts[u]) * t);
                 link.Add(-1); link.Add(-1);
                 nodeOf[key] = id;
@@ -286,7 +458,7 @@ namespace LARGERslicer.Toolpaths
                         prev = cur; cur = next;
                     }
                     if (pass == 1 && pl.Count > 2) pl.Add(pl[0]); // closed loop
-                    if (pl.Count > 1) polylines.Add(pl);
+                    if (pl.Count > 1) { polylines.Add(pl); at.Add(beside[start]); }
                 }
             }
             return polylines;

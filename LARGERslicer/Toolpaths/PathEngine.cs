@@ -471,7 +471,7 @@ namespace LARGERslicer.Toolpaths
                 // a layer with infill spliced into its wall (ribs, cells) stays flat: in a spiral the
                 // infill would climb with the wall and no longer lie on the infill below
                 bool hasInfill = layer.Reference != null && layer.Reference.Count > 0 && list.Count == 1
-                                 && list[0].Len > 1.05 * layer.Reference.Max(r => r.Length);
+                                 && (list[0].Len > 1.05 * layer.Reference.Max(r => r.Length) || mode == ContinuousMode.Spiral && LeavesWalls(list[0], layer, settings.BeadSpacing));
                 // contours inside contours (inner shell, openings, more walls) are joined by a bridge
                 bool fill = layer.EntryHints != null && layer.EntryHints.Count > 0;
                 bool spliced = layer.Reference != null && layer.Reference.Count > 0;
@@ -557,6 +557,29 @@ namespace LARGERslicer.Toolpaths
             public Point3d Last = Point3d.Unset; // where the seam of the last flat wall layer was
             public int Hits, Eligible;
             public double MaxStep;
+        }
+
+        /// <summary>True if a wall with ribs or cells in it leaves the plain walls anywhere (a short rib on a long wall hardly makes it longer).</summary>
+        private static bool LeavesWalls(Loop loop, SliceLayer layer, double spacing)
+        {
+            var refs = new List<Loop>();
+            foreach (var r in layer.Reference)
+            {
+                var pts = Clean(r, 1e-6, out bool closed);
+                if (pts.Count >= 2) refs.Add(new Loop(pts, closed));
+            }
+            var hints = Enumerable.Repeat(-1, refs.Count).ToArray();
+            double limit = 0.55 * spacing + 0.5;
+            foreach (var p in loop.P)
+            {
+                double d = double.MaxValue;
+                for (int k = 0; k < refs.Count; k++) d = Math.Min(d, refs[k].Closest(p, ref hints[k], 24).DistanceTo(p));
+                if (d <= limit) continue;
+                d = double.MaxValue;
+                foreach (var r in refs) { int h = -1; d = Math.Min(d, r.Closest(p, ref h, int.MaxValue).DistanceTo(p)); }
+                if (d > limit) return true;
+            }
+            return false;
         }
 
         private static List<Loop> PlainWalls(List<Polyline> reference, double minSpacing)
@@ -972,232 +995,275 @@ namespace LARGERslicer.Toolpaths
                 bool nextRamps = rampLength > 0 && i + 1 < toLayer && loops[i + 1].Any(l => l.Closed)
                                  && !(layers[i + 1].EntryHints != null && layers[i + 1].EntryHints.Count > 0);
 
-                var todo = new List<Loop>(loops[i]);
-                bool firstOfLayer = true;
-                prevStarts = curStarts; curStarts = new List<Point3d>();
+                prevStarts = curStarts;
                 int layerStart = tp.Count; // the first point of this layer in the path
-                while (todo.Count > 0)
+                // Several walls and a fill: the contour nearest to the nozzle comes first. After a fill that is
+                // often the inner wall, and the way from the outer one into the fill would run across it. If
+                // so, the layer is laid out once more with the walls from the outside in.
+                int crossed = 0; Toolpath usual = null;
+                Point3d rampStart0 = rampStart; bool belowRamped0 = belowRamped, first0 = first;
+                List<Point3d> curStarts1 = null; Point3d rampStart1 = rampStart; bool belowRamped1 = belowRamped;
+                for (int attempt = 0; attempt < (hasFill && loops[i].Count(l => l.Closed) >= 2 ? 2 : 1); attempt++)
                 {
-                    Point3d from = tp.Count > 0 ? tp.Points[tp.Count - 1] : todo[0].P[0];
-                    // The layer continues where the ramp of the layer below started (so the ramps
-                    // stack); otherwise with the contour closest to the nozzle.
-                    Point3d near = firstOfLayer && rampStart.IsValid && !hasFill && !multi ? rampStart + n * h : from;
-
-                    int pick = 0; double best = double.MaxValue;
-                    for (int k = 0; k < todo.Count; k++)
+                    if (attempt == 1)
                     {
-                        int hint = -1;
-                        double d = todo[k].Closest(near, ref hint, int.MaxValue).DistanceToSquared(near);
-                        if (firstOfLayer && rampStart.IsValid && !hasFill && !todo[k].Closed) d = double.MaxValue;
-                        if (d < best) { best = d; pick = k; }
+                        usual = Tail(tp, layerStart);
+                        crossed = LeadEngine.FindCrossings(usual).Count;
+                        if (crossed == 0) { usual = null; break; }
+                        curStarts1 = curStarts; rampStart1 = rampStart; belowRamped1 = belowRamped;
+                        Cut(tp, layerStart);
+                        rampStart = rampStart0; belowRamped = belowRamped0; first = first0;
                     }
-                    var src = todo[pick];
-                    todo.RemoveAt(pick);
-
-                    int startIndex = tp.Count;
-                    if (src.Closed)
+                    var todo = new List<Loop>(loops[i]);
+                    bool firstOfLayer = true;
+                    curStarts = new List<Point3d>();
+                    while (todo.Count > 0)
                     {
-                        var pts = new List<Point3d>(src.P);
-                        Point3d target = near;
-                        bool usedHint = false;
-                        Point3d? st = firstOfLayer ? SeamTarget(seam, layer, near) : null;
-                        if (st.HasValue && !hasFill) target = st.Value;
-                        else if (firstOfLayer && !hasFill && Math.Abs(n.Z) < 0.999)
+                        Point3d from = tp.Count > 0 ? tp.Points[tp.Count - 1] : todo[0].P[0];
+                        // The layer continues where the ramp of the layer below started (so the ramps
+                        // stack); otherwise with the contour closest to the nozzle.
+                        Point3d near = firstOfLayer && rampStart.IsValid && !hasFill && !multi ? rampStart + n * h : from;
+
+                        int pick = 0; double best = double.MaxValue;
+                        for (int k = 0; k < todo.Count; k++)
                         {
-                            // Tilted layers (angled printing): every layer begins where it stands on
-                            // the bed, in the middle of its lowest edge. The first bead of a layer
-                            // then lies on the bed and everything after it leans on the layer before.
-                            double zLow = double.MaxValue;
-                            foreach (var q in pts) if (q.Z < zLow) zLow = q.Z;
-                            Point3d sum = Point3d.Origin; int cnt = 0;
-                            foreach (var q in pts) if (q.Z <= zLow + 0.25 * h) { sum += q; cnt++; }
-                            if (cnt > 0) target = sum / cnt;
+                            int hint = -1;
+                            double d = todo[k].Closest(near, ref hint, int.MaxValue).DistanceToSquared(near);
+                            if (attempt == 1 && todo.Any(l => l.Closed) && (!todo[k].Closed || todo.Any(l => l.Closed && l != todo[k] && Inside(l.P.Select(q => To2(layer.Plane, q)).ToList(), To2(layer.Plane, todo[k].P[0]))))) continue;
+                            if (firstOfLayer && rampStart.IsValid && !hasFill && !todo[k].Closed) d = double.MaxValue;
+                            if (d < best) { best = d; pick = k; }
                         }
-                        else if (first && !hasFill)
+                        var src = todo[pick];
+                        todo.RemoveAt(pick);
+
+                        int startIndex = tp.Count;
+                        if (src.Closed)
                         {
-                            // no seam given: start in the middle of the longest straight piece, so the
-                            // seam and its ramp do not sit on a corner
-                            double longest = -1;
-                            for (int k = 0; k < pts.Count; k++)
+                            var pts = new List<Point3d>(src.P);
+                            Point3d target = near;
+                            bool usedHint = false;
+                            Point3d? st = firstOfLayer ? SeamTarget(seam, layer, near) : null;
+                            if (st.HasValue && !hasFill) target = st.Value;
+                            else if (firstOfLayer && !hasFill && Math.Abs(n.Z) < 0.999)
                             {
-                                Point3d a0 = pts[k], b0 = pts[(k + 1) % pts.Count];
-                                double len = a0.DistanceTo(b0);
-                                if (len > longest) { longest = len; target = a0 + (b0 - a0) * 0.5; }
+                                // Tilted layers (angled printing): every layer begins where it stands on
+                                // the bed, in the middle of its lowest edge. The first bead of a layer
+                                // then lies on the bed and everything after it leans on the layer before.
+                                double zLow = double.MaxValue;
+                                foreach (var q in pts) if (q.Z < zLow) zLow = q.Z;
+                                Point3d sum = Point3d.Origin; int cnt = 0;
+                                foreach (var q in pts) if (q.Z <= zLow + 0.25 * h) { sum += q; cnt++; }
+                                if (cnt > 0) target = sum / cnt;
                             }
-                        }
-                        else if (hasFill && src.Role == PathRole.Wall)
-                        {
-                            // start the wall next to the fill end that is nearest to the nozzle, so the
-                            // path can turn straight from the wall into the fill
-                            double bestHint = double.MaxValue;
-                            foreach (var hp in layer.EntryHints)
+                            else if (first && !hasFill)
                             {
-                                double dh = first ? 0 : hp.DistanceToSquared(from);
-                                if (dh < bestHint) { bestHint = dh; target = hp; usedHint = true; }
-                                if (first) break;
-                            }
-                        }
-                        // A wall the nozzle reaches by a travel move starts where it started on the
-                        // layer below, not wherever the nozzle happens to come from: its seam stays
-                        // in one place and the bead beside it lies on the one below.
-                        if (!firstOfLayer && !usedHint && !hasFill && prevStarts.Count > 0)
-                        {
-                            double bestStart = w;
-                            foreach (var ps in prevStarts)
-                            {
-                                Point3d up = ps + n * h; int hs = -1;
-                                double ds = src.Closest(up, ref hs, int.MaxValue).DistanceTo(up);
-                                if (ds < bestStart) { bestStart = ds; target = up; }
-                            }
-                        }
-                        // The move over to a further wall of the layer must not run across what this layer has
-                        // printed already, nor across the wall it goes to: with several walls (and no bridges, e.g. with ribs) the wall before
-                        // ends with its closing pass over the seam, and a start right above the start below can
-                        // lie behind that pass. Then the wall starts at the point nearest to the nozzle.
-                        if (!firstOfLayer && tp.Count > layerStart + 1)
-                        {
-                            int ht = -1;
-                            Point3d onWall = src.Closest(target, ref ht, int.MaxValue);
-                            if (LinkCrosses(tp, layerStart, from, onWall, n, h) || LinkCrossesLoop(src, from, onWall, n))
-                            {
-                                // from the point nearest to the nozzle outwards along the wall, half a bead at a
-                                // time, the first place that is clear of corners (rounding a corner and the turn
-                                // onto the wall would meet) and reached without a crossing
-                                int hf = -1;
-                                Point3d near0 = src.Closest(from, ref hf, int.MaxValue);
-                                double s0 = ArcAt(src, near0);
-                                target = near0;
-                                for (int k = 0; k <= 16; k++)
+                                // no seam given: start in the middle of the longest straight piece, so the
+                                // seam and its ramp do not sit on a corner
+                                double longest = -1;
+                                for (int k = 0; k < pts.Count; k++)
                                 {
-                                    double ds = (k + 1) / 2 * 0.5 * w * (k % 2 == 0 ? 1 : -1);
-                                    if (k == 0) ds = 0;
-                                    Point3d q = src.PointAt(s0 + ds);
-                                    if (CornerNear(src, s0 + ds, w) || LinkCrosses(tp, layerStart, from, q, n, h) || LinkCrossesLoop(src, from, q, n)) continue;
-                                    target = q; break;
+                                    Point3d a0 = pts[k], b0 = pts[(k + 1) % pts.Count];
+                                    double len = a0.DistanceTo(b0);
+                                    if (len > longest) { longest = len; target = a0 + (b0 - a0) * 0.5; }
                                 }
                             }
+                            else if (hasFill && src.Role == PathRole.Wall)
+                            {
+                                // start the wall next to the fill end that is nearest to the nozzle, so the
+                                // path can turn straight from the wall into the fill
+                                double bestHint = double.MaxValue;
+                                foreach (var hp in layer.EntryHints)
+                                {
+                                    double dh = first ? 0 : hp.DistanceToSquared(from);
+                                    if (dh < bestHint) { bestHint = dh; target = hp; usedHint = true; }
+                                    if (first) break;
+                                }
+                            }
+                            // A wall the nozzle reaches by a travel move starts where it started on the
+                            // layer below, not wherever the nozzle happens to come from: its seam stays
+                            // in one place and the bead beside it lies on the one below.
+                            if (!firstOfLayer && !usedHint && !hasFill && prevStarts.Count > 0)
+                            {
+                                double bestStart = w;
+                                foreach (var ps in prevStarts)
+                                {
+                                    Point3d up = ps + n * h; int hs = -1;
+                                    double ds = src.Closest(up, ref hs, int.MaxValue).DistanceTo(up);
+                                    if (ds < bestStart) { bestStart = ds; target = up; }
+                                }
+                            }
+                            // The move over to a further wall of the layer must not run across what this layer has
+                            // printed already, nor across the wall it goes to: with several walls (and no bridges, e.g. with ribs) the wall before
+                            // ends with its closing pass over the seam, and a start right above the start below can
+                            // lie behind that pass. Then the wall starts at the point nearest to the nozzle.
+                            if (!firstOfLayer && tp.Count > layerStart + 1)
+                            {
+                                int ht = -1;
+                                Point3d onWall = src.Closest(target, ref ht, int.MaxValue);
+                                if (LinkCrosses(tp, layerStart, from, onWall, n, h) || LinkCrossesLoop(src, from, onWall, n))
+                                {
+                                    // from the point nearest to the nozzle outwards along the wall, half a bead at a
+                                    // time, the first place that is clear of corners (rounding a corner and the turn
+                                    // onto the wall would meet) and reached without a crossing
+                                    int hf = -1;
+                                    Point3d near0 = src.Closest(from, ref hf, int.MaxValue);
+                                    double s0 = ArcAt(src, near0);
+                                    target = near0;
+                                    for (int k = 0; k <= 16; k++)
+                                    {
+                                        double ds = (k + 1) / 2 * 0.5 * w * (k % 2 == 0 ? 1 : -1);
+                                        if (k == 0) ds = 0;
+                                        Point3d q = src.PointAt(s0 + ds);
+                                        if (CornerNear(src, s0 + ds, w) || LinkCrosses(tp, layerStart, from, q, n, h) || LinkCrossesLoop(src, from, q, n)) continue;
+                                        target = q; break;
+                                    }
+                                }
+                            }
+                            // seam in a corner: the corner right above the seam below, on every flat wall layer
+                            bool cornerLayer = corners != null && firstOfLayer && !hasFill && !multi && corners.Cand[i] != null && i >= corners.StartLayer;
+                            bool inCorner = false;
+                            if (cornerLayer)
+                            {
+                                Point3d? c = CornerFor(corners, i, rampStart.IsValid ? rampStart + n * h : Point3d.Unset, from, tp.Count == 0, n, w);
+                                if (c.HasValue) { target = c.Value; inCorner = true; }
+                            }
+                            var cur = new Loop(StartAt(pts, target), true);
+    // the ramp, the closing pass and the move to the next contour run along the plain
+                            // wall, never inside a rib or support fin (the move would cut through its legs)
+                            double maxRamp = double.MaxValue;
+                            if (!usedHint && rampLength > 0) cur = OffExcursions(cur, layer, firstOfLayer, rampLength, tp.Settings.BeadSpacing, w, out maxRamp);
+                            curStarts.Add(cur.P[0]);
+                            if (cornerLayer)
+                            {
+                                if (corners.Last.IsValid) corners.MaxStep = Math.Max(corners.MaxStep, Sideways(cur.P[0], corners.Last, n));
+                                corners.Last = cur.P[0]; corners.Eligible++; if (inCorner) corners.Hits++;
+                            }
+
+                            bool ramp = firstOfLayer && !usedHint && !hasFill && rampLength > 0 && tp.Count > 0 && i > 0;
+                            double lr = ramp ? Math.Min(Math.Min(rampLength, maxRamp), cur.Len * 0.5) : 0;
+                            // does this ramp lie on the ramp of the layer below?
+                            bool stacked = ramp && belowRamped && rampStart.IsValid && (rampStart + n * h).DistanceTo(cur.P[0]) < w;
+                            double closeOver = 0;
+                            if (usedHint)
+                            {
+                                // The wall meets the fill on a straight piece of wall, never on a corner:
+                                // slide the meeting point along the wall until the wall is straight there.
+                                double reach = 2 * w;
+                                foreach (double shift in new[] { 0.0, reach, -reach, 2 * reach, -2 * reach, 3 * reach, -3 * reach })
+                                {
+                                    Vector3d before = cur.PointAt(shift) - cur.PointAt(shift - w), after = cur.PointAt(shift + w) - cur.PointAt(shift);
+                                    if (!before.Unitize() || !after.Unitize() || before * after < 0.985) continue; // bend of more than ~10 degrees
+                                    Vector3d before2 = cur.PointAt(shift - w) - cur.PointAt(shift - 2 * w), after2 = cur.PointAt(shift + 2 * w) - cur.PointAt(shift + w);
+                                    if (!before2.Unitize() || !after2.Unitize() || before2 * after2 < 0.985) continue;
+                                    if (Math.Abs(shift) > 1e-9) cur = new Loop(StartAt(cur.P, cur.PointAt(shift)), true);
+                                    break;
+                                }
+                                // Run the wall one bead spacing past its start before turning into the fill.
+                                // Rounding the turn takes about that much away again, so the wall ends up
+                                // closed instead of showing a gap on the outside.
+                                closeOver = Math.Min(tp.Settings.BeadSpacing, cur.Len * 0.25);
+                            }
+                            // after the last ramp the wedge it leaves at the top is closed with one more
+                            // pass over the ramp zone, fading out
+                            // (with several walls the next layer ramps on another wall, so close it here too)
+                            bool closeWedge = ramp && (!nextRamps || multi);
+                            double end = cur.Len + closeOver + (closeWedge ? lr : 0);
+                            // The very first wall of the print leaves a gap of one bead at its seam, as every ring of
+                            // skirt and brim does: it begins one bead after the seam (the skirt or brim comes in there)
+                            // and ends on the seam, where the next layer climbs away. Its end never runs over its own
+                            // start, and no move crosses the gap.
+                            Point3d seamAt = cur.P[0];
+                            if (tp.Count == 0 && !ramp && !usedHint && !hasFill && !multi && closeOver == 0 && cur.Len > 6 * w)
+                            {
+                                cur = new Loop(StartAt(cur.P, cur.PointAt(w)), true);
+                                end = cur.Len - w;
+                            }
+
+                            // A ramp that grows from nothing starts where the layer below ended at full height. The
+                            // height of a move is the mean of its two ends, so the first move up the ramp would print
+                            // a full bead's worth into the wedge: a point 0.05 mm up the ramp keeps that move tiny.
+                            double grow = ramp && !stacked ? Math.Min(0.05, 0.1 * lr) : -1;
+                            foreach (var kv in Traverse(cur, 0, end, lr, cur.Len, grow))
+                            {
+                                double pos = kv.Value;
+                                Point3d p = kv.Key;
+                                double height = h;
+                                PathRole role = src.Role;
+                                if (ramp && pos < lr)
+                                {
+                                    double u = pos / lr;
+                                    p -= n * (h * (1 - u));           // climb from the layer below
+                                    height = stacked ? h : h * u;     // on a flat layer the bead grows from nothing
+                                    role = PathRole.Seam;
+                                }
+                                else if (closeWedge && pos > cur.Len)
+                                {
+                                    height = h * (1 - (pos - cur.Len) / lr);
+                                    role = PathRole.Seam;
+                                }
+                                // a seam in a corner: the ramp starts where the layer below ended; no doubled
+                                // point there, so Round sees the inner corner and rounds it like every other one
+                                // (a sharp outer tip stays as it is: rounded, it would cut into the layers)
+                                if (inCorner && corners.Concave && pos <= 0 && tp.Count > 0 && p.DistanceTo(tp.Points[tp.Count - 1]) < 1e-6) continue;
+                                tp.Add(p, n, height, w, 1, role, layer.Index);
+                            }
+                            if (firstOfLayer)
+                            {
+                                rampStart = nextRamps && !hasFill && !multi ? seamAt : Point3d.Unset;
+                                belowRamped = ramp;
+                            }
                         }
-                        // seam in a corner: the corner right above the seam below, on every flat wall layer
-                        bool cornerLayer = corners != null && firstOfLayer && !hasFill && !multi && corners.Cand[i] != null && i >= corners.StartLayer;
-                        bool inCorner = false;
-                        if (cornerLayer)
+                        else
                         {
-                            Point3d? c = CornerFor(corners, i, rampStart.IsValid ? rampStart + n * h : Point3d.Unset, from, tp.Count == 0, n, w);
-                            if (c.HasValue) { target = c.Value; inCorner = true; }
-                        }
-                        var cur = new Loop(StartAt(pts, target), true);
-// the ramp, the closing pass and the move to the next contour run along the plain
-                        // wall, never inside a rib or support fin (the move would cut through its legs)
-                        double maxRamp = double.MaxValue;
-                        if (!usedHint && rampLength > 0) cur = OffExcursions(cur, layer, firstOfLayer, rampLength, tp.Settings.BeadSpacing, w, out maxRamp);
-                        curStarts.Add(cur.P[0]);
-                        if (cornerLayer)
-                        {
-                            if (corners.Last.IsValid) corners.MaxStep = Math.Max(corners.MaxStep, Sideways(cur.P[0], corners.Last, n));
-                            corners.Last = cur.P[0]; corners.Eligible++; if (inCorner) corners.Hits++;
+                            // open contour: start at the end that is nearer -> zigzag between layers
+                            var pts = new List<Point3d>(src.P);
+                            if (!first && pts[pts.Count - 1].DistanceTo(from) < pts[0].DistanceTo(from)) pts.Reverse();
+                            foreach (var p in pts) tp.Add(p, n, h, w, 1, src.Role, layer.Index);
+                            if (firstOfLayer) { rampStart = Point3d.Unset; belowRamped = false; }
                         }
 
-                        bool ramp = firstOfLayer && !usedHint && !hasFill && rampLength > 0 && tp.Count > 0 && i > 0;
-                        double lr = ramp ? Math.Min(Math.Min(rampLength, maxRamp), cur.Len * 0.5) : 0;
-                        // does this ramp lie on the ramp of the layer below?
-                        bool stacked = ramp && belowRamped && rampStart.IsValid && (rampStart + n * h).DistanceTo(cur.P[0]) < w;
-                        double closeOver = 0;
-                        if (usedHint)
+                        // the move that reaches this contour: print it if it is short, otherwise travel
+                        if (!first && startIndex < tp.Count)
                         {
-                            // The wall meets the fill on a straight piece of wall, never on a corner:
-                            // slide the meeting point along the wall until the wall is straight there.
-                            double reach = 2 * w;
-                            foreach (double shift in new[] { 0.0, reach, -reach, 2 * reach, -2 * reach, 3 * reach, -3 * reach })
+                            double link = tp.Points[startIndex].DistanceTo(tp.Points[startIndex - 1]);
+                            if (link > 3 * w)
                             {
-                                Vector3d before = cur.PointAt(shift) - cur.PointAt(shift - w), after = cur.PointAt(shift + w) - cur.PointAt(shift);
-                                if (!before.Unitize() || !after.Unitize() || before * after < 0.985) continue; // bend of more than ~10 degrees
-                                Vector3d before2 = cur.PointAt(shift - w) - cur.PointAt(shift - 2 * w), after2 = cur.PointAt(shift + 2 * w) - cur.PointAt(shift + w);
-                                if (!before2.Unitize() || !after2.Unitize() || before2 * after2 < 0.985) continue;
-                                if (Math.Abs(shift) > 1e-9) cur = new Loop(StartAt(cur.P, cur.PointAt(shift)), true);
-                                break;
+                                tp.Flows[startIndex] = 0;
+                                tp.Roles[startIndex] = PathRole.Travel;
                             }
-                            // Run the wall one bead spacing past its start before turning into the fill.
-                            // Rounding the turn takes about that much away again, so the wall ends up
-                            // closed instead of showing a gap on the outside.
-                            closeOver = Math.Min(tp.Settings.BeadSpacing, cur.Len * 0.25);
-                        }
-                        // after the last ramp the wedge it leaves at the top is closed with one more
-                        // pass over the ramp zone, fading out
-                        // (with several walls the next layer ramps on another wall, so close it here too)
-                        bool closeWedge = ramp && (!nextRamps || multi);
-                        double end = cur.Len + closeOver + (closeWedge ? lr : 0);
-                        // The very first wall of the print leaves a gap of one bead at its seam, as every ring of
-                        // skirt and brim does: it begins one bead after the seam (the skirt or brim comes in there)
-                        // and ends on the seam, where the next layer climbs away. Its end never runs over its own
-                        // start, and no move crosses the gap.
-                        Point3d seamAt = cur.P[0];
-                        if (tp.Count == 0 && !ramp && !usedHint && !hasFill && !multi && closeOver == 0 && cur.Len > 6 * w)
-                        {
-                            cur = new Loop(StartAt(cur.P, cur.PointAt(w)), true);
-                            end = cur.Len - w;
-                        }
-
-                        // A ramp that grows from nothing starts where the layer below ended at full height. The
-                        // height of a move is the mean of its two ends, so the first move up the ramp would print
-                        // a full bead's worth into the wedge: a point 0.05 mm up the ramp keeps that move tiny.
-                        double grow = ramp && !stacked ? Math.Min(0.05, 0.1 * lr) : -1;
-                        foreach (var kv in Traverse(cur, 0, end, lr, cur.Len, grow))
-                        {
-                            double pos = kv.Value;
-                            Point3d p = kv.Key;
-                            double height = h;
-                            PathRole role = src.Role;
-                            if (ramp && pos < lr)
+                            else if (!src.Closed)
                             {
-                                double u = pos / lr;
-                                p -= n * (h * (1 - u));           // climb from the layer below
-                                height = stacked ? h : h * u;     // on a flat layer the bead grows from nothing
-                                role = PathRole.Seam;
+                                tp.Heights[startIndex] = h;
                             }
-                            else if (closeWedge && pos > cur.Len)
-                            {
-                                height = h * (1 - (pos - cur.Len) / lr);
-                                role = PathRole.Seam;
-                            }
-                            // a seam in a corner: the ramp starts where the layer below ended; no doubled
-                            // point there, so Round sees the inner corner and rounds it like every other one
-                            // (a sharp outer tip stays as it is: rounded, it would cut into the layers)
-                            if (inCorner && corners.Concave && pos <= 0 && tp.Count > 0 && p.DistanceTo(tp.Points[tp.Count - 1]) < 1e-6) continue;
-                            tp.Add(p, n, height, w, 1, role, layer.Index);
                         }
-                        if (firstOfLayer)
-                        {
-                            rampStart = nextRamps && !hasFill && !multi ? seamAt : Point3d.Unset;
-                            belowRamped = ramp;
-                        }
+                        first = false;
+                        firstOfLayer = false;
                     }
-                    else
-                    {
-                        // open contour: start at the end that is nearer -> zigzag between layers
-                        var pts = new List<Point3d>(src.P);
-                        if (!first && pts[pts.Count - 1].DistanceTo(from) < pts[0].DistanceTo(from)) pts.Reverse();
-                        foreach (var p in pts) tp.Add(p, n, h, w, 1, src.Role, layer.Index);
-                        if (firstOfLayer) { rampStart = Point3d.Unset; belowRamped = false; }
-                    }
-
-                    // the move that reaches this contour: print it if it is short, otherwise travel
-                    if (!first && startIndex < tp.Count)
-                    {
-                        double link = tp.Points[startIndex].DistanceTo(tp.Points[startIndex - 1]);
-                        if (link > 3 * w)
-                        {
-                            tp.Flows[startIndex] = 0;
-                            tp.Roles[startIndex] = PathRole.Travel;
-                        }
-                        else if (!src.Closed)
-                        {
-                            tp.Heights[startIndex] = h;
-                        }
-                    }
-                    first = false;
-                    firstOfLayer = false;
+                }
+                if (usual != null && LeadEngine.FindCrossings(Tail(tp, layerStart)).Count >= crossed)
+                {
+                    // no better: as usual
+                    Cut(tp, layerStart);
+                    for (int k = layerStart > 0 ? 1 : 0; k < usual.Count; k++) tp.AddFrom(usual, k);
+                    curStarts = curStarts1; rampStart = rampStart1; belowRamped = belowRamped1;
                 }
             }
+        }
+
+        /// <summary>The path from index 'from' on (with the point before it, where its first move starts).</summary>
+        private static Toolpath Tail(Toolpath tp, int from)
+        {
+            var t = new Toolpath { Settings = tp.Settings };
+            for (int k = Math.Max(0, from - 1); k < tp.Count; k++) t.AddFrom(tp, k);
+            return t;
+        }
+
+        private static void Cut(Toolpath tp, int count)
+        {
+            int n = tp.Count - count;
+            if (n <= 0) return;
+            tp.Points.RemoveRange(count, n); tp.Normals.RemoveRange(count, n); tp.Heights.RemoveRange(count, n); tp.Widths.RemoveRange(count, n);
+            tp.Flows.RemoveRange(count, n); tp.Roles.RemoveRange(count, n); tp.Layers.RemoveRange(count, n);
         }
 
         /// <summary>
@@ -1343,22 +1409,139 @@ namespace LARGERslicer.Toolpaths
         /// ribRadius applies to corners of infill and bottom fill, where bead spacing rules.
         /// </summary>
         public static Toolpath Round(Toolpath tp, double minRadius, double ribRadius, out int corners, out int tooSharp)
+            => Round(tp, minRadius, ribRadius, out corners, out tooSharp, null);
+
+        /// <summary>
+        /// As above; log gets a line where the rounding was taken back. A rounded path must stay the path
+        /// it was: where a layer would lose much of its printed length, or the path would cross itself
+        /// where it did not before, the corners concerned stay sharp.
+        /// </summary>
+        public static Toolpath Round(Toolpath tp, double minRadius, double ribRadius, out int corners, out int tooSharp, List<string> log)
         {
             corners = 0; tooSharp = 0;
             int n = tp.Count;
             if (n < 3 || minRadius <= 0) return tp.Duplicate();
-            if (ribRadius <= 0) ribRadius = tp.Settings.BeadSpacing;
 
             var s = new double[n];
             for (int i = 1; i < n; i++) s[i] = s[i - 1] + tp.Points[i].DistanceTo(tp.Points[i - 1]);
-            double total = s[n - 1];
+            // a travel move is never bent: where the one before a point ends and the next one starts
+            var travelEnd = new double[n]; var travelStart = new double[n];
+            double at = 0;
+            for (int i = 0; i < n; i++) { travelEnd[i] = at; if (i > 0 && tp.Roles[i] == PathRole.Travel) travelEnd[i] = at = s[i]; }
+            at = s[n - 1];
+            for (int i = n - 1; i >= 0; i--) { travelStart[i] = at; if (i > 0 && tp.Roles[i] == PathRole.Travel) at = s[i - 1]; }
 
-            // 1) corners, merged into clusters: { first s, last s, radius, thin (1 = fill geometry), kind }
-            // kind 0 = the path turns in its layer (a corner), kind 1 = it only changes its slope (where
-            // a seam ramp starts or ends). A corner is rounded in the layer plane and keeps the height
-            // the path had there; a slope change is smoothed in height only. The two are never merged:
+            var clusters = Clusters(tp, s, travelEnd, minRadius, ribRadius);
+            if (clusters.Count == 0) return tp.Duplicate();
+            clusters = SplitBent(tp, s, travelEnd, travelStart, clusters);
+            corners = clusters.Count(c => c.Kind == 0);
+
+            var before = LayerLengths(tp);
+            List<Point3d> crossedBefore = null;
+            int flatLayers = 0, crossed = 0;
+            for (int round = 0; ; round++)
+            {
+                Cancel.Check();
+                var result = RoundOnce(tp, s, travelEnd, travelStart, clusters, out tooSharp);
+                if (round == 4) return result;
+                bool again = false;
+
+                // a layer that gets clearly shorter has lost its shape
+                var after = LayerLengths(result);
+                var lost = new HashSet<int>();
+                foreach (var kv in before) { after.TryGetValue(kv.Key, out double l); if (l < 0.55 * kv.Value) lost.Add(kv.Key); }
+                if (lost.Count > 0)
+                {
+                    int kept = 0;
+                    foreach (var c in clusters) if (!c.Sharp && c.Corners.Any(k => lost.Contains(tp.Layers[k]))) { c.Sharp = true; kept++; }
+                    if (kept > 0) { again = true; flatLayers += lost.Count; }
+                }
+                // (non-planar layers are bent: they cannot be tested in a plane)
+                if (!again && tp.Warp == null)
+                {
+                    var hits = LeadEngine.FindCrossings(result);
+                    if (hits.Count > 0)
+                    {
+                        if (crossedBefore == null) crossedBefore = LeadEngine.FindCrossings(tp);
+                        double w = tp.Settings.BeadWidth;
+                        foreach (var hit in hits)
+                        {
+                            if (crossedBefore.Any(q => q.DistanceTo(hit) < w)) continue;
+                            // the arc the crossing lies on; or, where a straight move came to lie across, the arcs at its ends
+                            foreach (double near in new[] { 0.25 * w, 2 * w })
+                            {
+                                int found = 0;
+                                foreach (var c in clusters)
+                                {
+                                    if (c.Sharp || c.Curve == null || c.Curve[0].DistanceTo(hit) > 20 * w + c.Last - c.First) continue;
+                                    Vector3d up = tp.Normals[c.Corners[0]];
+                                    if (!Sampled(c.Curve, 32).Any(q => Sideways(q, hit, up) <= near && Math.Abs((q - hit) * up) <= tp.Settings.LayerHeight)) continue;
+                                    c.Sharp = true; again = true; crossed++; found++;
+                                }
+                                if (found > 0) break;
+                            }
+                        }
+                    }
+                }
+                if (again) continue;
+                if (flatLayers > 0) log?.Add(Inv.F($"Round Corners: {flatLayers} layer(s) would lose much of their shape with this radius (details smaller than the radius): their corners stay sharp."));
+                if (crossed > 0) log?.Add(Inv.F($"Round Corners: {crossed} corner(s) stay sharp, because the arc would run across the path next to it."));
+                return result;
+            }
+        }
+
+        /// <summary>Corners that are rounded together by one arc.</summary>
+        private class Cluster
+        {
+            public double First, Last;   // arc length of the first and the last corner
+            public double Radius;
+            public bool Thin;            // fill geometry: bead spacing rules
+            public int Kind;             // 0 = the path turns in its layer, 1 = it only changes its slope
+            public bool LayerStep;       // the step to the next layer
+            public List<int> Corners = new List<int>();        // point indices
+            public List<double> Turns = new List<double>();    // signed turn at each corner (kind 1: the angle)
+            public bool Sharp;           // left as it is
+            public bool Piece;           // a piece of a longer chain of corners (SplitBent)
+            public Point3d[] Curve;      // the arc of the last RoundOnce, at the height of the path
+        }
+
+        private static SortedDictionary<int, double> LayerLengths(Toolpath tp)
+        {
+            var r = new SortedDictionary<int, double>();
+            for (int i = 1; i < tp.Count; i++)
+            {
+                if (tp.Flows[i] <= 0) continue;
+                r.TryGetValue(tp.Layers[i], out double l);
+                r[tp.Layers[i]] = l + tp.Points[i].DistanceTo(tp.Points[i - 1]);
+            }
+            return r;
+        }
+
+        private static IEnumerable<Point3d> Sampled(Point3d[] curve, int count)
+        {
+            for (int j = 0; j <= count; j++) yield return Bezier(curve, (double)j / count);
+        }
+
+        private static double LengthOf(IEnumerable<Point3d> line)
+        {
+            double l = 0; Point3d last = Point3d.Unset;
+            foreach (var p in line) { if (last.IsValid) l += p.DistanceTo(last); last = p; }
+            return l;
+        }
+
+        // corners that belong together: the two corners of a zigzag turn or rib tip lie one
+        // bead spacing apart, wall corners count as one within two radii
+        private static double JoinLength(Toolpath tp, bool thin, double radius) => thin ? 1.5 * tp.Settings.BeadSpacing : 2 * radius;
+
+        private static List<Cluster> Clusters(Toolpath tp, double[] s, double[] travelEnd, double minRadius, double ribRadius)
+        {
+            // an own rib radius counts as given; not given, the ribs get the wall radius, at most a bead spacing
+            double thinRadius = ribRadius > 0 ? ribRadius : Math.Min(minRadius, tp.Settings.BeadSpacing);
+            // A corner is rounded in the layer plane and keeps the height the path had there; a slope
+            // change (where a seam ramp starts or ends) is smoothed in height only. The two are never merged:
             // a ramp next to a corner must not pull the corner's arc wider than on the other layers.
-            var clusters = new List<double[]>();
+            var clusters = new List<Cluster>();
+            int n = tp.Count;
             for (int i = 1; i < n - 1; i++)
             {
                 Vector3d a = tp.Points[i] - tp.Points[i - 1], b = tp.Points[i + 1] - tp.Points[i];
@@ -1372,107 +1555,186 @@ namespace LARGERslicer.Toolpaths
                 bool inPlane = lap > 1e-9 && lbp > 1e-9 && Vector3d.VectorAngle(ap, bp) >= 0.05;
                 double angle = inPlane ? Vector3d.VectorAngle(ap, bp) : Vector3d.VectorAngle(a, b);
                 if (angle < 0.05) continue; // ~3 degrees
-                double kind = inPlane ? 0 : 1;
+                int kind = inPlane ? 0 : 1;
                 if (inPlane) { la = lap; lb = lbp; }
                 bool thin = IsFill(tp.Roles[i - 1]) || IsFill(tp.Roles[i]) || IsFill(tp.Roles[i + 1]);
-                double radius = thin ? Math.Min(minRadius, ribRadius) : minRadius;
+                double radius = thin ? thinRadius : minRadius;
                 bool sharp = angle > 0.26; // ~15 degrees
                 if (!sharp && Math.Min(la, lb) / (2 * Math.Tan(angle * 0.5)) >= radius) continue;
                 // the step to the next layer: on a leaning wall the path jogs sideways by the lean of
                 // one layer (2.9 mm at 55 degrees and 2 mm layers). That S-bend is no wall corner, so
                 // a smaller arc there is not reported as one.
                 bool layerStep = tp.Layers[i - 1] != tp.Layers[i + 1];
+                double turn = inPlane && Vector3d.CrossProduct(ap, bp) * nz < 0 ? -angle : angle;
 
-                // corners that belong together: the two corners of a zigzag turn or rib tip lie one
-                // bead spacing apart, wall corners count as one within two radii
-                double join = thin ? 1.5 * tp.Settings.BeadSpacing : 2 * radius;
-                if (clusters.Count > 0 && clusters[clusters.Count - 1][4] == kind && s[i] - clusters[clusters.Count - 1][1] <= join)
+                var c = clusters.Count > 0 ? clusters[clusters.Count - 1] : null;
+                if (c != null && c.Kind == kind && s[i] - c.Last <= JoinLength(tp, thin, radius) && travelEnd[i] <= c.Last)
                 {
-                    var c = clusters[clusters.Count - 1];
-                    c[1] = s[i];
-                    c[2] = Math.Min(c[2], radius);
-                    if (thin) c[3] = 1;
-                    if (layerStep) c[5] = 1;
+                    c.Last = s[i];
+                    c.Radius = Math.Min(c.Radius, radius);
+                    if (thin) c.Thin = true;
+                    if (layerStep) c.LayerStep = true;
                 }
-                else clusters.Add(new[] { s[i], s[i], radius, thin ? 1.0 : 0.0, kind, layerStep ? 1.0 : 0.0 });
+                else clusters.Add(c = new Cluster { First = s[i], Last = s[i], Radius = radius, Thin = thin, Kind = kind, LayerStep = layerStep });
+                c.Corners.Add(i); c.Turns.Add(turn);
             }
-            if (clusters.Count == 0) return tp.Duplicate();
-            corners = clusters.Count(c => c[4] == 0);
+            return clusters;
+        }
 
-            // 2) rebuild the path, replacing each cluster by an arc
+        /// <summary>
+        /// Corners close together can form a long chain (the teeth of a gear, a corrugated wall, a ring
+        /// smaller than the radius, the short lines of a narrow fill). One arc over all of it would cut
+        /// the shape away. Such a chain is taken apart where its one arc leaves the path: a long chain
+        /// by more than a quarter bead, a short one on a wall by nearly a whole bead (a ring as small as
+        /// the radius; the turns of a bridge stay one arc), in the infill, where a few corners of a small
+        /// cell are often one arc, by more than two beads. The pieces turn
+        /// at most as a U-turn does, are no longer than two corners may be apart, and a turn to the other
+        /// side starts a new piece.
+        /// </summary>
+        private static List<Cluster> SplitBent(Toolpath tp, double[] s, double[] travelEnd, double[] travelStart, List<Cluster> clusters)
+        {
+            const double uTurn = 3.6; // a little more than 180 degrees
+            var result = new List<Cluster>();
+            for (int k = 0; k < clusters.Count; k++)
+            {
+                var c = clusters[k];
+                double join = JoinLength(tp, c.Thin, c.Radius);
+                if (c.Corners.Count < 2 || (c.Last - c.First <= join + 1e-9 && c.Turns.Sum(t => Math.Abs(t)) <= uTurn)) { result.Add(c); continue; }
+                var curve = Fit(tp, s, travelEnd, travelStart, clusters, k, out double sA, out double sB, out Vector3d axis, out _);
+                double allowed = (c.Last - c.First > 3.5 * join ? 0.25 : c.Thin ? 2.0 : 0.9) * tp.Settings.BeadWidth;
+                if (curve != null)
+                {
+                    var line = Sampled(curve, 48).ToList();
+                    double off = 0;
+                    for (int i = SegmentAt(s, sA); i < s.Length && s[i] < sB && off <= allowed; i++)
+                    {
+                        Point3d p = Flat(tp.Points[i], axis);
+                        double d = double.MaxValue;
+                        for (int j = 1; j < line.Count; j++) d = Math.Min(d, DistToSegment(p, line[j - 1], line[j]));
+                        off = Math.Max(off, d);
+                    }
+                    if (off <= allowed) { result.Add(c); continue; }
+                }
+                Cluster part = null; double sum = 0, net = 0;
+                for (int j = 0; j < c.Corners.Count; j++)
+                {
+                    int i = c.Corners[j]; double t = c.Turns[j];
+                    bool other = c.Kind == 0 && Math.Abs(net) > 1.2 && net * t < 0 && Math.Abs(t) > 0.26;
+                    if (part == null || other || sum + Math.Abs(t) > uTurn || s[i] - part.First > join + 1e-9)
+                    {
+                        part = new Cluster { First = s[i], Radius = c.Radius, Thin = c.Thin, Kind = c.Kind, LayerStep = c.LayerStep, Piece = true };
+                        result.Add(part); sum = 0; net = 0;
+                    }
+                    part.Last = s[i]; part.Corners.Add(i); part.Turns.Add(t);
+                    sum += Math.Abs(t); net += t;
+                }
+            }
+            return result;
+        }
+
+        /// <summary>The arc that replaces cluster k: it reaches at most half way to the neighbouring corners and never into a travel move.</summary>
+        private static Point3d[] Fit(Toolpath tp, double[] s, double[] travelEnd, double[] travelStart, List<Cluster> clusters, int k,
+            out double sA, out double sB, out Vector3d axis, out bool tooSharp)
+        {
+            var c = clusters[k];
+            double lo = k == 0 ? 0 : 0.5 * (clusters[k - 1].Last + c.First);
+            double hi = k == clusters.Count - 1 ? s[s.Length - 1] : 0.5 * (c.Last + clusters[k + 1].First);
+            var curve = Fit(tp, s, c, lo, hi, out sA, out sB, out axis, out tooSharp);
+            double from = travelEnd[c.Corners[0]], to = travelStart[c.Corners[c.Corners.Count - 1]];
+            if (curve != null && (sA < from - 1e-9 || sB > to + 1e-9))
+                curve = Fit(tp, s, c, Math.Max(lo, from), Math.Min(hi, to), out sA, out sB, out axis, out tooSharp);
+            return curve;
+        }
+
+        /// <summary>The arc between arc lengths sA and sB, which lie between lo and hi (null = no room for one).</summary>
+        private static Point3d[] Fit(Toolpath tp, double[] s, Cluster c, double lo, double hi, out double sA, out double sB, out Vector3d axis, out bool tooSharp)
+        {
+            double first = c.First, last = c.Last, radius = c.Radius;
+            bool slope = c.Kind > 0;
+            sA = first; sB = last; tooSharp = false;
+            // a corner is rounded in the plane of its layer (tool axis in the middle of the corner)
+            axis = Vector3d.Zero;
+            if (!slope) { axis = tp.Normals[SegmentAt(s, 0.5 * (first + last))]; if (!axis.Unitize()) axis = Vector3d.Zero; }
+            // never reach into the neighbouring corner's half of the straight in between
+            double tMax = Math.Min(Math.Min(first - lo, hi - last), 4 * radius);
+            if (tMax < 1e-3) { tooSharp = true; return null; }
+
+            // A U-turn (the path comes back beside itself, one bead away) gets a half circle
+            // whose top touches the turn. Its cut follows from the distance of the two lines
+            // alone. No search: between two curved lines a long cut can reach the radius with
+            // a balloon-shaped loop, on one layer and not on the next, and the turn then
+            // sits centimetres beside the one below.
+            double tProbe = Math.Min(tMax, 0.5 * tp.Settings.BeadSpacing);
+            Point3d[] probe = Blend(tp, s, first - tProbe, last + tProbe, radius, out double turn, axis);
+            bool uTurn = turn > 2.5;
+
+            // smallest cut distance whose arc reaches the radius
+            double t = -1;
+            double prevT = 0;
+            const int steps = 32;
+            var tried = new double[steps + 1];
+            for (int k = 1; k <= steps && !uTurn; k++)
+            {
+                double tk = tMax * k / steps;
+                double rk = BlendRadius(tp, s, first - tk, last + tk, radius, axis);
+                tried[k] = rk;
+                if (rk >= radius * 0.97)
+                {
+                    double a0 = prevT, b0 = tk;
+                    for (int it = 0; it < 6; it++)
+                    {
+                        double mid = 0.5 * (a0 + b0);
+                        if (BlendRadius(tp, s, first - mid, last + mid, radius, axis) >= radius * 0.97) b0 = mid; else a0 = mid;
+                    }
+                    t = b0;
+                    break;
+                }
+                prevT = tk;
+            }
+            // radius not reachable: the shortest cut that gets within 10 % of the best possible
+            // arc. Cutting further back would only shorten the path (e.g. a rib) for nothing.
+            double bestR = 0, bestT = tMax;
+            if (uTurn)
+            {
+                double half = 0.5 * probe[0].DistanceTo(probe[3]) / Math.Sin(turn * 0.5);
+                t = Math.Min(tMax, half);
+                tooSharp = true;
+            }
+            else if (t < 0)
+            {
+                for (int k = 1; k <= steps; k++) bestR = Math.Max(bestR, tried[k]);
+                for (int k = 1; k <= steps; k++)
+                    if (tried[k] >= 0.9 * bestR) { bestT = tMax * k / steps; break; }
+                // radius not reachable: the largest arc that fits
+                t = bestT;
+                tooSharp = true;
+            }
+            sA = first - t; sB = last + t;
+            return Blend(tp, s, sA, sB, radius, out _, axis);
+        }
+
+        /// <summary>Rebuilds the path, replacing each cluster (that does not stay sharp) by its arc.</summary>
+        private static Toolpath RoundOnce(Toolpath tp, double[] s, double[] travelEnd, double[] travelStart, List<Cluster> clusters, out int tooSharp)
+        {
+            tooSharp = 0;
+            int n = tp.Count;
             var result = new Toolpath { Settings = tp.Settings, Warp = tp.Warp };
             int idx = 0;
             for (int c = 0; c < clusters.Count; c++)
             {
-                double first = clusters[c][0], last = clusters[c][1], radius = clusters[c][2];
-                bool thinCluster = clusters[c][3] > 0;
-                bool slope = clusters[c][4] > 0;
+                var cl = clusters[c];
+                cl.Curve = null;
                 // only wall corners are counted: not fill turns, not slope changes, not the step to the next layer
-                bool counted = !thinCluster && !slope && clusters[c][5] == 0;
-                // a corner is rounded in the plane of its layer (tool axis in the middle of the corner)
-                Vector3d axis = Vector3d.Zero;
-                if (!slope) { axis = tp.Normals[SegmentAt(s, 0.5 * (first + last))]; if (!axis.Unitize()) axis = Vector3d.Zero; }
-                // never reach into the neighbouring corner's half of the straight in between
-                double lo = c == 0 ? 0 : 0.5 * (clusters[c - 1][1] + first);
-                double hi = c == clusters.Count - 1 ? total : 0.5 * (last + clusters[c + 1][0]);
-                double tMax = Math.Min(Math.Min(first - lo, hi - last), 4 * radius);
-                if (tMax < 1e-3) { if (counted) tooSharp++; continue; }
-
-                // A U-turn (the path comes back beside itself, one bead away) gets a half circle
-                // whose top touches the turn. Its cut follows from the distance of the two lines
-                // alone. No search: between two curved lines a long cut can reach the radius with
-                // a balloon-shaped loop, on one layer and not on the next, and the turn then
-                // sits centimetres beside the one below.
-                double tProbe = Math.Min(tMax, 0.5 * tp.Settings.BeadSpacing);
-                Point3d[] probe = Blend(tp, s, first - tProbe, last + tProbe, radius, out double turn, axis);
-                bool uTurn = turn > 2.5;
-
-                // smallest cut distance whose arc reaches the radius
-                double t = -1;
-                double prevT = 0;
-                const int steps = 32;
-                var tried = new double[steps + 1];
-                for (int k = 1; k <= steps && !uTurn; k++)
-                {
-                    double tk = tMax * k / steps;
-                    double rk = BlendRadius(tp, s, first - tk, last + tk, radius, axis);
-                    tried[k] = rk;
-                    if (rk >= radius * 0.97)
-                    {
-                        double a0 = prevT, b0 = tk;
-                        for (int it = 0; it < 6; it++)
-                        {
-                            double mid = 0.5 * (a0 + b0);
-                            if (BlendRadius(tp, s, first - mid, last + mid, radius, axis) >= radius * 0.97) b0 = mid; else a0 = mid;
-                        }
-                        t = b0;
-                        break;
-                    }
-                    prevT = tk;
-                }
-                // radius not reachable: the shortest cut that gets within 10 % of the best possible
-                // arc. Cutting further back would only shorten the path (e.g. a rib) for nothing.
-                double bestR = 0, bestT = tMax;
-                if (uTurn)
-                {
-                    double half = 0.5 * probe[0].DistanceTo(probe[3]) / Math.Sin(turn * 0.5);
-                    t = Math.Min(tMax, half);
-                    if (counted) tooSharp++;
-                }
-                else if (t < 0)
-                {
-                    for (int k = 1; k <= steps; k++) bestR = Math.Max(bestR, tried[k]);
-                    for (int k = 1; k <= steps; k++)
-                        if (tried[k] >= 0.9 * bestR) { bestT = tMax * k / steps; break; }
-                    // radius not reachable: the largest arc that fits
-                    t = bestT;
-                    if (counted) tooSharp++;
-                }
-
-                double sA = first - t, sB = last + t;
+                bool counted = !cl.Thin && cl.Kind == 0 && !cl.LayerStep;
+                if (cl.Sharp) { if (counted) tooSharp++; continue; }
+                Point3d[] curve = Fit(tp, s, travelEnd, travelStart, clusters, c, out double sA, out double sB, out Vector3d axis, out bool sharp);
+                // a piece of a long chain of small corners: never a longer way than the corners themselves
+                if (curve != null && cl.Piece && LengthOf(Sampled(curve, 16)) > 1.02 * (sB - sA)) { cl.Sharp = true; curve = null; sharp = true; }
+                if (sharp && counted) tooSharp++;
+                if (curve == null) continue;
                 while (idx < n && s[idx] < sA - 1e-9) { result.AddFrom(tp, idx); idx++; }
 
-                Point3d[] curve = Blend(tp, s, sA, sB, radius, out double phi, axis);
+                Blend(tp, s, sA, sB, cl.Radius, out double phi, axis);
                 int count = Math.Max(3, Math.Min(48, (int)Math.Ceiling(Math.Max(phi, 0.6) / 0.12)));
                 for (int j = 0; j <= count; j++)
                 {
@@ -1480,9 +1742,12 @@ namespace LARGERslicer.Toolpaths
                     double at = sA + (sB - sA) * u;
                     Point3d q = Bezier(curve, u);
                     // in the layer plane: the height along the tool axis is the one the path had there
-                    if (!slope && !axis.IsZero) q += axis * (((Vector3d)At(tp, s, at)) * axis);
+                    if (!axis.IsZero) q += axis * (((Vector3d)At(tp, s, at)) * axis);
                     AddSampled(result, tp, s, at, q);
                 }
+                // (for the crossing test: at the height in the middle of the arc)
+                Vector3d up = axis.IsZero ? Vector3d.Zero : axis * (((Vector3d)At(tp, s, 0.5 * (sA + sB))) * axis);
+                cl.Curve = curve.Select(q => q + up).ToArray();
                 while (idx < n && s[idx] <= sB + 1e-9) idx++;
             }
             while (idx < n) { result.AddFrom(tp, idx); idx++; }

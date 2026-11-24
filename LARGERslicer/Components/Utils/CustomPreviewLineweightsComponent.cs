@@ -42,83 +42,37 @@ namespace LARGERslicer.Components.Utils
             DA.GetData(1, ref color);
             DA.GetData(2, ref thickness);
 
-            // Store color and thickness for preview rendering
-            _previewColor = color;
-            _previewThickness = (int)Math.Max(1, Math.Round(thickness));
+            // Store geometry, color and thickness for preview rendering
+            int pixels = (int)Math.Max(1, Math.Round(thickness));
+            foreach (var g in geometries)
+                if (g != null) _items.Add(new Item { Geometry = g, Color = color, Thickness = pixels });
 
             // Return geometries as-is - preview will be handled in DrawViewportWires
             DA.SetDataList(0, geometries);
         }
 
-        private Color _previewColor = Color.Black;
-        private int _previewThickness = 1;
+        // what to draw, kept from the solution (nothing is collected while drawing)
+        private sealed class Item { public IGH_GeometricGoo Geometry; public Color Color; public int Thickness; }
+        private readonly List<Item> _items = new List<Item>();
+
+        protected override void BeforeSolveInstance()
+        {
+            base.BeforeSolveInstance();
+            _items.Clear();
+        }
 
         public override void DrawViewportWires(IGH_PreviewArgs args)
         {
-            if (Hidden) return;
-
-            // Get geometries from input parameter
-            var geoParam = Params.Input[0];
-            if (geoParam.SourceCount == 0) return;
-
-            // Get color and thickness from inputs
-            Color color = _previewColor;
-            int thickness = _previewThickness;
-
-            // Collect geometries from input
-            var geoTree = new Grasshopper.Kernel.Data.GH_Structure<IGH_GeometricGoo>();
-            if (geoParam.Sources.Count > 0 && geoParam.Sources[0] != null)
-            {
-                geoParam.Sources[0].CollectData();
-                geoTree = geoParam.VolatileData as Grasshopper.Kernel.Data.GH_Structure<IGH_GeometricGoo>;
-                if (geoTree == null) return;
-            }
-            else
-            {
-                return;
-            }
-
-            if (geoTree.DataCount == 0) return;
-
-            // Get color from input
-            var colorParam = Params.Input[1];
-            if (colorParam.SourceCount > 0 && colorParam.Sources.Count > 0 && colorParam.Sources[0] != null)
-            {
-                colorParam.Sources[0].CollectData();
-                var colorTree = colorParam.VolatileData as Grasshopper.Kernel.Data.GH_Structure<GH_Colour>;
-                if (colorTree != null && colorTree.DataCount > 0)
-                {
-                    var ghColor = colorTree.get_FirstItem(false);
-                    if (ghColor != null)
-                    {
-                        color = ghColor.Value;
-                    }
-                }
-            }
-
-            // Get thickness from input
-            var thicknessParam = Params.Input[2];
-            if (thicknessParam.SourceCount > 0 && thicknessParam.Sources.Count > 0 && thicknessParam.Sources[0] != null)
-            {
-                thicknessParam.Sources[0].CollectData();
-                var thicknessTree = thicknessParam.VolatileData as Grasshopper.Kernel.Data.GH_Structure<GH_Number>;
-                if (thicknessTree != null && thicknessTree.DataCount > 0)
-                {
-                    var ghThickness = thicknessTree.get_FirstItem(false);
-                    if (ghThickness != null)
-                    {
-                        thickness = (int)Math.Max(1, Math.Round(ghThickness.Value));
-                    }
-                }
-            }
+            if (Hidden || Locked) return;
 
             // Draw geometries with custom color and thickness
             var display = args.Display;
-            var rhinoColor = System.Drawing.Color.FromArgb(color.R, color.G, color.B);
 
-            foreach (var item in geoTree.AllData(false))
+            foreach (var kept in _items)
             {
-                if (item == null) continue;
+                var item = kept.Geometry;
+                int thickness = kept.Thickness;
+                var rhinoColor = System.Drawing.Color.FromArgb(kept.Color.R, kept.Color.G, kept.Color.B);
 
                 // Draw curves
                 if (item is GH_Curve ghCurve)
@@ -158,6 +112,11 @@ namespace LARGERslicer.Components.Utils
                     {
                         display.DrawPoint(point, rhinoColor);
                     }
+                }
+                // lines, arcs, circles, rectangles, boxes, surfaces, SubDs ...
+                else if (item is IGH_PreviewData preview)
+                {
+                    preview.DrawViewportWires(new GH_PreviewWireArgs(args.Viewport, display, rhinoColor, thickness));
                 }
             }
         }

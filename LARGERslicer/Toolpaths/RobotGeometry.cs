@@ -264,6 +264,61 @@ namespace LARGERslicer.Toolpaths
             m.Compact();
         }
 
+        /// <summary>
+        /// The meshes as the collision check can use them. Rhino calls a mesh with one degenerate face invalid; leaving
+        /// it out would leave a whole fence unchecked. A valid mesh is handed on as it is, of an invalid one the faces
+        /// that can be used are kept. what = how the meshes are called in the notes ("Environment mesh").
+        /// </summary>
+        public static List<Mesh> Usable(IEnumerable<Mesh> meshes, string what, List<string> notes)
+        {
+            var list = new List<Mesh>();
+            int n = 0;
+            foreach (var m in meshes ?? Enumerable.Empty<Mesh>())
+            {
+                n++;
+                if (m == null) continue;
+                if (m.IsValid) { list.Add(m); continue; }
+                var r = Rebuilt(m, out int dropped);
+                if (r == null) { notes?.Add(Inv.F($"{what} {n} has no usable faces: it is left out and NOT checked for collisions.")); continue; }
+                notes?.Add(Inv.F($"{what} {n} is not a valid mesh") + (dropped > 0 ? Inv.F($": {dropped} of {m.Faces.Count} faces could not be used, the others are checked for collisions.") : ": it was rebuilt from its faces."));
+                list.Add(r);
+            }
+            return list;
+        }
+
+        /// <summary>A mesh of the faces of m that have an area and corners that exist; null if there are none.</summary>
+        private static Mesh Rebuilt(Mesh m, out int dropped)
+        {
+            dropped = 0;
+            int nv = m.Vertices.Count;
+            var pts = new Point3d[nv]; var index = new int[nv];
+            for (int i = 0; i < nv; i++)
+            {
+                pts[i] = m.Vertices[i]; index[i] = -1;
+                if (double.IsNaN(pts[i].X + pts[i].Y + pts[i].Z) || Math.Abs(pts[i].X) + Math.Abs(pts[i].Y) + Math.Abs(pts[i].Z) > 1e9) index[i] = -2;
+            }
+            var r = new Mesh();
+            for (int i = 0; i < m.Faces.Count; i++)
+            {
+                var fc = m.Faces[i];
+                bool any = Triangle(r, pts, index, fc.A, fc.B, fc.C);
+                if (fc.C != fc.D) any |= Triangle(r, pts, index, fc.A, fc.C, fc.D);
+                if (!any) dropped++;
+            }
+            if (r.Faces.Count == 0) return null;
+            r.Normals.ComputeNormals();
+            return r;
+        }
+
+        private static bool Triangle(Mesh r, Point3d[] pts, int[] index, int a, int b, int c)
+        {
+            foreach (int k in new[] { a, b, c }) if (k < 0 || k >= pts.Length || index[k] == -2) return false;
+            if (Vector3d.CrossProduct(pts[b] - pts[a], pts[c] - pts[a]).Length < 1e-9) return false;
+            foreach (int k in new[] { a, b, c }) if (index[k] < 0) index[k] = r.Vertices.Add(pts[k]);
+            r.Faces.AddFace(index[a], index[b], index[c]);
+            return true;
+        }
+
         public static Transform ToTransform(Frame f)
         {
             var t = Transform.Identity;

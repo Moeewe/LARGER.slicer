@@ -99,6 +99,8 @@ namespace LARGERslicer.Toolpaths
         public bool CanMove => Parts.Any(p => p.Group == "X" || p.Group == "Y" || p.Group == "Z");
         /// <summary>True when a point on layer TCP says where the nozzle tip is.</summary>
         public bool HasTcp;
+        /// <summary>Block instances in the file: they are not read.</summary>
+        public int Blocks;
 
         public BoundingBox Box { get { var b = BoundingBox.Empty; foreach (var p in Parts) b.Union(p.Mesh.GetBoundingBox(false)); return b; } }
 
@@ -227,7 +229,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>A copy whose meshes can be changed without touching the cached model.</summary>
         public PrinterModel Duplicate()
         {
-            var c = new PrinterModel { Name = Name, Tcp = Tcp, HasTcp = HasTcp };
+            var c = new PrinterModel { Name = Name, Tcp = Tcp, HasTcp = HasTcp, Blocks = Blocks };
             foreach (var p in Parts) c.Parts.Add(new Part { Group = p.Group, Mesh = p.Mesh.DuplicateMesh(), Color = p.Color });
             return c;
         }
@@ -266,6 +268,7 @@ namespace LARGERslicer.Toolpaths
                     : layerColors.TryGetValue(o.Attributes.LayerIndex, out var lc) ? lc : Color.Gray;
                 var g = o.Geometry;
                 if (g is Rhino.Geometry.Point pt) { if (group == "TCP" && !model.HasTcp) { model.Tcp = pt.Location; model.HasTcp = true; } continue; }
+                if (g is InstanceReferenceGeometry) model.Blocks++;
                 if (group == "TCP") continue;
                 Mesh mesh = MeshOf(g);
                 if (mesh == null || mesh.Faces.Count == 0) { if (!(g is Curve) && !(g is TextEntity) && !(g is AnnotationBase)) skipped++; continue; }

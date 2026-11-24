@@ -85,9 +85,26 @@ namespace LARGERslicer.Components.CNCUtilities
                     : Path.GetDirectoryName(docPath);
             }
 
-            Directory.CreateDirectory(path);
-            string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            try
+            {
+                Directory.CreateDirectory(path);
+            }
+            catch (Exception ex)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Export folder is invalid: " + ex.Message);
+                log.Add("Canceled: export folder is invalid - " + ex.Message);
+                DA.SetDataList(0, files);
+                DA.SetDataList(1, log);
+                return;
+            }
+
+            string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
             string basePath = Path.Combine(path, name + "_" + stamp);
+            // several branches in the same second: never write over the files of the one before
+            string free = basePath;
+            for (int n = 2; File.Exists(free + ".3dm") || File.Exists(free + ".csv"); n++)
+                free = basePath + "_" + n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            basePath = free;
 
             if (write3dm)
             {
@@ -100,12 +117,14 @@ namespace LARGERslicer.Components.CNCUtilities
                     if (container != null) f3.Objects.AddBrep(container);
                     if (reference != null) f3.Objects.AddBrep(reference);
 
-                    f3.Write(p3, 7);
+                    if (!f3.Write(p3, 7) || !File.Exists(p3))
+                        throw new IOException("Rhino could not write " + p3);
                     files.Add(p3);
                     log.Add("3DM file written");
                 }
                 catch (Exception ex)
                 {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "3DM file not written: " + ex.Message);
                     log.Add("Error writing 3DM file: " + ex.Message);
                 }
             }
@@ -125,6 +144,7 @@ namespace LARGERslicer.Components.CNCUtilities
                 }
                 catch (Exception ex)
                 {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "CSV file not written: " + ex.Message);
                     log.Add("Error writing CSV file: " + ex.Message);
                 }
             }

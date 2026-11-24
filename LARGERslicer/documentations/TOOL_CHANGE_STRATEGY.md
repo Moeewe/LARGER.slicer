@@ -1,5 +1,9 @@
 # Tool Change Strategy for CNC Program Component
 
+> **Planning notes, partly wrong.** `XX220` does not change a tool (it takes the machine offline); a router bit is
+> changed with `XX351`. What the plug-in writes today: [HPGL_XX_COMMANDS.md](HPGL_XX_COMMANDS.md). Roughing and
+> finishing with a change of the bit: `CNC - Rough and Finish`.
+
 ## Overview
 This document outlines the strategy for implementing tool changes in the CNC Program component, allowing multiple tools (11, 21, 31) to be used within a single toolpath.
 

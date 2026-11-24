@@ -244,7 +244,11 @@ namespace LARGERslicer.GH2
     public sealed class MachineComponent : PreviewComponent
     {
         public MachineComponent() : base(Io.Name("Machine", "A machine that prints from G-code: its start code, end code, layer code and how it wants the extrusion. The Ginger One is built in. Add your own machine as a .machine text file in Documents/LARGER/Machines, or type its codes into the inputs here and set Save once. Connect the result to Machine G-code. The Weber DXR on the robot has its own components.", Io.Slicer, Group.Output)) { }
-        public MachineComponent(IReader reader) : base(reader) { }
+        public MachineComponent(IReader reader) : base(reader)
+        {
+            // files saved before Kind existed: add it at the end, the wires stay
+            if (Parameters.InputCount == 12) AddKind(new InputAdder(this));
+        }
         protected override IIcon IconInternal => Io.Icon("SlicerGantryIcon");
         // the machine in its own colours (frame, bed, gantry, head), as in Grasshopper 1
         protected override int[] OwnOutputs => new[] { 3 };
@@ -264,6 +268,12 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Filament Diameter", "Fil", "Optional. 0 = E is a volume (pellet extruder). Larger = E is the length of filament of this diameter (mm).", Access.Item, Requirement.MayBeMissing);
             inputs.AddText("Material", "Mat", "Optional. The material, written where the codes say {material} (Ginger One (Klipper): START_PRINT MATERIAL=...). Empty = the machine's own (PLA).", Access.Item, Requirement.MayBeMissing);
             inputs.AddNumber("Bed Temperature", "Bed", "Optional. Bed temperature in degrees C, written where the codes say {bed}. Empty = the machine's own (90).", Access.Item, Requirement.MayBeMissing);
+            AddKind(inputs);
+        }
+
+        private static void AddKind(InputAdder inputs)
+        {
+            inputs.AddInteger("Kind", "K", "How the machine moves, which decides what it can print and how Printer Simulation moves its model: 0 = as the machine chosen above, 1 = gantry, 2 = bed slinger (the bed moves in Y), 3 = delta, 4 = belt printer (45 degrees), 5 = robot.").Set(0).Choices("as the machine", "Gantry", "Bed slinger", "Delta", "Belt 45", "Robot");
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -287,7 +297,7 @@ namespace LARGERslicer.GH2
             if (access.ItemArray(8, out object[] modelIn) && modelIn != null && modelIn.Length > 0)
             {
                 var mesh = SliceEngine.ToMesh(modelIn.Where(g => g != null).Select(Io.Solid), 0.5, null);
-                if (mesh != null) ownModel = new List<Mesh> { mesh }; else access.AddWarning("Model", "Connect meshes, Breps, surfaces or SubDs.");
+                if (mesh != null) ownModel = new List<Mesh> { MachineLook.Prepare(mesh) }; else access.AddWarning("Model", "Connect meshes, Breps, surfaces or SubDs.");
             }
 
             MachineDefinition m;
@@ -317,6 +327,7 @@ namespace LARGERslicer.GH2
             if (hasFilament && filament >= 0) m.Profile.FilamentDiameter = filament;
             if (access.GetItem(10, out string material) && !string.IsNullOrWhiteSpace(material)) m.Material = material.Trim();
             if (access.GetItem(11, out double bedTemp)) m.BedTemperature = bedTemp;
+            if (Parameters.InputCount > 12 && access.GetItem(12, out int kind) && kind >= 1 && kind <= MachineKinds.All.Length) { m.Kind = MachineKinds.All[kind - 1]; own = true; }
             m.Profile.Name = m.Name;
             if (own) m.Source = "made here";
             if (m.Start.Count == 0) access.AddWarning("No start code", "The G-code begins with the first move.");

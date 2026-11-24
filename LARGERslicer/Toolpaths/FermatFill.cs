@@ -138,8 +138,9 @@ namespace LARGERslicer.Toolpaths
                 // The wall meets the fill at the fill's first point (see FillEngine.Bottom).
                 entries?.Add(line[0]);
             }
-            // anything not reached (e.g. a hole group whose host was too small to print)
-            foreach (Ring r in all.Where(x => !x.Used && x.Parent == null))
+            // anything not reached (a hole group whose host was too small to print, a pocket whose ring had no
+            // room left for a side trip): its own line, outer rings first
+            foreach (Ring r in all.Where(x => !x.Used))
             {
                 var line = Group(r, r.P[0], Vector2d.Zero, spacing, seam);
                 if (line.Count >= 2) result.Add(line);
