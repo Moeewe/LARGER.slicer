@@ -46,6 +46,71 @@ namespace LARGERslicer.GH2
         }
     }
 
+    // ============================================================== fan schedule
+    [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d2010")]
+    public sealed class FanScheduleComponent : Component
+    {
+        public FanScheduleComponent() : base(Io.Name("Fan Schedule", "Cooling by layer: the fan stays off for the first layers, then runs at a low and later at a full value. Put it between Machine Settings and the DXR Generator; the DXR file switches the fan at the layer change (V.P.VAR_fan, L fan_sub.nc, as the Weber post processor writes it). Steps = your own list, e.g. 5:30, 10:70, 40:100 (after 5 layers 30 %, after 10 layers 70 % ...).", Io.Dxr, 0)) { }
+        public FanScheduleComponent(IReader reader) : base(reader) { }
+        protected override IIcon IconInternal => Io.Icon("FanScheduleIcon");
+
+        protected override void AddInputs(InputAdder inputs)
+        {
+            inputs.AddGeneric("Machine Settings", "MS", "From Machine Settings.");
+            inputs.AddInteger("Off For", "Off", "The fan stays off for this many layers (they must stick to the bed and to each other).").Set(5).Counts(0, 1, 2, 3, 5, 8, 10);
+            inputs.AddNumber("Then", "Low", "Fan in percent after those layers.").Set(30.0).Values(0, 20, 30, 50);
+            inputs.AddInteger("Full After", "After", "After this many layers the fan runs at Full.").Set(10).Counts(5, 10, 15, 20, 30);
+            inputs.AddNumber("Full", "Full", "Fan in percent from then on.").Set(70.0).Values(50, 70, 85, 100);
+            inputs.AddBoolean("Ramp", "Ramp", "True = the fan rises evenly from Then to Full between the two layers. False = it jumps.").Set(false);
+            inputs.AddText("Steps", "Steps", "Optional, instead of the values above: after how many layers how many percent, e.g. 5:30, 10:70, 40:100.", Access.Item, Requirement.MayBeMissing);
+        }
+
+        protected override void AddOutputs(OutputAdder outputs)
+        {
+            outputs.AddGeneric("Machine Settings", "MS", "Machine Settings with the fan by layer, for the DXR Generator.");
+            outputs.AddText("Info", "I", "The fan by layer.", Access.Twig);
+        }
+
+        protected override void Process(IDataAccess access)
+        {
+            var ms = Io.Get<MachineSettings>(access, 0);
+            if (ms == null) { access.AddWarning("Machine Settings", "Connect Machine Settings."); return; }
+            int off, after; double low, full; bool ramp; string text;
+            access.GetItem(1, out off); access.GetItem(2, out low); access.GetItem(3, out after); access.GetItem(4, out full); access.GetItem(5, out ramp); access.GetItem(6, out text);
+            var steps = new List<KeyValuePair<int, double>>();
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                foreach (var part in text.Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var kv = part.Split(':');
+                    if (kv.Length == 2 && int.TryParse(kv[0].Trim(), out int at) && double.TryParse(kv[1].Trim().TrimEnd('%').Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double pc))
+                        steps.Add(new KeyValuePair<int, double>(Math.Max(0, at), Math.Max(0, Math.Min(100, pc))));
+                    else access.AddWarning("Steps", "Not understood: '" + part.Trim() + "' (write layers:percent, e.g. 5:30).");
+                }
+                steps = steps.OrderBy(st => st.Key).ToList();
+            }
+            else
+            {
+                off = Math.Max(0, off); after = Math.Max(off, after);
+                steps.Add(new KeyValuePair<int, double>(0, 0));
+                if (after > off) steps.Add(new KeyValuePair<int, double>(off, Math.Max(0, Math.Min(100, low))));
+                steps.Add(new KeyValuePair<int, double>(after, Math.Max(0, Math.Min(100, full))));
+            }
+            if (steps.Count == 0 || steps[0].Key > 0) steps.Insert(0, new KeyValuePair<int, double>(0, 0));
+            var r = ms.Copy();
+            r.FanSteps = steps; r.FanRamp = ramp;
+            var info = new List<string>();
+            int prev = -1;
+            foreach (var st in steps)
+            {
+                info.Add(st.Key == 0 ? $"From layer 1: {st.Value:0} %" : $"After {st.Key} layer(s) (from layer {st.Key + 1}): {st.Value:0} %" + (ramp && prev >= 0 ? " (rising evenly up to here)" : ""));
+                prev = st.Key;
+            }
+            access.SetItem(0, r);
+            access.SetTwig(1, info.ToArray(), null, null);
+        }
+    }
+
     // ============================================================== toolpath -> robot lines
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d2002")]
     public sealed class ToolpathToRobotLinesComponent : Component

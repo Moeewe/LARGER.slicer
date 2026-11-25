@@ -15,8 +15,17 @@ namespace LARGERslicer.GH2
     [IoId("a7c2f1d4-58e3-4b9a-9c06-1e7d3b5f8a09")]
     public sealed class CncReliefComponent : Component
     {
-        public CncReliefComponent() : base(Io.Name("CNC - Relief", "Examples to mill: a site model, a facade, scales, Voronoi cells, a gyroid, vaults and other patterns as a mesh. Choose one, set its size, connect it to Model of CNC - Rough and Finish. Wave bends the whole panel.", Io.Cnc, 0)) { }
-        public CncReliefComponent(IReader reader) : base(reader) { }
+        public CncReliefComponent() : base(Io.Name("CNC - Relief", "Examples to mill: a site model, a facade, scales, diamond facets, a gyroid, vaults and other patterns as a mesh. Choose one, set its size, connect it to Model of CNC - Rough and Finish. Wave bends the whole panel.", Io.Cnc, 0)) { CustomValues.Set("LARGER_NoVoronoi", true); }
+        public CncReliefComponent(IReader reader) : base(reader)
+        {
+            // files saved before Voronoi was taken out (2.0.3 and older): the patterns after it count one lower now
+            if (CustomValues.Get("LARGER_NoVoronoi", false)) return;
+            CustomValues.Set("LARGER_NoVoronoi", true);
+            if (Parameters.InputCount == 0 || !(Parameters.Input(0) is Parameter<int> p)) return;
+            p.Presets?.Clear(); p.Choices(ReliefPatterns.Names);
+            var old = p.PersistentData.NonNullItems.ToArray();
+            if (old.Length > 0) p.Set(new[] { ReliefPatterns.FromOld(old[0]) });
+        }
         protected override IIcon IconInternal => Io.Icon("CNCReliefIcon");
 
         protected override void AddInputs(InputAdder inputs)
@@ -27,7 +36,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Height", "Height", "Height of the whole relief in mm.").Set(14.0).Values(6, 10, 14, 18, 25);
             inputs.AddNumber("Cell Size", "Size", "Size of one house, window, scale or cell in mm. 0 = automatic. Below about three times the diameter of the ball the cutter no longer reaches the details.").Set(0.0).Values(0, 16, 24, 32, 40, 60);
             inputs.AddNumber("Wave", "Wave", "Bends the panel: 0 = flat, 1 = its waves are as high as the pattern, -1 = automatic.").Set(-1.0).Values(-1, 0, 0.3, 0.6, 1, 1.5);
-            inputs.AddInteger("Seed", "Seed", "Another number gives another arrangement (site model, gouges, Voronoi, labyrinth).").Set(1);
+            inputs.AddInteger("Seed", "Seed", "Another number gives another arrangement (site model, gouges, labyrinth).").Set(1);
             inputs.AddNumber("Ball", "Ball", "Diameter of the ball that finishes it, in mm: valleys are rounded so that this ball reaches every place. 0 = sharp valleys.").Set(6.0).Values(0, 3, 4, 6, 8);
         }
 

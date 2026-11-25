@@ -80,7 +80,7 @@ path: no stops, no travel moves, checked before it reaches the machine.
 | Zigzag 3D milling with outline, cutter database, PLT (HP-GL) for Zünd Cut Center | CNC - Program, CNC - Cutter Selector | released |
 | Board workflow: orient, split into layers, milling depth, raw block, fixtures, bill of materials, export | CNC Utilities 01–08 | released |
 | Rough and finish a height model: rings in levels, ball finishing in three axes at once, cut out with tabs, skin or slope; tool change from the magazine; time estimate | CNC - Plate, CNC - Cutter, CNC - Own Cutter, CNC - Rough and Finish | next |
-| 13 parametric reliefs to mill (site model, facade, scales, Voronoi, gyroid, labyrinth, topography …) | CNC - Relief | next |
+| 12 parametric reliefs to mill (site model, facade, scales, diamond facets, gyroid, labyrinth, topography …) | CNC - Relief | next |
 | Quick Start for the Zünd: a topography, first run in foam | CNC - Quick Start | next |
 
 ## Good for a "Version 2.0" story

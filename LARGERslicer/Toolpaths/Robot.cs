@@ -317,6 +317,11 @@ namespace LARGERslicer.Toolpaths
         public Point3d Centroid = Point3d.Origin;
         /// <summary>The tool as a 3D model, drawn where it sits on the flange: the flange is the world XY plane, the tool grows along +Z. Null = none.</summary>
         public Mesh Mesh;
+        /// <summary>A tool of the FH Muenster UR5 (0 clay extruder V2, 1 pen holder, 2 wool spinner): on a UR it is taken as it is
+        /// (see URTool.Preset). -1 = an own tool: on a UR its TCP is read as on the UR pendant (flange frame, Z out of the tool).</summary>
+        public int UrPreset = -1;
+        /// <summary>On a UR: URScript that starts and stops the extruder, and runs before the print (null = the FH Muenster codes).</summary>
+        public string OnCode, OffCode, StartCode;
         public override string ToString() => Inv.F($"{Name} (TCP {Tcp.O.X:0.#}, {Tcp.O.Y:0.#}, {Tcp.O.Z:0.#}; {Weight:0.#} kg)");
     }
 

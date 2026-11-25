@@ -24,7 +24,7 @@ namespace LARGERslicer.Components.Export
         public override string SubCategory => "DXR";
         public override Guid ComponentGuid => new Guid("6E1F0C83-2B5D-4F7A-9C21-8D4A3E5B7F12");
         public override GH_Exposure Exposure => GH_Exposure.primary;
-        protected override System.Drawing.Bitmap Icon => LARGERslicer.Utils.IconHelper.Load("SlicerPathIcon.png", this);
+        protected override System.Drawing.Bitmap Icon => LARGERslicer.Utils.IconHelper.Load("FanScheduleIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {

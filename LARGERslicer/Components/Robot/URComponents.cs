@@ -20,35 +20,8 @@ namespace LARGERslicer.Components.Robot
             return g.ScriptVariable() as T;
         }
 
-        private static Mesh Rod(Point3d a, Point3d b, double r)
-        {
-            var axis = b - a; double len = axis.Length;
-            if (len < 1e-6) return null;
-            var pl = new Plane(a, axis);
-            return Mesh.CreateFromCylinder(new Cylinder(new Circle(pl, r), len), 1, 20);
-        }
-
-        /// <summary>The arm drawn plainly: a base, a drum at every joint and a rod for every link, then the tool.</summary>
-        public static List<Mesh> Arm(URCell cell, double[] q)
-        {
-            var res = new List<Mesh>();
-            var m = cell.Model; double r = Math.Max(30, Math.Abs(m.A2) * 0.11);
-            var f = m.Frames(q).Select(x => cell.Base.Times(x)).ToArray();
-            var b0 = Rod(f[0].O, f[0].O + f[0].Z * m.D1 * 0.6, r * 1.3); if (b0 != null) res.Add(b0);
-            for (int i = 0; i < 6; i++)
-            {
-                // the drum of joint i turns about the Z axis of frame i
-                var c = f[i].O + f[i].Z * (i == 0 ? m.D1 : 0);
-                var d = Rod(c - f[i].Z * r, c + f[i].Z * r, r); if (d != null) res.Add(d);
-                var l = Rod(f[i].O, f[i + 1].O, r * 0.8); if (l != null) res.Add(l);
-            }
-            // the tool: from the flange to its tip
-            var tip = f[6].Times(cell.Tool.Tcp);
-            var bend = f[6].O + f[6].Z * Math.Max(20, cell.Tool.Tcp.O.Z);
-            var t1 = Rod(f[6].O, bend, r * 0.6); if (t1 != null) res.Add(t1);
-            var t2 = Rod(bend, tip.O, r * 0.35); if (t2 != null) res.Add(t2);
-            return res;
-        }
+        /// <summary>The arm with its tool as meshes (shared with Grasshopper 2).</summary>
+        public static List<Mesh> Arm(URCell cell, double[] q) => URDraw.Arm(cell, q);
     }
 
     // ============================================================== UR Cell
@@ -59,7 +32,7 @@ namespace LARGERslicer.Components.Robot
                   "A Universal Robots arm with its tool, where it stands and what it prints on: for UR Program. The tools are those of the FH Muenster UR5 (clay extruder V2, pen holder, wool spinner) or your own. The arm stands where Base is (default: its foot at the Rhino origin, X forward as on the pendant); the part is printed where it lies in Rhino, on top of Plate.") { }
 
         public override Guid ComponentGuid => new Guid("A4C17E52-3B9D-4E80-8F61-2D5C7B3E9A01");
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.hidden; // since 2.0.4 Robot, Robot Tool, Robot Cell, Robot Program and Robot Simulation do this for every robot
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerPathIcon.png", this);
 
         protected override void RegisterInputParams(GH_InputParamManager p)
@@ -117,12 +90,12 @@ namespace LARGERslicer.Components.Robot
                   "Turns a print path into a URScript program for the UR Cell: every point a movel at the speed of the path, blended over Blend; the tool points along the layer's tool axis (down on flat layers). For the clay extruder the extruder is switched on where printing starts and off where it stops (default: digital outputs 0 and 1 as on the FH Muenster UR5, with a question for the compressed air first). Checks that the arm reaches every point. Save writes a .script file, Upload sends it to the robot; the pendant then asks Execute.") { }
 
         public override Guid ComponentGuid => new Guid("C2E95B16-7A43-4D2F-B8E0-5F1A6D9C3B72");
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.hidden; // since 2.0.4 Robot, Robot Tool, Robot Cell, Robot Program and Robot Simulation do this for every robot
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerPathIcon.png", this);
 
-        public const string AirCode = "popup(\"Bitte kontrolliere, ob die Druckluft eingeschaltet ist!\", \"Druckluft an?\", warning=False, error=False, blocking=True)";
-        public const string OnCode = "set_digital_out(1,False)\nset_digital_out(0,True)";
-        public const string OffCode = "set_digital_out(0,False)\nset_digital_out(1,True)";
+        public const string AirCode = URProgram.AirCode;
+        public const string OnCode = URProgram.OnCode;
+        public const string OffCode = URProgram.OffCode;
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
@@ -201,7 +174,7 @@ namespace LARGERslicer.Components.Robot
                   "Plays a UR Program: the arm with its tool at any moment of the print and the path printed up to then. Time runs from 0 (start) to 1 (end) by the real time of the print; Play runs it by itself. The poses are worked out here as the controller would from the start pose; on the robot, run the first layer slowly and watch.") { }
 
         public override Guid ComponentGuid => new Guid("E7A3C9D4-1F62-4B85-9A07-3C8E2D5F6B14");
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.hidden; // since 2.0.4 Robot, Robot Tool, Robot Cell, Robot Program and Robot Simulation do this for every robot
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("SlicerPathIcon.png", this);
         private readonly LARGERslicer.Components.PlayClock _clock = new LARGERslicer.Components.PlayClock();
 
