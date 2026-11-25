@@ -389,6 +389,8 @@ namespace LARGERslicer.Utils
             bool hasA = false, hasB = false, hasC = false;
             double lastA = 0.0, lastB = -0.0, lastC = 0.0;
             int currentLayer = 1; // Start at 1 since layer 0 is already set
+            double lastFan = machineSettings?.FanSteps != null ? machineSettings.FanAtLayer(0) : -1;
+            int fanChanges = 0;
             bool isFirstLayer = false; // Already handled above
             string lastLayerType = ""; // Track last layer type for subroutine insertion
             
@@ -402,6 +404,18 @@ namespace LARGERslicer.Utils
                     line_num += 10;
                     result.Add($"N{line_num} L layer_sub.nc");
                     line_num += 10;
+
+                    // cooling by layer (Fan Schedule): the fan changes where its value changes
+                    if (machineSettings?.FanSteps != null && machineSettings.FanSteps.Count > 0)
+                    {
+                        double fan = machineSettings.FanAtLayer(currentLayer);
+                        if (Math.Abs(fan - lastFan) > 0.5)
+                        {
+                            result.AddRange(machineSettings.FanLines(fan, ref line_num));
+                            fanChanges++;
+                            lastFan = fan;
+                        }
+                    }
                     
                     // Add wall_sub.nc only for first layer
                     if (isFirstLayer)
@@ -491,6 +505,7 @@ namespace LARGERslicer.Utils
 
             int firstMovementLine = line_num - (movementLines.Count * 10);
             processInfo.Add($"Generated {movementLines.Count} DXR movement lines (starting at N{firstMovementLine})");
+            if (fanChanges > 0) processInfo.Add($"Fan Schedule: the fan changes {fanChanges} time(s) at layer changes (V.P.VAR_fan / fan_sub.nc).");
 
             return result;
         }

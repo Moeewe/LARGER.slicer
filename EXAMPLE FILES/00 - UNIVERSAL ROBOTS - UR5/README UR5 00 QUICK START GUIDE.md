@@ -10,6 +10,17 @@
 
 ---
 
+## New: the UR5 with LARGER.slicer alone (from version 2.0.3)
+
+No Robots plug-in and no robot library to install: the Robot tab has **UR Cell** (UR5 and the tools of this
+cell: clay extruder V2, pen holder, wool spinner), **UR Program** (a print path from any LARGER component
+becomes URScript, with the compressed-air question and the extruder on digital outputs 0 and 1; Save writes a
+.script file, Upload sends it to 192.168.1.66) and **UR Simulation**. Example 06 of
+`EXAMPLE FILES/LARGERslicer - Beispiele für Studierende.gh` prints a clay vase with it. The network setup below
+stays the same. Run the first print slowly (speed slider on the pendant at 10 to 25 %) and watch the first layer.
+
+---
+
 ## Quick Start Guide
 
 1. Connect UR5 via Ethernet (IP: `192.168.1.44`)
