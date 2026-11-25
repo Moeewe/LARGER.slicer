@@ -5,6 +5,23 @@ All notable changes to LARGERslicer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.3] - 2026-11-25
+
+Version 2.0.3: the UR5 without the Robots plug-in, the fan by layer for the Weber DXR, and a file of examples for students.
+
+### Added: Universal Robots without the Robots plug-in (Robot tab)
+- **UR Cell**: UR3, UR5, UR10 and their e-series (Denavit-Hartenberg values of UR), the tools of the FH Muenster UR5 (clay extruder V2 with its nozzle beside the flange, 2.5 kg; pen holder with the pen length; wool spinner) or an own tool, where the robot stands (Base) and the plate the print lies on (7 to 24 mm).
+- **UR Program**: a print path becomes URScript: set_tcp and set_payload, the question for the compressed air, the extruder switched on and off where printing starts and stops (digital outputs 0 and 1 as on the FH Muenster UR5; own code possible), movel at the speed of the path with blends that never overlap (the controller stops on overlapping blends), moves without printing at 50 to 100 mm/s, a joint move to the start. Checks that the arm reaches every point from the start pose (its own solver: the UR wrist is not spherical) and the payload. Save writes a .script file, Upload sends it to the robot (port 30002); the pendant asks Execute.
+- **UR Simulation**: the arm and the path printed so far, by slider or Play.
+- Checked: the flange with every axis at 0 where the pendant shows it (UR5: -817.25 / -191.45 / -5.49 mm), 200 of 200 poses solved back exactly, every point of a clay vase reached with the tool tip within 0.001 mm.
+
+### Added: Fan Schedule (Weber DXR)
+- Cooling by layer: off for the first layers, then low, later full (default off for 5 layers, then 30 %, from layer 11 70 %), with a ramp or own steps (5:30, 10:70, 40:100). Goes between Machine Settings and the DXR Generator, which switches the fan at the layer change as the Weber post processor does (V.P.VAR_fan, L fan_sub.nc).
+
+### Added: examples for students
+- `EXAMPLE FILES/LARGERslicer - Beispiele für Studierende.gh` (also in `SETUP` and on the release page): six explained examples in German (vase, box with a top, ornament in a drawn region, ornament around an attractor, fan by layer, clay vase on the UR5), each with Control Panel and Result, full names saved in the file.
+- The Control Panel knows the main settings of UR Cell, UR Program and Fan Schedule; Result shows the reach of UR Program and the slider and Play of UR Simulation.
+
 ## [2.0.2] - 2026-11-25
 
 Version 2.0.2: the Control Panel covers what is changed in practice, and looks as if it came with Grasshopper.

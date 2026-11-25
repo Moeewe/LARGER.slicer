@@ -39,6 +39,40 @@ namespace LARGERslicer.Types
         public bool FanEnabled { get; set; } = false;
         public double FanSpeed { get; set; } = 80; // 0-255 or percentage depending on format
 
+        /// <summary>
+        /// Cooling by layer (Fan Schedule): after how many layers the fan runs at how many percent, in order.
+        /// Null = the same fan all through the print. Ramp = the fan rises evenly from one step to the next.
+        /// </summary>
+        public System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, double>> FanSteps { get; set; }
+        public bool FanRamp { get; set; }
+
+        /// <summary>The fan in percent while layer 'layer' (0 = the first) is printed.</summary>
+        public double FanAtLayer(int layer)
+        {
+            if (FanSteps == null || FanSteps.Count == 0) return CoolingPercentage > 0 ? CoolingPercentage : (FanEnabled ? FanSpeed : 0);
+            double v = 0; int lastAt = 0; double lastV = 0;
+            foreach (var st in FanSteps)
+            {
+                if (layer >= st.Key) { v = st.Value; lastAt = st.Key; lastV = st.Value; continue; }
+                // between two steps: on a ramp the fan rises evenly towards the next one
+                if (FanRamp && st.Key > lastAt) v = lastV + (st.Value - lastV) * (layer - lastAt) / (double)(st.Key - lastAt);
+                break;
+            }
+            return Math.Max(0, Math.Min(100, Math.Round(v)));
+        }
+
+        /// <summary>The lines that set the fan to 'percent', as the Weber post processor writes them.</summary>
+        public System.Collections.Generic.List<string> FanLines(double percent, ref int lineNum)
+        {
+            var l = new System.Collections.Generic.List<string>();
+            if (UseAdvancedFormat) { l.Add($"N{lineNum} V.E.GLOBAL[3] = {percent:F0}"); lineNum += 10; return l; }
+            l.Add($"N{lineNum} V.P.VAR_fan = {percent:F0}"); lineNum += 10;
+            l.Add($"N{lineNum} L fan_sub.nc"); lineNum += 10;
+            return l;
+        }
+
+        public MachineSettings Copy() => (MachineSettings)MemberwiseClone();
+
         public MachineSettings(double bedTemp, double nozzleTemp, double cooling)
         {
             BedTemperature = Math.Max(0, bedTemp);
@@ -202,7 +236,8 @@ namespace LARGERslicer.Types
                 // Note: V.E.GLOBAL_BOOL[44] for Filling Zone is NOT needed (handled by fan_sub)
                 
                 // Fan: Direct setting (NO V.P.VAR_fan in extended mode)
-                if (FanEnabled && FanSpeed > 0)
+                if (FanSteps != null && FanSteps.Count > 0) startCode.AddRange(FanLines(FanAtLayer(0), ref lineNum));
+                else if (FanEnabled && FanSpeed > 0)
                 {
                     startCode.Add($"N{lineNum} V.E.GLOBAL[3] = {FanSpeed:F0}");
                     lineNum += 10;
@@ -315,7 +350,8 @@ namespace LARGERslicer.Types
                 // Note: V.E.GLOBAL_BOOL[44] for Filling Zone is NOT needed (handled by fan_sub)
                 
                 // 6. Set fan speed
-                if (CoolingPercentage > 0 || (FanEnabled && FanSpeed > 0))
+                if (FanSteps != null && FanSteps.Count > 0) startCode.AddRange(FanLines(FanAtLayer(0), ref lineNum));
+                else if (CoolingPercentage > 0 || (FanEnabled && FanSpeed > 0))
                 {
                     double fanValue = CoolingPercentage > 0 ? CoolingPercentage : FanSpeed;
                     startCode.Add($"N{lineNum} V.P.VAR_fan = {fanValue:F0}");

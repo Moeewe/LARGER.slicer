@@ -131,6 +131,10 @@ namespace LARGERslicer.Components.Slicer
             { "CNC - Own Cutter", new[] { "Shape", "Diameter" } },
             { "CNC - Rough and Finish", new[] { "Roughing", "Finishing", "Stock", "Tabs" } },
             { "Robot Simulation", new string[0] },
+            { "UR Cell", new[] { "Model", "Tool", "Plate" } },
+            { "UR Program", new[] { "Speed", "Blend", "Turn" } },
+            { "UR Simulation", new string[0] },
+            { "Fan Schedule", new[] { "Off For", "Then", "Full After", "Full" } },
             { "Printer Simulation", new string[0] },
         };
 
@@ -171,7 +175,7 @@ namespace LARGERslicer.Components.Slicer
             bool many = Scope.GroupsOf(this, doc).Count == 0;
             // sliders, value lists and toggles of the definition (any plug-in, e.g. the IGAToolkit), except the
             // simulation slider, which the Result shows
-            var plain = Scope.Plain(this, doc).Where(o => !((IGH_Param)o).Recipients.Any(r => { var top = r.Attributes?.GetTopLevel?.DocObject; return top != null && (top.Name == "Robot Simulation" || top.Name == "Printer Simulation"); })).ToList();
+            var plain = Scope.Plain(this, doc).Where(o => !((IGH_Param)o).Recipients.Any(r => { var top = r.Attributes?.GetTopLevel?.DocObject; return top != null && (top.Name == "Robot Simulation" || top.Name == "Printer Simulation" || top.Name == "UR Simulation"); })).ToList();
             // everything in the order of the definition: over the whole canvas group by group (see Scope.Order)
             var items = new List<IGH_DocumentObject>(members); items.AddRange(plain);
             // over the whole canvas: a group with a Control Panel of its own belongs to that panel
@@ -522,7 +526,7 @@ namespace LARGERslicer.Components.Slicer
 
             // ---- checks
             var checks = members.Where(c => c.Name == "Path Check" || c.Name.EndsWith("Health Check") || c.Name == "Non-Planar Check" || c.Name == "Multi-Axis Check").ToList();
-            var robots = members.Where(c => c.Name == "Robot Program").ToList();
+            var robots = members.Where(c => c.Name == "Robot Program" || c.Name == "UR Program").ToList();
             if (checks.Count > 0 || robots.Count > 0) caption("Check");
             foreach (var c in checks)
             {
@@ -552,6 +556,11 @@ namespace LARGERslicer.Components.Slicer
                 {
                     var rep = Texts(cc, "Report").ToList();
                     if (rep.Count == 0) return "Robot: calculating";
+                    if (cc.Name == "UR Program")
+                    {
+                        var okp = cc.Params.Output.FirstOrDefault(x => x.Name == "OK")?.VolatileData.AllData(true).FirstOrDefault();
+                        return "UR: " + (okp is GH_Boolean ub && ub.Value ? "reach OK" : "CHECK the report (reach or payload)");
+                    }
                     Func<string, string> head = t => { int k = t.IndexOf(':'); return k > 0 ? t.Substring(0, k) : t; };
                     string reach = rep.FirstOrDefault(t => t.StartsWith("Reach") || t.StartsWith("UNREACHABLE") || t.StartsWith("Cannot")) ?? "";
                     string coll = rep.FirstOrDefault(t => t.StartsWith("No collision") || t.StartsWith("COLLISION") || t.StartsWith("Collision:")) ?? "";
@@ -591,7 +600,7 @@ namespace LARGERslicer.Components.Slicer
                     buttons.Add(new OptionRow { Kind = RowKind.Button, Label = b.Label + "  (" + c.Name + ")", Click = _ => (cc.Attributes as OptionAttributes)?.PressRow(bb) });
                 }
             }
-            var sims = members.Where(c => c.Name == "Robot Simulation" || c.Name == "Printer Simulation").ToList();
+            var sims = members.Where(c => c.Name == "Robot Simulation" || c.Name == "Printer Simulation" || c.Name == "UR Simulation").ToList();
             if (buttons.Count > 0 || sims.Count > 0) caption("File and simulation");
             rows.AddRange(buttons);
             foreach (var c in sims)

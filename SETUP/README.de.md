@@ -54,3 +54,7 @@ Dieser Ordner enthält alles, um die Grasshopper-Definition **`LARGERslicer Webe
 - [Weber DXR25 – Inbetriebnahme und Bedienanleitung](https://github.com/Moeewe/LARGER.slicer/blob/main/EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20WEBER%20-%20DXR25%20-%20README/README%20Weber%20DXR25%20PRINTER%20QUICK%20START%20GUIDE%20GERMAN.md)
 - [Ginger One – Schnellstart (Englisch)](https://github.com/Moeewe/LARGER.slicer/blob/main/EXAMPLE%20FILES/00%20-%20WEBER%20-%20GINGER%20%5BRobotic%5D%203D%20Printing/00%20-%20GINGER%20-%20ONE%20-%20README/README%20GINGER%2000%20QUICK%20START%20GUIDE.md)
 - [LARGER.slicer auf GitHub](https://github.com/Moeewe/LARGER.slicer/blob/main/README.de.md)
+
+## Beispiele
+
+- `LARGERslicer - Beispiele für Studierende.gh`: sechs erklärte Beispiele zum Einstieg: Vase, Box mit Deckel, Ornament wo du willst, Lüfter pro Lage für den Weber DXR, Tonvase mit dem UR5. Jedes mit Steuerpult (Control Panel) und Ergebnis (Result).
