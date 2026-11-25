@@ -24,6 +24,15 @@ namespace LARGERslicer.Components.Robot
             get { if (_rows == null) { _rows = new List<LARGERslicer.Components.OptionRow>(); try { Options(_rows); } catch { } } return _rows; }
         }
 
+        /// <summary>Builds the rows anew (when which rows there are depends on what is connected).</summary>
+        protected void ResetRows() { _rows = null; Attributes?.ExpireLayout(); }
+
+        protected static LARGERslicer.Components.OptionRow OwnChoice(string label, string[] items, Func<int> get, Action<int> put) => new LARGERslicer.Components.OptionRow
+        {
+            Kind = LARGERslicer.Components.RowKind.Choice, Label = label, Input = -1, Items = items,
+            Get = () => get(), Put = v => put((int)Math.Round(v)),
+        };
+
         // ---- calculating in the background (see AsyncSolve)
         protected virtual bool CanRunInBackground => false;
         private LARGERslicer.Components.AsyncSolve _async;
@@ -69,6 +78,16 @@ namespace LARGERslicer.Components.Robot
             p[0].Optional = true; p[1].Optional = true; p[3].Optional = true;
         }
 
+        // which robot: 0 = the KUKA KR120 of the FH Muenster cell (or the Library), then the Universal Robots arms
+        private int _model;
+        internal static readonly string[] Models = new[] { "KUKA KR120 R2700-2 (FH Muenster)" }.Concat(URModel.All.Select(m => "Universal Robots " + m.Name)).ToArray();
+        protected override void Options(List<LARGERslicer.Components.OptionRow> rows)
+        {
+            rows.Add(OwnChoice("Robot", Models, () => _model, v => _model = Math.Max(0, Math.Min(Models.Length - 1, v))));
+        }
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { writer.SetInt32("LARGER_Robot", _model); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { int m = 0; if (reader.TryGetInt32("LARGER_Robot", ref m)) _model = m; return base.Read(reader); }
+
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
             p.AddGenericParameter("Robot", "R", "The robot arm, for Robot Cell", GH_ParamAccess.item);
@@ -81,6 +100,23 @@ namespace LARGERslicer.Components.Robot
             string lib = null, cell = null, geo = null; Plane basePlane = Plane.WorldXY;
             da.GetData(0, ref lib); da.GetData(1, ref cell); da.GetData(2, ref basePlane);
             if (Params.Input.Count > 3) da.GetData(3, ref geo);
+            // a Universal Robots arm: its own kinematics and the model Universal Robots publishes
+            if (_model > 0 && string.IsNullOrWhiteSpace(lib))
+            {
+                if (!basePlane.IsValid) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The base plane is not valid."); return; }
+                var um = URModel.All[Math.Min(URModel.All.Length, _model) - 1];
+                var ua = new URArm { Model = um, Base = Frame.FromPlane(basePlane) };
+                Message = um.Name;
+                da.SetData(0, new GH_ObjectWrapper(ua));
+                da.SetDataList(1, new[]
+                {
+                    Inv.F($"Universal Robots {um.Name}: reach about {um.Reach:0} mm, payload {um.Payload:0.#} kg"),
+                    "3D model by Universal Robots (ur_description, BSD-3-Clause)",
+                    "Robot Program writes URScript for it; Upload to robot sends it to the robot.",
+                });
+                if (Params.Output.Count > 2) da.SetDataList(2, URMeshes.Arm(um.Name, ua.Base, URModel.Home));
+                return;
+            }
             RobotArm arm;
             try
             {
@@ -131,6 +167,16 @@ namespace LARGERslicer.Components.Robot
             p[4].Optional = true;
         }
 
+        // 0 = own (the inputs), 1 = AE20 extruder of the Weber DXR25 (KUKA), 2.. = the tools of the FH Muenster UR5
+        private int _preset;
+        internal static readonly string[] Presets = { "Own tool (the inputs)", "AE20 extruder (Weber DXR25, KUKA)", "Clay extruder V2 (UR5)", "Pen holder (UR5)", "Wool spinner (UR5)" };
+        protected override void Options(List<LARGERslicer.Components.OptionRow> rows)
+        {
+            rows.Add(OwnChoice("Preset", Presets, () => _preset, v => _preset = Math.Max(0, Math.Min(Presets.Length - 1, v))));
+        }
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { writer.SetInt32("LARGER_ToolPreset", _preset); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader) { int m = 0; if (reader.TryGetInt32("LARGER_ToolPreset", ref m)) _preset = m; return base.Read(reader); }
+
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
             p.AddGenericParameter("Tool", "T", "The tool, for Robot Cell", GH_ParamAccess.item);
@@ -141,6 +187,17 @@ namespace LARGERslicer.Components.Robot
         {
             string name = "Extruder"; Plane tcp = new Plane(Point3d.Origin, Vector3d.XAxis, -Vector3d.YAxis); double weight = 0; Point3d centroid = Point3d.Origin;
             da.GetData(0, ref name); da.GetData(1, ref tcp); da.GetData(2, ref weight); da.GetData(3, ref centroid);
+            // a preset takes the place of name, TCP and weight
+            if (_preset == 1) { name = "AE20_Extruder"; tcp = new Plane(new Point3d(-460, 3, 108), Vector3d.YAxis, Vector3d.ZAxis); weight = 46; }
+            if (_preset >= 2)
+            {
+                var ut = URTool.Preset(_preset - 2, 0);
+                var urTool = new RobotTool { Name = ut.Name, Tcp = ut.Tcp, Weight = ut.Weight, Centroid = ut.Centroid, UrPreset = _preset - 2 };
+                Message = ut.Name;
+                da.SetData(0, new GH_ObjectWrapper(urTool));
+                da.SetData(1, Inv.F($"{ut.Name} for a UR: tip at ({ut.Tcp.O.X:0.#}, {ut.Tcp.O.Y:0.#}, {ut.Tcp.O.Z:0.#}) mm from the flange, {ut.Weight:0.##} kg") + (ut.Extrudes ? ", switches the extruder (digital outputs 0 and 1)" : ""));
+                return;
+            }
             if (!tcp.IsValid) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The TCP plane is not valid."); return; }
             if (weight < 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The weight cannot be negative."); return; }
             var tool = new RobotTool { Name = string.IsNullOrWhiteSpace(name) ? "Extruder" : name.Trim(), Tcp = Frame.FromPlane(tcp), Weight = weight, Centroid = centroid };
@@ -194,6 +251,21 @@ namespace LARGERslicer.Components.Robot
 
         protected override void SolveInstance(IGH_DataAccess da)
         {
+            // a Universal Robots arm: a UR cell (its tool as on the UR pendant, or a UR preset of Robot Tool)
+            var ua = URGeo.Unwrap<URArm>(da, 0);
+            if (ua != null)
+            {
+                var rt = SlicerIO.Get<RobotTool>(da, 1);
+                URTool ut;
+                if (rt == null) ut = URTool.Preset(3, 0);
+                else if (rt.UrPreset >= 0) ut = URTool.Preset(rt.UrPreset, 0);
+                else ut = new URTool { Name = rt.Name, Tcp = rt.Tcp, Weight = rt.Weight, Centroid = rt.Centroid };
+                var uc = new URCell { Model = ua.Model, Base = ua.Base, Tool = ut, StartCode = rt?.StartCode, OnCode = rt?.OnCode, OffCode = rt?.OffCode };
+                if (ut.Weight > ua.Model.Payload) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, Inv.F($"The tool weighs {ut.Weight:0.#} kg; the {ua.Model.Name} carries {ua.Model.Payload:0.#} kg."));
+                da.SetData(0, new GH_ObjectWrapper(uc));
+                da.SetData(1, uc + Inv.F($"; the part is printed where it lies in Rhino"));
+                return;
+            }
             var arm = SlicerIO.Get<RobotArm>(da, 0) ?? RobotArm.Kr120R2700();
             var tool = SlicerIO.Get<RobotTool>(da, 1) ?? new RobotTool();
             Plane wb = Plane.WorldXY; string name = "Bed";
@@ -263,10 +335,80 @@ namespace LARGERslicer.Components.Robot
 
         protected override void Options(List<LARGERslicer.Components.OptionRow> rows)
         {
+            if (_isUR)
+            {
+                rows.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Number, Label = "Blend", Input = -1, Unit = "mm", Decimals = 1, Min = 0, Max = 10, Presets = new double[] { 0, 0.5, 1, 2, 5 }, Get = () => _blend, Put = v => _blend = Math.Max(0, v) });
+                rows.Add(Button(7, "Save script"));
+                rows.Add(new LARGERslicer.Components.OptionRow { Kind = LARGERslicer.Components.RowKind.Button, Label = "Upload to robot", Input = -1, Click = c => UploadUR() });
+                return;
+            }
             rows.Add(Toggle(4, "Check reach"));
             rows.Add(Toggle(10, "Check collisions"));
             rows.Add(Toggle(12, "Show cell"));
             rows.Add(Button(7, "Save KRL"));
+        }
+
+        // ---- a UR: URScript instead of KRL and DXR
+        private bool _isUR;
+        private double _blend = 1.0;
+        private string _ip = "192.168.1.66";
+        private URProgram _lastUR;
+
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { writer.SetDouble("LARGER_URBlend", _blend); writer.SetString("LARGER_URIP", _ip ?? ""); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader)
+        {
+            double b = 1; if (reader.TryGetDouble("LARGER_URBlend", ref b)) _blend = b;
+            string ip = null; if (reader.TryGetString("LARGER_URIP", ref ip) && !string.IsNullOrWhiteSpace(ip)) _ip = ip;
+            return base.Read(reader);
+        }
+        protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu)
+        {
+            base.AppendAdditionalComponentMenuItems(menu);
+            Menu_AppendSeparator(menu);
+            menu.Items.Add(new System.Windows.Forms.ToolStripLabel("UR robot address (for Upload to robot):") { ForeColor = System.Drawing.Color.DimGray });
+            Menu_AppendTextItem(menu, _ip, (s2, e2) => { if (e2.KeyCode == System.Windows.Forms.Keys.Enter && s2 is Grasshopper.GUI.GH_MenuTextBox box && !string.IsNullOrWhiteSpace(box.Text)) { RecordUndoEvent("Robot IP"); _ip = box.Text.Trim(); } }, null, true);
+        }
+
+        private void UploadUR()
+        {
+            if (_lastUR == null || _lastUR.Script.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Nothing to send yet."); return; }
+            try { var msg = URProgram.Upload(_lastUR.Script, _ip); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, msg + " The pendant now asks: Execute."); }
+            catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Upload failed: " + ex.Message); }
+            Grasshopper.Instances.RedrawCanvas();
+        }
+
+        private void SolveUR(IGH_DataAccess da, URCell cell)
+        {
+            var tp = SlicerIO.Get<Toolpath>(da, 0);
+            if (tp == null || tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect a Toolpath."); return; }
+            double turn = 0, pose = 0; string name = "LARGER_PRINT", file = null; bool save = false;
+            da.GetData(2, ref turn); da.GetData(3, ref name); da.GetData(5, ref pose); da.GetData(6, ref file); da.GetData(7, ref save);
+            cell.Ip = _ip;
+            var prg = URProgram.Build(tp, cell, 0, _blend, turn, 30,
+                cell.StartCode ?? LARGERslicer.Components.Robot.URProgramComponent.AirCode,
+                cell.OnCode ?? LARGERslicer.Components.Robot.URProgramComponent.OnCode,
+                cell.OffCode ?? LARGERslicer.Components.Robot.URProgramComponent.OffCode, name);
+            _lastUR = prg;
+            string fileName = OutputFile.Name("UR", name, tp, "");
+            if (save)
+            {
+                try { var w = OutputFile.Write(file, fileName + ".script", prg.Script); prg.Report.Add("Saved " + w); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + w); }
+                catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
+            }
+            if (!prg.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, string.Join(" ", prg.Report.Where(l => l.StartsWith("NOT") || l.StartsWith("TOO"))));
+            Message = Inv.F($"{cell.Model.Name}: {prg.Targets.Count} moves, {prg.Minutes:0} min");
+            da.SetDataList(3, prg.Script);
+            da.SetData(4, prg.Ok);
+            da.SetDataList(5, prg.Report);
+            da.SetDataList(6, prg.Joints.Select(q => string.Join(" / ", q.Select(v => (v * 180 / Math.PI).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)))));
+            da.SetDataList(7, prg.Unreachable);
+            if (prg.Joints.Count > 0)
+            {
+                int k = (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (prg.Joints.Count - 1));
+                if (Params.Output.Count > 9) da.SetDataList(9, URGeo.Arm(cell, prg.Joints[k]));
+            }
+            if (Params.Output.Count > 11) da.SetData(11, fileName);
+            if (Params.Output.Count > 12) da.SetData(12, new GH_ObjectWrapper(prg));
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
@@ -342,6 +484,10 @@ namespace LARGERslicer.Components.Robot
 
         protected override void SolveInstance(IGH_DataAccess da)
         {
+            // a Universal Robots cell: URScript, worked out here at once
+            var urCell = URGeo.Unwrap<URCell>(da, 1);
+            if ((urCell != null) != _isUR) { _isUR = urCell != null; ResetRows(); }
+            if (urCell != null) { SolveUR(da, urCell); return; }
             if (Async.Deliver(da)) return;
             var tp = SlicerIO.Get<Toolpath>(da, 0);
             if (tp == null || tp.Count < 2) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Connect a Toolpath."); return; }
@@ -559,6 +705,7 @@ namespace LARGERslicer.Components.Robot
         public override void DrawViewportWires(IGH_PreviewArgs args)
         {
             base.DrawViewportWires(args);
+            if (!Hidden && !Locked && _urPrinted != null) args.Display.DrawPolyline(_urPrinted, GH_Toolpath.RoleColor(PathRole.Wall), Math.Max(3, args.DefaultCurveThickness + 2));
             if (Hidden || Locked || _drawRun == null || _segs == null || _segs.Count == 0) return;
             bool moved = !_partX.Equals(Transform.Identity);
             if (moved) args.Display.PushModelTransform(_partX);
@@ -599,6 +746,8 @@ namespace LARGERslicer.Components.Robot
             {
                 var b = _preview.Box(base.ClippingBox);
                 if (_drawRun != null && _pathBox.IsValid) { var pb = _pathBox; pb.Transform(_partX); b.Union(pb); }
+                foreach (var m in _urArm) b.Union(m.GetBoundingBox(false));
+                if (_urPrinted != null) b.Union(_urPrinted.BoundingBox);
                 return b;
             }
         }
@@ -607,10 +756,53 @@ namespace LARGERslicer.Components.Robot
         {
             base.DrawViewportMeshes(args);
             _preview.Draw(args);
+            if (!Hidden && !Locked) foreach (var m in _urArm) args.Display.DrawMeshShaded(m, URMaterial);
+        }
+
+        // a UR program: the arm by its model, the printed path as a plain line
+        private readonly List<Mesh> _urArm = new List<Mesh>();
+        private Polyline _urPrinted;
+        private static readonly Rhino.Display.DisplayMaterial URMaterial = new Rhino.Display.DisplayMaterial(System.Drawing.Color.FromArgb(170, 180, 190));
+
+        private void SolveUR(IGH_DataAccess da, URProgram prg)
+        {
+            _drawRun = null;
+            if (prg.Joints.Count == 0) return;
+            double time = 0, film = 30; bool play = false;
+            da.GetData(1, ref time);
+            if (Params.Input.Count > 3) { da.GetData(2, ref play); da.GetData(3, ref film); }
+            time = _clock.Position(this, play, Math.Max(0, Math.Min(1, time)), film);
+            double total = prg.Seconds[prg.Seconds.Count - 1], at = time * total;
+            int k = prg.Seconds.BinarySearch(at); if (k < 0) k = Math.Max(0, ~k - 1);
+            k = Math.Min(k, prg.Joints.Count - 1);
+            var q = prg.Joints[k];
+            if (k + 1 < prg.Joints.Count && prg.Seconds[k + 1] > prg.Seconds[k])
+            {
+                double u = (at - prg.Seconds[k]) / (prg.Seconds[k + 1] - prg.Seconds[k]);
+                q = q.Select((v, j) => v + (prg.Joints[k + 1][j] - v) * u).ToArray();
+            }
+            var cell = prg.Cell;
+            _urArm.AddRange(URGeo.Arm(cell, q));
+            var printed = new Polyline();
+            for (int i = 0; i <= k && i < prg.PathPoints.Count; i++) if (prg.Printing[i] || (i + 1 < prg.Printing.Count && prg.Printing[i + 1])) printed.Add(prg.PathPoints[i]);
+            _urPrinted = printed.Count > 1 ? printed : null;
+            var tcp = cell.Base.Times(cell.Model.Flange(q)).Times(cell.Tool.Tcp).ToPlane();
+            da.SetDataList(0, _urArm);
+            da.SetDataList(1, q.Select(v => Math.Round(v * 180 / Math.PI, 2)));
+            da.SetData(2, tcp);
+            da.SetData(3, k + 1);
+            da.SetData(4, at);
+            da.SetData(5, Inv.F($"{cell.Model.Name}: {at / 60:0.0} of {total / 60:0.0} min, move {k + 1} of {prg.Joints.Count}, axes ") + string.Join(" / ", q.Select(v => (v * 180 / Math.PI).ToString("0", System.Globalization.CultureInfo.InvariantCulture))));
+            if (_urPrinted != null && Params.Output.Count > 7) da.SetData(7, new PolylineCurve(_urPrinted));
+            Message = Inv.F($"{100 * time:0} %");
+            if (_clock.Playing) Message = "> " + Message;
         }
 
         protected override void SolveInstance(IGH_DataAccess da)
         {
+            _urArm.Clear(); _urPrinted = null;
+            var urp = URGeo.Unwrap<URProgram>(da, 0);
+            if (urp != null) { SolveUR(da, urp); return; }
             var run = SlicerIO.Get<RobotRun>(da, 0);
             if (run == null || run.Points.Count == 0) _drawRun = null;
             if (run == null || run.Points.Count == 0)

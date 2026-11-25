@@ -58,7 +58,9 @@ namespace LARGERslicer.Components.Slicer
         /// as "01. PART", else top to bottom), then left to right within each group.</summary>
         public static List<IGH_DocumentObject> Order(List<IGH_DocumentObject> items, GH_Document doc)
         {
-            var all = doc.Objects.OfType<GH_Group>().ToList();
+            // while a file is being read the document can hold groups whose members are not there yet
+            var all = doc.Objects.OfType<GH_Group>().Where(x => x?.ObjectIDs != null).ToList();
+            items = items.Where(c => c != null).ToList();
             Func<IGH_DocumentObject, double> key = c =>
             {
                 var g = all.Where(x => x.ObjectIDs.Contains(c.InstanceGuid)).OrderByDescending(x => x.ObjectIDs.Count).FirstOrDefault();
@@ -97,7 +99,7 @@ namespace LARGERslicer.Components.Slicer
 
         public override Guid ComponentGuid => new Guid("8F2D6A1C-4B7E-4C3A-9E51-2A7D0C6B9F14");
         public override GH_Exposure Exposure => GH_Exposure.primary;
-        protected override Bitmap Icon => IconHelper.Load("SlicerQuickStartIcon.png", this);
+        protected override Bitmap Icon => IconHelper.Load("ControlPanelIcon.png", this);
         protected override void RegisterInputParams(GH_InputParamManager p) { }
         protected override void RegisterOutputParams(GH_OutputParamManager p) { }
         protected override void SolveInstance(IGH_DataAccess da) { }
@@ -131,6 +133,9 @@ namespace LARGERslicer.Components.Slicer
             { "CNC - Own Cutter", new[] { "Shape", "Diameter" } },
             { "CNC - Rough and Finish", new[] { "Roughing", "Finishing", "Stock", "Tabs" } },
             { "Robot Simulation", new string[0] },
+            { "Robot", new[] { "Robot" } },
+            { "Robot Tool", new[] { "Preset" } },
+            { "Robot Program", new[] { "Blend", "Turn" } },
             { "UR Cell", new[] { "Model", "Tool", "Plate" } },
             { "UR Program", new[] { "Speed", "Blend", "Turn" } },
             { "UR Simulation", new string[0] },
@@ -154,11 +159,20 @@ namespace LARGERslicer.Components.Slicer
             get
             {
                 var doc = OnPingDocument();
-                var members = Scope.Members(this, doc, out string sig);
-                if (_rows != null && sig == _signature) return _rows;
-                _signature = sig;
-                Build(doc, members);
-                return _rows;
+                try
+                {
+                    var members = Scope.Members(this, doc, out string sig);
+                    if (_rows != null && sig == _signature) return _rows;
+                    _signature = sig;
+                    Build(doc, members);
+                    return _rows;
+                }
+                catch (Exception)
+                {
+                    // a document still being read (a file opening): build again at the next redraw
+                    _rows = null; _signature = null;
+                    return new List<OptionRow>();
+                }
             }
         }
 
@@ -221,11 +235,13 @@ namespace LARGERslicer.Components.Slicer
                 var have = new HashSet<int>(settings.Select(r => r.Input));
                 for (int ii = 0; ii < c.Params.Input.Count; ii++)
                     if (!have.Contains(ii)) { var gr = GenericRow(c, ii); if (gr != null) settings.Add(gr); }
+                // a choice or number the component keeps itself (Robot: which robot; Robot Tool: preset)
+                settings.AddRange(theirs.Where(r => r.Input < 0 && !r.External && r.Get != null && r.Put != null && (r.Kind == RowKind.Choice || r.Kind == RowKind.Number)));
                 if (settings.Count == 0) continue;
                 _candidates.Add(c);
                 if (_excluded.Contains(c.InstanceGuid)) continue; // switched off in the panel's menu: the component keeps its own rows
                 // all of them belong to the panel (the component shows a note), only the important ones unless Advanced
-                ControlRegistry.Set(InstanceGuid, c, settings.Select(r => r.Input));
+                ControlRegistry.Set(InstanceGuid, c, settings.Where(r => r.Input >= 0).Select(r => r.Input));
                 _targets.Add(c);
                 string[] keep;
                 // a component without a list of main settings shows its settings under Advanced only
@@ -237,6 +253,7 @@ namespace LARGERslicer.Components.Slicer
                 into.Add(new OptionRow { Kind = RowKind.Label, Label = c.NickName != c.Name && !string.IsNullOrEmpty(c.NickName) ? c.Name + " (" + c.NickName + ")" : c.Name, Caption = !many });
                 foreach (var r in shown)
                 {
+                    if (r.Input < 0) { into.Add(OwnProxy(c, r)); continue; }
                     // fed by a slider (one made for an optimiser): the slider's row in its place
                     var pin = c.Params.Input[r.Input];
                     var feeder = pin.Sources.FirstOrDefault(feed => inPlace.Contains(feed));
@@ -378,6 +395,15 @@ namespace LARGERslicer.Components.Slicer
             sl.ExpireSolution(true);
         }
 
+        /// <summary>A row for a setting the component keeps itself: set it there, with undo, and solve again.</summary>
+        private static OptionRow OwnProxy(IGH_Component c, OptionRow r) => new OptionRow
+        {
+            Kind = r.Kind, Label = r.Label, Input = -1, Items = r.Items, Presets = r.Presets, Decimals = r.Decimals, Unit = r.Unit,
+            Min = r.Min, Max = r.Max, Step = r.Step, Default = r.Default, ZeroText = r.ZeroText, External = true,
+            Get = r.Get,
+            Put = v => { ((GH_Component)c).RecordUndoEvent("Change " + r.Label); r.Put(v); r.Picked?.Invoke((int)Math.Round(v)); c.ExpireSolution(true); },
+        };
+
         private static OptionRow Proxy(IGH_Component c, OptionRow r)
         {
             var p = c.Params.Input[r.Input];
@@ -480,7 +506,7 @@ namespace LARGERslicer.Components.Slicer
 
         public override Guid ComponentGuid => new Guid("3B9E5D27-7C14-4F8A-A6D2-91C0E4B37A58");
         public override GH_Exposure Exposure => GH_Exposure.primary;
-        protected override Bitmap Icon => IconHelper.Load("SlicerQuickStartIcon.png", this);
+        protected override Bitmap Icon => IconHelper.Load("ResultIcon.png", this);
         protected override void RegisterInputParams(GH_InputParamManager p) { }
         protected override void RegisterOutputParams(GH_OutputParamManager p) { }
         protected override void SolveInstance(IGH_DataAccess da) { }
@@ -493,11 +519,19 @@ namespace LARGERslicer.Components.Slicer
             get
             {
                 var doc = OnPingDocument();
-                var members = Scope.Members(this, doc, out string sig);
-                if (_rows != null && sig == _signature) return _rows;
-                _signature = sig;
-                _rows = Build(members);
-                return _rows;
+                try
+                {
+                    var members = Scope.Members(this, doc, out string sig);
+                    if (_rows != null && sig == _signature) return _rows;
+                    _signature = sig;
+                    _rows = Build(members);
+                    return _rows;
+                }
+                catch (Exception)
+                {
+                    _rows = null; _signature = null;
+                    return new List<OptionRow>();
+                }
             }
         }
 

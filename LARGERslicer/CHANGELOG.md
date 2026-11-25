@@ -5,6 +5,31 @@ All notable changes to LARGERslicer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2026-11-25
+
+### Changed: one Robot chain for KUKA and UR
+- Robot has a choice "Robot": KUKA KR120 or a Universal Robots arm (UR3, UR3e, UR5, UR5e, UR10, UR10e). Robot Tool has presets: AE20 extruder (Weber DXR25, KUKA), clay extruder V2, pen holder, wool spinner (UR5). Robot Cell, Robot Program and Robot Simulation then do the rest: KRL for the KUKA, URScript with Save script and Upload to robot for a UR. UR Cell, UR Program and UR Simulation stay in old files but are no longer in the toolbar.
+- New icons for Control Panel, Result and Fan Schedule.
+
+### New in Grasshopper 2 (Rhino 9)
+- Control Panel and Result: the main settings of every LARGER component in the group, drawn in the colours and fonts of Grasshopper 2. Click a setting to change it (switches flip, choices and numbers open a short list, "Type a value ..." takes any number); a wire into an input wins and the row shows what the wire gives. The input panel (right click) switches to every setting. Result shows the verdict of the checks and a button for every file to save, and for Upload to robot.
+- Robot, Robot Tool, Robot Cell, Robot Program and Robot Simulation take the Universal Robots arms as in Grasshopper 1 (Robot: KUKA or UR3 to UR10e; Robot Tool: presets; Robot Program: URScript, Blend, Robot IP, Upload). Checked: the UR5 with the clay extruder gives the same program as in Grasshopper 1 (4908 points, all reached, about 8 min).
+- Fan Schedule.
+
+### Removed
+- CNC - Relief: the Voronoi pattern (it could stop Rhino). Files saved with a pattern after it are renumbered when they are opened, so they keep their pattern.
+
+### Fixed
+- DXR: the feature subprograms are called as the Weber software calls them (`L wall_sub.nc`, `L infill_sub.nc`, `L skin_sub.nc`, `L skirt_sub.nc`); 2.0.3 and older wrote `L L_wall_sub.nc`, which the controller does not find.
+- UR clay extruder V2: the tool centre point was set without the 90° turn the UR flange needs (about 170 mm off in 2.0.3). It now gives the same set_tcp as the Robots plug-in.
+- Control Panel and Result: a saved file with a panel showed "failed to deserialize" when opened; the panels now build once the file is read.
+
+### Examples
+- Beispiele für Studierende: explanations in short steps (Was passiert, Ausprobieren) that match numbers ① ② ③ at the components, the Control Panel right after the part, a heading on every example, the UR5 on the Robot chain, and a new example 07 "Fräsen mit der Zünd" (topography in a plate, rough, finish, cut out, PLT).
+
+### Changed: UR arms as Universal Robots draws them
+- UR Cell and UR Simulation show the real arm: the models of UR3, UR3e, UR5, UR5e, UR10 and UR10e from Universal Robots' own description (ur_description, BSD-3-Clause, see THIRD-PARTY-NOTICES.md), placed by its joint chain. Checked: over 300 random poses per model its flange lies where our kinematics puts it (0.0000 mm). The tool is still drawn plainly.
+
 ## [2.0.3] - 2026-11-25
 
 Version 2.0.3: the UR5 without the Robots plug-in, the fan by layer for the Weber DXR, and a file of examples for students.

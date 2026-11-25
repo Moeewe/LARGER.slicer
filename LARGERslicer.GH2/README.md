@@ -16,6 +16,8 @@ are visible.
 
 | Group | Component | What it does |
 |---|---|---|
+| Start | Control Panel | The main settings of every LARGER component in its group, without wires: click a setting to change it; a wire wins |
+| Start | Result | The verdict of the checks and a button for every file to save (and Upload to robot) |
 | Start | Quick Start | Puts eight worked examples on the canvas (as in Grasshopper 1) |
 | Start | Easy Slicer | Model in, checked path out: the whole chain in one component |
 | Start | Print Settings | Bead width, layer height, speed (mm/s; 50 mm/s = F3000), nozzle, overlap, radius, resolution, machine profile |
@@ -62,12 +64,12 @@ Start and End). They are no longer on the tab.
 
 | Component | What it does |
 |---|---|
-| Robot | The arm: KUKA KR120 R2700-2 by default, or any six-axis arm from a Robots library file |
-| Robot Tool | Tool centre point and weight |
+| Robot | The arm: KUKA KR120 R2700-2, a Universal Robots arm (UR3, UR5, UR10 and the e-series, with the models Universal Robots publishes), or any six-axis arm from a Robots library file |
+| Robot Tool | Tool centre point and weight, or a preset: AE20 extruder (Weber DXR25), clay extruder V2, pen holder, wool spinner (UR5) |
 | Robot Cell | Robot, tool and the work base the program counts from; optional Environment and External Axes |
 | External Axis | A rail the robot stands on, or a turntable the part stands on |
 | Cell Geometry | The print cell of the FH Muenster in 3D, the place of the robot and the environment for the collision check |
-| Robot Program | Robot moves with the real tool orientation, reach, axis and collision check, lines for the DXR Generator, KRL program |
+| Robot Program | Robot moves with the real tool orientation, reach, axis and collision check, lines for the DXR Generator, KRL program; for a UR: URScript, Save script and Upload to the robot |
 | Robot Simulation | The robot with its tool at any moment of the print (slider); Colliding shows what collides |
 
 **LARGER > DXR**
@@ -75,6 +77,7 @@ Start and End). They are no longer on the tab.
 | Component | What it does |
 |---|---|
 | Machine Settings | Temperatures and cooling for the start and end sequence |
+| Fan Schedule | The fan by layer: off for the first layers, then low, later full; the DXR file switches it at the layer change |
 | Machine Settings Extended | Multi-zone settings: 4 bed zones and 4 extruder zones (extended mode) |
 | DXR Generator | Robot lines, extrusion and speed to a DXR file for the Weber DXR |
 | DXR GCode Postprocessor | G-code from Cura and other slicers to a DXR file |
@@ -135,6 +138,13 @@ looks for Rhino 9 in its default folder; pass `-p:Rhino9=<folder with RhinoCommo
 is somewhere else.
 
 ## Load it
+
+Since 2.0.4 the Rhino 9 package of the package manager carries it: after installing LARGERslicer in
+Rhino 9 it is in `packages/9.0/LARGERslicer/2.0.4/gh2/` (Mac:
+`~/Library/Application Support/McNeel/Rhinoceros/packages/9.0/LARGERslicer/2.0.4/gh2/LARGERslicerGH2.rhp`,
+Windows: `%APPDATA%\McNeel\Rhinoceros\packages\9.0\LARGERslicer\2.0.4\gh2\LARGERslicerGH2.rhp`).
+Put that path into `CustomPluginInclude.txt` as described below. After an update the version in the
+path changes: change the line too.
 
 Grasshopper 2 reads extra plug-ins from the file `CustomPluginInclude.txt` in its settings
 folder (macOS: `~/Library/Application Support/Grasshopper2/Settings`, Windows:

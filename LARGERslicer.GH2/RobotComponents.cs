@@ -17,14 +17,23 @@ namespace LARGERslicer.GH2
     public sealed class RobotArmComponent : Component
     {
         public RobotArmComponent() : base(Io.Name("Robot", "The robot arm. Empty inputs give the KUKA KR120 R2700-2 of the FH Münster cell. For any other six-axis arm connect a file of the Robots plug-in library (.xml).", Io.Robot, 0)) { }
-        public RobotArmComponent(IReader reader) : base(reader) { }
+        public RobotArmComponent(IReader reader) : base(reader)
+        {
+            // files saved before the choice of robot: add it at the end, the wires stay
+            if (Parameters.InputCount == 3) AddModel(new InputAdder(this));
+        }
         protected override IIcon IconInternal => Io.Icon("RobotArmIcon");
+
+        internal static readonly string[] Models = new[] { "KUKA KR120 R2700-2 (FH Muenster)" }.Concat(URModel.All.Select(m => "Universal Robots " + m.Name)).ToArray();
+        private static void AddModel(InputAdder inputs) =>
+            inputs.AddInteger("Robot", "Rb", "The robot:\n" + string.Join("\n", Models.Select((n, i) => i + " = " + n)) + "\nA library file in Library wins.").Set(0).Choices(Models);
 
         protected override void AddInputs(InputAdder inputs)
         {
             inputs.AddText("Library", "Lib", "Optional. Path of a robot library file of the Robots plug-in (.xml), or its text. Empty = KUKA KR120 R2700-2.", Access.Item, Requirement.MayBeMissing);
             inputs.AddText("Cell Name", "CN", "Optional. Name of the RobotCell in the file. Empty = the first one.", Access.Item, Requirement.MayBeMissing);
             inputs.AddPlane("Base", "B", "Where the robot stands in the Rhino model: the plane of its foot.").Set(Plane.WorldXY);
+            AddModel(inputs);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -39,6 +48,24 @@ namespace LARGERslicer.GH2
             string lib, cell; Plane basePlane;
             access.GetItem(0, out lib); access.GetItem(1, out cell);
             if (!access.GetItem(2, out basePlane)) basePlane = Plane.WorldXY;
+            int model = 0; if (Parameters.InputCount > 3) access.GetItem(3, out model);
+            // a Universal Robots arm: its own kinematics and the model Universal Robots publishes
+            if (model > 0 && string.IsNullOrWhiteSpace(lib))
+            {
+                if (!basePlane.IsValid) { access.AddError("Base", "The base plane is not valid."); return; }
+                var um = URModel.All[Math.Min(URModel.All.Length, model) - 1];
+                var ua = new URArm { Model = um, Base = Frame.FromPlane(basePlane) };
+                access.SetItem(0, ua);
+                access.SetTwig(1, new[]
+                {
+                    string.Format(CultureInfo.InvariantCulture, "Universal Robots {0}: reach about {1:0} mm, payload {2:0.#} kg", um.Name, um.Reach, um.Payload),
+                    "3D model by Universal Robots (ur_description, BSD-3-Clause)",
+                    "Robot Program writes URScript for it; Upload to robot sends it to the robot.",
+                }, null, null);
+                var home = URMeshes.Arm(um.Name, ua.Base, URModel.Home);
+                if (home.Count > 0) access.SetTwig(2, home.ToArray(), null, null);
+                return;
+            }
             RobotArm arm;
             try
             {
@@ -67,8 +94,14 @@ namespace LARGERslicer.GH2
         {
             // files saved before Centroid and Mesh existed: add them at the end, the wires stay
             if (Parameters.InputCount == 3) AddLoad(new InputAdder(this));
+            if (Parameters.InputCount == 5) AddPreset(new InputAdder(this));
         }
         protected override IIcon IconInternal => Io.Icon("RobotToolIcon");
+
+        // 0 = own (the inputs), 1 = AE20 extruder of the Weber DXR25 (KUKA), 2.. = the tools of the FH Muenster UR5
+        internal static readonly string[] Presets = { "Own tool (the inputs)", "AE20 extruder (Weber DXR25, KUKA)", "Clay extruder V2 (UR5)", "Pen holder (UR5)", "Wool spinner (UR5)" };
+        private static void AddPreset(InputAdder inputs) =>
+            inputs.AddInteger("Preset", "Pre", "A tool that is known, instead of Name, TCP and Weight:\n" + string.Join("\n", Presets.Select((n, i) => i + " = " + n))).Set(0).Choices(Presets);
 
         protected override void AddInputs(InputAdder inputs)
         {
@@ -76,6 +109,7 @@ namespace LARGERslicer.GH2
             inputs.AddPlane("TCP", "TCP", "Tool centre point relative to the flange, as in the Robots plug-in: origin = nozzle tip, Z axis = from the tip back into the tool. The AE20 extruder of the FH Muenster: a YZ plane at -460, 3, 108. Default: a straight tool on the flange.").Set(new Plane(Point3d.Origin, Vector3d.XAxis, -Vector3d.YAxis));
             inputs.AddNumber("Weight", "W", "Weight of the tool in kg. 0 = not written to the program.").Set(0.0);
             AddLoad(inputs);
+            AddPreset(inputs);
         }
 
         private static void AddLoad(InputAdder inputs)
@@ -99,6 +133,16 @@ namespace LARGERslicer.GH2
             if (weight < 0) { access.AddError("Invalid weight", "The weight cannot be negative."); return; }
             Point3d centroid = Point3d.Origin;
             if (Parameters.InputCount > 3 && (!access.GetItem(3, out centroid) || !centroid.IsValid)) centroid = Point3d.Origin;
+            int preset = 0; if (Parameters.InputCount > 5) access.GetItem(5, out preset);
+            // a preset takes the place of name, TCP and weight
+            if (preset == 1) { name = "AE20_Extruder"; tcp = new Plane(new Point3d(-460, 3, 108), Vector3d.YAxis, Vector3d.ZAxis); weight = 46; centroid = new Point3d(-61, -28, 113); }
+            if (preset >= 2 && preset < Presets.Length)
+            {
+                var ut = URTool.Preset(preset - 2, 0);
+                access.SetItem(0, new RobotTool { Name = ut.Name, Tcp = ut.Tcp, Weight = ut.Weight, Centroid = ut.Centroid, UrPreset = preset - 2 });
+                access.SetItem(1, string.Format(CultureInfo.InvariantCulture, "{0} for a UR: tip at ({1:0.#}, {2:0.#}, {3:0.#}) mm from the flange, {4:0.##} kg", ut.Name, ut.Tcp.O.X, ut.Tcp.O.Y, ut.Tcp.O.Z, ut.Weight) + (ut.Extrudes ? ", switches the extruder (digital outputs 0 and 1)" : ""));
+                return;
+            }
             var tool = new RobotTool { Name = string.IsNullOrWhiteSpace(name) ? "Extruder" : name.Trim(), Tcp = Frame.FromPlane(tcp), Weight = weight, Centroid = centroid };
             if (Parameters.InputCount > 4 && access.ItemArray(4, out Mesh[] meshes))
             {
@@ -140,6 +184,21 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
+            // a Universal Robots arm: a UR cell (its tool as on the UR pendant, or a UR preset of Robot Tool)
+            var ua = Io.Get<URArm>(access, 0);
+            if (ua != null)
+            {
+                var rt = Io.Get<RobotTool>(access, 1);
+                URTool ut;
+                if (rt == null) ut = URTool.Preset(3, 0);
+                else if (rt.UrPreset >= 0) ut = URTool.Preset(rt.UrPreset, 0);
+                else ut = new URTool { Name = rt.Name, Tcp = rt.Tcp, Weight = rt.Weight, Centroid = rt.Centroid };
+                var uc = new URCell { Model = ua.Model, Base = ua.Base, Tool = ut, StartCode = rt?.StartCode, OnCode = rt?.OnCode, OffCode = rt?.OffCode };
+                if (ut.Weight > ua.Model.Payload) access.AddWarning("Too heavy", string.Format(CultureInfo.InvariantCulture, "The tool weighs {0:0.#} kg; the {1} carries {2:0.#} kg.", ut.Weight, ua.Model.Name, ua.Model.Payload));
+                access.SetItem(0, uc);
+                access.SetItem(1, uc + "; the part is printed where it lies in Rhino");
+                return;
+            }
             var arm = Io.Get<RobotArm>(access, 0) ?? RobotArm.Kr120R2700();
             var tool = Io.Get<RobotTool>(access, 1) ?? new RobotTool();
             Plane wb; if (!access.GetItem(2, out wb)) wb = Plane.WorldXY;
@@ -172,8 +231,19 @@ namespace LARGERslicer.GH2
     public sealed class RobotProgramComponent : PreviewComponent
     {
         public RobotProgramComponent() : base(Io.Name("Robot Program", "Turns the toolpath into robot moves: the tool tip on every path point, the tool along the path's tool axis. Checks reach, axis ranges and the wrist, and writes the moves for the DXR Generator and as a KRL program.", Io.Robot, 1)) { }
-        public RobotProgramComponent(IReader reader) : base(reader) { }
+        public RobotProgramComponent(IReader reader) : base(reader)
+        {
+            // files saved before the UR: add its inputs at the end, the wires stay
+            if (Parameters.InputCount == 10) AddUR(new InputAdder(this));
+        }
         protected override IIcon IconInternal => Io.Icon("RobotProgramIcon");
+
+        private static void AddUR(InputAdder inputs)
+        {
+            inputs.AddNumber("Blend", "Bl", "Universal Robots only: the moves blend into each other over this many mm (at most 45 % of the neighbouring moves).").Set(1.0);
+            inputs.AddText("Robot IP", "IP", "Universal Robots only: the address of the robot for Upload. The FH Muenster UR5: 192.168.1.66 (the laptop on 192.168.1.44, cable straight to the robot).").Set("192.168.1.66");
+            inputs.AddBoolean("Upload", "Up", "Universal Robots only: true sends the program to the robot (port 30002); the pendant then asks to Execute. Goes back to false by itself.").Set(false);
+        }
         // the robot in its own colours: base dark, arm KUKA orange, tool steel blue (as in Grasshopper 1)
         protected override int[] OwnOutputs => new[] { 9 };
         internal static readonly System.Drawing.Color BaseColor = System.Drawing.Color.FromArgb(60, 60, 64), ArmColor = System.Drawing.Color.FromArgb(240, 110, 20),
@@ -200,6 +270,7 @@ namespace LARGERslicer.GH2
             inputs.AddBoolean("Check Collisions", "CC", "True = check the robot, the tool, rail and turntable against each other, the part printed so far, the bed and the Environment of the cell.").Set(true);
             inputs.AddNumber("Clearance", "Cl", "Bodies closer than this (mm) are reported as a near miss.").Set(10.0);
             inputs.AddInteger("Collision Poses", "Col", "Fast mode: how many poses along the path are checked (evenly spread), plus the critical ones (travel moves, where the tool turns, the strongest tilt of every layer). -1 = every move.").Set(500);
+            AddUR(inputs);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -224,6 +295,8 @@ namespace LARGERslicer.GH2
         {
             Picture.Clear();
             var tp = Io.Path(access, 0); if (tp == null) return;
+            var urCell = Io.Get<URCell>(access, 1);
+            if (urCell != null) { ProcessUR(access, tp, urCell); return; }
             var cell = Io.Get<RobotCell>(access, 1) ?? new RobotCell();
             double turn, pose; string name, file; bool save;
             access.GetItem(2, out turn); access.GetItem(3, out name); access.GetItem(4, out pose); access.GetItem(5, out file); access.GetItem(6, out save);
@@ -284,6 +357,45 @@ namespace LARGERslicer.GH2
                 Picture.Show(frame);
             }
         }
+
+        private static readonly System.Drawing.Color URColor = System.Drawing.Color.FromArgb(170, 180, 190);
+
+        /// <summary>A Universal Robots cell: URScript instead of KRL and DXR.</summary>
+        private void ProcessUR(IDataAccess access, Toolpath tp, URCell cell)
+        {
+            double turn, pose, blend = 1; string name, file, ip = null; bool save, upload = false;
+            access.GetItem(2, out turn); access.GetItem(3, out name); access.GetItem(4, out pose); access.GetItem(5, out file); access.GetItem(6, out save);
+            if (Parameters.InputCount > 12) { access.GetItem(10, out blend); access.GetItem(11, out ip); access.GetItem(12, out upload); }
+            if (string.IsNullOrWhiteSpace(name)) name = "LARGER_PRINT";
+            cell.Ip = string.IsNullOrWhiteSpace(ip) ? "192.168.1.66" : ip.Trim();
+            var prg = URProgram.Build(tp, cell, 0, Math.Max(0, blend), turn, 30, cell.StartCode ?? URProgram.AirCode, cell.OnCode ?? URProgram.OnCode, cell.OffCode ?? URProgram.OffCode, name);
+            string fileName = OutputFile.Name("UR", name, tp, "");
+            Files.Save(access, this, 6, save, file, prg.Script, () => fileName + ".script");
+            if (upload)
+            {
+                try { access.AddRemark("Uploaded", URProgram.Upload(prg.Script, cell.Ip) + " The pendant now asks: Execute."); }
+                catch (Exception ex) { access.AddError("Upload failed", ex.Message); }
+                Files.Reset(this, 12);
+            }
+            if (!prg.Ok) access.AddWarning("Not runnable", string.Join("\n", prg.Report.Where(l => l.StartsWith("NOT") || l.StartsWith("TOO"))));
+            access.SetTwig(3, prg.Script.ToArray(), null, null);
+            access.SetItem(4, prg.Ok);
+            access.SetTwig(5, prg.Report.ToArray(), null, null);
+            access.SetTwig(6, prg.Unreachable.ToArray(), null, null);
+            access.SetItem(8, fileName);
+            access.SetItem(10, prg);
+            if (prg.Joints.Count > 0)
+            {
+                int k = (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (prg.Joints.Count - 1));
+                var arm = URDraw.Arm(cell, prg.Joints[k]);
+                access.SetTwig(9, arm.ToArray(), null, null);
+                var f = cell.Model.Frames(prg.Joints[k]).Select(x => cell.Base.Times(x).O).ToList();
+                access.SetItem(7, new Polyline(f));
+                var frame = new ShadedPreview.Frame();
+                foreach (var m in arm) frame.Mesh(m, URColor);
+                Picture.Show(frame);
+            }
+        }
     }
 
     // ============================================================== simulation
@@ -321,6 +433,8 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             Picture.Clear();
+            var urp = Io.Get<URProgram>(access, 0);
+            if (urp != null) { ProcessUR(access, urp); return; }
             var run = Io.Get<RobotRun>(access, 0);
             if (run == null || run.Points.Count == 0) { access.AddError("No program", "Connect Program of Robot Program."); return; }
             double time; access.GetItem(1, out time);
@@ -376,6 +490,38 @@ namespace LARGERslicer.GH2
             var ci = CultureInfo.InvariantCulture;
             access.SetItem(5, TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", ci) + " of " + TimeSpan.FromSeconds(run.Duration).ToString(@"h\:mm\:ss", ci) + $", move {move}, " + string.Join(", ", axes.Select((v, k) => "A" + (k + 1) + " " + v.ToString("0.0", ci)))
                 + (ext == null ? "" : string.Concat(ext.Select((v, k) => ", " + run.Cell.ExternalAxes[k].Name + " " + v.ToString("0.0", ci)))) + (inRange ? "" : " - OUTSIDE THE AXIS RANGE") + collision);
+        }
+
+        private void ProcessUR(IDataAccess access, URProgram prg)
+        {
+            if (prg.Joints.Count == 0) { access.AddError("No program", "The UR program has no moves."); return; }
+            double time; access.GetItem(1, out time);
+            time = Math.Max(0, Math.Min(1, time));
+            double total = prg.Seconds[prg.Seconds.Count - 1], at = time * total;
+            int k = prg.Seconds.BinarySearch(at); if (k < 0) k = Math.Max(0, ~k - 1);
+            k = Math.Min(k, prg.Joints.Count - 1);
+            var q = prg.Joints[k];
+            if (k + 1 < prg.Joints.Count && prg.Seconds[k + 1] > prg.Seconds[k])
+            {
+                double u = (at - prg.Seconds[k]) / (prg.Seconds[k + 1] - prg.Seconds[k]);
+                q = q.Select((v, j) => v + (prg.Joints[k + 1][j] - v) * u).ToArray();
+            }
+            var cell = prg.Cell;
+            var arm = URDraw.Arm(cell, q);
+            var printed = new Polyline();
+            for (int i = 0; i <= k && i < prg.PathPoints.Count; i++) if (prg.Printing[i] || (i + 1 < prg.Printing.Count && prg.Printing[i + 1])) printed.Add(prg.PathPoints[i]);
+            var tcp = cell.Base.Times(cell.Model.Flange(q)).Times(cell.Tool.Tcp).ToPlane();
+            var ci = CultureInfo.InvariantCulture;
+            access.SetTwig(0, arm.ToArray(), null, null);
+            access.SetTwig(1, q.Select(v => Math.Round(v * 180 / Math.PI, 2)).ToArray(), null, null);
+            access.SetItem(2, tcp);
+            access.SetItem(3, k + 1);
+            access.SetItem(4, at);
+            access.SetItem(5, string.Format(ci, "{0}: {1:0.0} of {2:0.0} min, move {3} of {4}, axes ", cell.Model.Name, at / 60, total / 60, k + 1, prg.Joints.Count) + string.Join(" / ", q.Select(v => (v * 180 / Math.PI).ToString("0", ci))));
+            if (printed.Count > 1) access.SetItem(7, printed);
+            var frame = new ShadedPreview.Frame();
+            foreach (var m in arm) frame.Mesh(m, System.Drawing.Color.FromArgb(170, 180, 190));
+            Picture.Show(frame);
         }
     }
 

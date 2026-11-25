@@ -13,16 +13,21 @@ namespace LARGERslicer.Toolpaths
         public static readonly string[] Names =
         {
             "Site model (terraces, streets, houses)", "Facade (splayed windows)", "Flowing scales", "Carved flow (long gouges)", "Carved flow (short gouges)",
-            "Voronoi", "Diamond facets", "Gyroid", "Labyrinth", "Flowing flutes", "Cross vaults", "Star lattice", "Topography",
+            "Diamond facets", "Gyroid", "Labyrinth", "Flowing flutes", "Cross vaults", "Star lattice", "Topography",
         };
 
-        public const string Help = "0 = site model with terraces, streets and houses, 1 = facade with splayed windows, 2 = scales that follow a flow and change their size, 3 = long carved gouges along a flow, 4 = short carved gouges, 5 = Voronoi cells, 6 = diamond facets (folded pyramids), 7 = gyroid (a slice through a minimal surface), 8 = labyrinth, 9 = flowing flutes, 10 = cross vaults with ribs, 11 = star lattice, 12 = topography";
+        public const string Help = "0 = site model with terraces, streets and houses, 1 = facade with splayed windows, 2 = scales that follow a flow and change their size, 3 = long carved gouges along a flow, 4 = short carved gouges, 5 = diamond facets (folded pyramids), 6 = gyroid (a slice through a minimal surface), 7 = labyrinth, 8 = flowing flutes, 9 = cross vaults with ribs, 10 = star lattice, 11 = topography";
+
+        // Voronoi (pattern 5 until 2.0.3) was taken out: its pattern number is no longer used, the ones after it
+        // moved down by one. Id maps the number in the list to the pattern; FromOld renumbers a file saved before.
+        private static int Id(int kind) => kind >= 5 ? kind + 1 : kind;
+        public static int FromOld(int old) => old > 5 ? old - 1 : old;
 
         // size of a cell and bend of the panel that suit the pattern on a panel of 240 x 160 mm with a 6 mm ball
         private static readonly double[] Sizes = { 26, 40, 24, 15, 17, 34, 40, 72, 28, 24, 54, 80, 100 };
         private static readonly double[] Waves = { 0, 0, 0.45, 0.2, 0.25, 0.5, 0, 0.4, 0.5, 0, 0, 0, 0 };
-        public static double DefaultSize(int kind) => kind >= 0 && kind < Sizes.Length ? Sizes[kind] : 30;
-        public static double DefaultWave(int kind) => kind >= 0 && kind < Waves.Length ? Waves[kind] : 0;
+        public static double DefaultSize(int kind) => kind >= 0 && kind < Names.Length ? Sizes[Id(kind)] : 30;
+        public static double DefaultWave(int kind) => kind >= 0 && kind < Names.Length ? Waves[Id(kind)] : 0;
 
         /// <param name="kind">Index into Names.</param>
         /// <param name="length">Size in X in mm.</param>
@@ -38,7 +43,7 @@ namespace LARGERslicer.Toolpaths
             if (wave < 0) wave = DefaultWave(kind);
             size = Math.Max(2.0, Math.Min(size, Math.Min(length, width)));
             wave = Math.Max(0, Math.Min(3, wave));
-            var f = Pattern(kind, length, width, size, seed);
+            var f = Pattern(Id(kind), length, width, size, seed);
             double d = Math.Max(0.4, Math.Sqrt(length * width / 400000.0));
             int nx = Math.Max(2, (int)Math.Ceiling(length / d)), ny = Math.Max(2, (int)Math.Ceiling(width / d));
             var z = new double[(nx + 1) * (ny + 1)];
@@ -152,7 +157,6 @@ namespace LARGERslicer.Toolpaths
                 case 2: return Scales(L, W, a);
                 case 3: return Carved(L, W, a, 4.2, seed, true);
                 case 4: return Carved(L, W, a, 2.0, seed, false);
-                case 5: return Voronoi(L, W, a, seed);
                 case 6:
                     {
                         int cx = Math.Max(1, (int)Math.Round(L / a)), cy = Math.Max(1, (int)Math.Round(W / (0.8 * a)));
@@ -466,31 +470,6 @@ namespace LARGERslicer.Toolpaths
                 }
                 double big = Math.Max(0.55, Math.Min(1.5, 1.0 / scale));
                 return best * big;
-            };
-        }
-
-        private static Func<double, double, double> Voronoi(double L, double W, double a, int seed)
-        {
-            return (x, y) =>
-            {
-                int ci = (int)Math.Floor(x / a), cj = (int)Math.Floor(y / a);
-                double d1 = double.MaxValue, d2 = double.MaxValue, px = 0, py = 0, qx = 0, qy = 0; int bi = 0, bj = 0;
-                for (int j = cj - 2; j <= cj + 2; j++)
-                    for (int i = ci - 2; i <= ci + 2; i++)
-                    {
-                        double sx = (i + 0.12 + 0.76 * Hash(i, j, seed)) * a, sy = (j + 0.12 + 0.76 * Hash(i, j, seed + 7)) * a;
-                        double d = (x - sx) * (x - sx) + (y - sy) * (y - sy);
-                        if (d < d1) { d2 = d1; qx = px; qy = py; d1 = d; px = sx; py = sy; bi = i; bj = j; }
-                        else if (d < d2) { d2 = d; qx = sx; qy = sy; }
-                    }
-                double gap = Math.Sqrt((px - qx) * (px - qx) + (py - qy) * (py - qy));
-                double edge = gap > 1e-9 ? (d2 - d1) / (2 * gap) : 0;             // distance to the nearest border
-                double rib = 0.10 * a;
-                double gx = x / L - 0.35, gy = y / W - 0.45, q = Math.Exp(-(gx * gx + gy * gy) * 4);
-                if (edge < rib) return 1.0;
-                double t = Clamp((edge - rib) / (0.30 * a));
-                double depth = 0.35 + 0.65 * (0.35 + 0.65 * q) * (0.75 + 0.25 * Hash(bi, bj, seed + 3));
-                return 1.0 - depth * Math.Sqrt(1 - (1 - t) * (1 - t));            // a bowl
             };
         }
 

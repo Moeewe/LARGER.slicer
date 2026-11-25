@@ -439,7 +439,8 @@ namespace LARGERslicer.Utils
                 if (!string.IsNullOrEmpty(layerType) && layerType != lastLayerType)
                 {
                     string subroutine = GetSubroutineForLayerType(layerType);
-                    if (!string.IsNullOrEmpty(subroutine))
+                    // not twice in a row (the first layer already calls wall_sub.nc)
+                    if (!string.IsNullOrEmpty(subroutine) && !(result.Count > 0 && result[result.Count - 1].EndsWith(" L " + subroutine)))
                     {
                         result.Add($"N{line_num} L {subroutine}");
                         line_num += 10;
@@ -849,15 +850,15 @@ namespace LARGERslicer.Utils
             string typeUpper = layerType.ToUpper();
             
             if (typeUpper.Contains("SKIRT") || typeUpper.Contains("SUPPORT-INTERFACE"))
-                return "L_skirt_sub.nc";
+                return "skirt_sub.nc";
             else if (typeUpper.Contains("SKIN"))
-                return "L_skin_sub.nc";
+                return "skin_sub.nc";
             else if (typeUpper.Contains("WALL") || typeUpper.Contains("BRIDGE"))
-                return "L_wall_sub.nc";
+                return "wall_sub.nc";
             else if (typeUpper.Contains("INFILL"))
-                return "L_infill_sub.nc";
+                return "infill_sub.nc";
             else if (typeUpper.Contains("RETRACT"))
-                return "L_retract_sub.nc";
+                return "retract_sub.nc";
             else
                 return ""; // Unknown type, no subroutine
         }

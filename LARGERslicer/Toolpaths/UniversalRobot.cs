@@ -154,6 +154,112 @@ namespace LARGERslicer.Toolpaths
         }
     }
 
+    /// <summary>
+    /// The 3D models of the UR arms as Universal Robots publishes them (ur_description, BSD-3-Clause,
+    /// Copyright Universal Robots A/S; see Resources/UR/LICENSE-ur_description.txt): one mesh per link, placed
+    /// by the joint chain of that description (joint origins of default_kinematics.yaml, the mesh offsets of
+    /// visual_parameters.yaml already applied in the stored meshes, millimetres).
+    /// </summary>
+    public static class URMeshes
+    {
+        // per model: the origin of every joint (x, y, z in mm, roll, pitch, yaw) relative to the link before it
+        private static readonly Dictionary<string, double[,]> Joints = new Dictionary<string, double[,]>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "UR3", new double[,] { { 0.0, 0.0, 151.9, 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0, 1.570796327, 0.0, 0.0 }, { -243.65, 0.0, 0.0, 0.0, 0.0, 0.0 }, { -213.25, 0.0, 112.35, 0.0, 0.0, 0.0 }, { 0.0, -85.35, -0.0, 1.570796327, 0.0, 0.0 }, { 0.0, 81.9, -0.0, 1.570796326589793, 3.141592653589793, 3.141592653589793 } } },
+            { "UR3e", new double[,] { { 0.0, 0.0, 151.85, 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0, 1.570796327, 0.0, 0.0 }, { -243.55, 0.0, 0.0, 0.0, 0.0, 0.0 }, { -213.2, 0.0, 131.05, 0.0, 0.0, 0.0 }, { 0.0, -85.35, -0.0, 1.570796327, 0.0, 0.0 }, { 0.0, 92.1, -0.0, 1.570796326589793, 3.141592653589793, 3.141592653589793 } } },
+            { "UR5", new double[,] { { 0.0, 0.0, 89.159, 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0, 1.570796327, 0.0, 0.0 }, { -425.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, { -392.25, 0.0, 109.15, 0.0, 0.0, 0.0 }, { 0.0, -94.65, -0.0, 1.570796327, 0.0, 0.0 }, { 0.0, 82.3, -0.0, 1.570796326589793, 3.141592653589793, 3.141592653589793 } } },
+            { "UR5e", new double[,] { { 0.0, 0.0, 162.5, 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0, 1.570796327, 0.0, 0.0 }, { -425.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, { -392.2, 0.0, 133.3, 0.0, 0.0, 0.0 }, { 0.0, -99.7, -0.0, 1.570796327, 0.0, 0.0 }, { 0.0, 99.6, -0.0, 1.570796326589793, 3.141592653589793, 3.141592653589793 } } },
+            { "UR10", new double[,] { { 0.0, 0.0, 127.3, 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0, 1.570796327, 0.0, 0.0 }, { -612.0, 0.0, 0.0, 0.0, 0.0, 0.0 }, { -572.3, 0.0, 163.941, 0.0, 0.0, 0.0 }, { 0.0, -115.7, -0.0, 1.570796327, 0.0, 0.0 }, { 0.0, 92.2, -0.0, 1.570796326589793, 3.141592653589793, 3.141592653589793 } } },
+            { "UR10e", new double[,] { { 0.0, 0.0, 180.7, 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0, 1.570796327, 0.0, 0.0 }, { -612.7, 0.0, 0.0, 0.0, 0.0, 0.0 }, { -571.55, 0.0, 174.15, 0.0, 0.0, 0.0 }, { 0.0, -119.85, -0.0, 1.570796327, 0.0, 0.0 }, { 0.0, 116.55, -0.0, 1.570796326589793, 3.141592653589793, 3.141592653589793 } } },
+        };
+
+        private static readonly Dictionary<string, Mesh[]> Cache = new Dictionary<string, Mesh[]>(StringComparer.OrdinalIgnoreCase);
+
+        public static bool Has(string model) => Joints.ContainsKey(model) && Load(model) != null;
+
+        private static Frame Rpy(double x, double y, double z, double r, double p, double w)
+        {
+            double cr = Math.Cos(r), sr = Math.Sin(r), cp = Math.Cos(p), sp = Math.Sin(p), cy = Math.Cos(w), sy = Math.Sin(w);
+            return new Frame
+            {
+                X = new Vector3d(cy * cp, sy * cp, -sp),
+                Y = new Vector3d(cy * sp * sr - sy * cr, sy * sp * sr + cy * cr, cp * sr),
+                Z = new Vector3d(cy * sp * cr + sy * sr, sy * sp * cr - cy * sr, cp * cr),
+                O = new Point3d(x, y, z),
+            };
+        }
+
+        /// <summary>The frames of the base and the six links for joint angles q (radians), in the controller's base frame.</summary>
+        public static Frame[] Links(string model, double[] q)
+        {
+            var j = Joints[model];
+            var f = new Frame[7];
+            f[0] = Frame.World; // base_link_inertia: turned half round from base_link, as the controller's base is
+            for (int i = 0; i < 6; i++)
+                f[i + 1] = f[i].Times(Rpy(j[i, 0], j[i, 1], j[i, 2], j[i, 3], j[i, 4], j[i, 5])).TurnedAboutZ(q[i]);
+            return f;
+        }
+
+        /// <summary>tool0 of the description (the flange as the controller sees it), for checking against URModel.Flange.</summary>
+        public static Frame Tool0(string model, double[] q)
+        {
+            var w3 = Links(model, q)[6];
+            return w3.Times(Rpy(0, 0, 0, 0, -Math.PI / 2, -Math.PI / 2)).Times(Rpy(0, 0, 0, Math.PI / 2, 0, Math.PI / 2));
+        }
+
+        private static Mesh[] Load(string model)
+        {
+            lock (Cache)
+            {
+                if (Cache.TryGetValue(model, out var m)) return m;
+                Mesh[] res = null;
+                try
+                {
+                    var asm = System.Reflection.Assembly.GetExecutingAssembly();
+                    string name = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("." + model.ToLowerInvariant() + ".urm", StringComparison.OrdinalIgnoreCase));
+                    if (name != null)
+                        using (var s = asm.GetManifestResourceStream(name))
+                        using (var r = new System.IO.BinaryReader(s))
+                        {
+                            if (new string(r.ReadChars(4)) == "URM1")
+                            {
+                                int links = r.ReadInt32(); res = new Mesh[links];
+                                for (int k = 0; k < links; k++)
+                                {
+                                    var mesh = new Mesh();
+                                    int nv = r.ReadInt32();
+                                    for (int v = 0; v < nv; v++) mesh.Vertices.Add(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
+                                    int nf = r.ReadInt32();
+                                    for (int t = 0; t < nf; t++) mesh.Faces.AddFace(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+                                    mesh.Normals.ComputeNormals(); mesh.Compact();
+                                    res[k] = mesh;
+                                }
+                            }
+                        }
+                }
+                catch { res = null; }
+                Cache[model] = res;
+                return res;
+            }
+        }
+
+        /// <summary>The arm as UR draws it, at joint angles q, standing at 'base'.</summary>
+        public static List<Mesh> Arm(string model, Frame robotBase, double[] q)
+        {
+            var res = new List<Mesh>();
+            var meshes = Load(model);
+            if (meshes == null || !Joints.ContainsKey(model)) return res;
+            var f = Links(model, q);
+            for (int k = 0; k < meshes.Length && k < f.Length; k++)
+            {
+                var w = robotBase.Times(f[k]);
+                var x = Transform.PlaneToPlane(Plane.WorldXY, w.ToPlane());
+                var m = meshes[k].DuplicateMesh(); m.Transform(x); res.Add(m);
+            }
+            return res;
+        }
+    }
+
     /// <summary>A tool on the UR flange: its tip and direction (Z = where it points), weight and centre of mass.</summary>
     public class URTool
     {
@@ -168,11 +274,14 @@ namespace LARGERslicer.Toolpaths
         {
             switch (kind)
             {
-                case 0: // clay extruder V2: the nozzle sits beside the flange and points along its X axis
+                case 0: // clay extruder V2: the nozzle sits beside the flange, 171 mm out along its Y axis
+                    // (the UR5 slicer of 2025 gave the TCP to the Robots plug-in as a YZ plane at 171, -2.478, 54.5;
+                    // that plug-in turns every UR tool by +90 degrees about the flange axis before set_tcp, so on the
+                    // robot it is this frame)
                     return new URTool
                     {
-                        Name = "Lehmextruder_V2", Weight = 2.5, Extrudes = true, Centroid = new Point3d(25, -2.5, 55),
-                        Tcp = new Frame { X = Vector3d.YAxis, Y = Vector3d.ZAxis, Z = Vector3d.XAxis, O = new Point3d(171, -2.478, 54.5) },
+                        Name = "Lehmextruder_V2", Weight = 2.5, Extrudes = true, Centroid = new Point3d(2.5, 25, 55),
+                        Tcp = new Frame { X = -Vector3d.XAxis, Y = Vector3d.ZAxis, Z = Vector3d.YAxis, O = new Point3d(2.478, 171, 54.5) },
                     };
                 case 1: // pen holder: straight on, the pen length decides the tip
                     return new URTool { Name = "PenHolder", Weight = 0.15, Centroid = new Point3d(0, 0, 60), Tcp = new Frame { X = Vector3d.XAxis, Y = Vector3d.YAxis, Z = Vector3d.ZAxis, O = new Point3d(0, 0, length > 0 ? length : 194) } };
@@ -183,7 +292,19 @@ namespace LARGERslicer.Toolpaths
             }
         }
 
+        /// <summary>A TCP given as for the Robots plug-in (a plane relative to its flange), as it is on a UR: that plug-in
+        /// turns every UR tool by +90 degrees about the flange axis before set_tcp.</summary>
+        public static Frame FromRobotsPlugin(Frame tcp) => new Frame { X = Vector3d.YAxis, Y = -Vector3d.XAxis, Z = Vector3d.ZAxis, O = Point3d.Origin }.Times(tcp);
+
         public static readonly string[] Names = { "Clay extruder V2 (Lehmextruder, 2.5 kg)", "Pen holder (pen length)", "Wool spinner (97 mm)", "Own tool (length straight on)" };
+    }
+
+    /// <summary>A UR arm chosen in Robot: the model and where its foot stands. Robot Cell makes a URCell of it.</summary>
+    public class URArm
+    {
+        public URModel Model = URModel.All[0];
+        public Frame Base = Frame.World;
+        public override string ToString() => "Universal Robots " + Model.Name;
     }
 
     /// <summary>A UR robot with its tool, where it stands, and what it prints on.</summary>
@@ -194,6 +315,7 @@ namespace LARGERslicer.Toolpaths
         public Frame Base = Frame.World;   // where the robot base is in Rhino
         public double Plate;               // thickness of the work plate on the table (mm): the print starts on top of it
         public string Ip = "192.168.1.66";
+        public string StartCode, OnCode, OffCode; // null = the codes of the FH Muenster UR5
 
         public override string ToString() => Model.Name + " with " + Tool.Name;
     }
@@ -201,6 +323,11 @@ namespace LARGERslicer.Toolpaths
     /// <summary>A UR program: its script and every target with the joints the simulation shows.</summary>
     public class URProgram
     {
+        /// <summary>The codes of the FH Muenster UR5: ask for the compressed air, extruder on and off over the digital outputs 0 and 1.</summary>
+        public const string AirCode = "popup(\"Bitte kontrolliere, ob die Druckluft eingeschaltet ist!\", \"Druckluft an?\", warning=False, error=False, blocking=True)";
+        public const string OnCode = "set_digital_out(1,False)\nset_digital_out(0,True)";
+        public const string OffCode = "set_digital_out(0,False)\nset_digital_out(1,True)";
+
         public URCell Cell;
         public List<string> Script = new List<string>();
         public List<Frame> Targets = new List<Frame>();     // TCP in the robot base frame
@@ -337,6 +464,41 @@ namespace LARGERslicer.Toolpaths
                 using (var stream = client.GetStream()) { stream.Write(bytes, 0, bytes.Length); stream.Flush(); }
                 return Inv.F($"Sent {bytes.Length / 1024.0:0} KB to {ip}:{port}.");
             }
+        }
+    }
+
+    /// <summary>A UR arm as meshes: the model Universal Robots publishes where there is one, plain drums and rods
+    /// otherwise, then the tool from the flange to its tip.</summary>
+    public static class URDraw
+    {
+        private static Mesh Rod(Point3d a, Point3d b, double r)
+        {
+            var axis = b - a; double len = axis.Length;
+            if (len < 1e-6) return null;
+            var pl = new Plane(a, axis);
+            return Mesh.CreateFromCylinder(new Cylinder(new Circle(pl, r), len), 1, 20);
+        }
+
+        public static List<Mesh> Arm(URCell cell, double[] q)
+        {
+            var res = new List<Mesh>();
+            var m = cell.Model; double r = Math.Max(30, Math.Abs(m.A2) * 0.11);
+            var f = m.Frames(q).Select(x => cell.Base.Times(x)).ToArray();
+            var real = URMeshes.Arm(m.Name, cell.Base, q);
+            if (real.Count > 0) res.AddRange(real);
+            var b0 = real.Count > 0 ? null : Rod(f[0].O, f[0].O + f[0].Z * m.D1 * 0.6, r * 1.3); if (b0 != null) res.Add(b0);
+            for (int i = 0; i < 6 && real.Count == 0; i++)
+            {
+                // the drum of joint i turns about the Z axis of frame i
+                var c = f[i].O + f[i].Z * (i == 0 ? m.D1 : 0);
+                var d = Rod(c - f[i].Z * r, c + f[i].Z * r, r); if (d != null) res.Add(d);
+                var l = Rod(f[i].O, f[i + 1].O, r * 0.8); if (l != null) res.Add(l);
+            }
+            var tip = f[6].Times(cell.Tool.Tcp);
+            var bend = f[6].O + f[6].Z * Math.Max(20, cell.Tool.Tcp.O.Z);
+            var t1 = Rod(f[6].O, bend, r * 0.6); if (t1 != null) res.Add(t1);
+            var t2 = Rod(bend, tip.O, r * 0.35); if (t2 != null) res.Add(t2);
+            return res;
         }
     }
 }

@@ -302,7 +302,7 @@ body{margin:0}
       <p>In Grasshopper unter File, Special Folders, Components Folder ablegen. Unter Windows vorher in den Eigenschaften jeder Datei „Zulassen“ anklicken. Alte Kopien entfernen, sonst erscheinen Bausteine doppelt.</p>
     </article>
   </div>
-  <p class="src">Grasshopper 2 (Vorschau, Rhino 9) wird noch nicht über den Paketmanager verteilt. Wie man es lädt, steht in der <a href="https://github.com/Moeewe/LARGER.slicer/tree/main/LARGERslicer.GH2">Anleitung zur Grasshopper-2-Version</a>.</p>
+  <p class="src">Grasshopper 2 (Vorschau, Rhino 9) liegt seit 2.0.4 im Rhino-9-Paket im Ordner <code>gh2</code>. Grasshopper 2 lädt es, wenn sein Pfad als eine Zeile in <code>CustomPluginInclude.txt</code> steht (Mac: <code>~/Library/Application Support/Grasshopper2/Settings</code>, Windows: <code>%APPDATA%\Grasshopper2\Settings</code>); danach Rhino neu starten. Mehr in der <a href="https://github.com/Moeewe/LARGER.slicer/tree/main/LARGERslicer.GH2">Anleitung zur Grasshopper-2-Version</a>.</p>
 </div></section>
 
 <section id="voraussetzungen"><div class="wrap">
@@ -325,7 +325,18 @@ body{margin:0}
   <div class="lhead"><span class="no num">03</span><h2>Was sich geändert hat</h2><p class="lead">Kurz und auf Deutsch. Die vollständige Liste steht im <a href="https://github.com/Moeewe/LARGER.slicer/blob/main/LARGERslicer/CHANGELOG.md">Changelog</a> (Englisch).</p></div>
 
   <article class="rel now">
-    <div><div class="v num">2.0.3</div><div class="d">25.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><div class="v num">2.0.4</div><div class="d">25.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><h3>Ein Robot-Baustein für KUKA und UR, Grasshopper 2 mit Steuerpult, Korrekturen</h3><ul>
+      <li><b>Ein Roboter für alle:</b> Robot wählt KUKA KR120 oder einen Universal-Robots-Arm (UR3 bis UR10e, mit den Modellen von Universal Robots), Robot Tool hat Presets (AE20, Lehmextruder V2, Stifthalter, Wollspinner). Robot Program schreibt KRL oder URScript.</li>
+      <li><b>Korrigiert:</b> Der Lehmextruder V2 am UR hatte in 2.0.3 einen falschen Werkzeugpunkt (rund 170 mm daneben). Die DXR-Datei ruft die Weber-Unterprogramme jetzt richtig auf (<code>L wall_sub.nc</code>). Dateien mit Steuerpult melden beim Öffnen keinen Fehler mehr.</li>
+      <li><b>Grasshopper 2:</b> Steuerpult und Ergebnis, die Robot-Kette mit UR und Fan Schedule auch in Rhino 9. Liegt im Rhino-9-Paket im Ordner <code>gh2</code>.</li>
+      <li><b>Fräsen:</b> Das Muster Voronoi ist aus CNC - Relief entfernt; ältere Dateien behalten ihr Muster.</li>
+      <li><b>Beispiele für Studierende:</b> Erklärungen in kurzen Schritten mit Nummern an den Bausteinen, neues Beispiel 07 „Fräsen mit der Zünd“.</li>
+    </ul></div>
+  </article>
+
+  <article class="rel">
+    <div><div class="v num">2.0.3</div><div class="d">25.11.2026</div><span class="chip ok">Release</span></div>
     <div><h3>UR5 ohne Robots-Plug-in, Lüfter pro Lage, Beispiele für Studierende</h3><ul>
       <li><b>UR5:</b> UR Cell (Lehmextruder V2, Stifthalter, Wollspinner), UR Program (URScript mit Druckluft-Abfrage und Extruder an/aus, Speichern oder direkt an den Roboter senden) und UR Simulation.</li>
       <li><b>Fan Schedule:</b> Der Weber-Lüfter bleibt die ersten Lagen aus, läuft dann wenig und später stark; die DXR-Datei schaltet ihn beim Lagenwechsel wie die Weber-Software.</li>

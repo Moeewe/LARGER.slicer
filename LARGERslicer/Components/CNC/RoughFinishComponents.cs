@@ -16,12 +16,25 @@ namespace LARGERslicer.Components.CNC
     {
         public CncReliefComponent()
             : base("CNC - Relief", "Relief",
-                  "Examples to mill: a site model, a facade, scales, Voronoi cells, a gyroid, vaults and other patterns as a mesh. Choose one, set its size, connect it to Model of CNC - Rough and Finish. Wave bends the whole panel.") { }
+                  "Examples to mill: a site model, a facade, scales, diamond facets, a gyroid, vaults and other patterns as a mesh. Choose one, set its size, connect it to Model of CNC - Rough and Finish. Wave bends the whole panel.") { }
 
         public override string SubCategory => "CNC";
         public override Guid ComponentGuid => new Guid("6B9A0E52-74C1-4D2B-8B0F-3A5D7E1C9F46");
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("CNCReliefIcon.png", this);
         public float MinWidth => 230;
+
+        // files saved before Voronoi was taken out (2.0.3 and older) count the patterns after it one higher
+        public override bool Write(GH_IO.Serialization.GH_IWriter writer) { writer.SetBoolean("LARGER_NoVoronoi", true); return base.Write(writer); }
+        public override bool Read(GH_IO.Serialization.GH_IReader reader)
+        {
+            bool ok = base.Read(reader);
+            if (!reader.ItemExists("LARGER_NoVoronoi") && Params.Input.Count > 0 && Params.Input[0] is Grasshopper.Kernel.Parameters.Param_Integer pi && pi.PersistentData.DataCount > 0)
+            {
+                var old = pi.PersistentData.AllData(true).OfType<GH_Integer>().FirstOrDefault();
+                if (old != null) { pi.PersistentData.Clear(); pi.PersistentData.Append(new GH_Integer(ReliefPatterns.FromOld(old.Value))); }
+            }
+            return ok;
+        }
 
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
@@ -31,7 +44,7 @@ namespace LARGERslicer.Components.CNC
             p.AddNumberParameter("Height", "Height", "Height of the whole relief in mm", GH_ParamAccess.item, 14.0);
             p.AddNumberParameter("Cell Size", "Size", "Size of one house, window, scale or cell in mm. 0 = automatic. Below about three times the diameter of the ball the cutter no longer reaches the details", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Wave", "Wave", "Bends the panel: 0 = flat, 1 = its waves are as high as the pattern, -1 = automatic", GH_ParamAccess.item, -1.0);
-            p.AddIntegerParameter("Seed", "Seed", "Another number gives another arrangement (site model, gouges, Voronoi, labyrinth)", GH_ParamAccess.item, 1);
+            p.AddIntegerParameter("Seed", "Seed", "Another number gives another arrangement (site model, gouges, labyrinth)", GH_ParamAccess.item, 1);
             p.AddNumberParameter("Ball", "Ball", "Diameter of the ball that finishes it, in mm: valleys are rounded so that this ball reaches every place. 0 = sharp valleys", GH_ParamAccess.item, 6.0);
         }
 

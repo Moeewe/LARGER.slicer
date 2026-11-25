@@ -10,14 +10,19 @@
 
 ---
 
-## New: the UR5 with LARGER.slicer alone (from version 2.0.3)
+## New: the UR5 with LARGER.slicer alone (from version 2.0.4)
 
-No Robots plug-in and no robot library to install: the Robot tab has **UR Cell** (UR5 and the tools of this
-cell: clay extruder V2, pen holder, wool spinner), **UR Program** (a print path from any LARGER component
-becomes URScript, with the compressed-air question and the extruder on digital outputs 0 and 1; Save writes a
-.script file, Upload sends it to 192.168.1.66) and **UR Simulation**. Example 06 of
-`EXAMPLE FILES/LARGERslicer - Beispiele für Studierende.gh` prints a clay vase with it. The network setup below
-stays the same. Run the first print slowly (speed slider on the pendant at 10 to 25 %) and watch the first layer.
+No Robots plug-in and no robot library to install. The same Robot components as for the KUKA do it:
+**Robot** (choose "Universal Robots UR5"; Base = where its foot stands), **Robot Tool** (Preset: clay extruder
+V2, pen holder or wool spinner), **Robot Cell**, **Robot Program** (a print path from any LARGER component
+becomes URScript, with the compressed-air question and the extruder on digital outputs 0 and 1; Save script
+writes a .script file, Upload to robot sends it to 192.168.1.66) and **Robot Simulation**. The arm is drawn with
+the model Universal Robots publishes. Example 06 of `EXAMPLE FILES/LARGERslicer - Beispiele für Studierende.gh`
+prints a clay vase with it. The network setup below stays the same. Run the first print slowly (speed slider on
+the pendant at 10 to 25 %) and watch the first layer.
+
+Version 2.0.3 had UR Cell, UR Program and UR Simulation; they still open in old files, but their clay extruder
+tool centre point was about 170 mm off. Use 2.0.4.
 
 ---
 
