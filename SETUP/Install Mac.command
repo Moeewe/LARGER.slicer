@@ -186,20 +186,39 @@ copy_library() {
   return 0
 }
 
+# Rhino 9: Grasshopper 2 lädt LARGER.slicer nur aus einem Pfad in CustomPluginInclude.txt; der Ordner
+# des Pakets trägt die Version im Namen. Die Zeile nennt immer die installierte Version, eine alte Zeile
+# von LARGER.slicer wird ersetzt, andere Zeilen bleiben.
+gh2_include() {
+  local v rhp f tmp
+  v="$(installed_version LARGERslicer 9.0)"
+  rhp="$PKGROOT/9.0/LARGERslicer/$v/gh2/LARGERslicerGH2.rhp"
+  if [ -z "$v" ] || [ ! -f "$rhp" ]; then info "Grasshopper 2: kein LARGER.slicer für Grasshopper 2 im Paket $v"; return 0; fi
+  f="$HOME/Library/Application Support/Grasshopper2/Settings/CustomPluginInclude.txt"
+  mkdir -p "$(dirname "$f")" || return 1
+  tmp="$(mktemp)"
+  [ -f "$f" ] && grep -v 'LARGERslicer.*packages.*LARGERslicerGH2\.rhp\|packages.*LARGERslicer.*LARGERslicerGH2\.rhp' "$f" | grep -v '^[[:space:]]*$' > "$tmp"
+  printf "%s\n" "$rhp" >> "$tmp"
+  if [ -f "$f" ] && cmp -s "$tmp" "$f"; then rm -f "$tmp"; ok "Grasshopper 2 lädt LARGER.slicer $v"; return 0; fi
+  mv "$tmp" "$f" && ok "Grasshopper 2 lädt LARGER.slicer $v (nach dem nächsten Start von Rhino 9)"
+}
+
 echo
 echo "=== LARGERslicer Setup ==="
 echo
 
 # Installierte Rhino-Versionen finden
-YAK8=""; HAS7=""
+YAK8=""; HAS7=""; HAS9=""
 for d in "/Applications" "$HOME/Applications"; do
   [ -z "$YAK8" ] && [ -x "$d/Rhino 8.app/Contents/Resources/bin/yak" ] && YAK8="$d/Rhino 8.app/Contents/Resources/bin/yak"
   [ -d "$d/Rhino 7.app" ] && HAS7=1
+  [ -d "$d/Rhino 9.app" ] && HAS9=1
 done
-if [ -z "$YAK8" ] && [ -z "$HAS7" ]; then
-  fail "Weder Rhino 8 noch Rhino 7 gefunden. Bitte zuerst Rhino installieren."
+if [ -z "$YAK8" ] && [ -z "$HAS7" ] && [ -z "$HAS9" ]; then
+  fail "Weder Rhino 9, Rhino 8 noch Rhino 7 gefunden. Bitte zuerst Rhino installieren."
   quit 1
 fi
+[ -n "$HAS9" ] && ok "Rhino 9 gefunden"
 [ -n "$YAK8" ] && ok "Rhino 8 gefunden"
 [ -n "$HAS7" ] && ok "Rhino 7 gefunden"
 
@@ -226,6 +245,14 @@ for rh in 8 7; do
   done
   check_manual_copies "$rh"
 done
+
+# Rhino 9: LARGER.slicer für Grasshopper 1 und 2 (die Hausdefinition selbst braucht Rhino 8)
+if [ -n "$HAS9" ]; then
+  echo
+  echo "Rhino 9 (Grasshopper 1 und 2):"
+  install_package 9 LARGERslicer "" || ERR=1
+  gh2_include || ERR=1
+fi
 
 # Robot-Bibliothek in den Ordner, den Robots liest:
 #   Rhino 8 (Robots 2.x): ~/Documents/Robots (oder der in Robots eingestellte Ordner)

@@ -37,6 +37,17 @@ namespace LARGERslicer
       // Subcategories are automatically created from component base() constructors
       Grasshopper.Instances.ComponentServer.AddCategorySymbolName("LARGER", 'L');
 
+      // Rhino 9: Grasshopper 2 loads the LARGER.slicer of the installed package (see Gh2Include)
+      try
+      {
+        if (Rhino.RhinoApp.ExeVersion >= 9)
+        {
+          string note = LARGERslicer.Toolpaths.Gh2Include.Ensure();
+          if (note != null) Rhino.RhinoApp.WriteLine("LARGER.slicer: " + note);
+        }
+      }
+      catch { }
+
       return GH_LoadingInstruction.Proceed;
     }
   }

@@ -9,7 +9,16 @@ namespace LARGERslicer.GH2
     /// <summary>Grasshopper 2 finds the plug-in through this class.</summary>
     public sealed class LargerSlicerPlugin : Plugin
     {
-        public LargerSlicerPlugin() { }
+        public LargerSlicerPlugin()
+        {
+            // the line in CustomPluginInclude.txt follows the installed version (see Gh2Include)
+            try
+            {
+                string note = LARGERslicer.Toolpaths.Gh2Include.Ensure();
+                if (note != null) Rhino.RhinoApp.WriteLine("LARGER.slicer: " + note);
+            }
+            catch { }
+        }
         public override string Name => "LARGER.slicer";
         public override string Info => "Continuous single-line toolpaths for large-format 3D printing with robots and pellet extruders, and DXR output.";
         public override string Author => "Moritz Wesseler, FH Münster";

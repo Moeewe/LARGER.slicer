@@ -143,8 +143,9 @@ Since 2.0.4 the Rhino 9 package of the package manager carries it: after install
 Rhino 9 it is in `packages/9.0/LARGERslicer/2.0.4/gh2/` (Mac:
 `~/Library/Application Support/McNeel/Rhinoceros/packages/9.0/LARGERslicer/2.0.4/gh2/LARGERslicerGH2.rhp`,
 Windows: `%APPDATA%\McNeel\Rhinoceros\packages\9.0\LARGERslicer\2.0.4\gh2\LARGERslicerGH2.rhp`).
-Put that path into `CustomPluginInclude.txt` as described below. After an update the version in the
-path changes: change the line too.
+Put that path into `CustomPluginInclude.txt` as described below. From the next version on this is done
+for you: the SETUP installer writes the line, and once LARGER.slicer runs in Rhino 9 (Grasshopper 1 or 2)
+it moves the line to the installed version after every update.
 
 Grasshopper 2 reads extra plug-ins from the file `CustomPluginInclude.txt` in its settings
 folder (macOS: `~/Library/Application Support/Grasshopper2/Settings`, Windows:

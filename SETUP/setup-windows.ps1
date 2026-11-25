@@ -57,7 +57,7 @@ function Get-InstalledVersion($name, $rh) {
 function Get-ServerVersion($name, $rh, $want) {
   try { $versions = Invoke-RestMethod "https://yak.rhino3d.com/versions/$name" } catch { return $null }
   # Rhino 8 kann auch Rhino-7-Pakete laden, Rhino 7 auch Rhino-6-Pakete
-  $pattern = if ($rh -eq 8) { "^rh[78]" } else { "^rh[67]" }
+  $pattern = if ($rh -eq 9) { "^rh9" } elseif ($rh -eq 8) { "^rh[78]" } else { "^rh[67]" }
   $best = $null
   foreach ($v in $versions) {
     if ($want) { if ($v.version -ne $want) { continue } } elseif ($v.prerelease) { continue }
@@ -185,11 +185,34 @@ function Copy-Library($lib) {
   return $okAll
 }
 
+# Rhino 9: Grasshopper 2 laedt LARGER.slicer nur aus einem Pfad in CustomPluginInclude.txt; der Ordner
+# des Pakets traegt die Version im Namen. Die Zeile nennt immer die installierte Version, eine alte Zeile
+# von LARGER.slicer wird ersetzt, andere Zeilen bleiben.
+function Set-Gh2Include {
+  $v = Get-InstalledVersion "LARGERslicer" 9
+  if (-not $v) { return $true }
+  $rhp = Join-Path $pkgRoot "9.0\LARGERslicer\$v\gh2\LARGERslicerGH2.rhp"
+  if (-not (Test-Path $rhp)) { Info "Grasshopper 2: kein LARGER.slicer fuer Grasshopper 2 im Paket $v"; return $true }
+  try {
+    $dir = Join-Path $env:APPDATA "Grasshopper2\Settings"
+    $file = Join-Path $dir "CustomPluginInclude.txt"
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $lines = @()
+    if (Test-Path $file) { $lines = @(Get-Content $file | Where-Object { $_.Trim() -and -not ($_ -match 'packages' -and $_ -match 'LARGERslicer' -and $_.Trim().EndsWith('LARGERslicerGH2.rhp')) }) }
+    $lines += $rhp
+    Set-Content -Path $file -Value $lines -Encoding UTF8
+    Ok "Grasshopper 2 laedt LARGER.slicer $v (nach dem naechsten Start von Rhino 9)"
+    return $true
+  } catch { Write-Host "      $_"; return $false }
+}
+
 Write-Host "`n=== LARGERslicer Setup ===`n"
 
+$r9 = Find-RhinoSystem 9
 $r8 = Find-RhinoSystem 8
 $r7 = Find-RhinoSystem 7
-if (-not $r8 -and -not $r7) { Fail "Weder Rhino 8 noch Rhino 7 gefunden. Bitte zuerst Rhino installieren."; exit 1 }
+if (-not $r9 -and -not $r8 -and -not $r7) { Fail "Weder Rhino 9, Rhino 8 noch Rhino 7 gefunden. Bitte zuerst Rhino installieren."; exit 1 }
+if ($r9) { Ok "Rhino 9 gefunden" }
 if ($r8) { Ok "Rhino 8 gefunden"; $script:yak8 = Join-Path $r8 "Yak.exe" }
 if ($r7) { Ok "Rhino 7 gefunden" }
 
@@ -211,6 +234,12 @@ foreach ($rh in @(8, 7)) {
     if ($name -eq "Pufferfish" -and $ksa) { Ok "Pufferfish ist schon installiert (KSAPufferfish $ksa)"; continue }
     if (-not (Install-Package $rh $name $pin)) { $err = $true }
   }
+}
+# Rhino 9: LARGER.slicer fuer Grasshopper 1 und 2 (die Hausdefinition selbst braucht Rhino 8)
+if ($r9) {
+  Write-Host "`nRhino 9 (Grasshopper 1 und 2):"
+  if (-not (Install-Package 9 "LARGERslicer" $null)) { $err = $true }
+  if (-not (Set-Gh2Include)) { $err = $true }
 }
 # Rhino 7 und 8 teilen sich unter Windows denselben Libraries-Ordner
 Test-ManualCopies
