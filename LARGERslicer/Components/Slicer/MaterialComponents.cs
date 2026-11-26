@@ -145,7 +145,7 @@ namespace LARGERslicer.Components.Slicer
     {
         public MaterialFactorComponent()
             : base("Material Factor", "Factor",
-                  "Finds the material factor from a test print. Print a test with your current factor, measure the bead width at a few places and enter the values: new factor = target width / measured width x current factor (the mean of all measurements). A single-wall test (the Weber Calibration part with one wall, spiral mode) gives the bead width as the wall thickness: enter it under Wall Thickness. Use the new factor as Factor in Machine Profile (or as P1 on the Weber DXR) and print the test again.") { }
+                  "Finds the material factor from a test print. Print a test with your current factor, measure the bead width at a few places and enter the values: new factor = target width / measured width x current factor (the mean of all measurements). A single-wall test (the Weber Calibration part with one wall, spiral mode) gives the bead width as the wall thickness: enter it under Wall Thickness. Use the new factor as Factor in Machine Profile, or as Extrusion Factor on the Machine component when you write with Machine G-code (that one follows the machine), or as P1 on the Weber DXR; then print the test again.") { }
 
         public override Guid ComponentGuid => new Guid("BB0586D8-7FFE-47B3-8BD7-27C3E84D353A");
         public override GH_Exposure Exposure => GH_Exposure.primary;
@@ -155,7 +155,7 @@ namespace LARGERslicer.Components.Slicer
         {
             p.AddNumberParameter("Target Width", "W", "The bead width you want (mm), as in Print Settings", GH_ParamAccess.item, 5.0);
             p.AddNumberParameter("Measured Widths", "M", "Bead widths measured on the test print (mm). Several values: the mean is used", GH_ParamAccess.list);
-            p.AddNumberParameter("Current Factor", "F", "The factor the test was printed with", GH_ParamAccess.item, 1.0);
+            p.AddNumberParameter("Current Factor", "F0", "The factor the test was printed with", GH_ParamAccess.item, 1.0);
             p.AddNumberParameter("Wall Thickness", "T", "Optional. Wall thicknesses measured on a single-wall test (mm); counted as bead widths", GH_ParamAccess.list);
             p[1].Optional = true;
             p[3].Optional = true;
@@ -163,7 +163,7 @@ namespace LARGERslicer.Components.Slicer
 
         protected override void RegisterOutputParams(GH_OutputParamManager p)
         {
-            p.AddNumberParameter("New Factor", "F", "The factor to print with", GH_ParamAccess.item);
+            p.AddNumberParameter("New Factor", "F1", "The factor to print with", GH_ParamAccess.item);
             p.AddTextParameter("Report", "R", "What was measured and what it means", GH_ParamAccess.list);
             p.AddNumberParameter("Off", "%", "How far the bead was off, in percent of the target width (+ = too wide)", GH_ParamAccess.item);
             p.AddNumberParameter("Mean", "Mean", "Mean of the measurements (mm)", GH_ParamAccess.item);

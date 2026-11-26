@@ -81,6 +81,13 @@
     <EmbeddedResource Include="Resources\UR\*.urm" />
   </ItemGroup>
 
+  <!-- The optional planner library (see docs/ARCHITECTURE.md, "Planner core"): when a folder
+       "native" lies beside this project file, its files go next to the plug-in. The folder is not
+       part of the repository; without it the build is the public one. -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/native')">
+    <None Update="native/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
       <DesignTime>True</DesignTime>

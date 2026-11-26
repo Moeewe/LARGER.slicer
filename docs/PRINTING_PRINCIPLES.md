@@ -104,6 +104,7 @@ Speeds are entered in **mm/s** and kept in **mm/min** (the F of G-code and DXR):
 | Weber quick guide | bead 0-50 % (about 20 %) wider than the nozzle, layer 25-50 % of the nozzle; pointed nozzle bead 0.7-1.3 x, flat nozzle 1.0-1.8 x |
 | FH Muenster, tested on the DXR | 3 mm flat nozzle, 5 mm bead, 2 mm layer; "Wide" presets scale it (bead 5/3 x, layer 2/3 x the nozzle) and say "print a test wall first" |
 | `Nozzles.Check` | warns when the layer is > 80 % of the nozzle (bead hardly pressed) or < 25 % (extruder pushes hard) |
+| Print Settings (from 2.0.5, as Easy Slicer) | warns when the layer height is > 0.6 x the bead width |
 | CEAD 45° sheets | layer height N/4..N/2, overlap 5-10 % of the layer width; wall of two beads CO90 = 2 LW - OL, at 45° CO45 = ½√2 (2 LW - OL); finish thickness LW45 = √2 t_finish (with milling √2 (t_finish - t_milling)) |
 | Ginger handbook | layer ≤ 0.6 N, LW ≥ 1.5 N, LW / LH ≥ 2, corner radius ≥ 0.5 N, double bead 0.8-0.9 LW |
 
@@ -132,7 +133,7 @@ Speeds are entered in **mm/s** and kept in **mm/min** (the F of G-code and DXR):
 - **Exit move.** After the last point the nozzle moves sideways off the part (default 50 mm) and
   lifts (20 mm) without extrusion, so the drop that forms when the extruder stops does not end up on
   the part. An own exit curve can replace it.
-- **Start and end layers for angled printing** (Slice input `Start/End Layers`, `StartEndFeature`):
+- **Start and end layers for angled printing** (Slice input `Sacrificial Layers`, called `Start/End Layers` up to 2.0.4; `StartEndFeature`):
   sacrificial layers in front of and after the part (CEAD: about 5), milled away later. The start
   feature stands on the bed and gives the first leaning layer a full layer to lie on; flat layers get
   only the end feature.
@@ -412,6 +413,8 @@ on it, the spiral ramping in from E ≈ 0. Changed in the plug-in:
 - **Bead height above 0.8 w** (1.3.0: up to 0.5 % of the points, up to 1.1 w): removed. Those heights
   came from V2's law itself (t → h where dxy → w); by the shell law a bead is never higher than the
   vertical gap or the skin, so a point above 0.8 w is a real fault.
+  From 2.0.5 `Multi-Axis Check` uses the same limit of 0.8 w (calibrated on the printed head V2; a `Max Layer`
+  set by hand wins), and both checks give NaN, not 0, for points they could not measure (`Path Heat` greys them).
 - **E against the measured height**: the tolerance was not loosened (mean ≤ 10 %, ≤ 5 % of the points
   more than 10 % off), but 1.3.0 measured against V2's law, which let its over-extrusion pass. Now the
   shell law is the reference; E that matches V2's law is reported as "OLD EXTRUSION LAW" with its
@@ -430,7 +433,7 @@ on it, the spiral ramping in from E ≈ 0. Changed in the plug-in:
 
 ### 9.8 The rebuilt example
 
-`EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One, non-planar).gh`:
+`EXAMPLE FILES/00 - WEBER - GINGER [Robotic] 3D Printing/LARGERslicer - Head (Ginger One Marlin, non-planar).gh`:
 the head exactly as printed (`Head.3dm`: the NurbsHead turned about 75° and scaled about
 1.74 / 1.56 / 1.83, bottom on Z 0), Slice Guide Mode 3 "Follow the surface", one wall centred,
 Spiral, bead 4, layer 1.75, first layer 0.9 mm at 25 mm/s, Overlap 0, Min Layer Time 40 s, Qmax 330,

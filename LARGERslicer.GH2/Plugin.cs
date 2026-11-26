@@ -11,6 +11,10 @@ namespace LARGERslicer.GH2
     {
         public LargerSlicerPlugin()
         {
+            // the preview of Grasshopper 2 in Rhino 8 reads the same CustomPluginInclude.txt, but this build is made for the
+            // Grasshopper 2 of Rhino 9 (types it uses do not exist there): refuse cleanly instead of failing later
+            if (Rhino.RhinoApp.ExeVersion < 9)
+                throw new NotSupportedException("LARGER.slicer for Grasshopper 2 needs Rhino 9. In Rhino 8 use LARGER.slicer in Grasshopper 1.");
             // the line in CustomPluginInclude.txt follows the installed version (see Gh2Include)
             try
             {

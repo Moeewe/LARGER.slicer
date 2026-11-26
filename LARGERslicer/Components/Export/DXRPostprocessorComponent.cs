@@ -11,14 +11,14 @@ using LARGERslicer.Types;
 namespace LARGERslicer.Components.Export
 {
     /// <summary>
-    /// DXR GCode Postprocessor - Converts GCode to DXR format.
+    /// G-code to DXR (formerly DXR GCode Postprocessor): converts G-code to DXR format.
     /// Use this component when you have GCode input from a slicer.
     /// </summary>
     public class DXRPostprocessorComponent : GH_Component
     {
         public DXRPostprocessorComponent()
-          : base("DXR GCode Postprocessor", "DXR GCode",
-              "Converts GCode to DXR format. Parses GCode to extract robot path, extrusion amounts, and print speeds.",
+          : base("G-code to DXR", "G>DXR",
+              "Turns G-code from any slicer into a DXR program for the Weber DXR: robot path, extrusion and speed are read from it. Connected Machine Settings set the temperatures and the fan (Fan Schedule too); without them the values in the G-code header are used.",
               "", "")
         {
         }
@@ -108,7 +108,11 @@ namespace LARGERslicer.Components.Export
                     }
 
                     // Use extracted or provided machine settings
-                    MachineSettings finalSettings = parsedData.ExtractedSettings ?? machineSettings;
+                    // connected Machine Settings win (with their zones and the Fan Schedule); the values in the G-code header
+                    // are only used when nothing is connected
+                    MachineSettings finalSettings = machineSettings ?? parsedData.ExtractedSettings;
+                    if (machineSettings != null && parsedData.ExtractedSettings != null)
+                        processInfo.Add("The temperatures and fan in the G-code header are not used: the connected Machine Settings win.");
 
                     // Process robot lines using the DXR conversion logic
                     var dxrLines = DXRHelper.ProcessRobotLinesToDXR(robotLines, P1_list, F1_list, processInfo, finalSettings, layerTypes, isRetraction);

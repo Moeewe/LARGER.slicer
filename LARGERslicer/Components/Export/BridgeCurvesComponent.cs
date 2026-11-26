@@ -202,7 +202,7 @@ namespace LARGERslicer.Components.Export
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("BridgeCurvesIcon.png", this);
         public override Guid ComponentGuid => new Guid("6705f4e1-8147-4779-ad92-9a4492100c7a");
         /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.septenary | GH_Exposure.obscure;
     }
 }
 

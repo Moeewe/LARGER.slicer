@@ -61,7 +61,7 @@ namespace LARGERslicer.GH2
     [IoId("b1f0a6a2-3c1d-4f0e-9a51-0c6e5a7d3001")]
     public sealed class GingerGCodeComponent : Component
     {
-        public GingerGCodeComponent() : base(Io.Name("Ginger G-code", "G-code for the Ginger One in full size: the machine's start and end sequence, absolute positions, relative extrusion, one constant feedrate. Choose the Ginger machine in Print Settings so the E values fit the pellet extruder.", Io.Slicer, Group.Output)) { }
+        public GingerGCodeComponent() : base(Io.HiddenName("Ginger G-code", "G-code for the Ginger One in full size: the machine's start and end sequence, absolute positions, relative extrusion, one constant feedrate. Choose the Ginger machine in Print Settings so the E values fit the pellet extruder.", Io.Slicer, Group.Output)) { }
         public GingerGCodeComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SlicerGingerIcon");
 
@@ -155,7 +155,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm. Every dimension follows from it.").Set(5.0).Values(3, 4, 5, 6, 8, 10, 12, 15, 20);
             inputs.AddNumber("Layer Height", "H", "Layer height in mm: a third to a half of the bead width.").Set(2.0).Values(1, 1.5, 2, 2.5, 3, 4, 5);
             inputs.AddNumber("Speed", "V", "Print speed in mm/s, the same for every move (50 mm/s = F3000 in G-code).").Set(50.0).Values(10, 25, 30, 50, 80, 100, 150);
-            inputs.AddInteger("Machine Profile", "MP", string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0).Choices(MachineProfile.PresetNames);
+            inputs.AddInteger("Profile Preset", "MP", string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n))).Set(0).Choices(MachineProfile.PresetNames);
             inputs.AddInteger("Walls", "N", "Number of walls.").Set(1).Counts(1, 2, 3, 4);
             inputs.AddInteger("Bottom Layers", "B", "Solid layers at the bottom. 0 = open.").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
             inputs.AddInteger("Infill", "I", string.Join("\n", EasySlicer.Infills.Select((n, i) => i + " = " + n))).Set(0).Choices(EasySlicer.Infills);
@@ -164,11 +164,11 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed. 0 = the layer height.").Set(0.0).Values(0, 1, 2, 3, 4, 5);
             // the inputs of Grasshopper 1 that this component did not have yet: added at the end, so older files keep their wires
             inputs.AddBoolean("Spiral", "Sp", "Vase mode: the path climbs all the time. Only for walls without infill and bottom.").Set(false);
-            inputs.AddInteger("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values from Bead Width and Layer Height:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0).Choices(Nozzles.Names);
+            inputs.AddInteger("Nozzle Preset", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values from Bead Width and Layer Height:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0).Choices(Nozzles.Names);
             inputs.AddInteger("Solid Pattern", "SP", "Pattern of the bottom and top layers:\n0 = auto\n1 = zigzag\n2 = contour (rings along the wall)").Set(0).Choices("Auto", "Zigzag", "Contour (follows the wall)");
             inputs.AddInteger("Top Layers", "T", "Solid layers that close the top of the part. They need something to lie on: infill (ribs, cells, waves) below them, or a top that narrows slowly.").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
             inputs.AddNumber("Angle", "A", "Slice angle in degrees: 0 = flat layers, 45 = layers leaning 45 degrees (robot or tilted bed).").Set(0.0).Angles();
-            inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away later (about 5 when printing at an angle).").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
+            inputs.AddInteger("Sacrificial Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away later (about 5 when printing at an angle).").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
             inputs.AddInteger("Wall Position", "WP", "Where the walls lie:\n0 = inside the geometry\n1 = centred on it\n2 = outside").Set(0).Choices("Inside the geometry", "Centred on the geometry", "Outside the geometry");
             inputs.AddBoolean("Bridge", "Bg", "Join contours that lie inside others (openings, inner shells) to them, so the line never stops.").Set(true);
         }
@@ -198,7 +198,7 @@ namespace LARGERslicer.GH2
             bool spiral, bridge; int nozzle, solidPattern, top, extra, wallPos; double angle;
             access.GetItem(11, out spiral); access.GetItem(12, out nozzle); access.GetItem(13, out solidPattern); access.GetItem(14, out top);
             access.GetItem(15, out angle); access.GetItem(16, out extra); access.GetItem(17, out wallPos); access.GetItem(18, out bridge);
-            f = f > 1000 ? f : f * 60; // mm/s; a value above 1000 is an older definition in mm/min
+            f = Speeds.ToMmPerMin(access, f, "Speed"); // mm/s; a value above 1000 is an older definition in mm/min
             var st = new PrintSettings { BeadWidth = w, LayerHeight = h, FirstLayerHeight = Math.Max(0, h1), Speed = f, Machine = MachineProfile.Preset(machine) };
             string nozzleNote = Nozzles.Apply(st, nozzle);
             if (nozzleNote != null) foreach (var note in Nozzles.Check(st.Nozzle, st.NozzleShape, st.BeadWidth, st.LayerHeight)) access.AddWarning("Nozzle", note);
@@ -313,6 +313,7 @@ namespace LARGERslicer.GH2
                 var log = new List<string>();
                 var all = MachineDefinition.All(log);
                 foreach (var l in log) access.AddWarning("Machine file left out", l);
+                index = ChoiceByName.Resolve(this, access, index, all.Select(x => x.Title).ToList(), "LARGER_Machine", "Machine");
                 if (index < 0 || index >= all.Count) { access.AddWarning("Unknown machine", $"There are {all.Count} machines (0 to {all.Count - 1}); using the first."); index = 0; }
                 m = all[index].Duplicate();
             }

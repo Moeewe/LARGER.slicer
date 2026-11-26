@@ -32,6 +32,11 @@ namespace LARGERslicer.Toolpaths
         public bool Preview = false;          // fast mode: coarse meshing, no rounding
         public double Density = 1.25;         // g/cm3 of the printed material, for the weight in file names and reports
         public double Nozzle = 0.0;           // mm, 0 = not given (see Nozzles)
+        /// <summary>mm/min per role (Wall, Infill, Bottom, Skirt ...); a role that is missing prints at Speed. Set by Print Tuning.</summary>
+        public System.Collections.Generic.Dictionary<PathRole, double> RoleSpeeds;
+        public double Coasting = 0.0;         // mm, 0 = off: the extruder stops this far before every stop or travel, so no blob forms (pellet screws run on)
+        public double Prime = 0.0;            // mm, 0 = off: after a stop the first move gets the material of this much bead extra, so the bead starts full
+        public double TravelLift = 0.0;       // mm, 0 = off: G-code machines lift the nozzle this far for travel moves (Z-hop)
         public Nozzles.Shape NozzleShape = Nozzles.Shape.Unknown;
         public MachineProfile Machine = new MachineProfile();
 
@@ -63,6 +68,7 @@ namespace LARGERslicer.Toolpaths
         {
             var d = (PrintSettings)MemberwiseClone();
             d.Machine = Machine?.Duplicate() ?? new MachineProfile();
+            if (RoleSpeeds != null) d.RoleSpeeds = new System.Collections.Generic.Dictionary<PathRole, double>(RoleSpeeds);
             return d;
         }
 

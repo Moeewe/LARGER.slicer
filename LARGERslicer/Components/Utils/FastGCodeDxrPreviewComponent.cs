@@ -18,9 +18,9 @@ namespace LARGERslicer.Components.Utils
         private readonly List<GCodeLineConduit> _conduits = new List<GCodeLineConduit>();
 
         public FastGCodeDxrPreviewComponent()
-          : base("Fast GCode DXR Preview", "GPreview",
-              "Fast G-code/DXR path visualization with cached parsing and optional 3D ribbon preview.",
-              "LARGER", "Utilities")
+          : base("DXR Width Preview", "DXR View",
+              "Draws a DXR program coloured by its line width (the XE values), with an optional 3D ribbon. Reads DXR lines (G1 ... XE=[...]); for plain G-code use Import G-code.",
+              "LARGER", "DXR")
         {
         }
 
@@ -421,6 +421,7 @@ namespace LARGERslicer.Components.Utils
         }
 
         protected override Drawing.Bitmap Icon => IconHelper.Load("FastGCodeDxrPreviewIcon.png", this);
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
         public override Guid ComponentGuid => new Guid("000961C9-CE01-4FEC-9FF7-B8E2BE841FDC");
 
         private readonly struct ParseSig : IEquatable<ParseSig>

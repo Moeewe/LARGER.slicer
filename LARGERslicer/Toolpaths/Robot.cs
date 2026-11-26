@@ -318,7 +318,7 @@ namespace LARGERslicer.Toolpaths
         /// <summary>The tool as a 3D model, drawn where it sits on the flange: the flange is the world XY plane, the tool grows along +Z. Null = none.</summary>
         public Mesh Mesh;
         /// <summary>A tool of the FH Muenster UR5 (0 clay extruder V2, 1 pen holder, 2 wool spinner): on a UR it is taken as it is
-        /// (see URTool.Preset). -1 = an own tool: on a UR its TCP is read as on the UR pendant (flange frame, Z out of the tool).</summary>
+        /// (see URTool.Preset). -1 = an own tool: its TCP is given as for KUKA (Z into the tool); on a UR it is turned so its Z points out of the tool (URTool.FromKukaConvention).</summary>
         public int UrPreset = -1;
         /// <summary>On a UR: URScript that starts and stops the extruder, and runs before the print (null = the FH Muenster codes).</summary>
         public string OnCode, OffCode, StartCode;
@@ -764,6 +764,20 @@ namespace LARGERslicer.Toolpaths
         {
             var r = new RobotProgramResult();
             if (tp == null || tp.Count < 2) { r.Ok = false; r.Report.Add("Empty toolpath."); return r; }
+            // the extrusion values go to the Weber DXR: a toolpath that still carries the profile of a filament printer or of the
+            // Ginger would get its E values (0.21 instead of 1.128, or filament length) - then the DXR profile is taken, as
+            // Machine G-code takes the profile of its machine
+            var mp = tp.Settings?.Machine;
+            bool weberTool = cell.Tool != null && cell.Tool.Name != null && cell.Tool.Name.StartsWith("AE20", StringComparison.OrdinalIgnoreCase);
+            if (mp != null && (mp.FilamentDiameter > 0 || (mp.Name ?? "").IndexOf("Ginger", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                if (weberTool)
+                {
+                    tp = tp.Duplicate(); tp.Settings = tp.Settings.Duplicate(); tp.Settings.Machine = MachineProfile.Preset(3);
+                    r.Report.Add(Inv.F($"Extrusion: the toolpath carries the profile '{MachineProfile.ShortName(mp.Name)}', which is not for the DXR; the Weber DXR25 profile (x {tp.Settings.Machine.Factor:0.###}) is used. Connect a Machine Profile for the DXR to Print Settings to set your own factor."));
+                }
+                else r.Report.Add(Inv.F($"WARNING: the toolpath carries the extrusion profile '{MachineProfile.ShortName(mp.Name)}'. If this program drives a pellet extruder, connect the right Machine Profile to Print Settings."));
+            }
             var pr = PathEngine.Process(tp, false);
             List<double> extrusion = pr.Extrusion, speed = pr.Speed;
             var arm = cell.Arm;

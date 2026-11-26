@@ -153,6 +153,31 @@ namespace LARGERslicer.Toolpaths
 
         public override string ToString() => Inv.F($"Machine {Title} ({Source})");
 
+        /// <summary>A copy whose fan follows 'steps' (after how many layers how many percent; ramp = rising evenly in between):
+        /// M106 S0-255 or M107 after the layers, in place of its own fan lines. Used by Fan Schedule.</summary>
+        public MachineDefinition WithFanSchedule(List<KeyValuePair<int, double>> steps, bool ramp)
+        {
+            var m2 = Duplicate();
+            foreach (var key in m2.AfterLayer.Keys.ToList())
+            {
+                m2.AfterLayer[key] = m2.AfterLayer[key].Where(l => !l.TrimStart().StartsWith("M106", StringComparison.OrdinalIgnoreCase) && !l.TrimStart().StartsWith("M107", StringComparison.OrdinalIgnoreCase)).ToList();
+                if (m2.AfterLayer[key].Count == 0) m2.AfterLayer.Remove(key);
+            }
+            var probe = new LARGERslicer.Types.MachineSettings(60, 200, 0) { FanSteps = steps, FanRamp = ramp };
+            int lastKey = steps.Count > 0 ? steps.Max(st => st.Key) : 0;
+            double before = probe.FanAtLayer(0);
+            for (int layer = 1; layer <= lastKey; layer++)
+            {
+                double now = probe.FanAtLayer(layer);
+                if (Math.Abs(now - before) < 0.5) continue;
+                string line = now <= 0 ? "M107 ; fan off" : Inv.F($"M106 S{Math.Round(now * 2.55):0} ; fan {now:0} %");
+                if (!m2.AfterLayer.TryGetValue(layer, out var block)) m2.AfterLayer[layer] = block = new List<string>();
+                block.Add(line);
+                before = now;
+            }
+            return m2;
+        }
+
         public MachineDefinition Duplicate()
         {
             var d = (MachineDefinition)MemberwiseClone();
@@ -543,7 +568,12 @@ namespace LARGERslicer.Toolpaths
             var r = new GingerGCode.Result();
             if (source == null || source.Count < 2) { r.Warnings.Add("Empty toolpath."); return r; }
             if (machine == null) { r.Warnings.Add("No machine."); return r; }
-            // the extrusion follows the machine, whatever profile the print settings carry
+            // the extrusion follows the machine, whatever profile the print settings carry; say so when they differ
+            var own = source.Settings?.Machine;
+            var plain = new MachineProfile();
+            bool set = own != null && !(own.Name == plain.Name && Math.Abs(own.Factor - plain.Factor) < 1e-9 && own.FilamentDiameter <= 0);
+            if (set && machine.Profile != null && (Math.Abs(own.Factor - machine.Profile.Factor) > 1e-9 || Math.Abs(own.FilamentDiameter - machine.Profile.FilamentDiameter) > 1e-9 || own.RectangleSection != machine.Profile.RectangleSection))
+                r.Warnings.Add(Inv.F($"The extrusion follows the machine: its profile (E x {machine.Profile.Factor:0.###}) replaces the Machine Profile of Print Settings (E x {own.Factor:0.###}). To use a calibrated factor here, set Extrusion Factor on the Machine component."));
             var tp = source.Duplicate();
             tp.Settings = source.Settings.Duplicate();
             tp.Settings.Machine = machine.Profile.Duplicate();
@@ -574,8 +604,9 @@ namespace LARGERslicer.Toolpaths
             if (StartsOnBed(machine))
                 L.Add("G0 Z" + N(Math.Max(p0.Z, 10), 3) + " F" + N(Math.Min(travel, 600), 0) + " ; lift before the way to the start (the start code does not)");
             L.Add("G0 X" + N(p0.X, 3) + " Y" + N(p0.Y, 3) + " F" + N(travel, 0));
-            L.Add("G0 Z" + N(p0.Z, 3) + " F" + N(travel, 0));
-            int layer = int.MinValue, number = 0; double total = 0; int zero = 0;
+            // down onto the start at print speed, so a wrong height is seen before the nozzle hits (as PathEngine times it)
+            L.Add("G0 Z" + N(p0.Z, 3) + " F" + N(Math.Min(travel, st.Speed), 0));
+            int layer = int.MinValue, number = 0; double total = 0; int zero = 0, hops = 0; bool lifted = false; double liftZ = 0;
             for (int i = 1; i < tp.Count; i++)
             {
                 if (tp.Layers[i] != layer)
@@ -593,13 +624,42 @@ namespace LARGERslicer.Toolpaths
                 Point3d p = tp.Points[i];
                 if (p.DistanceTo(tp.Points[i - 1]) < 1e-6) continue;
                 bool print = tp.Flows[i] > 0 && tp.Roles[i] != PathRole.Travel;
-                if (!print) { L.Add("G0 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " F" + N(travel, 0)); continue; }
+                if (!print)
+                {
+                    // the speed PathEngine gave the move: fast, but at print speed where it goes down towards the bed or the part
+                    double ft = i < pr.Speed.Count && pr.Speed[i] > 0 ? Math.Min(travel, pr.Speed[i]) : travel;
+                    double lift = st.TravelLift > 0 ? st.TravelLift : 0;
+                    if (lift > 0)
+                    {
+                        if (!lifted)
+                        {
+                            // Z-hop: up from where the bead ended, then the travel above the part
+                            liftZ = tp.Points[i - 1].Z + lift;
+                            L.Add("G0 Z" + N(liftZ, 3) + " F" + N(travel, 0) + " ; lift for the travel");
+                            lifted = true; hops++;
+                        }
+                        // while lifted the nozzle only goes up or stays: it comes down at print speed at the start of the next bead
+                        liftZ = Math.Max(liftZ, p.Z + lift);
+                        L.Add("G0 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(liftZ, 3) + " F" + N(travel, 0)); continue;
+                    }
+                    L.Add("G0 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " F" + N(ft, 0)); continue;
+                }
+                if (lifted)
+                {
+                    // down onto the start of the next bead at print speed
+                    var q = tp.Points[i - 1];
+                    L.Add("G0 X" + N(q.X, 3) + " Y" + N(q.Y, 3) + " Z" + N(q.Z, 3) + " F" + N(Math.Min(travel, st.Speed), 0));
+                    lifted = false;
+                }
                 double f = pr.Speed[i]; if (f <= 0) { f = st.Speed; zero++; }
                 // the feedrate is written on every line and is never 0 (it changes where Min Layer Time or Max Volume Rate slow a layer or a move)
                 L.Add("G1 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " E" + N(pr.Extrusion[i], 5) + " F" + N(f, 0));
                 total += pr.Extrusion[i];
             }
             if (zero > 0) r.Warnings.Add(Inv.F($"{zero} move(s) had speed 0 and got the print speed instead."));
+            if (hops > 0) r.Notes.Add(Inv.F($"{hops} travel move(s) lifted by {st.TravelLift:0.#} mm (Travel Lift)."));
+            if (pr.Coasted > 0) r.Notes.Add(Inv.F($"The extruder stops {st.Coasting:0.#} mm early before {pr.Coasted} stop(s) (Coasting)."));
+            if (pr.Primed > 0) r.Notes.Add(Inv.F($"{pr.Primed} start(s) after a stop get {st.Prime:0.#} mm of bead extra (Prime)."));
             foreach (string code in machine.End) L.Add(machine.Fill(code));
             r.Info = Inv.F($"{machine.Name}: {number} layers, {pr.PrintLength / 1000.0:0.00} m printed, E total {total:0.0}, about {pr.Minutes:0} min, {OutputFile.Grams(pr.Volume, st):0} g, {L.Count} lines");
             return r;

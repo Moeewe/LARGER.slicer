@@ -135,7 +135,7 @@ namespace LARGERslicer.Components.CNC
     {
         public CncCutterComponent()
             : base("CNC - Cutter", "Cutter",
-                  "STEP 2. One cutter (router bit): choose which one it is and in which place of the magazine it sits. Everything else is filled in. Take one for roughing (thick, flat) and one for finishing (a ball). For a cutter that is not in the list: CNC - Own Cutter.") { }
+                  "STEP 2. One cutter (router bit): choose which one it is and in which place of the magazine it sits. Everything else is filled in. Take one for roughing (thick, flat) and one for finishing (a ball). For a cutter that is not in the list choose Own flat or Own ball cutter and type in its sizes below.") { }
 
         public override string SubCategory => "CNC";
         public override Guid ComponentGuid => new Guid("460150CA-6CD7-43A2-BE22-141AA1DFD9CB");
@@ -149,11 +149,19 @@ namespace LARGERslicer.Components.CNC
             p.AddNumberParameter("Step Down", "Step Down", "How deep one level goes in mm. 0 = automatic, after the material of the plate", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Stepover", "Stepover", "How far the paths lie apart in mm. 0 = automatic: roughing 45 %, finishing 10 % of the diameter. Finishing: closer = smoother and longer", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Feed", "Feed", "How fast the cutter moves in the material, in mm/s (the file has cm/s, as the Zünd counts). 0 = automatic", GH_ParamAccess.item, 0.0);
+            // an own cutter (Cutter 6 or 7): the sizes; and the module the router sits in, for every cutter
+            p.AddNumberParameter("Diameter", "Diameter", "Own cutter only (Cutter 6 or 7): diameter of the cutting edge in mm", GH_ParamAccess.item, 6.0);
+            p.AddNumberParameter("Cutting Length", "Cut Length", "Own cutter only: length of the cutting edge in mm. Above it the 6 mm shank begins and is kept off the model", GH_ParamAccess.item, 20.0);
+            p.AddNumberParameter("Max Depth", "Max Depth", "Own cutter only: how deep the cutter reaches into the plate in mm, before the holder or the suction bell touches", GH_ParamAccess.item, 22.0);
+            p.AddNumberParameter("Spindle Speed", "RPM", "Own cutter only: turns per minute, 7000 to 50000", GH_ParamAccess.item, 30000.0);
+            p.AddIntegerParameter("Module", "Module", "The module of the Zünd the router sits in: 11 left, 21 middle, 31 right (the FH Muenster G3: 31)", GH_ParamAccess.item, 31);
         }
+
+        private static string[] Choices => CutterPresets.Choices;
 
         protected override void CreateAutoInputs(GH_Document doc)
         {
-            AddValueList(doc, 0, "Cutter", CutterPresets.Names);
+            AddValueList(doc, 0, "Cutter", Choices);
             AddValueList(doc, 1, "Magazine", CutterPresets.Bits);
             var sd = AddSlider(doc, 2, "Step Down", 0, 12, 0, 1, "mm", new double[] { 0, 1, 2, 3, 4, 6 });
             var so = AddSlider(doc, 3, "Stepover", 0, 5, 0, 2, "mm", new double[] { 0, 0.3, 0.5, 0.8, 1, 2, 3 });
@@ -169,10 +177,14 @@ namespace LARGERslicer.Components.CNC
 
         protected override void SolveInstance(IGH_DataAccess da)
         {
-            int kind = 0, bit = 0; double down = 0, over = 0, feed = 0;
+            int kind = 0, bit = 0, module = 31; double down = 0, over = 0, feed = 0, d = 6, l = 20, max = 22, rpm = 0;
             da.GetData(0, ref kind); da.GetData(1, ref bit); da.GetData(2, ref down); da.GetData(3, ref over); da.GetData(4, ref feed);
-            if (kind < 0 || kind > 5) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Cutter is 0 to 5. For another one: CNC - Own Cutter."); return; }
-            var c = CutterPresets.Make(kind, bit, feed, 0, 0, 0, 0, 31, down, over, out string error);
+            if (Params.Input.Count > 9) { da.GetData(5, ref d); da.GetData(6, ref l); da.GetData(7, ref max); da.GetData(8, ref rpm); da.GetData(9, ref module); }
+            int last = Params.Input.Count > 9 ? 7 : 5;
+            if (kind < 0 || kind > last) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, Inv.F($"Cutter is 0 to {last}: {string.Join(", ", Choices.Take(last + 1).Select((n, i) => i + " = " + n))}.")); return; }
+            if (module != 11 && module != 21 && module != 31) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Module is 11 (left), 21 (middle) or 31 (right); 31 is used."); module = 31; }
+            bool own = kind >= 6;
+            var c = CutterPresets.Make(kind, bit, feed, own ? (rpm > 0 ? rpm : 30000) : 0, own ? d : 0, own ? l : 0, own ? max : 0, module, down, over, out string error);
             if (c == null) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, error); return; }
             Message = c.Name;
             da.SetData(0, new GH_Cutter(c));
@@ -185,9 +197,10 @@ namespace LARGERslicer.Components.CNC
     {
         public CncOwnCutterComponent()
             : base("CNC - Own Cutter", "Own Cutter",
-                  "A cutter that is not in the list of CNC - Cutter: measure it and type in its sizes.") { }
+                  "A cutter that is not in the list (kept for older files; CNC - Cutter now has Own flat and Own ball cutter): measure it and type in its sizes.") { }
 
         public override string SubCategory => "CNC";
+        public override GH_Exposure Exposure => GH_Exposure.hidden; // now part of CNC - Cutter (Cutter 6 and 7)
         public override Guid ComponentGuid => new Guid("B2D5C0E6-1B7A-4E55-9E7C-2F6B0E4A7C21");
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("CNCCutterIcon.png", this);
         public float MinWidth => 190;

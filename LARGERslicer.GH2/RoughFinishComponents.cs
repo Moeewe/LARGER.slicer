@@ -104,11 +104,16 @@ namespace LARGERslicer.GH2
 
         protected override void AddInputs(InputAdder inputs)
         {
-            inputs.AddInteger("Cutter", "Cutter", CutterPresets.Help).Set(0).Choices(CutterPresets.Names);
+            inputs.AddInteger("Cutter", "Cutter", CutterPresets.Help + "\n6 = own flat cutter, 7 = own ball cutter (the sizes below)").Set(0).Choices(CutterPresets.Choices);
             inputs.AddInteger("Magazine", "Magazine", CutterPresets.BitHelp).Set(0).Choices(CutterPresets.Bits);
             inputs.AddNumber("Step Down", "Step Down", "How deep one level goes in mm. 0 = automatic, after the material of the plate.").Set(0.0).Values(0, 1, 2, 3, 4, 6);
             inputs.AddNumber("Stepover", "Stepover", "How far the paths lie apart in mm. 0 = automatic: roughing 45 %, finishing 10 % of the diameter. Finishing: closer = smoother and longer.").Set(0.0).Values(0, 0.3, 0.5, 0.8, 1, 2, 3);
             inputs.AddNumber("Feed", "Feed", "How fast the cutter moves in the material, in mm/s (the file has cm/s, as the Zünd counts). 0 = automatic.").Set(0.0).Values(0, 20, 30, 40, 50, 70, 100);
+            inputs.AddNumber("Diameter", "Diameter", "Own cutter only (Cutter 6 or 7): diameter of the cutting edge in mm.").Set(6.0).Values(2, 3, 4, 6, 8);
+            inputs.AddNumber("Cutting Length", "Cut Length", "Own cutter only: length of the cutting edge in mm.").Set(20.0).Values(6, 12, 14, 20, 22, 30);
+            inputs.AddNumber("Max Depth", "Max Depth", "Own cutter only: how deep the cutter reaches into the plate in mm.").Set(22.0).Values(10, 15, 22, 30, 40);
+            inputs.AddNumber("Spindle Speed", "RPM", "Own cutter only: turns per minute, 7000 to 50000.").Set(30000.0);
+            inputs.AddInteger("Module", "Module", "The module of the Zünd the router sits in: 11 left, 21 middle, 31 right (the FH Muenster G3: 31).").Set(31);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -119,10 +124,15 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
-            int kind, bit; double down, over, feed;
+            int kind, bit, module = 31; double down, over, feed, d = 6, l = 20, max = 22, rpm = 0;
             access.GetItem(0, out kind); access.GetItem(1, out bit); access.GetItem(2, out down); access.GetItem(3, out over); access.GetItem(4, out feed);
-            if (kind < 0 || kind > 5) { access.AddError("Cutter", "Cutter is 0 to 5. For another one: CNC - Own Cutter."); return; }
-            var c = CutterPresets.Make(kind, bit, feed, 0, 0, 0, 0, 31, down, over, out string error);
+            bool more = Parameters.InputCount > 9;
+            if (more) { access.GetItem(5, out d); access.GetItem(6, out l); access.GetItem(7, out max); access.GetItem(8, out rpm); access.GetItem(9, out module); }
+            int last = more ? 7 : 5;
+            if (kind < 0 || kind > last) { access.AddError("Cutter", $"Cutter is 0 to {last}."); return; }
+            if (module != 11 && module != 21 && module != 31) { access.AddWarning("Module", "Module is 11 (left), 21 (middle) or 31 (right); 31 is used."); module = 31; }
+            bool own = kind >= 6;
+            var c = CutterPresets.Make(kind, bit, feed, own ? (rpm > 0 ? rpm : 30000) : 0, own ? d : 0, own ? l : 0, own ? max : 0, module, down, over, out string error);
             if (c == null) { access.AddError("Cutter", error); return; }
             access.SetItem(0, c);
             access.SetItem(1, CutterPresets.Info(c));
@@ -133,7 +143,7 @@ namespace LARGERslicer.GH2
     [IoId("d1c5e0a7-3f64-4b0a-8a5e-6f7b8c9d0e03")]
     public sealed class CncOwnCutterComponent : Component
     {
-        public CncOwnCutterComponent() : base(Io.Name("CNC - Own Cutter", "A cutter that is not in the list of CNC - Cutter: measure it and type in its sizes.", Io.Cnc, 0)) { }
+        public CncOwnCutterComponent() : base(Io.HiddenName("CNC - Own Cutter", "A cutter that is not in the list of CNC - Cutter: measure it and type in its sizes.", Io.Cnc, 0)) { }
         public CncOwnCutterComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("CNCCutterIcon");
 

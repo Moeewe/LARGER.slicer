@@ -8,7 +8,7 @@ namespace LARGERslicer.Utils
 {
     /// <summary>
     /// Reads G-code of another slicer into the lists the DXR conversion needs (robot lines, extrusion,
-    /// speed, type). Used by the DXR GCode Postprocessor of Grasshopper 1 and 2.
+    /// speed, type). Used by G-code to DXR in Grasshopper 1 and 2.
     /// The robot gets every position as an absolute one, so relative moves (G91, as in the end code of
     /// Cura: "G91 / G1 Z10") are added up here; written as they stand they would be read as a height
     /// above the bed and drive the nozzle into the part.

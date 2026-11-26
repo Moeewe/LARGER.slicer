@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
@@ -9,14 +10,15 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityFixtureComponent : GH_Component
     {
         public CncUtilityFixtureComponent()
-                      : base("CNC Utilities 06 Fixtures", "CU_06",
-                  "Creates L-shaped fixture elements (stop + base) and cuts insertion pockets into the boards.",
-              "LARGER", "CNC Utilities")
+                      : base("Formwork - Fixtures", "Fixtures",
+                  "STEP 6. Creates L-shaped fixture elements (stop + base) and shortens every board by Insert Depth at both ends, where it sits in the stops. The contour of the stops is given for checking.",
+              "LARGER", "Formwork")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "CNC Utilities";
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override string SubCategory => "Formwork";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -71,7 +73,9 @@ namespace LARGERslicer.Components.CNCUtilities
                 return;
             }
 
-            // Bounding boxes aller Bretter sammeln
+            // the bounding boxes of all boards (empty items are left out)
+            boards = boards.Where(b => b != null && b.IsValid).ToList();
+            if (boards.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No valid board."); return; }
             BoundingBox allBB = BoundingBox.Empty;
             var boardBoxes = new List<BoundingBox>();
             foreach (var b in boards)

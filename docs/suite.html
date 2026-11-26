@@ -286,14 +286,14 @@ body{margin:0}
       <div class="top"><span class="chip ok">Verfügbar</span><span class="meta">Version 2.0.4</span></div>
       <h3>LARGER.slicer für Grasshopper 1</h3>
       <p>Das Plug-in für Rhino 8 und 9. Schneidet flach, gekippt, entlang einer Fläche oder einer Kurve und verbindet Wand, Boden und Infill zu einer Linie. Der Path Check prüft die Bahn, bevor sie an die Maschine geht.</p>
-      <ul><li>Infill aus einer Linie: Stege, Waben, Welle, Kammern, eigene Linien</li><li>Ausgabe für Weber DXR und als verkleinerter Testdruck</li><li>Mit 1.3: Easy Slicer, Roboter-Tab, G-Code für den Ginger One</li></ul>
+      <ul><li>Infill aus einer Linie: Stege, Waben, Welle, Kammern, eigene Linien</li><li>Ausgabe für Weber DXR, G-Code für den Ginger One und eigene Maschinen, verkleinerter Testdruck</li><li>Easy Slicer, Quick Start mit acht Beispielen, Roboter-Tab für KUKA und UR, Fräsen auf der Zünd</li></ul>
       <div class="go"><a href="../">Zur Produktseite</a><a href="../erste-schritte/">Erste Schritte</a><a href="../versionen/">Download</a></div>
     </article>
     <article class="card">
-      <div class="top"><span class="chip pre">Vorschau</span><span class="meta">Rhino 9 · Version 0.1</span></div>
+      <div class="top"><span class="chip pre">Vorschau</span><span class="meta">Rhino 9 · Teil von LARGER.slicer 2.0.4</span></div>
       <h3>LARGER.slicer für Grasshopper 2</h3>
-      <p>Derselbe Kern wie in Grasshopper 1, also dieselben Bahnen. Slicer, DXR und Roboter laufen in Rhino 9, an einem echten Druck ist die Vorschau noch nicht geprüft.</p>
-      <ul><li>Wird von Hand geladen, noch nicht über den Paketmanager</li><li>Noch nicht dabei: Infill Sketch, eigene Faktoren im Machine Profile, die Kurvenwerkzeuge, DXR-Prüfung</li></ul>
+      <p>Derselbe Kern wie in Grasshopper 1, also dieselben Bahnen. Slicer, DXR, Roboter, CNC und Formwork laufen in Rhino 9, an einem echten Druck ist die Vorschau noch nicht geprüft.</p>
+      <ul><li>Kommt mit dem Paket für Rhino 9 über den Paketmanager; ab 2.0.5 trägt es sich selbst in Grasshopper 2 ein</li><li>Nur für Rhino 9: in Rhino 8 nimmst du Grasshopper 1</li></ul>
       <div class="go"><a href="https://github.com/Moeewe/LARGER.slicer/tree/main/LARGERslicer.GH2">Status auf GitHub</a></div>
     </article>
     <article class="card">
@@ -314,13 +314,13 @@ body{margin:0}
       <div class="go"><a href="../maschinen/#weber">Zur Weber DXR</a></div>
     </article>
     <article class="card">
-      <div class="top"><span class="chip dev">In Entwicklung</span><span class="meta">kommt mit 1.3</span></div>
-      <h3>KUKA KRL und Roboter-Tab</h3>
-      <p>Roboter, Werkzeug, Zelle und Programm. Gekippte und mehrachsige Bahnen kippen das Werkzeug mit. Das Programm prüft Reichweite, Achsbereiche, Singularitäten, Achsgeschwindigkeit und Kollisionen und schreibt ein KRL-Programm.</p>
-      <ul><li>Voreingestellt: KUKA KR120 R2700-2</li><li>Andere Sechsachser aus der Bibliothek des Robots-Plug-ins</li><li>Simulation des ganzen Drucks</li></ul>
+      <div class="top"><span class="chip ok">Verfügbar</span><span class="meta">Version 2.0.4</span></div>
+      <h3>Roboter-Tab: KUKA und UR</h3>
+      <p>Roboter, Werkzeug, Zelle und Programm. Gekippte und mehrachsige Bahnen kippen das Werkzeug mit. Das Programm prüft Reichweite, Achsbereiche, Singularitäten, Achsgeschwindigkeit und beim KUKA Kollisionen und schreibt KRL für den KUKA oder URScript für einen UR.</p>
+      <ul><li>KUKA KR120 R2700-2 oder UR3, UR5, UR10 und ihre e-Series</li><li>Andere Sechsachser aus der Bibliothek des Robots-Plug-ins</li><li>Simulation des ganzen Drucks</li></ul>
     </article>
     <article class="card">
-      <div class="top"><span class="chip dev">In Entwicklung</span><span class="meta">nach 1.3</span></div>
+      <div class="top"><span class="chip ok">Verfügbar</span><span class="meta">nur KUKA</span></div>
       <h3>Externe Achsen</h3>
       <p>Eine Schiene, auf der der Roboter steht, oder ein Drehtisch, auf dem das Bauteil steht. Schiene und Tisch fahren mit, damit der Roboter jeden Punkt erreicht. In Rhino getestet, an einer Steuerung noch nicht.</p>
     </article>
@@ -333,13 +333,13 @@ body{margin:0}
     <article class="card">
       <div class="top"><span class="chip ok">Verfügbar</span></div>
       <h3>Weber DXR</h3>
-      <p>Extrusion als Volumen, an der Steuerung mit dem Materialfaktor P1 skaliert. Mit der nächsten Version kommen Düsenvorgaben aus den Weber-Profilen und die erprobte Einstellung der FH Münster.</p>
+      <p>Extrusion als Volumen, an der Steuerung mit dem Materialfaktor P1 skaliert. Dazu Düsenvorgaben aus den Weber-Profilen und die erprobte Einstellung der FH Münster.</p>
       <div class="go"><a href="../maschinen/#weber">Werte ansehen</a></div>
     </article>
     <article class="card">
       <div class="top"><span class="chip ok">Verfügbar</span></div>
       <h3>Ginger One</h3>
-      <p>Das Profil mit dem Extrusionsfaktor des Ginger ist dabei. Mit 1.3 schreibt der Baustein Ginger G-code die Datei in Originalgröße, mit der Start- und Endsequenz des Ginger-Handbuchs.</p>
+      <p>Das Profil mit dem Extrusionsfaktor des Ginger ist dabei. Machine mit dem Ginger One und Machine G-code schreiben die Datei in Originalgröße, mit der Start- und Endsequenz des Ginger-Handbuchs.</p>
       <div class="go"><a href="../maschinen/#ginger">Werte ansehen</a></div>
     </article>
     <article class="card">
@@ -349,7 +349,7 @@ body{margin:0}
       <div class="go"><a href="../maschinen/#tisch">Werte ansehen</a></div>
     </article>
     <article class="card">
-      <div class="top"><span class="chip dev">In Entwicklung</span><span class="meta">kommt nach 1.3</span></div>
+      <div class="top"><span class="chip ok">Verfügbar</span></div>
       <h3>Eigene .machine-Dateien</h3>
       <p>Eine kleine Textdatei pro Maschine: Name, Bett, Extrusionsfaktor, Start-, Lagen- und Endcode. Dazu eigene Druckzellen als Rhino-Datei für die Kollisionsprüfung.</p>
       <div class="go"><a href="../maschinen/#eigene">So sieht die Datei aus</a></div>
@@ -358,17 +358,17 @@ body{margin:0}
 </div></section>
 
 <section id="kommt"><div class="wrap">
-  <div class="lhead"><span class="no num">04</span><h2>Was noch kommt</h2><p class="lead">Aus der laufenden Forschung. Noch nicht gebaut, Reihenfolge offen.</p></div>
+  <div class="lhead"><span class="no num">04</span><h2>Was noch kommt</h2><p class="lead">Aus der laufenden Forschung. Zwei Ideen sind schon im Slicer, eine ist noch offen.</p></div>
   <div class="cards">
     <article class="card">
-      <div class="top"><span class="chip plan">Geplant</span></div>
+      <div class="top"><span class="chip ok">Verfügbar</span></div>
       <h3>Stützfinnen</h3>
-      <p>Schmale Finnen, die beim Druck mitwachsen und Überhänge oder schlanke Wände stützen, als Teil derselben Bahn.</p>
+      <p>Support Fins: schmale Finnen, die beim Druck mitwachsen und Überhänge stützen, als Teil derselben Bahn.</p>
     </article>
     <article class="card">
-      <div class="top"><span class="chip plan">Geplant</span></div>
+      <div class="top"><span class="chip ok">Verfügbar</span></div>
       <h3>Selbsttragend prüfen</h3>
-      <p>Eine Prüfung schon am Modell: Trägt sich die Form beim Druck selbst? Dazu eine Hüllform für die Bauteile der IGA.</p>
+      <p>Self Support Check prüft schon am Modell, ob sich die Form beim Druck selbst trägt. Self Supporting Envelope ergänzt so wenig Material wie möglich, Best Angle sucht den Schnittwinkel mit dem wenigsten Überhang.</p>
     </article>
     <article class="card">
       <div class="top"><span class="chip plan">Geplant</span></div>

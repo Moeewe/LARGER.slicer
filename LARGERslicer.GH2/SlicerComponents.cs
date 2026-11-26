@@ -136,6 +136,7 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Overlap", "OL", "Overlap of two beads side by side in mm. 0 = middle of 5 to 10 % of the bead width.").Set(0.0);
             inputs.AddNumber("Finish Thickness", "t", "Optional: the wall thickness the finished part needs, in mm.").Set(0.0);
             inputs.AddNumber("Milling", "Mill", "Optional: how much is milled away from that wall afterwards, in mm.").Set(0.0);
+            inputs.AddGeneric("Settings", "S", "Optional: Print Settings. Then bead width, layer height, nozzle and overlap are taken from them, so CO90 is exactly what Walls prints.", Access.Item, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -145,15 +146,22 @@ namespace LARGERslicer.GH2
             outputs.AddNumber("CO90", "CO90", "Wall of two beads, layers square to it: model it this thick (mm).");
             outputs.AddNumber("CO45", "CO45", "Wall of two beads, layers crossing it at 45 degrees: model it this thick (mm).");
             outputs.AddNumber("LW45", "LW45", "Layer width for the finished wall thickness at 45 degrees (mm).");
-            outputs.AddInterval("Layer Height", "H", "Layer heights the nozzle allows (mm).");
+            outputs.AddInterval("Layer Range", "HR", "Layer heights the nozzle allows (mm).");
         }
 
         protected override void Process(IDataAccess access)
         {
             double w, n, h, ol, t, mill;
             access.GetItem(0, out w); access.GetItem(1, out n); access.GetItem(2, out h); access.GetItem(3, out ol); access.GetItem(4, out t); access.GetItem(5, out mill);
+            var st = Parameters.InputCount > 6 ? Io.Get<PrintSettings>(access, 6) : null;
+            if (st != null)
+            {
+                w = st.BeadWidth; h = st.LayerHeight; if (st.Nozzle > 0) n = st.Nozzle; ol = st.Overlap * st.BeadWidth;
+                access.AddRemark("From Print Settings", Inv.F($"Bead {w:0.##} mm, layer {h:0.##} mm, overlap {st.Overlap * 100:0} % ({ol:0.##} mm)."));
+            }
             if (w <= 0) { access.AddError("Invalid bead width", "Bead Width must be greater than 0."); return; }
             var r = DesignRules.Evaluate(w, n, h, ol, t, mill);
+            if (st == null) r.Report.Add(Inv.F($"Walls prints with the overlap of Print Settings (15 % by default): two walls of {w:0.##} mm are {2 * w - 0.15 * w:0.##} mm thick there. Connect Settings to get CO90 for exactly what is printed."));
             if (!r.Ok) access.AddWarning("Rule not met", r.Report.Find(l => l.Contains("TOO")) ?? "See Report.");
             access.SetItem(0, r.Ok); access.SetTwig(1, r.Report.ToArray(), null, null);
             access.SetItem(2, r.CO90); access.SetItem(3, r.CO45); access.SetItem(4, r.LW45);
@@ -174,12 +182,12 @@ namespace LARGERslicer.GH2
             inputs.AddNumber("Bead Width", "W", "Width of one printed bead in mm.").Set(5.0).Values(3, 4, 5, 6, 8, 10, 12, 15, 20);
             inputs.AddNumber("Layer Height", "H", "Layer height in mm. A third to a half of the bead width.").Set(2.0).Values(1, 1.5, 2, 2.5, 3, 4, 5);
             inputs.AddNumber("Speed", "V", "Print speed in mm/s, the same for every move (50 mm/s = F3000 in G-code).").Set(50.0).Values(10, 25, 30, 50, 80, 100, 150);
-            inputs.AddInteger("Machine Profile", "MP", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n)) + "\nA Machine Profile component connected to Machine wins.").Set(0).Choices(MachineProfile.PresetNames);
+            inputs.AddInteger("Profile Preset", "MP", "Machine profile:\n" + string.Join("\n", MachineProfile.PresetNames.Select((n, i) => i + " = " + n)) + "\nA Machine Profile component connected to Machine wins.").Set(0).Choices(MachineProfile.PresetNames);
             inputs.AddNumber("Flow", "Fl", "Extrusion multiplier (1 = 100 %).").Set(1.0).Values(0.8, 0.9, 1, 1.1, 1.2);
             inputs.AddBoolean("Preview", "P", "Fast and coarse, for trying things out.").Set(false);
             inputs.AddNumber("Density", "D", "Density of the printed material in g/cm3, for the weight in file names and reports. PLA and PETG about 1.25, PP about 0.9.").Set(1.25);
             inputs.AddNumber("First Layer Height", "H1", "Height of the first layer in mm: the nozzle runs this high above the bed, so the first bead is not pressed into it. 0 = the layer height.").Set(0.0).Values(0, 1, 2, 3, 4, 5);
-            inputs.AddInteger("Nozzle", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0).Choices(Nozzles.Names);
+            inputs.AddInteger("Nozzle Preset", "Nz", "The nozzle that is screwed in; it sets bead width and layer height. 0 = own values:\n" + string.Join("\n", Nozzles.Names.Select((n, i) => i + " = " + n))).Set(0).Choices(Nozzles.Names);
             inputs.AddNumber("First Layer Speed", "V1", "Speed of the first layer in mm/s, for adhesion (the Ginger prints it at about 25 mm/s). 0 = the same as Speed.").Set(0.0).Values(0, 15, 20, 25, 30, 40);
             // the inputs of Grasshopper 1 that this component did not have yet: added at the end, so older files keep their wires
             inputs.AddNumber("Overlap", "Ov", "Sideways overlap of neighbouring beads, 0-1 (used by walls and infill).").Set(0.15).Values(0, 0.1, 0.15, 0.2, 0.25);
@@ -204,19 +212,19 @@ namespace LARGERslicer.GH2
             access.GetItem(3, out machine); access.GetItem(4, out flow); access.GetItem(5, out preview);
             if (w <= 0 || h <= 0 || f <= 0) { access.AddError("Invalid values", "Bead width, layer height and speed must be larger than 0."); return; }
             if (machine < 0 || machine >= MachineProfile.PresetNames.Length) { access.AddWarning("Unknown machine", "Using the generic profile."); machine = 0; }
-            f = f > 1000 ? f : f * 60; // mm/s; a value above 1000 is an older definition in mm/min
+            f = Speeds.ToMmPerMin(access, f, "Speed"); // mm/s; a value above 1000 is an older definition in mm/min
             var s = new PrintSettings { BeadWidth = w, LayerHeight = h, Speed = f, Flow = flow > 0 ? flow : 1.0, Preview = preview, Machine = MachineProfile.Preset(machine) };
             double density; access.GetItem(6, out density); if (density > 0) s.Density = density;
             double first; access.GetItem(7, out first); s.FirstLayerHeight = Math.Max(0, first);
             if (first > 0 && (first < 0.5 * h || first > 1.5 * h)) access.AddWarning("First layer", $"The first layer is {first:0.##} mm, the others {h:0.##} mm. Stay between half and one and a half layer heights, or the first bead is crushed or does not stick.");
-            double v1; access.GetItem(9, out v1); s.FirstLayerSpeed = v1 > 0 ? (v1 > 1000 ? v1 : v1 * 60) : 0;
+            double v1; access.GetItem(9, out v1); s.FirstLayerSpeed = v1 > 0 ? Speeds.ToMmPerMin(access, v1, "First Layer Speed") : 0;
             double overlap, minRadius, resolution, filament, vmin, vmax;
             access.GetItem(10, out overlap); access.GetItem(11, out minRadius); access.GetItem(12, out resolution);
             access.GetItem(13, out filament); access.GetItem(14, out vmin); access.GetItem(15, out vmax);
             s.Overlap = overlap; s.MinRadius = minRadius; s.Resolution = Math.Max(0.05, resolution); s.FilamentDiameter = Math.Max(0, filament);
             // speeds in mm/s; the path keeps mm/min (the F of the machine)
-            if (vmin > 0) s.MinSpeed = vmin > 1000 ? vmin : vmin * 60;
-            if (vmax > 0) s.MaxSpeed = vmax > 1000 ? vmax : vmax * 60;
+            if (vmin > 0) s.MinSpeed = Speeds.ToMmPerMin(access, vmin, "Min Speed");
+            if (vmax > 0) s.MaxSpeed = Speeds.ToMmPerMin(access, vmax, "Max Speed");
             var own = Io.Get<MachineProfile>(access, 16);
             if (own != null) s.Machine = own.Duplicate();
             if (s.Machine.FilamentDiameter <= 0 && s.FilamentDiameter > 0) { s.Machine.FilamentDiameter = s.FilamentDiameter; s.Machine.Unit = "mm filament"; }
@@ -254,7 +262,7 @@ namespace LARGERslicer.GH2
             inputs.AddInteger("Guide Mode", "GM", "0 = with a guide surface: flat bottom, top follows the guide.\n1 = with a guide surface: all layers follow the guide (curved base or mould).\n2 = follow the part (no guide): leave Guide empty; the layers follow the part's own wall from bottom to top, so overhangs get layers of even thickness. The nozzle stays vertical.\n3 = follow the surface (no guide): leave Guide empty; for closed parts such as a head: rings on the part's surface from the ring it stands on to the crown, under chin and nose as well, closing the top. Use Continuous Path in Spiral mode. The bead height follows the shell law: the vertical gap to the lap below, or where the laps step mostly sideways (crown, under a chin) the sideways step x Skin Thickness / bead width (Continuous Path). The nozzle stays vertical.").Set(0)
                 .Choices("Flat bottom, top follows guide", "All layers follow guide", "Follow the part (no guide)", "Follow the surface (no guide)");
             inputs.AddInteger("Tool Axis", "TA", "Only with a guide: 0 = tool square to the layer (robot). 1 = tool stays vertical.").Set(0).Choices("Square to the layer (robot)", "Stays vertical (3-axis)");
-            inputs.AddInteger("Start/End Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away afterwards (about 5 for angled printing). The start feature stands on the bed. 0 = none.").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
+            inputs.AddInteger("Sacrificial Layers", "SE", "Sacrificial layers before the first and after the last layer, milled away afterwards (about 5 for angled printing). The start feature stands on the bed. 0 = none.").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
             inputs.AddPlane("Plane", "P", "Layer plane. Its normal is the build direction and the tool axis; Angle tilts it around its X axis. Empty = World XY.", Access.Item, Requirement.MayBeMissing);
         }
 
@@ -405,6 +413,7 @@ namespace LARGERslicer.GH2
             inputs.AddInteger("Count", "N", "Number of solid bottom layers. 0 = none.").Set(1).Counts(0, 1, 2, 3, 4, 5, 10);
             inputs.AddInteger("Pattern", "P", "0 = automatic. 1 = zigzag. 2 = contour (follows the wall inward).").Set(0).Choices("Auto", "Zigzag", "Contour (follows the wall)");
             inputs.AddNumber("Angle", "A", "Zigzag direction in the layer plane (degrees).").Set(0.0).Angles();
+            inputs.AddInteger("Top Layers", "Top", "Number of solid layers that close the part at the top, in the same pattern. 0 = open top.").Set(0).Counts(0, 1, 2, 3, 4, 5, 10);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -425,7 +434,8 @@ namespace LARGERslicer.GH2
             double angle; access.GetItem(4, out angle);
             int filled = 0;
             var sw = Stopwatch.StartNew();
-            var result = count > 0 ? FillEngine.Bottom(layers, settings, count, Math.Max(0, Math.Min(2, pattern)), angle, log, out filled) : layers;
+            int top = 0; if (Parameters.InputCount > 5) access.GetItem(5, out top);
+            var result = count > 0 || top > 0 ? FillEngine.Bottom(layers, settings, Math.Max(0, count), Math.Max(0, Math.Min(2, pattern)), angle, log, out filled, Math.Max(0, top)) : layers;
             sw.Stop();
             Io.Remarks(access, log);
             var fills = new List<Polyline>();
@@ -509,7 +519,7 @@ namespace LARGERslicer.GH2
             inputs.AddInteger("Mode", "M", "1 = layered (default). 0 = spiral (vase mode).").Set(1).Choices("Spiral (vase, single wall only)", "Layered (flat layers)");
             inputs.AddNumber("Seam Gap", "G", "Layered: the gap at the seam in mm. Every layer ends this far before its own start; the path crosses the gap on a short incline up to the next layer. 0 = one bead width.").Set(0.0).Values(0, 2, 5, 10, 20);
             inputs.AddGeneric("Seam", "Seam", "Optional. A point or a curve: where the seam is. Every layer starts at the place on its contour nearest to it. Empty = the seam stays where the first layer started.", Access.Item, Requirement.MayBeMissing);
-            inputs.AddBoolean("Bridge", "Br", "True = a contour inside another (inner shell, opening) is joined to it by a bridge of two lines one bead spacing apart, stacked on every layer: one line without travel moves.").Set(true);
+            inputs.AddBoolean("Bridge", "Bg", "True = a contour inside another (inner shell, opening) is joined to it by a bridge of two lines one bead spacing apart, stacked on every layer: one line without travel moves.").Set(true);
             inputs.AddInteger("Seam Mode", "Sm", "Layered only: where the seam goes.\n0 = fixed point (default): at the Seam point, or where the first layer starts.\n1 = inner corner: in an inner corner of the outer wall, where it shows least and milling does not run over it (no inner corner: the sharpest outer corner).\n2 = sharpest corner of the outer wall.\nThe corner is followed from layer to layer, at most half a bead to the side. A Seam point picks which corner.").Set(0).Choices("Fixed point", "Inner corner", "Sharpest corner");
             inputs.AddNumber("Min Layer Time", "Tmin", "Shortest time a layer may take in s. A layer that would be done sooner is printed slower, so the layer below can cool: F stays constant within the layer and never goes below Min Speed. 0 = off (default). About 60 s suits many large pellet prints.").Set(0.0).Values(0, 30, 60, 90, 120, 180);
             inputs.AddNumber("Max Volume Rate", "Qmax", "Most the extruder can deliver in mm3/s. Moves that would ask for more run slower, never below Min Speed. 0 = off (default). The Ginger gives about 330 mm3/s.").Set(0.0);
@@ -678,7 +688,7 @@ namespace LARGERslicer.GH2
         {
             outputs.AddBoolean("OK", "OK", "True if the bead heights fit and the head hits nothing.");
             outputs.AddText("Report", "R", "What was checked and found.", Access.Twig);
-            outputs.AddNumber("Bead Height", "H", "Measured bead height (height above the closest point of the lap below) for every path point in mm; 0 = not measured. Use it to colour the path.", Access.Twig);
+            outputs.AddNumber("Bead Height", "H", "Measured bead height (height above the closest point of the lap below) for every path point in mm; NaN = not measured. Use it to colour the path.", Access.Twig);
             outputs.AddPoint("Bad Heights", "Bh", "Points where the bead is higher than 0.8 x bead width or thinner than 0.4 x layer height.", Access.Twig);
             outputs.AddPoint("Collisions", "X", "Points where the head hits beads printed before, or the path climbs more steeply than the cone. Must be empty.", Access.Twig);
             outputs.AddMesh("Head", "Hd", "The head as it is checked (tip, cone, body), standing on the path at Pose.");
@@ -705,7 +715,7 @@ namespace LARGERslicer.GH2
             if (!r.Ok) access.AddWarning("Check the path", r.Report.FirstOrDefault(l => l.StartsWith("HEAD") || l.StartsWith("TOO") || l.StartsWith("BEAD") || l.StartsWith("EXTRUSION") || l.StartsWith("Empty")) ?? "Read Report.");
             access.SetItem(0, r.Ok);
             access.SetTwig(1, r.Report.ToArray(), null, null);
-            access.SetTwig(2, r.BeadHeights.ToArray(), null, null);
+            access.SetTwig(2, r.BeadHeights.Select(h => h > 0 ? h : double.NaN).ToArray(), null, null);
             access.SetTwig(3, r.BadHeights.ToArray(), null, null);
             access.SetTwig(4, r.Collisions.ToArray(), null, null);
             int at = (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (tp.Count - 1));

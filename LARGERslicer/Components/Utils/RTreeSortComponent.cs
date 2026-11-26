@@ -117,6 +117,7 @@ namespace LARGERslicer.Components.Utils
         }
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("RTreeSortIcon.png", this);
+        public override GH_Exposure Exposure => GH_Exposure.hidden;
         public override Guid ComponentGuid => new Guid("A8B9C0D1-E2F3-4567-1234-678901234567");
     }
 }

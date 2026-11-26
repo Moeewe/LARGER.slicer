@@ -13,14 +13,15 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityExportComponent : GH_Component
     {
                 public CncUtilityExportComponent()
-                    : base("CNC Utilities 08 Data Export", "CU_08",
-                                                        "Exports boards and bill of materials as 3DM and CSV.",
-                            "LARGER", "CNC Utilities")
+                    : base("Formwork - Export", "Export",
+                                                        "STEP 8. Exports boards and bill of materials as 3DM and CSV.",
+                            "LARGER", "Formwork")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "CNC Utilities";
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override string SubCategory => "Formwork";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

@@ -11,14 +11,15 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityDepthComponent : GH_Component
     {
                 public CncUtilityDepthComponent()
-                : base("CNC Utilities 04 Milling Depth", "CU_04",
-                    "Calculates required milling depth per board in stepped increments.",
-                            "LARGER", "CNC Utilities")
+                : base("Formwork - Milling Depth", "Depth",
+                    "STEP 4. Calculates required milling depth per board in stepped increments.",
+                            "LARGER", "Formwork")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "CNC Utilities";
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override string SubCategory => "Formwork";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

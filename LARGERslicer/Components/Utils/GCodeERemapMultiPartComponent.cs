@@ -16,9 +16,9 @@ namespace LARGERslicer.Components.Utils
         private static readonly Dictionary<Guid, RemapCache> CacheByComponent = new Dictionary<Guid, RemapCache>();
 
         public GCodeERemapMultiPartComponent()
-          : base("GCode E Remap MultiPart", "ERemap+",
-              "Recalculates XE values for one shared G-code using multiple part geometries and per-part thickness modes/gradients.",
-              "LARGER", "Utilities")
+          : base("DXR E Remap", "ERemap",
+              "Recalculates the XE values of one DXR program from several part geometries, each with its own wall thickness or gradient.",
+              "LARGER", "DXR")
         {
         }
 
@@ -1079,6 +1079,7 @@ namespace LARGERslicer.Components.Utils
         }
 
         protected override Drawing.Bitmap Icon => IconHelper.Load("GCodeERemapMultiPartIcon.png", this);
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
         public override Guid ComponentGuid => new Guid("15A59A1B-9CB5-4965-9E10-B407082A57EC");
 
         private sealed class RemapCache

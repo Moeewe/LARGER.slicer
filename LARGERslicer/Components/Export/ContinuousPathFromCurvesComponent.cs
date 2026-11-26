@@ -43,9 +43,9 @@ namespace LARGERslicer.Components.Export
                 return;
             }
             if (fill.Links.Count > 0)
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Links.Count + " link(s) join separate parts of the fill across open space. The contour fill (Single Line Fill with Offsets) avoids this on shapes with bays or holes.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Links.Count + " link(s) join separate parts of the fill across open space. The contour fill (Curve Continuous Infill) avoids this on shapes with bays or holes.");
             if (holes.Count > 0 && fill.Note.Length == 0)
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Holes are left open but get no wall of their own here. Continuous Toolpath prints a wall around holes.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Holes are left open but get no wall of their own here. Curve Continuous Infill prints a wall around holes.");
             if (fill.Note.Length > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Note);
             Message = (fill.Path.Length / 1000.0).ToString("0.00") + " m";
             DA.SetData(0, new PolylineCurve(fill.Path));

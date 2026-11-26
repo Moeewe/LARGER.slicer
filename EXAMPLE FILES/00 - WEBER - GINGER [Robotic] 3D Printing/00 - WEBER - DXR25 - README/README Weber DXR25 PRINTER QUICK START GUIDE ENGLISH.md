@@ -53,7 +53,7 @@ The DXR25 is an industrial 6‑axis KUKA robot with a Weber pellet extruder for 
 - Do not leave the safety area open and unattended. Access to the robot cell is for trained personnel only.
 - If you notice unusual noises, smell, vibrations, or anomalies, stop the print immediately; press E‑Stop if necessary.
  - Only start a print with a direct line of sight to the robot; keep the printing area clear (no obstacles in the workspace).
- - In Rhino/Grasshopper (Robot plugin), configure safety fences and collision objects appropriately, especially for multi‑axial jobs.
+ - In Rhino/Grasshopper (Cell Geometry and Robot Cell of LARGER.slicer), configure safety fences and collision objects appropriately, especially for multi‑axial jobs.
 
 ### 2.2 Personal Protective Equipment (PPE)
 - Use heat/fire‑resistant gloves when working on the extruder/nozzle (located in the lab near the Ginger printers).
@@ -233,7 +233,9 @@ Build plate:
 5. Copy DXR files from the post‑processor into the G‑code folder.
 
 Notes on file conversion (DXR):
-- The machine processes DXR files, not G-code directly. Use the current [LARGERslicer Weber Robot and Ginger.gh definition](<../../../SETUP/LARGERslicer Weber Robot and Ginger.gh>) with the robot plugin. It includes Easy Slicer, Path Creator (Multiaxial), and Custom Paths; the archived multiaxial definition is not required.
+- The machine processes DXR files, not G-code directly. Use the house definition [LARGERslicer Weber Robot and Ginger V2.gh](<../../../SETUP/LARGERslicer Weber Robot and Ginger V2.gh>) (LARGER.slicer 2.0 or newer, no other plug-in). It has three workflows: 01 Easy Ginger and Robot Slicer, 02 Advanced Multiaxial Robot Slicer, 03 Custom Robot Path Creator. Each robot part runs Robot → Robot Tool (AE20) → Robot Cell → Robot Program → Machine Settings → DXR Generator → DXR File Health Check. The old V1 definition (Robots plug-in) is in `EXAMPLE FILES/99 - ARCHIVE/`.
+- With the AE20 tool, Robot Program uses the Weber DXR25 extrusion profile (factor 1.128) from 2.0.5 on, also when the toolpath carries the Ginger or a filament profile, and says so in its report. Optional: **Print Tuning** between Print Settings and the slicer (speeds by line type, coasting, prime); the DXR and the KUKA program follow it.
+- G-code from another slicer: the component **G-code to DXR** (DXR tab; called "DXR GCode Postprocessor" up to 2.0.4) turns it into a DXR file; connected Machine Settings win over the temperatures in the G-code header.
 - Alternative at the control cabinet: use the Weber converter (taskbar icon → black window). Drag and drop G‑code into the window, press Enter. The generated .dxr must then be copied into the G‑code folder, otherwise it will not appear in the Weber software.
 
 Remote access:
@@ -253,18 +255,18 @@ Important HMI/file-handling notes:
    4. Transfer files within the available short session window (typically about 5 minutes).
 
 **Setup with the SETUP folder (recommended):**
-1. Install Rhino 8 (recommended) and close Rhino.
+1. Install Rhino 8 or 9 and close Rhino.
 2. Run the installer in the repository's [`SETUP`](<../../../SETUP/README.md>) folder:
    - macOS: double-click `Install Mac.command` (first time: right-click → *Open*)
    - Windows: double-click `Install Windows.bat`
-3. The installer installs **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager and copies the **KUKA KR120** robot library (`KR120_R2700_2`) to the folder the Robots plugin reads. It can be run again at any time and then only updates what is outdated.
-4. Start Rhino and open the [Grasshopper definition](<../../../SETUP/LARGERslicer Weber Robot and Ginger.gh>) from the `SETUP` folder.
+3. The installer installs **Robots**, **LARGERslicer** and **Pufferfish** from the Rhino Package Manager and copies the **KUKA KR120** robot library (`KR120_R2700_2`) to the folder the Robots plugin reads. It can be run again at any time and then only updates what is outdated. The V2 definition needs only LARGERslicer; Robots and the library are for the archived V1 definition.
+4. Start Rhino and open the [Grasshopper definition V2](<../../../SETUP/LARGERslicer Weber Robot and Ginger V2.gh>) from the `SETUP` folder.
 
 Details and troubleshooting: [SETUP guide](<../../../SETUP/README.md>).
 
-### ⚠️ If the robot is still missing (KUKA KR120)
+### ⚠️ If the robot is still missing (KUKA KR120, old V1 definition only)
 
-If the *Load Robot System* component shows **KR120_R2700_2 missing** (component is red), run the installer again. Alternatively, load the library directly in the Robots plugin:
+The V2 definition has the KUKA KR120 built in (component **Robot**). Only in the archived V1 definition: if the *Load Robot System* component shows **KR120_R2700_2 missing** (component is red), run the installer again. Alternatively, load the library directly in the Robots plugin:
 1. Click **Libraries** on the *Load Robot System* component
 2. Download the online library **FH Muenster MSA**
 3. Save, close and reopen the Grasshopper file – the component turns green and the KUKA KR120 appears in the simulation

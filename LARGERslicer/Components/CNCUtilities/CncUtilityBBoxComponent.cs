@@ -8,14 +8,15 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityBBoxComponent : GH_Component
     {
                 public CncUtilityBBoxComponent()
-                    : base("CNC Utilities 02 Dimensions", "CU_02",
-                                                        "Calculates dimensions and bounding box of the oriented solid.",
-                            "LARGER", "CNC Utilities")
+                    : base("Formwork - Dimensions", "Dims",
+                                                        "STEP 2. Calculates dimensions and bounding box of the oriented solid.",
+                            "LARGER", "Formwork")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "CNC Utilities";
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override string SubCategory => "Formwork";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

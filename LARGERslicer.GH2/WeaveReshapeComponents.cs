@@ -1008,7 +1008,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Toolpath", "T", "Print path");
             ReshapeIo.HeadInputs(inputs);
             inputs.AddNumber("Min Layer", "Hi", "Smallest layer height (mm), 0 = automatic").Set(0.0);
-            inputs.AddNumber("Max Layer", "Ha", "Largest layer height (mm), 0 = automatic (half the bead width)").Set(0.0);
+            inputs.AddNumber("Max Layer", "Ha", "Largest bead height the check accepts (mm). 0 = automatic: 0.8 x the bead width, the same limit as Non-Planar Check").Set(0.0);
             inputs.AddNumber("Max Tilt", "Ti", "Largest tilt of the tool (degrees)").Set(45.0);
             inputs.AddNumber("Max Turn Speed", "Ts", "How fast the tool may turn (degrees per second)").Set(30.0);
             inputs.AddNumber("Max Turn", "Tm", "How fast the tool may turn along the path (degrees per mm)").Set(2.0);
@@ -1019,7 +1019,7 @@ namespace LARGERslicer.GH2
         {
             outputs.AddBoolean("OK", "OK", "True if nothing is wrong");
             outputs.AddText("Report", "R", "What was found; the first line is the verdict", Access.Twig);
-            outputs.AddNumber("Bead Height", "H", "Measured height above the lap below, along the tool (mm), for every point; 0 = not measured", Access.Twig);
+            outputs.AddNumber("Bead Height", "H", "Measured height above the lap below, along the tool (mm), for every point; NaN = not measured (grey in Path Heat)", Access.Twig);
             outputs.AddNumber("Tilt", "Ti", "Tilt of the tool (degrees) for every point", Access.Twig);
             outputs.AddPoint("Collisions", "X", "Where the head reaches into earlier beads", Access.Twig);
             outputs.AddPoint("Bad Heights", "Bh", "Where the bead is too thick or too thin", Access.Twig);
@@ -1040,7 +1040,7 @@ namespace LARGERslicer.GH2
             var r = MultiAxisCheck.Run(tp, o);
             Io.Label(this, r.Ok ? "OK" : "Check!");
             ReshapeIo.Verdict(access, r.Report.FirstOrDefault());
-            access.SetItem(0, r.Ok); access.SetTwig(1, r.Report.ToArray(), null, null); access.SetTwig(2, r.Heights.ToArray(), null, null); access.SetTwig(3, r.Tilts.ToArray(), null, null);
+            access.SetItem(0, r.Ok); access.SetTwig(1, r.Report.ToArray(), null, null); access.SetTwig(2, r.Heights.Select(h => h > 0 ? h : double.NaN).ToArray(), null, null); access.SetTwig(3, r.Tilts.ToArray(), null, null);
             access.SetTwig(4, r.Collisions.ToArray(), null, null); access.SetTwig(5, r.BadHeights.ToArray(), null, null); access.SetTwig(6, r.BadFlow.ToArray(), null, null); access.SetTwig(7, r.FastTurns.ToArray(), null, null);
             access.SetTwig(8, PathReshape.LayerCsv(tp).ToArray(), null, null);
         }

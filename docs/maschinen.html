@@ -276,6 +276,8 @@ body{margin:0}
         <tr><th>Weber DXR</th><td class="k"><code>.dxr</code></td><td>Volumen in mm³, an der Steuerung mal P1</td><td>USB-Stick oder Fernwartung, Weber-Bedienfeld</td></tr>
         <tr><th>Ginger One</th><td class="k"><code>.gcode</code></td><td>relativ, Faktor im Profil</td><td>microSD-Karte</td></tr>
         <tr><th>Tischdrucker</th><td class="k"><code>.gcode</code></td><td>Filamentlänge, 1,75 mm</td><td>wie beim Drucker üblich</td></tr>
+        <tr><th>Universal Robots UR5</th><td class="k"><code>.script</code></td><td>Extruder an und aus über digitale Ausgänge</td><td>Save script oder Upload to robot (Netzwerk); Beispiel 06 der Studierenden-Datei</td></tr>
+        <tr><th>Zünd G3 L-2500</th><td class="k"><code>.plt</code></td><td>Fräsen, keine Extrusion</td><td>CNC - Plate, CNC - Cutter, CNC - Rough and Finish; siehe <a href="../zuend/">Fräsen mit der Zünd</a></td></tr>
         <tr><th>Eigene</th><td class="k">nach Profil</td><td>Volumen oder Filamentlänge</td><td>nach Maschine</td></tr>
       </tbody>
     </table></div>
@@ -297,7 +299,7 @@ body{margin:0}
     <li><b>Print Settings</b><span>Machine Profile „Weber DXR“, Düse, Bahnbreite, Lagenhöhe, Geschwindigkeit.</span></li>
     <li><b>Slice bis Path Check</b><span>Oder alles in einem: Easy Slicer. Der Path Check muss OK melden.</span></li>
     <li><b>Robot Cell</b><span>Roboter, Werkzeug und Zelle der FH Münster (Cell Geometry).</span></li>
-    <li><b>Robot Program</b><span>Reichweite, Achsen, Kollisionen prüfen. Erst wenn alles ausführbar ist, weiter.</span></li>
+    <li><b>Robot Program</b><span>Reichweite, Achsen, Kollisionen prüfen. Erst wenn alles ausführbar ist, weiter. Mit dem AE20 als Werkzeug nimmt Robot Program ab 2.0.5 das Weber-DXR25-Profil (Faktor 1,128), auch wenn die Bahn das Ginger-Profil trägt, und sagt das im Report.</span></li>
     <li><b>DXR Generator</b><span>Save schreibt die Datei, ohne Pfad auf den Schreibtisch.</span></li>
     <li><b>DXR File Health Check</b><span>Liest die Datei und sagt GO oder NO GO.</span></li>
     <li><b>An die Anlage</b><span>USB-Stick am rechten Anschluss des Bedienfelds oder per Fernwartung, in den G-Code-Ordner der Anlage kopieren.</span></li>
@@ -392,9 +394,9 @@ body{margin:0}
   <h3 class="sub">Vom Bauteil zur Datei</h3>
   <ol class="flow">
     <li><b>Rhino</b><span>Bauteil in Millimetern auf dem Bett, 0 bis 1000 mm in X und Y.</span></li>
-    <li><b>Easy Slicer oder die Kette</b><span>Machine Profile „Ginger“, Bahnbreite mindestens das 1,5-Fache der Düse.</span></li>
+    <li><b>Easy Slicer oder die Kette</b><span>Bahnbreite mindestens das 1,5-Fache der Düse.</span></li>
     <li><b>Path Check</b><span>Muss OK melden.</span></li>
-    <li><b>Ginger G-code</b><span>Schreibt Start, Bahn und Ende in eine Datei. Bis Version 1.2.1 über die Definition im SETUP-Paket.</span></li>
+    <li><b>Machine → Machine G-code</b><span>An Machine den Ginger One wählen. Machine G-code schreibt Start, Bahn und Ende in eine Datei, mit dem Extrusionsprofil des Ginger. Der alte Baustein Ginger G-code steht nicht mehr in der Leiste; alte Dateien öffnen ihn weiter.</span></li>
     <li><b>microSD-Karte</b><span>Datei kopieren, Karte hinten links in den Steuerkasten.</span></li>
     <li><b>Drucken</b><span>Am Drucker die Datei wählen. Der Startcode heizt, fährt nach Hause und wartet auf deine Bestätigung.</span></li>
   </ol>
@@ -488,7 +490,7 @@ body{margin:0}
 </div></section>
 
 <section id="eigene"><div class="wrap">
-  <div class="lhead"><span class="no num">04</span><h2>Eigene Maschinen</h2><p class="lead">Eine Maschine, die G-Code liest, ist eine kleine Textdatei. Eine eigene Roboterzelle ist eine Rhino-Datei. Beides kommt mit der nächsten Version.</p></div>
+  <div class="lhead"><span class="no num">04</span><h2>Eigene Maschinen</h2><p class="lead">Eine Maschine, die G-Code liest, ist eine kleine Textdatei. Eine eigene Roboterzelle ist eine Rhino-Datei. Beides geht schon heute.</p></div>
   <div class="two">
     <div>
       <h3 class="sub">Die .machine-Datei</h3>

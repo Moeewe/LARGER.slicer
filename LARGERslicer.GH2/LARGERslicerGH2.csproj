@@ -48,5 +48,14 @@
     <Compile Include="../LARGERslicer/Types/Cutter.cs" LinkBase="Core" />
     <Compile Include="../LARGERslicer/Types/CutterPresets.cs" LinkBase="Core" />
     <Compile Include="../LARGERslicer/Types/MillPlate.cs" LinkBase="Core" />
+    <!-- GH1-free helpers of the Formwork components and of CAD Package Export -->
+    <Compile Include="../LARGERslicer/Types/ThekenfrontModels.cs" LinkBase="Core" />
+    <Compile Include="../LARGERslicer/Utils/ExportNamingHelper.cs" LinkBase="Core" />
+  </ItemGroup>
+  <!-- The optional planner library (see docs/ARCHITECTURE.md, "Planner core"): when a folder
+       "native" lies beside this project file, its files go next to the plug-in. The folder is not
+       part of the repository; without it the build is the public one. -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/native')">
+    <None Update="native/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

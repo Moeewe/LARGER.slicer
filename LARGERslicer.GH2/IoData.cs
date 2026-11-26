@@ -81,4 +81,49 @@ namespace LARGERslicer.GH2
             return false;
         }
     }
+
+    /// <summary>Speeds are typed in mm/s and kept in mm/min (the F of the machine). A value above 1000 comes from an older
+    /// definition in mm/min: it is read that way, and the component says so instead of guessing silently.</summary>
+    internal static class Speeds
+    {
+        public static double ToMmPerMin(Grasshopper2.Components.IDataAccess access, double v, string what)
+        {
+            if (v > 1000)
+            {
+                access.AddWarning("Speed unit", LARGERslicer.Toolpaths.Inv.F($"{what} {v:0.#} is read as mm/min ({v / 60:0.#} mm/s), as in older definitions. Speeds are typed in mm/s: type {v / 60:0.#}."));
+                return v;
+            }
+            return v * 60;
+        }
+    }
+
+    /// <summary>
+    /// A choice from a list that can grow (machines and materials: built-in ones plus files in Documents/LARGER): the
+    /// component keeps the name of what was chosen, so a new file that sorts in before it does not switch a saved
+    /// definition to another machine or material.
+    /// </summary>
+    internal static class ChoiceByName
+    {
+        public static int Resolve(Grasshopper2.Components.Component c, IDataAccess access, int index, System.Collections.Generic.IList<string> names, string key, string what)
+        {
+            string savedName = c.CustomValues.Get(key + ".Name", "");
+            int savedIndex = c.CustomValues.Get(key + ".Index", -1);
+            bool inList = index >= 0 && index < names.Count;
+            if (savedName.Length > 0 && index == savedIndex)
+            {
+                // the number is still the one that was chosen: follow the name if the list has moved
+                int now = names.IndexOf(savedName);
+                if (now >= 0 && now != index)
+                {
+                    access.AddRemark(what, LARGERslicer.Toolpaths.Inv.F($"The list of {what.ToLowerInvariant()}s has changed: still using '{savedName}' (now number {now})."));
+                    return now;
+                }
+                if (now < 0) access.AddWarning(what, $"'{savedName}' is no longer in the list; using number {index}.");
+                return index;
+            }
+            // chosen just now (or a definition from before names were kept): remember it
+            if (inList) { c.CustomValues.Set(key + ".Name", names[index]); c.CustomValues.Set(key + ".Index", index); }
+            return index;
+        }
+    }
 }

@@ -85,6 +85,7 @@ namespace LARGERslicer.Components.Robot
     // ============================================================== UR Program
     public class URProgramComponent : RobotComponent
     {
+        private bool _uploadWas;
         public URProgramComponent()
             : base("UR Program", "URProg",
                   "Turns a print path into a URScript program for the UR Cell: every point a movel at the speed of the path, blended over Blend; the tool points along the layer's tool axis (down on flat layers). For the clay extruder the extruder is switched on where printing starts and off where it stops (default: digital outputs 0 and 1 as on the FH Muenster UR5, with a question for the compressed air first). Checks that the arm reaches every point. Save writes a .script file, Upload sends it to the robot; the pendant then asks Execute.") { }
@@ -151,11 +152,15 @@ namespace LARGERslicer.Components.Robot
                 try { var w = OutputFile.Write(null, fileName + ".script", prg.Script); prg.Report.Add("Saved " + w); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Saved " + w); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
-            if (upload)
+            // sent once when Upload turns True, never again on every recompute, and only an OK program
+            bool rising = upload && !_uploadWas; _uploadWas = upload;
+            if (rising && !prg.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Not sent: the program is not OK (see Report).");
+            else if (rising)
             {
-                try { var msg = URProgram.Upload(prg.Script, cell.Ip); prg.Report.Add(msg + " The pendant now asks: Execute."); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, msg); }
+                try { var msg = URProgram.Upload(prg.Script, cell.Ip); prg.Report.Add(msg + " The robot runs it at once; the start code first asks for the compressed air."); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, msg); }
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Upload failed: " + ex.Message); }
             }
+            else if (upload) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Upload is still True: set it to False and True again to send once more.");
             Message = Inv.F($"{prg.Targets.Count} moves, {prg.Minutes:0} min") + (prg.Ok ? "" : " · CHECK");
             da.SetData(0, new GH_ObjectWrapper(prg));
             da.SetDataList(1, prg.Script);

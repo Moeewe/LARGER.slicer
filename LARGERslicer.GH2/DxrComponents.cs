@@ -74,7 +74,8 @@ namespace LARGERslicer.GH2
         protected override void Process(IDataAccess access)
         {
             var ms = Io.Get<MachineSettings>(access, 0);
-            if (ms == null) { access.AddWarning("Machine Settings", "Connect Machine Settings."); return; }
+            var md = ms == null ? Io.Get<MachineDefinition>(access, 0) : null;
+            if (ms == null && md == null) { access.AddWarning("Machine Settings", "Connect Machine Settings (Weber DXR) or a Machine (G-code)."); return; }
             int off, after; double low, full; bool ramp; string text;
             access.GetItem(1, out off); access.GetItem(2, out low); access.GetItem(3, out after); access.GetItem(4, out full); access.GetItem(5, out ramp); access.GetItem(6, out text);
             var steps = new List<KeyValuePair<int, double>>();
@@ -97,6 +98,13 @@ namespace LARGERslicer.GH2
                 steps.Add(new KeyValuePair<int, double>(after, Math.Max(0, Math.Min(100, full))));
             }
             if (steps.Count == 0 || steps[0].Key > 0) steps.Insert(0, new KeyValuePair<int, double>(0, 0));
+            if (md != null)
+            {
+                // a G-code machine: M106/M107 after the layers, in place of its own fan lines
+                access.SetItem(0, md.WithFanSchedule(steps, ramp));
+                access.SetTwig(1, steps.Select(st => st.Key == 0 ? $"From layer 1: {st.Value:0} %" : $"After {st.Key} layer(s): {st.Value:0} %").ToArray(), null, null);
+                return;
+            }
             var r = ms.Copy();
             r.FanSteps = steps; r.FanRamp = ramp;
             var info = new List<string>();
@@ -139,6 +147,7 @@ namespace LARGERslicer.GH2
             var tp = Io.Path(access, 0); if (tp == null) return;
             double a, b, c; access.GetItem(1, out a); access.GetItem(2, out b); access.GetItem(3, out c);
             var r = RobotLines.Build(tp, a, b, c);
+            if (r.ProfileWarning != null) access.AddWarning("Extrusion profile", r.ProfileWarning);
             if (r.Tilted) access.AddWarning("Tilted tool axis", "This path has tilted tool axes (angled, non-planar or multi-axis). The lines carry one fixed orientation, so the tool will not follow the tilt. Use the Planes output of Extrusion and Speed with your robot programming instead.");
             if (r.Speed.Any(v => v <= 0)) access.AddError("Speed 0", "A move has speed 0; the machine would stop there.");
             access.SetTwig(0, r.Lines.ToArray(), null, null);
@@ -163,7 +172,7 @@ namespace LARGERslicer.GH2
         {
             inputs.AddText("Robot Path", "Path", "Robot moves, one PTP line each. All branches together are one program.", Access.Tree);
             inputs.AddNumber("Extrusion", "E", "Extrusion per move.", Access.Tree, Requirement.MayBeMissing);
-            inputs.AddNumber("Speed", "F", "Speed in mm/min per move.", Access.Tree, Requirement.MayBeMissing);
+            inputs.AddNumber("Feed (mm/min)", "F", "Feed F in mm/min (mm/s x 60) per move, as Robot Program and Extrusion and Speed give it.", Access.Tree, Requirement.MayBeMissing);
             inputs.AddGeneric("Machine Settings", "MS", "Machine Settings.", Access.Item, Requirement.MayBeMissing);
             inputs.AddBoolean("Trim Last", "Tr", "Drop the last extrusion and speed value. Needed for lists that carry one value more than there are moves, as the Grasshopper 1 definitions do. Not needed after Toolpath to Robot Lines.").Set(false);
             inputs.AddText("File", "File", "Optional: file, folder or just a name (File Name of Robot Program). Empty = the Desktop. Full path of the .dxr file to write.", Access.Item, Requirement.MayBeMissing);

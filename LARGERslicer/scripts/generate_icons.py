@@ -197,6 +197,20 @@ def _(g):
     for y, k in ((7, 15), (12, 9), (17, 13)):
         g.line([(3.5, y), (20.5, y)], INK, 2); g.circle(k, y, 2.3, BLUE, 0, BLUE)
 
+@icon('ComponentLabelsIcon')
+def _(g):
+    # a component with its name written above it
+    g.rrect(4, 11.5, 20, 20.5, 2.2, INK, 2)
+    g.line([(4, 14.5), (2.4, 14.5)], INK, 1.8); g.line([(20, 16), (21.6, 16)], INK, 1.8)
+    g.line([(6, 6.2), (18, 6.2)], PURPLE, 2.6)
+
+@icon('SlicerTuningIcon')
+def _(g):
+    # a gauge over a bead that stops early: speed by line type, coasting and prime
+    g.line(arc(12, 13, 8, 200, 340, 24), INK, 2)
+    g.line([(12, 13), (16.6, 8.6)], BLUE, 2.1); g.dot(12, 13, 1.7, INK)
+    g.line([(3.5, 19), (14.5, 19)], INK, 2.2); g.line([(16.5, 19), (20.5, 19)], SOFT, 1.6)
+
 @icon('SlicerMachineIcon')
 def _(g):
     g.line([(5, 6), (13, 6), (13, 10)], INK, 2)
@@ -765,6 +779,16 @@ def _(g):
 def _(g):
     g.rrect(3.5, 3.5, 20.5, 20.5, 4.5, INK, 2)
     g.line([(8, 12.4), (11, 15.4), (16.4, 8.6)], BLUE, 2.4)
+
+
+@icon('SlicerPlannerIcon')
+def _(g):
+    # one start, three ways to go on, the chosen one in blue: the planner compares paths and takes the best
+    g.line([(8.6, 12), (12.6, 6.2), (20, 6.2)], SOFT, 1.7)
+    g.line([(8.6, 12), (12.6, 17.8), (20, 17.8)], SOFT, 1.7)
+    g.line([(4, 12), (8.6, 12)], INK, 2.1)
+    g.line([(8.6, 12), (19.2, 12)], BLUE, 2.3)
+    g.dot(4, 12, 1.9, INK); g.dot(20, 12, 2.0, BLUE)
 
 
 # ---- robot

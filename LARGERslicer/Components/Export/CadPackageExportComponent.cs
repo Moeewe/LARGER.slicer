@@ -12,9 +12,10 @@ namespace LARGERslicer.Components.Export
 {
     public class CadPackageExportComponent : GH_Component
     {
+        private bool _runWas;
         public CadPackageExportComponent()
           : base("CAD Package Export", "CAD Export",
-              "Exports closed Breps 1:1 (without union) to 3DM, STEP, and IGES with PSYYYYMMDD file naming.",
+              "Exports Breps 1:1 (without union) to 3DM, STEP and IGES with PSYYYYMMDD file naming. Open Breps are written too, with a note. Your open Rhino document is not touched.",
               "LARGER", "Export")
         {
         }
@@ -83,9 +84,11 @@ namespace LARGERslicer.Components.Export
 
             DA.SetData(1, baseName);
 
-            if (!run)
+            // once when Start Export turns True, not again on every recompute while it stays True
+            bool rising = run && !_runWas; _runWas = run;
+            if (!rising)
             {
-                log.Add("Export is ready. Set 'Start Export' to True.");
+                log.Add(run ? "Exported. Set 'Start Export' to False and True again to export once more." : "Export is ready. Set 'Start Export' to True.");
                 log.Add("Rule: no union, export remains 1:1 with input.");
                 DA.SetDataList(0, files);
                 DA.SetDataList(2, log);
@@ -115,6 +118,7 @@ namespace LARGERslicer.Components.Export
                     log.Add($"WARNING: Geometry #{i + 1} is invalid and will be skipped.");
                     continue;
                 }
+                if (!b.IsSolid) log.Add($"NOTE: Geometry #{i + 1} is not closed (an open Brep); it is written as it is.");
                 validBreps.Add(b);
             }
 
@@ -235,7 +239,32 @@ namespace LARGERslicer.Components.Export
             }
         }
 
+        /// <summary>STEP and IGES through a document of their own that nobody sees: the open Rhino document, its selection,
+        /// layers and undo stay untouched. Only when that fails (an old Rhino) the export command runs in the open document.</summary>
         private static bool WriteViaExportCommand(string path, List<Brep> breps, out string message)
+        {
+            try
+            {
+                using (var hd = RhinoDoc.CreateHeadless(null))
+                {
+                    if (hd != null)
+                    {
+                        int added = 0;
+                        foreach (var b in breps) if (hd.Objects.AddBrep(b.DuplicateBrep()) != Guid.Empty) added++;
+                        DateTime was = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
+                        if (added > 0 && hd.Export(path) && File.Exists(path) && File.GetLastWriteTimeUtc(path) > was)
+                        {
+                            message = $"File written ({added} Breps, 1:1 without union).";
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return WriteViaOpenDocument(path, breps, out message);
+        }
+
+        private static bool WriteViaOpenDocument(string path, List<Brep> breps, out string message)
         {
             message = string.Empty;
             RhinoDoc doc = RhinoDoc.ActiveDoc;

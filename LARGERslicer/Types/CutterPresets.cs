@@ -7,6 +7,9 @@ namespace LARGERslicer.Types
     /// <summary>The cutters CNC - Cutter offers, shared by Grasshopper 1 and 2.</summary>
     public static class CutterPresets
     {
+        /// <summary>The cutters of the list, then an own flat and an own ball cutter (kinds 6 and 7: the sizes come from the inputs).</summary>
+        public static string[] Choices => Names.Concat(new[] { "Own flat cutter (the sizes below)", "Own ball cutter (the sizes below)" }).ToArray();
+
         private static readonly string[] FromDatabase = { "R206-A", "R204-A", "R202-A", "Ball 6", "Ball 4", "Ball 3" };
         public static readonly string[] Names = { "R206-A (flat, 6 mm)", "R204-A (flat, 4 mm)", "R202-A (flat, 2 mm)", "Ball 6 mm", "Ball 4 mm", "Ball 3 mm" };
         public static readonly string[] Shapes = { "Flat", "Ball" };

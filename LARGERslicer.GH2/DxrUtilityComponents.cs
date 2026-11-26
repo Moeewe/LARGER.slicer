@@ -157,7 +157,7 @@ namespace LARGERslicer.GH2
     [IoId("f6cdc242-d3e4-4a0f-a464-6ef60aec6c7a")]
     public sealed class DxrPostprocessorComponent : Component
     {
-        public DxrPostprocessorComponent() : base(Io.Name("DXR GCode Postprocessor", "Converts GCode to DXR format. Parses GCode to extract robot path, extrusion amounts, and print speeds.", Io.Dxr, 0)) { }
+        public DxrPostprocessorComponent() : base(Io.Name("G-code to DXR", "Converts GCode to DXR format. Parses GCode to extract robot path, extrusion amounts, and print speeds.", Io.Dxr, 0)) { }
         public DxrPostprocessorComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("DXRPostprocessorIcon");
 
@@ -201,7 +201,10 @@ namespace LARGERslicer.GH2
                 int retractionCount = parsedData.IsRetraction.Count(r => r);
                 if (retractionCount > 0) processInfo.Add($"Detected {retractionCount} retraction commands");
 
-                MachineSettings finalSettings = parsedData.ExtractedSettings ?? machineSettings;
+                // connected Machine Settings win (with their zones and the Fan Schedule); the G-code header only when nothing is connected
+                MachineSettings finalSettings = machineSettings ?? parsedData.ExtractedSettings;
+                if (machineSettings != null && parsedData.ExtractedSettings != null)
+                    processInfo.Add("The temperatures and fan in the G-code header are not used: the connected Machine Settings win.");
                 result.AddRange(DXRHelper.ProcessRobotLinesToDXR(parsedData.RobotLines, parsedData.ExtrusionAmounts, parsedData.PrintSpeeds, processInfo, finalSettings, parsedData.LayerTypes, parsedData.IsRetraction));
                 if (result.Count == 0)
                 {
@@ -823,7 +826,7 @@ namespace LARGERslicer.GH2
         private static readonly System.Drawing.Color ColorThin = System.Drawing.Color.FromArgb(0, 102, 204);
         private static readonly System.Drawing.Color ColorThick = System.Drawing.Color.FromArgb(230, 90, 30);
 
-        public DxrVariableWidthComponent() : base(Io.Name("DXR Variable Width", "Scales the XE extrusion values of a DXR program along X, Y or Z so the printed line width runs from Width Start to Width End. Use it between DXR Generator and Safe Component. Only lines with XE=[value*P1] are changed; all other lines are passed through unchanged.", Io.Utilities, 0)) { }
+        public DxrVariableWidthComponent() : base(Io.Name("DXR Variable Width", "Scales the XE extrusion values of a DXR program along X, Y or Z so the printed line width runs from Width Start to Width End. Use it between DXR Generator and Save Text File. Only lines with XE=[value*P1] are changed; all other lines are passed through unchanged.", Io.Dxr, 1)) { }
         public DxrVariableWidthComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("DXRVariableWidthIcon");
         // the segments in their colours, thicker where the bead gets wider (as in Grasshopper 1)
@@ -848,7 +851,7 @@ namespace LARGERslicer.GH2
 
         protected override void AddOutputs(OutputAdder outputs)
         {
-            outputs.AddText("DXR Code", "Code", "DXR program with scaled XE values (list of lines). Connect to Safe Component or Fast GCode DXR Preview.", Access.Twig);
+            outputs.AddText("DXR Code", "Code", "DXR program with scaled XE values (list of lines). Connect to Save Text File or DXR Width Preview.", Access.Twig);
             outputs.AddLine("Segments", "Seg", "Extruded segments of the toolpath (travel moves are left out).", Access.Twig);
             outputs.AddNumber("Widths", "W", "Resulting line width [mm] per segment.", Access.Twig);
             outputs.AddNumber("Factors", "F", "Scale factor applied to the XE value per segment.", Access.Twig);

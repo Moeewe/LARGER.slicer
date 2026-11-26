@@ -88,6 +88,14 @@ fi
 
 echo -e "${GREEN}✓ Build successful${NC}"
 
+# The optional planner library (docs/ARCHITECTURE.md, "Planner core") is not part of the public
+# packages. A local folder native/ is copied next to every build; it is taken out again here,
+# unless WITH_PLANNER=1 asks for a package that carries it.
+if [ "${WITH_PLANNER:-0}" != "1" ] && [ -n "$(find bin/Release -type d -name native 2>/dev/null)" ]; then
+    find bin/Release -type d -name native -prune -exec rm -rf {} +
+    echo "Planner library left out of the packages (WITH_PLANNER=1 keeps it)."
+fi
+
 # Sync packaged runtime folders from fresh release outputs.
 echo ""
 echo "Syncing packaged runtime folders..."

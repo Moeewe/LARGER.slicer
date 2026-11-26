@@ -353,7 +353,9 @@ namespace LARGERslicer.Toolpaths
             var st = tp.Settings ?? new PrintSettings();
             double w = Math.Max(0.1, st.BeadWidth);
             double A = Math.Max(0, o.Amplitude);
-            double pitch = Math.Max(Math.Max(1.0, 0.4 * w), o.Pitch);
+            // Pitch 0 = from the bead width: three beads per repeat, so the pattern shows on every bead size
+            double pitch = o.Pitch > 0 ? Math.Max(Math.Max(1.0, 0.4 * w), o.Pitch) : 3.0 * w;
+            if (o.Pitch <= 0) log.Add(Inv.F($"Pitch {pitch:0.#} mm (3 x the bead width)."));
             int period = Math.Max(1, o.LayerPeriod);
             var kind = o.Kind;
             int spp = Spp(kind);

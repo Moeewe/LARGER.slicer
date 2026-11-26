@@ -22,7 +22,7 @@ namespace LARGERslicer.Components.Export
 
         public override string Category => "LARGER";
         public override string SubCategory => "Slicer";
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.septenary | GH_Exposure.obscure;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -42,7 +42,7 @@ namespace LARGERslicer.Components.Export
                 return;
             }
             if (fill.Links.Count > 0)
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Links.Count + " link(s) join separate parts of the fill across open space. The contour fill (Single Line Fill with Offsets) avoids this on shapes with bays or holes.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Links.Count + " link(s) join separate parts of the fill across open space. The contour fill (Curve Continuous Infill) avoids this on shapes with bays or holes.");
             if (fill.Note.Length > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Note);
             Message = (fill.Path.Length / 1000.0).ToString("0.00") + " m";
             DA.SetData(0, new PolylineCurve(fill.Path));

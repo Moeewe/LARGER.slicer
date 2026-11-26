@@ -1,54 +1,65 @@
 # LARGER.slicer for Grasshopper 2
 
-First version (0.1.0) of the slicer for Grasshopper 2 in Rhino 9. It uses the same slicer
-core as the Grasshopper 1 plug-in: the files in `../LARGERslicer/Toolpaths` are compiled into
-this assembly, so both versions cut, fill and check in exactly the same way.
+The slicer for Grasshopper 2 in Rhino 9, part of LARGER.slicer 2.0.x (the Rhino 9 package carries
+it next to the Grasshopper 1 plug-in). It uses the same slicer core as the Grasshopper 1 plug-in:
+the files in `../LARGERslicer/Toolpaths` are compiled into this assembly, so both versions cut,
+fill and check in exactly the same way.
+
+It is built for Rhino 9 only. From 2.0.5 it refuses to load in the Grasshopper 2 preview of
+Rhino 8 (which reads the same `CustomPluginInclude.txt`) with the message "LARGER.slicer for
+Grasshopper 2 needs Rhino 9. In Rhino 8 use LARGER.slicer in Grasshopper 1."
 
 ## Components
 
-The tab follows the Grasshopper 1 plug-in: the same components with the same names, inputs and
-icons. The Slicer section is split into the groups of the Grasshopper 1 tab, in this order:
-Start, Layers, Walls & fill, Path, Check, Output, Curve tools. Import G-code and Material Field sit in Curve
-tools here (Output and Check in Grasshopper 1); Align Curves, Alternate Curves and Join Open Contours
-are visible.
+The tabs follow the Grasshopper 1 plug-in: the same components with the same names, inputs and
+icons (differences are listed below). The Slicer section is split into the groups of the
+Grasshopper 1 tab, in this order: Start, Layers, Walls & fill, Path, Check, Output, Curve tools.
+Import G-code and Material Field sit in Curve tools here (Output and Check in Grasshopper 1);
+Align Curves, Alternate Curves, Join Open Contours and the other curve tools that Grasshopper 1
+keeps for search only are visible.
 
 **LARGER > Slicer**
 
 | Group | Component | What it does |
 |---|---|---|
-| Start | Control Panel | The main settings of every LARGER component in its group, without wires: click a setting to change it; a wire wins |
-| Start | Result | The verdict of the checks and a button for every file to save (and Upload to robot) |
-| Start | Quick Start | Puts eight worked examples on the canvas (as in Grasshopper 1) |
+| Start | Control Panel | The main settings of every LARGER component in its group, without wires: click a setting to change it; a wire wins. Shows Infill Ribs, Cells, Chambers, Support Fins, Envelope, Print Tuning, Machine Profile and Machine rows |
+| Start | Result | The verdict of the checks (with the report line of Easy Slicer) and a button for every file to save (and Upload to robot) |
+| Start | Quick Start | Puts eight worked examples on the canvas (as in Grasshopper 1), each slicer example with a Control Panel and a Result beside it |
 | Start | Easy Slicer | Model in, checked path out: the whole chain in one component |
-| Start | Print Settings | Bead width, layer height, speed (mm/s; 50 mm/s = F3000), nozzle, overlap, radius, resolution, machine profile |
+| Start | Print Settings | Bead width, layer height, speed (mm/s; 50 mm/s = F3000), nozzle preset, profile preset, overlap, radius, resolution, optional Machine Profile |
+| Start | Print Tuning | From 2.0.5: between Print Settings and the slicer components. Speed per line type (Wall, Infill, Bottom, Skirt, Support; mm/s, 0 = print speed), Coasting, Prime, Travel Lift (mm). Machine G-code, DXR and KUKA follow it |
 | Start | Machine Profile | What E means for your machine (Generic, Weber Additive · DXR25, Ginger Additive · Ginger One ...), factors to calibrate it |
-| Start | Design Rules | Layer height range, overlap, CO90 / CO45 / LW45 before you model |
+| Start | Design Rules | Layer height range, overlap, CO90 / CO45 / LW45 before you model; optional Settings input takes bead, layer, nozzle and overlap from Print Settings. Output "Layer Range" |
 | Start | Print Bed | The bed in the viewport; checks that every path lies on it |
 | Start | Material | Start values for a pellet material: temperatures, drying, density; own materials as `.material` files |
 | Start | Material Factor | New extrusion factor from measured bead widths |
 | Layers | Slice | Flat, angled, non-planar (guide surface, or following the part itself with a vertical nozzle) or multi-axis (guide curve) layers |
 | Layers | Self Support Check · Self Supporting Envelope · Best Angle | Where the part hangs over too far, the least material that makes it self-supporting, the slice angle with the least overhang |
-| Walls & fill | Walls | Wall centre lines, one bead spacing apart; inside, centred on or outside the geometry |
-| Walls & fill | Bottom Fill | Solid bottom as one line |
-| Walls & fill | Infill Ribs | Ribs square to the wall, from both walls meeting in the middle |
+| Walls & fill | Walls | Wall centre lines, one bead spacing apart; inside, centred on or outside the geometry (with Outside the extra walls go outward) |
+| Walls & fill | Bottom Fill | Solid bottom as one line; Top Layers closes the top |
+| Walls & fill | Infill Ribs | Ribs square to the wall, from both walls meeting in the middle, or along curves you draw in top view (crossing curves are filtered); Spacing and Meet |
 | Walls & fill | Infill Cells | Honeycomb or grid cells as part of the one line |
 | Walls & fill | Infill Wave | Wave, truss or meander along the wall, meeting in the middle |
-| Walls & fill | Infill Sketch | Ribs along curves you draw in top view |
 | Walls & fill | Infill Chambers | A chamber wall (boxes or truss) inside the part |
 | Walls & fill | Support Fins | Thin fins outside the part that hold up overhangs, as part of the one line |
 | Path | Continuous Path | All layers as one path; layered with a short ramp, or spiral |
 | Path | Round Corners | Rounds the corners of the path |
 | Path | Start and End | Skirt and brim before the part, exit move after it |
-| Path | Surface Pattern | Textures in the wall (knit, ribs, waves, zigzag, dots, loops, a picture); the path stays one line |
+| Path | Surface Pattern | Textures in the wall (knit, ribs, waves, zigzag, dots, loops, a picture); the path stays one line. Pitch 0 = three bead widths |
+| Path | Weave Zones · Weave | Where two beads of a layer lie side by side, and the seam between them interlocked from layer to layer |
+| Path | Shape Field · Reshape Path · Compare Variants | How high the part has to become over its plan, the toolpath reshaped to it with the same number of layers, several variants in one table |
 | Check | Path Check | No crossing, every bead supported; layer times against Min Layer Time |
 | Check | Non-Planar Check | Non-planar paths for a vertical nozzle: real bead height at every point, the head against what is printed |
+| Check | Multi-Axis Check | Bead heights, tilt, turn speed and flow along the real tool axis |
+| Check | Path Heat | A toolpath coloured by one value per point, with title and colour bar |
 | Check | Extrusion and Speed | Points, planes, extrusion, speed, role and layer per point |
-| Output | Ginger G-code | Full-size G-code for the Ginger One with its start and end sequence |
+| Check | Weave Variants · Weave Test · Joint Data | Weave variants measured the same way, a test series of woven specimens, the joints of a path as data |
 | Output | Machine | Built-in machines and your own from `Documents/LARGER/Machines` (.machine text files), or typed in here |
 | Output | Machine G-code | G-code for the machine you connect |
 | Output | Desktop Test Print | The path scaled down for a desktop printer, with that printer's start, layer change and end |
 | Output | Toolpath to Robot Lines | One PTP line per path point with one fixed tool orientation; extrusion and feed per line |
 | Output | Printer Simulation | Plays the path on the machine (Ginger One or your own with a 3D model): head on the path, part printed up to that moment |
+| Output | Reshape Code | Reshapes a finished G-code or .dxr file in place |
 | Curve tools | Layers to Curves · Curves to Layers | Layers as plain curves for your own pattern, and back |
 | Curve tools | Import G-code | G-code from other slicers or a .dxr file as a toolpath, to check it |
 | Curve tools | Material Field | The toolpath as a direction-dependent material field for FE or IGA (CSV, JSON, VTK) |
@@ -56,9 +67,10 @@ are visible.
 | Curve tools | Curve Fill Zigzag · Curve Fill Contour · Curve Fill Cells · Curve Fill Euler · Curve Continuous Infill · Curve Fill Cross Lines | Fills of your own boundary curves (old Toolpaths tab) |
 | Curve tools | Curve Join and Order · Curve Uncross · Curve Bridge · Align Curves · Alternate Curves · Join Open Contours | Joining, ordering, untangling and turning your own curves |
 
-Two components of the first Grasshopper 2 version are kept only so that older definitions open:
-`Infill` (now Infill Ribs, Cells, Wave and Chambers) and `Round and Lead` (now Round Corners and
-Start and End). They are no longer on the tab.
+Hidden (not on the tab, kept so that older definitions open): `Ginger G-code` (use Machine +
+Machine G-code; Quick Start does), `Infill Sketch` (now in Infill Ribs), and two components of the
+first Grasshopper 2 version: `Infill` (now Infill Ribs, Cells, Wave and Chambers) and
+`Round and Lead` (now Round Corners and Start and End).
 
 **LARGER > Robot**
 
@@ -69,36 +81,83 @@ Start and End). They are no longer on the tab.
 | Robot Cell | Robot, tool and the work base the program counts from; optional Environment and External Axes |
 | External Axis | A rail the robot stands on, or a turntable the part stands on |
 | Cell Geometry | The print cell of the FH Muenster in 3D, the place of the robot and the environment for the collision check |
-| Robot Program | Robot moves with the real tool orientation, reach, axis and collision check, lines for the DXR Generator, KRL program; for a UR: URScript, Save script and Upload to the robot |
-| Robot Simulation | The robot with its tool at any moment of the print (slider); Colliding shows what collides |
+| Robot Program | Robot moves with the real tool orientation, reach, axis and collision check, lines for the DXR Generator; output Code is the KRL program or, for a UR, URScript (Blend, Robot IP, Upload); the UR arm is drawn |
+| Robot Simulation | The robot with its tool at any moment of the print (slider, Play, Film Length); Colliding shows what collides |
 
 **LARGER > DXR**
 
+| Row | Component | What it does |
+|---|---|---|
+| 1 | Machine Settings | Temperatures and cooling for the start and end sequence |
+| 1 | Fan Schedule | The fan by layer: off for the first layers, then low, later full; the DXR file switches it at the layer change |
+| 1 | Machine Settings Extended | Multi-zone settings: 4 bed zones and 4 extruder zones (extended mode) |
+| 1 | DXR Generator | Robot lines, extrusion and feed to a DXR file for the Weber DXR |
+| 1 | DXR GCode Postprocessor | G-code from Cura and other slicers to a DXR file (named "G-code to DXR" in Grasshopper 1 from 2.0.5) |
+| 1 | DXR File Health Check | Checks a DXR file before printing: name, readability, content, no move with feed rate 0 |
+| 2 | G-code Diff Check | Compares two programs line by line, e.g. before and after DXR E Remap |
+| 2 | DXR Width Preview | A DXR program coloured by its line width (the XE values) |
+| 2 | DXR E Remap | Recalculates the XE values of a DXR program from several part geometries |
+| 2 | Surface Thickness Heatmap | Wall thickness of each part as a coloured mesh, Part Info for DXR E Remap |
+
+**LARGER > Formwork**
+
+Milled formwork from boards, the "CNC Utilities 01 to 08" of Grasshopper 1 before 2.0.5; the step
+is in each description.
+
 | Component | What it does |
 |---|---|
-| Machine Settings | Temperatures and cooling for the start and end sequence |
-| Fan Schedule | The fan by layer: off for the first layers, then low, later full; the DXR file switches it at the layer change |
-| Machine Settings Extended | Multi-zone settings: 4 bed zones and 4 extruder zones (extended mode) |
-| DXR Generator | Robot lines, extrusion and speed to a DXR file for the Weber DXR |
-| DXR GCode Postprocessor | G-code from Cura and other slicers to a DXR file |
-| DXR File Health Check | Checks a DXR file before printing: name, readability, content, no move with feed rate 0 |
-
-**LARGER > Utilities**
-
-| Component | What it does |
-|---|---|
-| DXR Variable Width | Scales the extrusion of a DXR program along X, Y or Z; the segments and their colours as preview |
-| Feedrate Calculator | Target speed in mm/s to feedrate in mm/min, rounded |
-| Date Timestamp | A timestamp (yymmddHHMM_) for file names |
-| Desktop Path | The path of the desktop folder |
-| Safe Component | Writes text lines to a file, UTF-8 without BOM (for robot controllers) |
+| Formwork - Orient Part | STEP 1: length in X, depth in Y, height in Z |
+| Formwork - Dimensions | STEP 2: bounding box and dimensions |
+| Formwork - Board Layers | STEP 3: the height split into boards and separation joints |
+| Formwork - Split Joint | STEP 3b: each board split at its joint |
+| Formwork - Milling Depth | STEP 4: milling depth per board in steps |
+| Formwork - Raw Block | STEP 5: the raw block from boards, depths and board length |
+| Formwork - Fixtures | STEP 6: L-shaped stops and bases; shortens the boards by Insert Depth at both ends (it does not mill pockets) |
+| Formwork - Bill of Materials | STEP 7: bill of materials for a panel and CSV |
+| Formwork - Export | STEP 8: boards and bill of materials as 3DM and CSV |
 
 **LARGER > CNC**
 
 | Component | What it does |
 |---|---|
-| CNC - Cutter Selector | A cutter from the database for CNC - Program |
-| CNC - Program | Boustrophedon toolpath and PLT file for the Zünd G3 |
+| CNC - Quick Start | Places a complete Zünd example: a topography roughed out of a plate, finished and cut out |
+| CNC - Plate | STEP 1: the raw plate on the table, where the model lies in it, its material |
+| CNC - Cutter | STEP 2: one cutter and its place in the magazine; Cutter 6 = own flat, 7 = own ball cutter (Diameter, Cutting Length, Max Depth, Spindle Speed); Module (11/21/31) for every cutter |
+| CNC - Rough and Finish | STEP 3: rough, finish and cut out a relief; PLT file for the Zünd G3 |
+| CNC - Relief | Example models to mill (site model, facade, scales, gyroid, vaults ...) |
+| CNC - Cutter Selector · CNC - Program | The older boustrophedon toolpath with a cutter from the database; still on the tab here (hidden in Grasshopper 1, where CNC - Rough and Finish and CNC - Cutter replace them) |
+
+`CNC - Own Cutter` is hidden (now Cutter 6 and 7 of CNC - Cutter); older definitions open.
+
+**LARGER > Utilities**
+
+| Component | What it does |
+|---|---|
+| DXR Variable Width | Scales the extrusion of a DXR program along X, Y or Z; the segments and their colours as preview (on the DXR tab in Grasshopper 1) |
+| CAD Package Export | Breps 1:1 to 3DM, STEP and IGES (on the Export tab in Grasshopper 1) |
+| Safe Component | Writes text lines to a file, UTF-8 without BOM, for robot controllers ("Save Text File" on the Export tab in Grasshopper 1) |
+| Feedrate Calculator | Target speed in mm/s to feedrate in mm/min, rounded (hidden in Grasshopper 1) |
+| Date Timestamp | A timestamp (yymmddHHMM_) for file names (hidden in Grasshopper 1) |
+| Desktop Path | The path of the desktop folder (hidden in Grasshopper 1) |
+
+### Differences to Grasshopper 1
+
+The components compute the same; these are the differences on the canvas:
+
+- **Input order.** Wires are made by name, but the inputs stand in another order on a few components:
+  - Print Settings: Bead Width, Layer Height, Speed, Profile Preset, Flow, Preview, Density, First Layer Height, Nozzle Preset, First Layer Speed, then Overlap, Min Radius, Resolution, Filament Diameter, Min Speed, Max Speed and the optional Machine (a Machine Profile). Grasshopper 1: Bead Width, Layer Height, Speed, Flow, Overlap, Min Radius, Resolution, Filament Diameter, Min Speed, Max Speed, Preview, Machine Profile (the preset number), Density, First Layer Height, Nozzle Preset, First Layer Speed. Grasshopper 2 also has an Info output.
+  - Path Check: Toolpath, Min Layer Time, Max Offset (Grasshopper 1: Max Offset before Min Layer Time); the outputs are OK, Report, Crossings, Unsupported, Layer Times, Offset.
+  - Continuous Path: Seam Gap before Seam (Grasshopper 1: Seam, Seam Gap); an extra Path output.
+  - Easy Slicer: Brim and First Layer Height before Spiral (Grasshopper 1: Spiral, Brim, First Layer Height).
+  - Slice: Plane is the last input (Grasshopper 1: third).
+  - Machine: Filament Diameter after Save and Model.
+  - Robot Simulation: Program, Time, Show Cell, Play, Film Length (Grasshopper 1: Show Cell last).
+- **Robot Program.** For a UR, Blend, Robot IP and Upload are inputs here (in Grasshopper 1 a row, the right-click menu and the "Upload to robot" button). Grasshopper 2 has no Check, Environment and Show Cell inputs and no Axes output. The outputs Feed and Code are named as in Grasshopper 1 (from 2.0.5; before: Speed and KRL).
+- **Machine and Material** remember the chosen name: a new .machine or .material file no longer switches a saved definition to another entry (from 2.0.5).
+- **Curve inputs** accept lines, polylines, arcs and circles as well (Curves to Layers, Exit Curve of Start and End, Infill Ribs, Surface Pattern attractors; from 2.0.5).
+- **Speeds** are mm/s. A speed above 1000 is read as mm/min from an older definition, and Grasshopper 2 warns when it does so (from 2.0.5). First Layer Speed is always mm/s.
+- **Quick Start** puts a Control Panel and a Result beside every slicer example and writes Output A with Machine + Machine G-code (from 2.0.5).
+- **Names** on the DXR, CNC and Utilities tabs: see the tables above (DXR GCode Postprocessor, Safe Component, CNC - Program and CNC - Cutter Selector keep their old names and places here).
 
 ### Icons
 
@@ -121,11 +180,12 @@ or Grasshopper 2 does the job itself:
 
 | Grasshopper 1 | Why not |
 |---|---|
-| CNC Utilities 01 to 08, CAD Package Export | Planning tools for milled formwork; used by no definition |
 | Fast Deconstruct Point, RTree Closest Point, RTree Sort | Speed-ups for Grasshopper 1; Grasshopper 2 has fast native components for this |
-| Stream Freeze, Custom Preview Lineweights, Super Printpath Preview, Fast GCode DXR Preview | Canvas and viewport helpers built on the Grasshopper 1 canvas and display; Grasshopper 2 has its own preview, and Printer Simulation, Robot Simulation and Import G-code show the path |
-| G-Code Diff Check, GCode E Remap MultiPart, Curve Pattern Split, Surface Thickness Heatmap | One-off analysis and G-code repair tools from earlier projects; used by no definition. Import G-code with Path Check checks foreign G-code |
+| Stream Freeze, Custom Preview Lineweights, Super Printpath Preview | Canvas and viewport helpers built on the Grasshopper 1 canvas and display; Grasshopper 2 has its own preview, and Printer Simulation, Robot Simulation and Import G-code show the path |
+| Curve Pattern Split | One-off tool from an earlier project; used by no definition |
 | Overlap Tester Var Width | Test tool for DXR Variable Width; used by no definition |
+| Slice Options | Grasshopper 2 offers the choices of Slice in its own input menus |
+| UR Cell, UR Program, UR Simulation | Hidden in Grasshopper 1 too; the Robot chain does the same |
 
 ## Build
 
@@ -140,12 +200,13 @@ is somewhere else.
 ## Load it
 
 Since 2.0.4 the Rhino 9 package of the package manager carries it: after installing LARGERslicer in
-Rhino 9 it is in `packages/9.0/LARGERslicer/2.0.4/gh2/` (Mac:
-`~/Library/Application Support/McNeel/Rhinoceros/packages/9.0/LARGERslicer/2.0.4/gh2/LARGERslicerGH2.rhp`,
-Windows: `%APPDATA%\McNeel\Rhinoceros\packages\9.0\LARGERslicer\2.0.4\gh2\LARGERslicerGH2.rhp`).
-Put that path into `CustomPluginInclude.txt` as described below. From the next version on this is done
+Rhino 9 it is in `packages/9.0/LARGERslicer/<version>/gh2/` (Mac:
+`~/Library/Application Support/McNeel/Rhinoceros/packages/9.0/LARGERslicer/<version>/gh2/LARGERslicerGH2.rhp`,
+Windows: `%APPDATA%\McNeel\Rhinoceros\packages\9.0\LARGERslicer\<version>\gh2\LARGERslicerGH2.rhp`).
+With 2.0.4, put that path into `CustomPluginInclude.txt` as described below. From 2.0.5 this is done
 for you: the SETUP installer writes the line, and once LARGER.slicer runs in Rhino 9 (Grasshopper 1 or 2)
-it moves the line to the installed version after every update.
+it moves the line to the installed version after every update (an old line of LARGER.slicer is
+replaced, other lines stay; a copy of your own outside the packages wins).
 
 Grasshopper 2 reads extra plug-ins from the file `CustomPluginInclude.txt` in its settings
 folder (macOS: `~/Library/Application Support/Grasshopper2/Settings`, Windows:

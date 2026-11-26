@@ -10,6 +10,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed: Grasshopper 2 finds LARGER.slicer by itself
 - Rhino 9: both plug-ins (Grasshopper 1 and 2) keep the line in Grasshopper 2's CustomPluginInclude.txt on the installed version of the package (packages/9.0/LARGERslicer/<version>/gh2), so after an update Grasshopper 2 loads the new one at the next start. An old line of LARGER.slicer is replaced, other lines stay; a copy of your own outside the packages wins.
 - SETUP installers (Mac and Windows): with Rhino 9 on the computer they install LARGER.slicer for Rhino 9 and write that line, so Grasshopper 2 loads it from the first start on.
+- The Grasshopper 2 plug-in refuses to load in the Grasshopper 2 preview of Rhino 8 (it is built for Rhino 9) and says so.
+
+### Fixed: safety
+- UR: the TCP of an own tool (Robot Tool "Own tool") or of the AE20 on a UR, given as for the KUKA and the Robots plug-in (Z from the tip back into the tool), is now turned so Z points out of the tool; it was reversed.
+- UR: Upload to robot sends only a program that is OK. Its message now says what happens: the robot runs the script at once (an e-Series only in remote control), the FH start code first asks for compressed air. The hidden UR Program sends once when Upload turns true.
+- UR: the approach moves to the solved joint angles (`movej([...])`) instead of `get_inverse_kin`, so the robot moves in the configuration that was simulated.
+- UR: new checks for the wrist singularity (axis 5 near 0) and the joint speed against the model's limits; the Report says NOT RUNNABLE or TOO FAST, and names what is not checked on a UR (collisions, external axes, work base). Robot Cell warns which inputs a UR ignores; Robot warns when a Library file overrides the chosen UR model.
+- Robot Program: output "KRL" is now "Code" (KRL or URScript); the UR arm is drawn in Robot Program too.
+- Machine G-code and Ginger G-code: moves down onto the part or the bed (the first plunge too) run at print speed as the engine plans them; they ran at full travel speed.
+- Machine G-code warns when the machine's extrusion profile replaces a Machine Profile set in Print Settings. Material Factor says to set a calibrated factor as Extrusion Factor on Machine when you write with Machine G-code.
+- Robot Program with the AE20 (Weber) and a toolpath that carries the Ginger or a filament profile uses the Weber DXR25 profile (1.128) and says so; with another foreign profile it warns. Quick Start example 1, Output B, therefore writes correct DXR values (before: the Ginger factor 0.21, about 5.4 times too little). Toolpath to Robot Lines warns about a foreign profile and writes the "; layer N" tag, so DXR layer changes and the Fan Schedule are right on non-planar paths.
+
+### Fixed: calculation
+- Layers to Curves gives the real (mapped back) contours of non-planar layers (Grasshopper 1 and 2); Curves to Layers uses First Layer Height for the first layer and the real plane spacing.
+- Non-Planar Check and Multi-Axis Check use the same bead-height limit (0.8 x bead width, calibrated on the printed head V2; a Max Layer set by hand wins). Both give NaN, not 0, for points they could not measure; Path Heat greys NaN and leaves it out of its range, and every Path Heat legend gets its own place.
+- Design Rules: new optional input Settings (Print Settings): bead, layer, nozzle and overlap come from there, so CO90 is exactly what Walls prints. Output "Layer Height" is now "Layer Range". Print Settings warns about the layer height above 0.6 x bead width (as Easy Slicer).
+- Walls, Position "Outside" with more than one wall: the extra walls go outward (they went inward).
+- Infill Wave passes the layers through with a warning when Depth is too small, instead of emptying the chain.
+- Bottom Fill: new input Top Layers (solid layers that close the top). Its row default is now 1 bottom layer.
+- G-code to DXR: connected Machine Settings win over the temperatures in the G-code header and keep the Fan Schedule. Fan Schedule in Extended format writes V.E.GLOBAL[3] on the 0-255 scale of Fan Speed (percent x 2.55).
+- Reshape Path: its built-in check also judges the flow limit and names its tilt and turn limits. Compare Variants: new inputs Flat Layers and Roof (as Reshape Path); it no longer writes made-up step numbers into Reshape_Log.csv.
+- Control Panel shows Infill Ribs, Cells, Chambers, Sketch, Support Fins, Envelope and Print Tuning; Grasshopper 2: the Machine Profile and Machine rows fixed. Result shows the report line of Easy Slicer.
+- CAD Package Export writes STEP and IGES through a hidden document (the open Rhino document is no longer touched), exports once per switch-on and notes open Breps.
+- First Layer Speed is always mm/s (no silent mm/min guess); Grasshopper 2 warns when a speed above 1000 is read as mm/min.
+- Grasshopper 2: curve inputs take lines, polylines, arcs and circles (Curves to Layers, the exit curve of Start and End, Infill Ribs and Sketch, the attractors of Surface Pattern). Machine and Material remember the chosen name, so a new .machine or .material file no longer switches a saved definition.
+
+### Added
+- **Print Tuning** (Slicer tab, Start; Grasshopper 1 and 2): between Print Settings and the slicer components. Speeds by line type (Wall, Infill, Bottom, Skirt, Support; mm/s, 0 = print speed), Coasting (mm: the extruder stops this early before every stop or travel move), Prime (mm of bead extra after a stop), Travel Lift (mm Z-hop on G-code machines). Machine G-code, the DXR and the KUKA program follow it.
+- Fan Schedule also takes a G-code Machine: Machine G-code then writes M106 S0-255 / M107 after the layers instead of the machine's own fan lines.
+- CNC - Cutter: Cutter 6 = own flat, 7 = own ball cutter, with new inputs Diameter, Cutting Length, Max Depth, Spindle Speed, and Module (11/21/31) for every cutter. "CNC - Own Cutter" is hidden (old files still open).
+- Infill Ribs filters crossing curves itself (as Infill Sketch did) and has the rows Spacing and Meet; Infill Sketch is hidden (old files still open).
+- Surface Pattern: Pitch 0 (the new default) = three bead widths.
+- Grasshopper 2 now also has the Formwork tab (9 components), CAD Package Export, Path Heat, DXR Width Preview, DXR E Remap, G-code Diff Check and Surface Thickness Heatmap; Robot Simulation has Play and Film Length; Quick Start puts a Control Panel and a Result beside every slicer example and writes Output A with Machine + Machine G-code.
+
+### Changed: names and places (GUIDs unchanged, old files open)
+- "CNC Utilities 01" to "08" are the tab "Formwork": Formwork - Orient Part, - Dimensions, - Board Layers, - Split Joint, - Milling Depth, - Raw Block, - Fixtures, - Bill of Materials, - Export (the steps are in the descriptions). The text of Fixtures is corrected: it shortens the boards, it does not mill pockets.
+- DXR tab, second row (moved from Utilities): DXR Variable Width, DXR E Remap (was GCode E Remap MultiPart), G-code Diff Check (was G-Code Diff Check), DXR Width Preview (was Fast GCode DXR Preview), Surface Thickness Heatmap. "DXR GCode Postprocessor" is "G-code to DXR". "Safe Component" is "Save Text File" on the Export tab.
+- Hidden: Ginger G-code (use Machine + Machine G-code, as Quick Start does), CNC - Program and CNC - Cutter Selector (use CNC - Rough and Finish and CNC - Cutter), Super Printpath Preview, RTree Closest Point, RTree Sort, Feedrate Calculator, Fast Deconstruct Point, Desktop Path, Date Timestamp. Found only by search: Curve Continuous Path, Curve Fill Contour, Curve Fill Euler, Curve Fill Cross Lines, Curve Bridge (they do what Curve Continuous Infill, Curve Fill Zigzag and Curve Join and Order do).
+- Inputs: Slice and Easy Slicer "Start/End Layers" is "Sacrificial Layers"; the integer "Nozzle" of Print Settings and Easy Slicer is "Nozzle Preset"; the integer "Machine Profile" of Easy Slicer (and of Print Settings in Grasshopper 2) is "Profile Preset"; DXR Generator "Speed" is "Feed (mm/min)"; Grasshopper 2 Robot Program output "Speed" is "Feed".
+- Nicknames: Machine Profile "Profile", Machine Settings "DXR Set" and "DXR Set+", Printer Simulation "PrintSim", Robot Simulation "RobotSim", Continuous Path Bridge "Bg", Material Factor F0/F1.
+- Note to 2.0.4: UR Cell, UR Program and UR Simulation are hidden; use the Robot chain (Robot → Robot Tool → Robot Cell → Robot Program → Robot Simulation).
+
+### Examples
+- Moved to `EXAMPLE FILES/99 - ARCHIVE/`: the old states of the house definition (was `00 - Archiv & WIP`), Multiaxial Weber Robot (1.0), the WIP scripts (was `01 - WIP - PRINTER GH SCRIPTS - NEW FEATURES`), the Weber DXR20 robot system simulation, `UR5slicer.gh` (Robots plug-in), the old Zünd HPGL PLT MSA file (CNC - Program), and the first house definition from SETUP (now `LARGERslicer Weber Robot and Ginger V1 (Robots plug-in).gh`). SETUP keeps V2, the file for students and the Extrusion Factor Test.
+- Folder `00 - ZUENDT - 3D CNC MILLING` is now `00 - ZUEND - 3D CNC MILLING`. The head files are `LARGERslicer - Head (Ginger One Marlin, non-planar).gh` and `LARGERslicer - Head (Ginger One Klipper, non-planar).gh`. Machine templates: `Template Gantry` and `Template Bed Slinger` (were `My Gantry`, `My Bed Slinger`).
+- The UR5 is shown in the file for students (example 06) with the Robot chain.
+
+### Documentation
+- README, README.de, the developer handbook (`docs/`), the SETUP and example guides, the Grasshopper 2 README, the component overview and the website pages follow these changes. `docs/UR5.md` describes the UR on the Robot chain.
 
 ## [2.0.4] - 2026-11-25
 

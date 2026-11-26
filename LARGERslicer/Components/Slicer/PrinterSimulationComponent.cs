@@ -89,7 +89,7 @@ namespace LARGERslicer.Components.Slicer
     public class PrinterSimulationComponent : SlicerComponent
     {
         public PrinterSimulationComponent()
-            : base("Printer Simulation", "Simulate",
+            : base("Printer Simulation", "PrintSim",
                   "Plays the print on the machine, as Robot Simulation plays the robot: the Ginger One (or your own machine with a 3D model) with its gantry, beam and head moved so the nozzle tip stands on the path, and the part printed up to that moment. Connect Simulation of Machine G-code (one wire), or a Machine and a Toolpath. Pose runs from 0 (start) to 1 (end) and follows the real print time of the G-code. Move the slider, or click Play and it runs by itself; Film Length sets how many seconds one run takes on the screen. The head, the beam and the frame are checked against the printed part and the bed: what collides turns red. Your own machine moves when its .3dm has the layers Frame, Bed, Z, Y, X and a point on layer TCP at the nozzle tip (see docs/OWN_MACHINES.md); a bed slinger moves its bed.") { }
 
         public override Guid ComponentGuid => new Guid("3E7B2C91-4A6D-4F18-9B05-C8D1E2F47A36");

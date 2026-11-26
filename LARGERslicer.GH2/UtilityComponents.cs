@@ -18,7 +18,7 @@ namespace LARGERslicer.GH2
     [IoId("bdae6930-885e-43f9-930b-e748e656a447")]
     public sealed class FeedrateComponent : Component
     {
-        public FeedrateComponent() : base(Io.Name("Feedrate Calculator", "Adjusts feedrate for constant speed. Converts target speed (mm/s) to feedrate (mm/min) and adjusts based on segment lengths. Results are rounded to whole numbers.", Io.Utilities, 0)) { }
+        public FeedrateComponent() : base(Io.HiddenName("Feedrate Calculator", "Adjusts feedrate for constant speed. Converts target speed (mm/s) to feedrate (mm/min) and adjusts based on segment lengths. Results are rounded to whole numbers.", Io.Utilities, 0)) { }
         public FeedrateComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("FeedrateIcon");
 
@@ -67,7 +67,7 @@ namespace LARGERslicer.GH2
         private Eto.Forms.UITimer _timer;
         private string _last;
 
-        public DateTimestampComponent() : base(Io.Name("Date Timestamp", "Generates a timestamp string with automatic update every second. Format: yymmddHHMM_", Io.Utilities, 0)) { DocumentChanged += Moved; }
+        public DateTimestampComponent() : base(Io.HiddenName("Date Timestamp", "Generates a timestamp string with automatic update every second. Format: yymmddHHMM_", Io.Utilities, 0)) { DocumentChanged += Moved; }
         public DateTimestampComponent(IReader reader) : base(reader) { DocumentChanged += Moved; }
         protected override IIcon IconInternal => Io.Icon("DateTimestampIcon");
 
@@ -121,7 +121,7 @@ namespace LARGERslicer.GH2
     [IoId("1a9a8687-44fc-4f49-800a-de9a7ee9e3ea")]
     public sealed class DesktopPathComponent : Component
     {
-        public DesktopPathComponent() : base(Io.Name("Desktop Path", "Finds the current user's Desktop folder path cross-platform (Windows/Mac). Supports multiple languages.", Io.Utilities, 0)) { }
+        public DesktopPathComponent() : base(Io.HiddenName("Desktop Path", "Finds the current user's Desktop folder path cross-platform (Windows/Mac). Supports multiple languages.", Io.Utilities, 0)) { }
         public DesktopPathComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("DesktopPathIcon");
 
@@ -161,7 +161,7 @@ namespace LARGERslicer.GH2
     [IoId("c666a17e-44bb-4353-a607-85378e9adfcf")]
     public sealed class SafeComponent : Component
     {
-        public SafeComponent() : base(Io.Name("Safe Component", "Writes text lines to a file. Combines folder path, filename, and extension. Uses UTF-8 encoding WITHOUT BOM (required for robot controllers).", Io.Utilities, 0)) { }
+        public SafeComponent() : base(Io.Name("Save Text File", "Writes text lines to a file. Combines folder path, filename, and extension. Uses UTF-8 encoding WITHOUT BOM (required for robot controllers).", Io.Utilities, 0)) { }
         public SafeComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SafeIcon");
 
@@ -198,7 +198,7 @@ namespace LARGERslicer.GH2
             {
                 if (write) access.AddError("No folder", "Folder Path is empty."); else access.AddWarning("No folder", "Folder Path is empty.");
                 info.Add("ERROR: Folder path is empty or null");
-                info.Add("Please provide a valid folder path (e.g., use Desktop Path component)");
+                info.Add("Please provide a valid folder path");
                 Done(string.Empty);
                 return;
             }

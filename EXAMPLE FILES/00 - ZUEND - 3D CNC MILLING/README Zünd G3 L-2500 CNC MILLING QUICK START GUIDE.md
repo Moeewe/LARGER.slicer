@@ -73,59 +73,19 @@
 ⚠️ **CRITICAL OPERATION INFORMATION**
 
 1. **Primary Operation**: Standard cutting and 2D operations should be performed through **Zünd Cut Center** software
-2. **Grasshopper Usage**: The provided Grasshopper script (`ZündHGPL PLT MSA.gh`) is specifically designed for **3D milling operations only**
+2. **Grasshopper Usage**: the LARGER.slicer components on the **LARGER > CNC** tab (`CNC - Plate`, `CNC - Cutter`, `CNC - Rough and Finish`, or `CNC - Quick Start`) are made for **3D milling of height models** only. The example is `Zünd Rough and Finish (height model).gh` in this folder
 3. **Material Limitations**: Maximum material thickness: 50mm working height, 60mm opening height
 4. **Safety**: Always follow Zünd safety protocols and ensure proper dust extraction is active
 
-## 3D Milling Workflow (Grasshopper)
+## Prerequisites
 
-### Prerequisites
+- Rhino 8 or 9 with Grasshopper (Grasshopper 2 in Rhino 9 has the same CNC components)
+- LARGER.slicer 2.0 or newer
+- 3D geometry prepared in Rhino (mesh, surface, Brep or SubD), in millimetres
 
-- Rhino 8+ with Grasshopper
-- LARGERslicer plugin installed (for CNC Program component)
-- 3D geometry prepared in Rhino (Breps or Meshes)
+### The old workflow (CNC - Program, archived)
 
-### Setup Process
-
-1. **Open Files**:
-   - Launch `ZündHGPL PLT MSA.3dm` in Rhino
-   - Open `ZündHGPL PLT MSA.gh` in Grasshopper
-
-2. **Input Geometry**:
-   - Reference your 3D geometry (Brep or Mesh)
-   - Ensure geometry fits within working area (1800mm × 2500mm)
-   - Verify Z-height does not exceed 50mm
-
-3. **Configure Parameters**:
-   - **Material Thickness**: Set actual material thickness in mm
-   - **Step Y** (cutter size slider): lateral spacing between the rows (typical: 60-80% of the cutter diameter)
-   - **Step X**: spacing of the points along a row (0.1-1 mm); steep steps are followed finer by themselves
-   - **Cutter**: choose it in CNC - Cutter Selector. Its radius is the distance of the outline, its position the tool (SP); it also sets the depth limits
-   - **Spindle Speed**: Set RPM according to material and tool (typical: 18,000-24,000 RPM)
-   - **Depth**: the part stands on the table (Z = 0); its Z is the material that remains. Every point is cut in **one pass**: for deep cuts in hard material prepare the part in several steps of height
-
-4. **Generate Toolpath**:
-   - Use **CNC Program** component to generate boustrophedon (zigzag) toolpath
-   - Preview toolpath in Rhino viewport
-   - Verify Z-coordinates are within safe limits: CNC - Program is red and writes no PLT if the part lies below Z 0 (the tool would cut the table)
-   - Holes through the part are not cut out by the outline (a note says so)
-
-5. **Export PLT File**:
-   - Set output filepath
-   - Click export to generate HPGL/PLT file
-   - File will include all necessary commands:
-     - Module slot (SP), router bit (XX351), spindle speed (XX150)
-     - Speeds in cm/s (VS, VW, VU): 7 = 70 mm/s
-     - Vacuum control (PB2)
-     - Z-positioning (ZP, MW)
-     - Extraction height (XX306)
-     - Underlay compensation (XX308)
-
-6. **Transfer to Machine**:
-   - Copy PLT file to Zünd Cut Center
-   - Load material and secure with vacuum
-   - Perform tool height calibration
-   - Run job through Zünd Cut Center interface
+Up to 1.3 a single component, `CNC - Program` with `CNC - Cutter Selector`, made one zigzag (boustrophedon) pass and a PLT file. Its definition is now `../99 - ARCHIVE/Zünd HPGL PLT MSA (CNC - Program, old).gh`; `ZündHGPL PLT MSA.3dm` stays in this folder. From 2.0.5 both components are no longer on the toolbar (old files still open them): use `CNC - Rough and Finish` and `CNC - Cutter`, which rough in levels, finish with a ball, cut the part out and check the result before a file is written.
 
 ## Quick Start: mill a topography in three steps
 
@@ -134,9 +94,9 @@ is roughed out of a plate, finished with a ball and cut out all round at the end
 
 | Step | Component | What you do |
 |---|---|---|
-| 1 | **CNC - Relief** or *Dein Modell* | choose one of 13 reliefs (site model, facade, scales, vaults ...), or disconnect the wire and right click *Dein Modell* > Set one Geometry: your mesh, surface or Brep, in millimetres, anywhere |
+| 1 | **CNC - Relief** or *Dein Modell* | choose one of 12 reliefs (site model, facade, scales, vaults ...), or disconnect the wire and right click *Dein Modell* > Set one Geometry: your mesh, surface or Brep, in millimetres, anywhere |
 | 2 | **CNC - Plate** | measure the real plate and type in Length, Width, Thickness; choose Material. The model is put into the middle, its highest point half a millimetre below the top |
-| 3 | **CNC - Cutter** (2x) | one thick flat cutter (R206-A), one ball. **Magazine** = the place in which the cutter really sits. A cutter that is not in the list: **CNC - Own Cutter** |
+| 3 | **CNC - Cutter** (2x) | one thick flat cutter (R206-A), one ball. **Magazine** = the place in which the cutter really sits. A cutter that is not in the list: from 2.0.5 **Cutter** 6 (own flat) or 7 (own ball) with the inputs Diameter, Cutting Length, Max Depth and Spindle Speed (the old CNC - Own Cutter still opens in old files). **Module**: 11, 21 or 31, the module the router sits in (FH Münster: 31) |
 | 4 | **CNC - Rough and Finish** | read the first line of the report: READY or STOP. STOP says what to change, and nothing is written |
 | 5 | Rhino | orange = roughing, blue = finishing, red = cutting out, grey = ways with the cutter lifted, and the finished part |
 | 6 | *Save PLT* | the file lands on the Desktop. Load it in Zünd Cut Center |
@@ -170,11 +130,14 @@ must not be hit, hand on the emergency stop.
 ## File Structure
 
 ```
-00 - ZUENDT - 3D CNC MILLING/
+00 - ZUEND - 3D CNC MILLING/
 ├── README Zünd G3 L-2500 CNC MILLING QUICK START GUIDE.md  # This guide
-├── ZündHGPL PLT MSA.3dm                                     # Rhino template file
-├── ZündHGPL PLT MSA.gh                                      # Grasshopper 3D milling script
-└── Zünd Rough and Finish (height model).gh                  # roughing, finishing, cutting out (CNC - Quick Start)
+├── Zünd Rough and Finish (height model).gh                  # roughing, finishing, cutting out (CNC - Quick Start)
+├── Schalungen Skript.gh                                     # formwork script, native Grasshopper
+└── ZündHGPL PLT MSA.3dm                                     # Rhino file of the old CNC - Program definition
+
+99 - ARCHIVE/
+└── Zünd HPGL PLT MSA (CNC - Program, old).gh                # the old one-pass zigzag definition (CNC - Program)
 ```
 
 ## Troubleshooting
@@ -200,12 +163,12 @@ must not be hit, hand on the emergency stop.
 
 ## References
 
-- **LARGERslicer Plugin**: See [Plugin Documentation](../../LARGERslicer/README.md) for CNC component details
-- **HPGL Commands**: See [CNC Program Component](../../LARGERslicer/documentations/COMPONENTS_OVERVIEW.md) for command reference
+- **LARGERslicer Plugin**: See the [main README](../../README.md) for the CNC components
+- **Website (German)**: [Fräsen mit der Zünd](https://parametricsolutions.de/larger-slicer/zuend/)
 - **Zünd Cut Center**: Refer to official Zünd software documentation for standard operations
 
 ---
 
 **Machine Location**: FH Münster  
 **Software**: Zünd Cut Center V3.5.6+ / MIND Software V6.1+  
-**Last Updated**: December 2025
+**Last Updated**: November 2026

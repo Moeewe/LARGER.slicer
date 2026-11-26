@@ -11,14 +11,15 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityBlockComponent : GH_Component
     {
                 public CncUtilityBlockComponent()
-                : base("CNC Utilities 05 Build Raw Block", "CU_05",
-                    "Builds the raw block from boards, milling depths, and board length.",
-                            "LARGER", "CNC Utilities")
+                : base("Formwork - Raw Block", "Block",
+                    "STEP 5. Builds the raw block from boards, milling depths, and board length.",
+                            "LARGER", "Formwork")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "CNC Utilities";
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override string SubCategory => "Formwork";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
