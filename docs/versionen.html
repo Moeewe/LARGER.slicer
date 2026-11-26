@@ -324,9 +324,9 @@ body{margin:0}
 <section id="verlauf"><div class="wrap">
   <div class="lhead"><span class="no num">03</span><h2>Was sich geändert hat</h2><p class="lead">Kurz und auf Deutsch. Die vollständige Liste steht im <a href="https://github.com/Moeewe/LARGER.slicer/blob/main/LARGERslicer/CHANGELOG.md">Changelog</a> (Englisch).</p></div>
 
-  <article class="rel">
-    <div><div class="v num">2.0.5</div><div class="d">noch offen</div><span class="chip dev">Noch nicht veröffentlicht</span></div>
-    <div><h3>Als Nächstes: Print Tuning, sicherere UR-Programme, aufgeräumte Leiste</h3><ul>
+  <article class="rel now">
+    <div><div class="v num">2.0.5</div><div class="d">26.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><h3>Print Tuning, sicherere UR-Programme, aufgeräumte Leiste</h3><ul>
       <li><b>Print Tuning:</b> neuer Baustein zwischen Print Settings und dem Slicer: eigene Geschwindigkeit für Wand, Infill, Boden, Skirt und Stützen, Coasting, Prime und Travel Lift. Machine G-code, DXR und KUKA folgen ihm.</li>
       <li><b>UR sicherer:</b> Der Werkzeugpunkt eines eigenen Werkzeugs (oder des AE20) zeigt jetzt richtig aus dem Werkzeug heraus. Upload to robot schickt nur ein Programm, das OK ist (das alte UR Program schickt nur noch einmal, wenn Upload auf True springt). Die Anfahrt nimmt die Gelenkwinkel der Simulation. Neu geprüft: Handgelenk-Singularität und Gelenkgeschwindigkeit; der Report sagt, was beim UR nicht geprüft wird (Kollisionen, externe Achsen, Work Base).</li>
       <li><b>Richtige Werte:</b> Robot Program mit AE20 nimmt das Weber-DXR25-Profil (1,128), wenn die Bahn das Ginger-Profil trägt. Machine G-code fährt beim Absenken aufs Teil mit Druckgeschwindigkeit. Fan Schedule geht auch mit G-Code-Maschinen (M106/M107).</li>
@@ -337,8 +337,8 @@ body{margin:0}
     </ul></div>
   </article>
 
-  <article class="rel now">
-    <div><div class="v num">2.0.4</div><div class="d">25.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+  <article class="rel">
+    <div><div class="v num">2.0.4</div><div class="d">25.11.2026</div></div>
     <div><h3>Ein Robot-Baustein für KUKA und UR, Grasshopper 2 mit Steuerpult, Korrekturen</h3><ul>
       <li><b>Ein Roboter für alle:</b> Robot wählt KUKA KR120 oder einen Universal-Robots-Arm (UR3 bis UR10e, mit den Modellen von Universal Robots), Robot Tool hat Presets (AE20, Lehmextruder V2, Stifthalter, Wollspinner). Robot Program schreibt KRL oder URScript.</li>
       <li><b>Korrigiert:</b> Der Lehmextruder V2 am UR hatte in 2.0.3 einen falschen Werkzeugpunkt (rund 170 mm daneben). Die DXR-Datei ruft die Weber-Unterprogramme jetzt richtig auf (<code>L wall_sub.nc</code>). Dateien mit Steuerpult melden beim Öffnen keinen Fehler mehr.</li>

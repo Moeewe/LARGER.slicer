@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-11-26
+
 ### Changed: Grasshopper 2 finds LARGER.slicer by itself
 - Rhino 9: both plug-ins (Grasshopper 1 and 2) keep the line in Grasshopper 2's CustomPluginInclude.txt on the installed version of the package (packages/9.0/LARGERslicer/<version>/gh2), so after an update Grasshopper 2 loads the new one at the next start. An old line of LARGER.slicer is replaced, other lines stay; a copy of your own outside the packages wins.
 - SETUP installers (Mac and Windows): with Rhino 9 on the computer they install LARGER.slicer for Rhino 9 and write that line, so Grasshopper 2 loads it from the first start on.

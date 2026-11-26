@@ -323,7 +323,7 @@ because the option rows and menus use `System.Windows.Forms`.
    the newest Grasshopper referenced, so net8.0 must stay out of the Rhino 8 package) and moves the
    `.yak` files to `dist/`. It prints the `yak push` commands; **pushing is a manual step of the owner.**
 
-Version numbers: the csproj (`2.0.4`) and the three manifests go together; the Rhino 9, 8 and 7
+Version numbers: the csproj (`2.0.5`) and the three manifests go together; the Rhino 9, 8 and 7
 packages share one version (rh9 and rh8 use the same `manifest.yml`). Changes after a release collect
 in the CHANGELOG under `[Unreleased]` (next: 2.0.5); the last release is listed in [CHANGELOG.md](../LARGERslicer/CHANGELOG.md). Older notes:
 `documentations/YAK_PACKAGE_GUIDE.md`, `VERSIONING_STRATEGY.md`.
