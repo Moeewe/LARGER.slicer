@@ -1952,6 +1952,8 @@ namespace LARGERslicer.Toolpaths
             public double MaxVolumeRate;
             /// <summary>Moves slowed by Max Volume Rate, and of these the ones that would need less than Min Speed (they run at Min Speed and stay over the limit).</summary>
             public int VolumeCapped, VolumeOverLimit;
+            /// <summary>Stops the extruder runs out before (Coasting) and starts it primes after (Prime).</summary>
+            public int Coasted, Primed;
         }
 
         /// <summary>
@@ -2086,7 +2088,10 @@ namespace LARGERslicer.Toolpaths
                 if (tp.Layers[i] == firstLayer) e *= m.FirstLayerFactor;
 
                 // the first layer may run at its own speed (adhesion); Min Layer Time can only make it slower
-                double speed = tp.Layers[i] == firstLayer && st.FirstLayerSpeed > 0 ? st.FirstLayerSpeed : st.Speed;
+                // the speed of this kind of line (Print Tuning), then the first layer at its own speed
+                double baseSpeed = st.Speed;
+                if (st.RoleSpeeds != null && st.RoleSpeeds.TryGetValue(tp.Roles[i], out double rs) && rs > 0) baseSpeed = rs;
+                double speed = tp.Layers[i] == firstLayer && st.FirstLayerSpeed > 0 ? Math.Min(st.FirstLayerSpeed, baseSpeed) : baseSpeed;
                 if (feed != null && tp.Roles[i] != PathRole.Skirt && feed.TryGetValue(tp.Layers[i], out double fl)) speed = Math.Min(speed, fl);
                 if (compensateWithSpeed)
                     speed = area > 1e-9 ? Math.Max(st.MinSpeed, Math.Min(st.MaxSpeed, nominalRate * speed / st.Speed / area)) : st.MaxSpeed;
@@ -2117,8 +2122,43 @@ namespace LARGERslicer.Toolpaths
                 if (r.LayerSeconds.ContainsKey(tp.Layers[i]))
                     r.LayerSeconds[tp.Layers[i]] -= 60.0 * tp.Points[i].DistanceTo(tp.Points[i - 1]) / r.Speed[i];
             if (feed != null) foreach (var kv in feed) if (kv.Value < st.Speed - 1e-9) r.LayerFeed[kv.Key] = kv.Value;
+            if (st.Coasting > 0 || st.Prime > 0) CoastAndPrime(tp, r, st.Coasting, st.Prime);
             return r;
         }
+
+        /// <summary>
+        /// Before every stop (a travel move or the end of the print) the extruder stops 'coast' mm early: the pressure in
+        /// the screw prints the rest. After every stop the first move gets 'prime' mm of bead extra, so the bead starts full.
+        /// Changes only the extrusion values, never the path.
+        /// </summary>
+        private static void CoastAndPrime(Toolpath tp, ProcessResult r, double coast, double prime)
+        {
+            int n = r.Extrusion.Count; int i = 1;
+            while (i < n)
+            {
+                if (r.Extrusion[i] <= 0) { i++; continue; }
+                int start = i; while (i < n && r.Extrusion[i] > 0) i++;
+                int end = i - 1; // the run start..end prints
+                if (prime > 0)
+                {
+                    double len = tp.Points[start].DistanceTo(tp.Points[start - 1]);
+                    if (len > 1e-9) { r.Extrusion[start] += r.Extrusion[start] / len * prime; r.Primed++; }
+                }
+                if (coast > 0)
+                {
+                    double left = coast;
+                    for (int k = end; k >= start && left > 1e-9; k--)
+                    {
+                        double len = tp.Points[k].DistanceTo(tp.Points[k - 1]);
+                        if (len <= 1e-9) continue;
+                        if (len <= left) { r.Extrusion[k] = 0; left -= len; }
+                        else { r.Extrusion[k] *= 1.0 - left / len; left = 0; }
+                    }
+                    r.Coasted++;
+                }
+            }
+        }
+
 
         private static void AddLayerTime(ProcessResult r, Toolpath tp, int i, double seconds, bool printing)
         {

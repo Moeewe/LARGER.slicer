@@ -26,10 +26,11 @@ LARGER.slicer/
 │   │   ├── AsyncSolve.cs          background calculation for GH1 components
 │   │   ├── OptionRows.cs          the rows drawn under a component (choice, number, toggle, button)
 │   │   ├── Slicer/                the Slicer tab (SlicerComponents.cs and friends)
-│   │   ├── Robot/                 the Robot tab (RobotComponents.cs)
-│   │   ├── Export/                DXR components and the curve tools of the former Toolpaths tab
-│   │   ├── Utils/                 Utilities tab
-│   │   ├── CNC/, CNCUtilities/    Zünd G3 milling (CNC - Program, Cutter Selector, CNC Utilities 01-08)
+│   │   ├── Robot/                 the Robot tab (RobotComponents.cs; URComponents.cs = the hidden UR Cell/Program/Simulation of 2.0.3)
+│   │   ├── Export/                DXR components, CAD Package Export, Save Text File and the curve tools of the former Toolpaths tab
+│   │   ├── Utils/                 Utilities tab and the second DXR row (DXR Variable Width, DXR E Remap, G-code Diff Check, DXR Width Preview, Surface Thickness Heatmap)
+│   │   ├── CNC/                   Zünd G3 milling (CNC - Plate, Cutter, Rough and Finish, Relief, Quick Start; hidden: CNC - Program, Cutter Selector, Own Cutter)
+│   │   ├── CNCUtilities/          the Formwork tab (Formwork - Orient Part ... Export; CNC Utilities 01-08 up to 2.0.4)
 │   ├── Utils/                     older helpers (DXRHelper, PathHelper, Euler/Fermat/ArcWelder helpers, IconHelper ...)
 │   ├── Types/                     MachineSettings (DXR start/end), Cutter, ThekenfrontModels
 │   ├── Resources/                 component icons (*.png), 3D models (*.3dm: GingerOne, AE20_Extruder, FHMuenster_Cell),
@@ -115,12 +116,12 @@ geometry ─ SliceEngine ─ layers ─ FillEngine (walls, ribs, bottom) / CellF
 | `Machines.cs` | `MachineKind` (gantry, bedslinger, delta, belt 45, robot) and what each can print (`PathFit`), `MachineDefinition` (built-in Ginger One Marlin, Generic Marlin/Klipper, Ginger One Klipper; own `.machine` text files from `Documents/LARGER/Machines`), `MachineGCode`. Guide for users: [OWN_MACHINES.md](OWN_MACHINES.md). |
 | `MachineOutput.cs` | `GingerGCode` (start/end sequences of the Ginger quick start guide, absolute XYZ, relative E) and `RobotLines` (one PTP line per point, fixed A/B/C, for the DXR Generator). |
 | `DesktopGCode.cs` | Scaled test prints for desktop printers (Marlin, Bambu P1/X1/A1/H2D, Prusa MK4/Mini, Ender 3, Klipper macros, Neptune 4). |
-| `Materials.cs`, `MaterialField.cs` | `.material` files (temperatures as ranges, drying, density, factor) and `MaterialFactor` (new factor = target / measured width x current). `MaterialField`: the path as an orthotropic material field (CSV, JSON, VTK) for FE/IGA; default stiffness values are placeholders. |
+| `Materials.cs`, `MaterialField.cs` | `.material` files (temperatures as ranges, drying, density, factor) and `MaterialFactor` (new factor = target / measured width x current). `MaterialField`: the path as an orthotropic material field (CSV, JSON, VTK) for FE analysis; default stiffness values are placeholders. |
 | `GCodeImport.cs` | Reads G-code of other slicers (Cura, Simplify3D, PrusaSlicer, AiSync, Grasshopper scripts) and Weber .dxr into a `Toolpath`, so the same checks run on foreign paths. |
 | `Robot.cs`, `RobotGeometry.cs`, `ExternalAxes.cs`, `Collision.cs` | Plain-number robot maths (`Frame`), `RobotArm`/`RobotTool`/`RobotCell`/`RobotProgram` (reach, axes, KRL, lines for DXR), arm meshes from the Robots plug-in library (.xml + .3dm of the same name), rail and turntable (`ExternalAxisSolver`), collision model (robot, tool, axes, printed volume, bed, environment; near misses within Clearance). |
 | `PrinterModel.cs` | How machines and robots are drawn (matte materials, crisp meshes), `PrinterModel` (layers Frame, Bed, Z, Y, X, TCP of a machine .3dm), `PrinterRun` (poses along the path for Printer Simulation, gantry collision). Built-in model: `Resources/GingerOne.3dm` (spec: [GingerOne.README.md](../LARGERslicer/Resources/GingerOne.README.md)). |
-| `ZundMill.cs`, `ReliefMill.cs`, `ReliefPatterns.cs` | Zünd milling. `ZundMill`: the core of CNC - Program. `ReliefMill`: roughing in levels (rings, climb), finishing with a ball (drop cutter on the cutter shape and shank), cutting out, hold of the part (tabs, skin, stays in the plate, bevel, loose), simulation of the block and the report (READY / STOP), PLT with `XX351`. `ReliefPatterns`: the 13 models of CNC - Relief, rounded for the ball (`Reachable`) so that 3 axes reach everything. Bench: `tests/ZundBench`. |
-| `WeaveZones.cs`, `Weave.cs`, `WeaveTests.cs` | Beads that interlock. `WeaveZones`: where beads lie side by side (tolerances, places by hand). `Weave`: offsets per layer along these places (Shift, Width, Snake, Teeth, Custom), smallest wavelength the bead can follow, knots tracked from layer to layer, variants table. `WeaveTests`: the specimen series and the joint data (coupling stiffness) for the IGA model. |
+| `ZundMill.cs`, `ReliefMill.cs`, `ReliefPatterns.cs` | Zünd milling. `ZundMill`: the core of CNC - Program (hidden from 2.0.5). `ReliefMill`: roughing in levels (rings, climb), finishing with a ball (drop cutter on the cutter shape and shank), cutting out, hold of the part (tabs, skin, stays in the plate, bevel, loose), simulation of the block and the report (READY / STOP), PLT with `XX351`. `ReliefPatterns`: the 13 models of CNC - Relief, rounded for the ball (`Reachable`) so that 3 axes reach everything. Bench: `tests/ZundBench`. |
+| `WeaveZones.cs`, `Weave.cs`, `WeaveTests.cs` | Beads that interlock. `WeaveZones`: where beads lie side by side (tolerances, places by hand). `Weave`: offsets per layer along these places (Shift, Width, Snake, Teeth, Custom), smallest wavelength the bead can follow, knots tracked from layer to layer, variants table. `WeaveTests`: the specimen series and the joint data (coupling stiffness) for an analysis model. |
 | `ShapeField.cs`, `PathReshape.cs`, `ReshapeVariants.cs`, `ReshapeCode.cs` | Print height where it is needed. `ShapeField`: a factor over the part (profile, points and values, surface). `PathReshape`: reshapes a finished path (fanned layers, wider beads, extra layers; material kept), extrusion from the distance to the bead below, limits for layer height, slope, rounding, turning speed of the tool; skirt and way in untouched. `ReshapeVariants`: eight ways side by side. `ReshapeCode`: the same on G-code and .dxr lines. |
 | `EasySlicer.cs` | The whole chain in one call with the common options; `OutputFile` builds the file names (`DXR_2611051216_Test Object_2668g_53min.dxr`). |
 | `DemoParts.cs` | The demo parts of Quick Start (shared by GH1 and GH2). |
@@ -129,19 +130,41 @@ geometry ─ SliceEngine ─ layers ─ FillEngine (walls, ribs, bottom) / CellF
 Older helpers outside `Toolpaths/` (`Utils/DXRHelper.cs`, `PathHelper.cs`, `Types/MachineSettings.cs`,
 `Types/Cutter.cs`) are also compiled into GH2 because the DXR and CNC components need them.
 
+### 2.3 Planner core (optional, closed)
+
+The component **Path Planner** (Grasshopper 1 and 2) hands a part to an optional native library and
+gets finished print paths back. The library is **not part of this repository and not part of the
+public packages**; its source is not public.
+
+- `Toolpaths/PlannerCore.cs` is the only place that knows it. It looks for
+  `liblarger_core.dylib` (macOS) or `larger_core.dll` (Windows) in a folder `native` beside the
+  plug-in (`.gha` / `.rhp`), loads it by its full path and calls a small C interface: triangles and
+  settings (a JSON text) in; per path the points, tool axes, bead heights, widths, flows, roles and
+  layer numbers out, with a report. `PlannerCore.Run` turns that into ordinary `Toolpath` objects,
+  so everything downstream (Path Check, Machine G-code, Robot Program, Printer Simulation) works as
+  with any other path. Extrusion and speeds are computed by the plug-in as always
+  (`PathEngine.Process`, the Machine Profile); the library hands over geometry, not E.
+- **Without the library** `PlannerCore.Available` is false and `PlannerCore.Why` says so in one
+  sentence; the Path Planner component shows that sentence and does nothing. Every other component
+  is unaffected: nothing else in the plug-in calls the library.
+- Both project files copy a local folder `native/` next to the build output when it exists
+  (`Condition="Exists(...)"`); the folder is kept out of git. `build-package.sh` takes it out of
+  the build again before packaging unless `WITH_PLANNER=1` is set, so the public packages are
+  built without it.
+
 ---
 
 ## 3. The Grasshopper 1 layer (`LARGERslicer/Components`)
 
 ### 3.1 Tabs and groups
 
-Category `LARGER`, subcategories `Slicer`, `Robot`, `DXR`, `Utilities`, `CNC`, `CNC Utilities` (and `Export` for CAD Package Export alone).
+Category `LARGER`, subcategories `Slicer`, `Robot`, `DXR`, `CNC`, `Formwork`, `Export` (CAD Package Export, Save Text File) and `Utilities`. From 2.0.5 the DXR tab has a second row (secondary: DXR Variable Width, DXR E Remap, G-code Diff Check, DXR Width Preview, Surface Thickness Heatmap, moved from Utilities), and the Formwork tab replaces `CNC Utilities` (same GUIDs). Little-used components are hidden (`GH_Exposure.hidden`) or search-only (`obscure`), never removed.
 The Slicer tab is ordered by exposure: primary = Start (Quick Start, Easy Slicer, Print Settings,
-Machine Profile, Design Rules, Print Bed, Material ...), secondary = Layers (Slice, self-support
+Print Tuning, Machine Profile, Design Rules, Print Bed, Material, Control Panel, Result ...), secondary = Layers (Slice, self-support
 tools), tertiary = Walls and fill, quarternary = Path (Continuous Path, Round Corners, Start and
-End, Surface Pattern), quinary = Check, senary = Output, septenary = Curve tools (Layers to Curves,
-Curves to Layers and the `Curve ...` components; Align Curves, Alternate Curves and Join Open
-Contours are there too but hidden, found by search). **Component names, inputs, outputs and GUIDs
+End, Surface Pattern, Weave Zones, Weave, Shape Field, Reshape Path, Compare Variants), quinary = Check, senary = Output, septenary = Curve tools (Layers to Curves,
+Curves to Layers and the `Curve ...` components; Align Curves, Alternate Curves, Join Open
+Contours and, from 2.0.5, Curve Continuous Path, Curve Fill Contour, Curve Fill Euler, Curve Fill Cross Lines and Curve Bridge are there too but obscure, found by search). **Component names, inputs, outputs and GUIDs
 of released components never change**, so old definitions keep opening.
 
 ### 3.2 `SlicerComponent` (base of the Slicer tab)
@@ -234,13 +257,14 @@ At the end Quick Start removes itself from the document.
 
 - **Same core, compiled in**: `<Compile Include="../LARGERslicer/Toolpaths/*.cs" Exclude="ToolpathGoo.cs" LinkBase="Core" />`
   plus `DXRHelper.cs`, `MachineSettings.cs`, `PathHelper.cs`, `Cutter.cs`. Fixing the core fixes both plug-ins.
-- `Plugin.cs`: `LargerSlicerPlugin : Grasshopper2.Framework.Plugin` (name, author, version 0.1.0,
-  icon) and an empty `Rhino.PlugIns.PlugIn` so Rhino accepts the `.rhp`.
+- `Plugin.cs`: `LargerSlicerPlugin : Grasshopper2.Framework.Plugin` (name, author, the assembly version,
+  the same as the Grasshopper 1 plug-in, icon) and an empty `Rhino.PlugIns.PlugIn` so Rhino accepts the `.rhp`. From 2.0.5
+  it refuses to load (a clear message) when Rhino is older than 9, i.e. in the Grasshopper 2 preview of Rhino 8.
 - `Shim.cs`: the stand-in `IGH_Goo` interface for the core.
 - **`Io` helpers** (`SlicerComponents.cs`, `Icons.cs`, partial static class): `Io.Name(name, info,
   section, slot)` creates the `Nomen` (chapter `LARGER`, sections `Slicer`, `DXR`, `Robot`,
-  `Utilities`, `CNC`); `Io.HiddenName` for components that only load old files (`Infill`, `Round and
-  Lead`, Rank.Hidden); `Get<T>`, `Settings`, `Layers` (from a `LayerStack`), `Path`, `Contours`,
+  `Utilities`, `CNC`, `Formwork`); `Io.HiddenName` for components that only load old files (`Infill`, `Round and
+  Lead`, and from 2.0.5 `Ginger G-code`, `Infill Sketch`, `CNC - Own Cutter`; Rank.Hidden); `Get<T>`, `Settings`, `Layers` (from a `LayerStack`), `Path`, `Contours`,
   `Solid` (GH2 hands over Box, Sphere, Cylinder ... as values: made into Breps), `Remarks`.
 - **Groups = slots**: `Group.Start 0, Layers 1, Walls 2, Path 3, Check 4, Output 5, Curves 6`, the
   same order as the GH1 exposures.
@@ -271,7 +295,7 @@ At the end Quick Start removes itself from the document.
 ```bash
 cd LARGERslicer
 dotnet build -c Release            # all five target frameworks
-./build-package.sh [1.3.1]         # or build-package.bat; optional new version
+./build-package.sh [2.0.5]         # or build-package.bat; optional new version
 ```
 
 | Target | Rhino | Grasshopper package |
@@ -299,9 +323,9 @@ because the option rows and menus use `System.Windows.Forms`.
    the newest Grasshopper referenced, so net8.0 must stay out of the Rhino 8 package) and moves the
    `.yak` files to `dist/`. It prints the `yak push` commands; **pushing is a manual step of the owner.**
 
-Version numbers: the csproj (`1.3.1`) and the three manifests go together; the Rhino 9, 8 and 7
+Version numbers: the csproj (`2.0.5`) and the three manifests go together; the Rhino 9, 8 and 7
 packages share one version (rh9 and rh8 use the same `manifest.yml`). Changes after a release collect
-in the CHANGELOG under the next version (1.3.1, unreleased); the last release is listed in [CHANGELOG.md](../LARGERslicer/CHANGELOG.md). Older notes:
+in the CHANGELOG under `[Unreleased]` (next: 2.0.5); the last release is listed in [CHANGELOG.md](../LARGERslicer/CHANGELOG.md). Older notes:
 `documentations/YAK_PACKAGE_GUIDE.md`, `VERSIONING_STRATEGY.md`.
 
 **The `obj/` quirk.** `.gitignore` ignores `**/obj/`, but 14 files under `LARGERslicer/obj/`

@@ -158,7 +158,8 @@ namespace LARGERslicer.Components.Slicer
             da.GetData(2, ref range); da.GetData(3, ref mv); da.GetData(4, ref title); da.GetData(5, ref unit); da.GetData(6, ref th); da.GetData(7, ref legend); da.GetData(8, ref _label); double until = 1; da.GetData(9, ref until); until = Math.Max(0, until);
             if (v.Count != tp.Count) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, Inv.F($"{v.Count} values for {tp.Count} points: the values are stretched over the path."));
             double Val(int i) => v.Count == 0 ? 0 : v[Math.Min(v.Count - 1, (int)((long)i * v.Count / Math.Max(1, tp.Count)))];
-            var own = new Interval(v.Min(), v.Max()); if (!range.IsValid || range.Length <= 0) range = own;
+            var finite = v.Where(x => !double.IsNaN(x) && !double.IsInfinity(x)).ToList(); // NaN = not measured: grey, not part of the range
+            var own = finite.Count > 0 ? new Interval(finite.Min(), finite.Max()) : new Interval(0, 0); if (!range.IsValid || range.Length <= 0) range = own;
             var lines = new List<Line>(); var cols = new List<Color>();
             int last = until == 1 ? tp.Count : until < 1 ? (int)Math.Round(until * tp.Count) : Math.Min(tp.Count, (int)until + 1);
             for (int i = 1; i < last; i++)
@@ -186,7 +187,19 @@ namespace LARGERslicer.Components.Slicer
         public void DrawOverlay(DisplayPipeline d)
         {
             if (!string.IsNullOrWhiteSpace(_title)) Heat.Label(d, _title, _top);
-            if (_legend) Heat.Legend(d, _label, _range, _unit, 1);
+            if (_legend)
+            {
+                // every Path Heat on the canvas gets its own place for the legend, so two legends never lie on top of each other
+                int slot = 1;
+                var doc = OnPingDocument();
+                if (doc != null)
+                {
+                    int k = 0;
+                    foreach (var o in doc.Objects)
+                        if (o is PathHeatComponent ph && ph.OverlayActive && ph._legend) { k++; if (ReferenceEquals(ph, this)) { slot = k; break; } }
+                }
+                Heat.Legend(d, _label, _range, _unit, slot);
+            }
         }
     }
 }

@@ -20,7 +20,7 @@ namespace LARGERslicer.GH2
     [IoId("46dc7ba9-5c87-4849-8c69-d7abd8702980")]
     public sealed class CutterSelectorComponent : Component
     {
-        public CutterSelectorComponent() : base(Io.Name("CNC - Cutter Selector", "Selects a cutter from the database and outputs cutter information for use with CNC Program component. Supports automatic tool changes for different cutting passes.", Io.Cnc, 0)) { }
+        public CutterSelectorComponent() : base(Io.HiddenName("CNC - Cutter Selector", "Selects a cutter from the database and outputs cutter information for use with CNC Program component. Supports automatic tool changes for different cutting passes.", Io.Cnc, 0)) { }
         public CutterSelectorComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("CNCCutterSelectorIcon");
 
@@ -97,7 +97,7 @@ namespace LARGERslicer.GH2
         private static void AddRuntimeMessage(GH_RuntimeMessageLevel level, string text)
             => Gh1.Message(_access, level == GH_RuntimeMessageLevel.Error ? 2 : level == GH_RuntimeMessageLevel.Warning ? 1 : 0, text);
 
-        public CncProgramComponent() : base(Io.Name("CNC - Program", "Generates boustrophedon (zigzag) toolpath from geometry with optional rotation angle and outline contour for Zünd CNC. Includes tool selection, spindle speed, vacuum zones, acceleration settings, and material thickness handling. Outline cuts around the part at bottom to release it from the plate.", Io.Cnc, 0)) { }
+        public CncProgramComponent() : base(Io.HiddenName("CNC - Program", "Generates boustrophedon (zigzag) toolpath from geometry with optional rotation angle and outline contour for Zünd CNC. Includes tool selection, spindle speed, vacuum zones, acceleration settings, and material thickness handling. Outline cuts around the part at bottom to release it from the plate.", Io.Cnc, 0)) { }
         public CncProgramComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("CNCProgramIcon");
 

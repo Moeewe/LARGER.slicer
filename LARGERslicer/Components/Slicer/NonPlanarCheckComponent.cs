@@ -24,10 +24,8 @@ namespace LARGERslicer.Components.Slicer
         protected override void RegisterInputParams(GH_InputParamManager p)
         {
             p.AddGenericParameter("Toolpath", "T", "Print path", GH_ParamAccess.item);
-            p.AddNumberParameter("Tip Radius", "r0", "Radius of the nozzle tip (mm)", GH_ParamAccess.item, 4.0);
-            p.AddNumberParameter("Cone Angle", "A", "Half angle of the nozzle cone, from vertical (degrees)", GH_ParamAccess.item, 30.0);
-            p.AddNumberParameter("Cone Length", "Lc", "Height of the cone from the tip up to the head (mm)", GH_ParamAccess.item, 60.0);
-            p.AddNumberParameter("Head Radius", "R", "Radius of the head above the cone (mm)", GH_ParamAccess.item, 40.0);
+            // the same head inputs as Multi-Axis Check and Reshape Path (one definition, ReshapeIO.HeadInputs)
+            ReshapeIO.HeadInputs((name, nick, desc, value) => p.AddNumberParameter(name, nick, desc, GH_ParamAccess.item, value));
             p.AddNumberParameter("Pose", "P", "Where the head is shown along the path: 0 = start, 1 = end", GH_ParamAccess.item, 1.0);
         }
 
@@ -40,7 +38,7 @@ namespace LARGERslicer.Components.Slicer
         {
             p.AddBooleanParameter("OK", "OK", "True if the bead heights fit and the head hits nothing", GH_ParamAccess.item);
             p.AddTextParameter("Report", "R", "What was checked and what was found", GH_ParamAccess.list);
-            p.AddNumberParameter("Bead Height", "H", "Measured bead height (height above the closest point of the lap below) for every path point (mm); 0 = not measured. Use it to colour the path", GH_ParamAccess.list);
+            p.AddNumberParameter("Bead Height", "H", "Measured bead height (height above the closest point of the lap below) for every path point (mm); NaN = not measured (grey in Path Heat). Use it to colour the path", GH_ParamAccess.list);
             p.AddPointParameter("Bad Heights", "Bh", "Points where the bead is higher than 0.8 x bead width or thinner than 0.4 x layer height", GH_ParamAccess.list);
             p.AddPointParameter("Collisions", "X", "Points where the head hits beads printed before, or the path climbs more steeply than the cone. Must be empty", GH_ParamAccess.list);
             p.AddMeshParameter("Head", "Hd", "The head as it is checked (tip, cone, body), standing on the path at Pose. Shows in the viewport", GH_ParamAccess.item);
@@ -72,7 +70,7 @@ namespace LARGERslicer.Components.Slicer
                 if (!r.Ok) job.AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, r.Report.First(l => l.StartsWith("HEAD") || l.StartsWith("TOO") || l.StartsWith("BEAD") || l.StartsWith("EXTRUSION") || l.StartsWith("Empty")));
                 job.SetData(0, r.Ok);
                 job.SetDataList(1, r.Report);
-                job.SetDataList(2, r.BeadHeights);
+                job.SetDataList(2, r.BeadHeights.Select(h => h > 0 ? h : double.NaN)); // not measured = NaN: Path Heat shows it grey
                 job.SetDataList(3, r.BadHeights);
                 job.SetDataList(4, r.Collisions);
                 if (headOut)

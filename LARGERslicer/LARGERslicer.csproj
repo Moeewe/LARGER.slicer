@@ -20,10 +20,10 @@
   <PropertyGroup>
     <!-- Specifies information for Assembly and Yak -->
     <!-- Version follows Semantic Versioning: MAJOR.MINOR.PATCH -->
-    <Version>2.0.4</Version>
-    <AssemblyVersion>2.0.4.0</AssemblyVersion>
-    <FileVersion>2.0.4.0</FileVersion>
-    <InformationalVersion>2.0.4</InformationalVersion>
+    <Version>2.0.5</Version>
+    <AssemblyVersion>2.0.5.0</AssemblyVersion>
+    <FileVersion>2.0.5.0</FileVersion>
+    <InformationalVersion>2.0.5</InformationalVersion>
     <Title>LARGERslicer</Title>
     <Company>LARGERslicer Authors</Company>
     <Authors>Moritz Wesseler, FH Münster</Authors>
@@ -79,6 +79,13 @@
     <EmbeddedResource Include="Resources\*.png" />
     <EmbeddedResource Include="Resources\*.3dm" />
     <EmbeddedResource Include="Resources\UR\*.urm" />
+  </ItemGroup>
+
+  <!-- The optional planner library (see docs/ARCHITECTURE.md, "Planner core"): when a folder
+       "native" lies beside this project file, its files go next to the plug-in. The folder is not
+       part of the repository; without it the build is the public one. -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/native')">
+    <None Update="native/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

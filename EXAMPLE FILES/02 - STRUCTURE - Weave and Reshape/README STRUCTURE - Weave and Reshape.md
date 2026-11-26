@@ -20,18 +20,18 @@ Two example files for prints that carry more with the same material. Both work w
    - *Snake*, *Teeth*, *Custom*.
    Amplitude and wavelength 0 = automatic. The shortest wave the bead can follow is kept.
 5. **Weave Variants** compares 14 patterns on the same part in one table.
-6. **Weave Test** makes the test series (195 specimens with a record), **Joint Data** gives the joints as couplings with a stiffness for an IGA shell analysis.
-7. **Start and End**, **Path Check**, **Ginger G-code** (Machine Profile "Ginger One" is connected to Print Settings).
+6. **Weave Test** makes the test series (195 specimens with a record), **Joint Data** gives the joints as couplings with a stiffness and a strength for a shell analysis.
+7. **Start and End**, **Path Check**, **Ginger G-code** (Machine Profile "Ginger One" is connected to Print Settings). From 2.0.5 Ginger G-code is no longer on the toolbar (it still works in this file); in a new definition use **Machine** (Ginger One) → **Machine G-code**.
 
 ## Reshape
 
 1. **Part** lying, printed as a vase. The print height is the depth of the part.
-2. **Shape Field**: where more, where less. Here a profile along a line: kept on the left, free on the right. From an analysis: mode "Utilisation at points" with the points and values of *Result Field*.
+2. **Shape Field**: where more, where less. Here a profile along a line: kept on the left, free on the right. From an analysis: mode "Utilisation at points" with the points and the utilisation of your structural analysis.
 3. **Reshape Path** reshapes the finished path. Skirt and the way into the part stay as they are, the extrusion is worked out again from the distance to the bead below. *Material* 100 = the same amount. Eight variants: fanned with tilted or vertical tool, fanned and wider, only wider, extra layers, flat with shortened layers.
 4. **Multi-Axis Check**: does the head stay free? Tilt, turning speed, layer heights. **Path Check** as always.
 5. **Robot** (cell of the FH Münster, KR120 with AE20 extruder): reach, axes, program for the DXR.
 6. **Reshape Code**: the same for a finished G-code or `.dxr` file.
-7. **Compare Variants**: eight ways side by side in one table.
+7. **Compare Variants**: eight ways side by side in one table. From 2.0.5 it has the inputs *Flat Layers* and *Roof* as Reshape Path.
 8. **Slice again**: the bent part with its new top as a guide surface.
 
 The warning of *Reshape Path* in this file is on purpose: the limits (layer height 0.8 to 2.5 mm, slope up to 30 degrees) cut the wanted shape, and the report says by how much.

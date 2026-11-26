@@ -8,7 +8,7 @@ namespace LARGERslicer.Components.Export
     public class MachineSettingsExtendedComponent : GH_Component
     {
         public MachineSettingsExtendedComponent()
-          : base("Machine Settings Extended", "Machine Ext",
+          : base("Machine Settings Extended", "DXR Set+",
               "Configure advanced multi-zone printer settings: 4 bed zones, 4 extruder zones (Extended Mode - V.E.GLOBAL_* format)",
               "", "")
         {

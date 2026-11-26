@@ -16,7 +16,7 @@ namespace LARGERslicer.Components.Export
     {
         public InfillLinesComponent()
             : base("Curve Fill Zigzag", "C Zigzag",
-                  "Fills a region with one zigzag line at a chosen angle. The curve is the outside of the print; lines are one print width apart. Best for simple shapes - on shapes with bays or holes use Single Line Fill with Offsets.")
+                  "Fills a region with one zigzag line at a chosen angle. The curve is the outside of the print; lines are one print width apart. Best for simple shapes - on shapes with bays or holes use Curve Continuous Infill.")
         {
         }
 
@@ -42,7 +42,7 @@ namespace LARGERslicer.Components.Export
                 return;
             }
             if (fill.Links.Count > 0)
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Links.Count + " link(s) join separate parts of the fill across open space. The contour fill (Single Line Fill with Offsets) avoids this on shapes with bays or holes.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Links.Count + " link(s) join separate parts of the fill across open space. The contour fill (Curve Continuous Infill) avoids this on shapes with bays or holes.");
             if (fill.Note.Length > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, fill.Note);
             Message = (fill.Path.Length / 1000.0).ToString("0.00") + " m";
             DA.SetData(0, new PolylineCurve(fill.Path));

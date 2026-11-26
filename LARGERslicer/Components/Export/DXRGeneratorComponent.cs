@@ -33,7 +33,7 @@ namespace LARGERslicer.Components.Export
         {
             pManager.AddTextParameter("Robot Path", "Path", "Robot movement data (tree branches, list, or single value)", GH_ParamAccess.tree);
             pManager.AddNumberParameter("Extrusion", "E", "Material extrusion values (tree branches, list, or single value). A closing value (one more than there are moves) is dropped.", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("Speed", "F", "Movement speed values in mm/min (tree branches, list, or single value). A closing value (one more than there are moves) is dropped.", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Feed (mm/min)", "F", "Feed F in mm/min (mm/s x 60), as Robot Program and Extrusion and Speed give it (tree branches, list, or single value). A closing value (one more than there are moves) is dropped.", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Machine Settings", "MS", "Printer configuration (connect Machine Settings component)", GH_ParamAccess.item);
             
             pManager.AddTextParameter("File", "File", "Optional. File, folder or just a name (File Name of Robot Program). Empty = the Desktop, named DXR, date and time", GH_ParamAccess.item);

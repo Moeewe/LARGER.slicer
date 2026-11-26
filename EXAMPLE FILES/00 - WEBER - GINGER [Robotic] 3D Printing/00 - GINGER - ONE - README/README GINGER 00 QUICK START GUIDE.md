@@ -48,20 +48,23 @@ Use it as both a step-by-step guide and a quick reference during your print runs
 
 Inspired by Ginger.Additive.
 
-The merged file [`LARGERslicer Weber Robot and Ginger.gh`](<../../../SETUP/LARGERslicer Weber Robot and Ginger.gh>) (in the `SETUP` folder) now includes three ways to prepare a part for a Ginger 3D printer or a Weber DXR 3D printing robot:
+The house definition [`LARGERslicer Weber Robot and Ginger V2.gh`](<../../../SETUP/LARGERslicer Weber Robot and Ginger V2.gh>) (in the `SETUP` folder, LARGER.slicer 2.0 or newer, no other plug-in) has three ways to prepare a part for a Ginger 3D printer or a Weber DXR 3D printing robot:
 
-1. **Easy Slicer**  
-   Slices surfaces and creates the toolpath automatically.
-2. **Path Creator (Multiaxial)**  
-   Converts your prepared toolpath into a multiaxial robot path.  
-   Check collisions and plane rotations manually before production.
-3. **Custom Paths**  
-   Uses only the required conversion components to export robot-specific DXR code from custom paths.
+1. **Easy Ginger and Robot Slicer**  
+   One set of sliders: row A with the Ginger profile to G-code, row B with the DXR25 profile to the robot.
+2. **Advanced Multiaxial Robot Slicer**  
+   Slice angle and an optional guide; checks reach and collisions of the robot.
+3. **Custom Robot Path Creator**  
+   Your own curves, lifted by the layer height and turned into layers (`Curves to Layers`).
+
+For the Ginger One, the G-code is written by **Machine** (choose the Ginger One) → **Machine G-code**; it uses the extrusion profile of the machine and warns when it replaces a Machine Profile set in Print Settings. The old component `Ginger G-code` is no longer on the toolbar from 2.0.5 (old files still open it). Quick Start (LARGER > Slicer) writes its Output A the same way. Optional: **Print Tuning** between Print Settings and the slicer components gives each kind of line its own speed and adds Coasting, Prime and Travel Lift (Z-hop). Non-planar examples: `LARGERslicer - Head (Ginger One Marlin, non-planar).gh` and `LARGERslicer - Head (Ginger One Klipper, non-planar).gh` in the folder above.
+
+The first house definition (V1, with the Robots plug-in) is archived in `EXAMPLE FILES/99 - ARCHIVE/`.
 
 ### General Additional Instructions (Grasshopper Workflow)
 
-1. Open the merged script and duplicate the workflow section you need into a new Grasshopper file.
-2. Make sure the plugins and the robot library are installed: run the installer in the [`SETUP`](<../../../SETUP/README.md>) folder once per computer (it can be run again at any time).
+1. Open the house definition and duplicate the workflow section you need into a new Grasshopper file.
+2. Make sure LARGER.slicer is installed: run the installer in the [`SETUP`](<../../../SETUP/README.md>) folder once per computer (it can be run again at any time).
 3. Select the correct machine and set machine/print parameters.
 4. Connect your geometry and validate accepted input types (for example, surfaces where required).
 5. Prepare and slice, then export via the corresponding save/export button.
@@ -318,6 +321,8 @@ _Print and keep this sheet next to the printer to track your test prints._
 > **Important:** LARGER Slicer works exclusively in **millimeter units** in Rhino/Grasshopper workflows.
 
 #### Grasshopper E-Value Multipliers by Nozzle Size
+
+The value to calibrate goes into **Extrusion Factor** of the **Machine** component when you write with Machine G-code (find it with **Material Factor** from a test print).
 
 | Material              | 1mm   | 3mm   | 5mm   | 8mm   |
 |----------------------:|:-----:|:-----:|:-----:|:-----:|

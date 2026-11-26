@@ -14,14 +14,15 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityBomComponent : GH_Component
     {
                 public CncUtilityBomComponent()
-                : base("CNC Utilities 07 Bill of Materials", "CU_07",
-                    "Generates a bill of materials for panel display and CSV export.",
-                            "LARGER", "CNC Utilities")
+                : base("Formwork - Bill of Materials", "BOM",
+                    "STEP 7. Generates a bill of materials for panel display and CSV export.",
+                            "LARGER", "Formwork")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "CNC Utilities";
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override string SubCategory => "Formwork";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

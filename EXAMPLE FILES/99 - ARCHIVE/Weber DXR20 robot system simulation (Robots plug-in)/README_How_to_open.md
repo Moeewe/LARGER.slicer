@@ -2,6 +2,8 @@
 
 This README explains the simple steps to load a Grasshopper file into Rhino.
 
+> **Archived.** The files in this folder (`Weber DXR20 FH Münster Robot System.3dm` and `.gh`) are an old work-in-progress simulation of the robot cell with the Robots plug-in. LARGER.slicer now has the cell built in: **Cell Geometry**, **Robot**, **Robot Tool**, **Robot Cell**, **Robot Program** and **Robot Simulation** (see `SETUP/LARGERslicer Weber Robot and Ginger V2.gh`).
+
 ---
 
 ## Prerequisites

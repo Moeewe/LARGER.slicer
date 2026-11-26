@@ -141,6 +141,13 @@ namespace LARGERslicer.Components.Slicer
             { "UR Simulation", new string[0] },
             { "Fan Schedule", new[] { "Off For", "Then", "Full After", "Full" } },
             { "Printer Simulation", new string[0] },
+            { "Print Tuning", new[] { "Coasting", "Prime", "Travel Lift" } },
+            { "Infill Ribs", new[] { "Spacing", "Meet" } },
+            { "Infill Cells", new[] { "Pattern", "Cell Size" } },
+            { "Infill Chambers", new[] { "Shape", "Length", "Depth" } },
+            { "Infill Sketch", new[] { "Meet" } },
+            { "Support Fins", new[] { "Fin Spacing (bead widths)", "Contact" } },
+            { "Self Supporting Envelope", new[] { "Factor" } },
         };
 
         private bool _advanced;
@@ -608,7 +615,7 @@ namespace LARGERslicer.Components.Slicer
             var named = members.Where(c => c.Params.Output.Any(o => o.Name == "File Name")).ToList();
             if (path != null || slice != null || named.Count > 0) caption("Print");
             if (slice != null) { var s0 = slice; rows.Add(line(() => FirstSentence(Texts(s0, "Info").FirstOrDefault() ?? ""))); }
-            if (path != null) { var p0 = path; rows.Add(line(() => FirstSentence(Texts(p0, "Info").FirstOrDefault() ?? ""))); }
+            if (path != null) { var p0 = path; rows.Add(line(() => FirstSentence(Texts(p0, "Info").FirstOrDefault() ?? Texts(p0, "Report").FirstOrDefault() ?? ""))); } // Easy Slicer has a Report, no Info
             foreach (var c in named)
             {
                 var cc = c;

@@ -186,7 +186,7 @@ namespace LARGERslicer.Components.Export
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("CurveBoundaryInfillIcon.png", this);
         public override Guid ComponentGuid => new Guid("C1B2A3D4-E5F6-7890-ABCD-EF1234567890");
         /// <summary>Curve tools: the last group of the Slicer tab, for your own curves.</summary>
-        public override GH_Exposure Exposure => GH_Exposure.septenary;
+        public override GH_Exposure Exposure => GH_Exposure.septenary | GH_Exposure.obscure;
     }
 }
 

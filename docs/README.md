@@ -26,6 +26,8 @@ and what the examples show. Written so that no technical knowledge or approach g
 | [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) | libraries, papers and ideas the code builds on |
 | [LARGERslicer/documentations/](../LARGERslicer/documentations/README.md) | older guides: component lists, DXR format, KUKA troubleshooting, Yak and versioning notes |
 | Machine guides in [EXAMPLE FILES](../EXAMPLE%20FILES) | Weber DXR25 (EN/DE), Ginger One, UR5, Zünd G3 |
+| [UR5.md](UR5.md) | Universal Robots arms on the Robot chain: URScript, upload, what is checked |
+| [FEATURES.md](FEATURES.md) | the feature list with status (released, next, idea), the basis for the website |
 | `docs/*.html` | the pages of the product website (German) |
 
 **LARGER.app**, a stand-alone application, is a separate private project. It shares the presets and

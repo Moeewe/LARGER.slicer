@@ -8,7 +8,7 @@ namespace LARGERslicer.Components.Export
     public class MachineSettingsComponent : GH_Component
     {
         public MachineSettingsComponent()
-          : base("Machine Settings", "Machine",
+          : base("Machine Settings", "DXR Set",
               "Configure printer settings: bed temperature, nozzle temperature, and cooling fan (Simple Mode - V.P.VAR_* format)",
               "", "")
         {

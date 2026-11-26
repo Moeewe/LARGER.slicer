@@ -110,7 +110,7 @@ namespace LARGERslicer.Toolpaths
             double travel = Math.Max(st.Speed, st.MaxSpeed);
             Point3d p0 = tp.Points[0];
             L.Add("G0 X" + N(p0.X, 3) + " Y" + N(p0.Y, 3) + " F" + N(travel, 0));
-            L.Add("G0 Z" + N(p0.Z, 3) + " F" + N(travel, 0));
+            L.Add("G0 Z" + N(p0.Z, 3) + " F" + N(Math.Min(travel, st.Speed), 0)); // down onto the start at print speed
             int layer = int.MinValue, number = 0; double total = 0; int zero = 0;
             for (int i = 1; i < tp.Count; i++)
             {
@@ -118,7 +118,11 @@ namespace LARGERslicer.Toolpaths
                 Point3d p = tp.Points[i];
                 if (p.DistanceTo(tp.Points[i - 1]) < 1e-6) continue;
                 bool print = tp.Flows[i] > 0 && tp.Roles[i] != PathRole.Travel;
-                if (!print) { L.Add("G0 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " F" + N(travel, 0)); continue; }
+                if (!print)
+                {
+                    double ft = i < pr.Speed.Count && pr.Speed[i] > 0 ? Math.Min(travel, pr.Speed[i]) : travel; // at print speed where it goes down
+                    L.Add("G0 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " F" + N(ft, 0)); continue;
+                }
                 double f = pr.Speed[i]; if (f <= 0) { f = st.Speed; zero++; }
                 // the feedrate is written on every line and is never 0 (it changes where Min Layer Time or Max Volume Rate slow a layer or a move)
                 L.Add("G1 X" + N(p.X, 3) + " Y" + N(p.Y, 3) + " Z" + N(p.Z, 3) + " E" + N(pr.Extrusion[i], 5) + " F" + N(f, 0));
@@ -144,19 +148,26 @@ namespace LARGERslicer.Toolpaths
             public List<double> Extrusion = new List<double>();
             public List<double> Speed = new List<double>();
             public bool Tilted;
+            /// <summary>Set when the toolpath carries the extrusion profile of another machine (Ginger, filament).</summary>
+            public string ProfileWarning;
         }
 
         public static Result Build(Toolpath tp, double a, double b, double c)
         {
             var r = new Result();
             if (tp == null || tp.Count < 2) return r;
+            var mp = tp.Settings?.Machine;
+            if (mp != null && (mp.FilamentDiameter > 0 || (mp.Name ?? "").IndexOf("Ginger", StringComparison.OrdinalIgnoreCase) >= 0))
+                r.ProfileWarning = "The toolpath carries the extrusion profile '" + MachineProfile.ShortName(mp.Name) + "': its E values are not those of the Weber DXR. Connect a Machine Profile for the DXR (Weber DXR25) to Print Settings.";
             var pr = PathEngine.Process(tp, false);
             var ci = CultureInfo.InvariantCulture;
             for (int i = 0; i < tp.Count; i++)
             {
                 Point3d p = tp.Points[i];
                 if (Math.Abs(tp.Normals[i].Z) < 0.999) r.Tilted = true;
-                r.Lines.Add(string.Format(ci, "PTP {{X {0:0.###}, Y {1:0.###}, Z {2:0.###}, A {3:0.###}, B {4:0.###}, C {5:0.###}}}", p.X, p.Y, p.Z, a, b, c));
+                // the layer of the slicer goes along (as Robot Program writes it), so the DXR Generator does not have to guess the
+                // layer changes (layer_sub.nc, Fan Schedule) from Z
+                r.Lines.Add(string.Format(ci, "PTP {{X {0:0.###}, Y {1:0.###}, Z {2:0.###}, A {3:0.###}, B {4:0.###}, C {5:0.###}}} ; layer {6}", p.X, p.Y, p.Z, a, b, c, tp.Layers[i]));
             }
             r.Extrusion.AddRange(pr.Extrusion);
             r.Speed.AddRange(pr.Speed);

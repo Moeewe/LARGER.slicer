@@ -11,14 +11,14 @@ namespace LARGERslicer.Components.Export
     public class SafeComponent : GH_Component
     {
         public SafeComponent()
-          : base("Safe Component", "Safe",
+          : base("Save Text File", "Save",
               "Writes text lines to a file. Combines folder path, filename, and extension. Uses UTF-8 encoding WITHOUT BOM (required for robot controllers).",
               "", "")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "Utilities";
+        public override string SubCategory => "Export";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -62,7 +62,7 @@ namespace LARGERslicer.Components.Export
             {
                 AddRuntimeMessage(write ? GH_RuntimeMessageLevel.Error : GH_RuntimeMessageLevel.Warning, "Folder Path is empty.");
                 info.Add("ERROR: Folder path is empty or null");
-                info.Add("Please provide a valid folder path (e.g., use Desktop Path component)");
+                info.Add("Please provide a valid folder path");
                 DA.SetData(0, string.Empty);
                 DA.SetDataList(1, info);
                 return;

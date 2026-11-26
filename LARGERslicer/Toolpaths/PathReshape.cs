@@ -1031,7 +1031,13 @@ namespace LARGERslicer.Toolpaths
             r.WidthMin = double.MaxValue; r.WidthMax = 0; r.Travels = 0;
             int lp = -1, fp = -1; for (int i = 1; i < r.Path.Count; i++) if (Part(r.Path, i)) { r.WidthMin = Math.Min(r.WidthMin, r.Path.Widths[i]); r.WidthMax = Math.Max(r.WidthMax, r.Path.Widths[i]); lp = i; if (fp < 0) fp = i; }
             for (int i = fp + 1; i < lp; i++) if (!LapBelow.Prints(r.Path, i) && LapBelow.Prints(r.Path, i - 1)) r.Travels++;
-            if (o.Check) r.Check = MultiAxisCheck.Run(r.Path, new MultiAxisCheck.Options { Head = o.Head, MinLayer = o.MinLayer, MaxLayer = o.MaxLayer });
+            if (o.Check)
+            {
+                // the same limits a Multi-Axis Check next to it uses by default; the flow limit of the reshape is judged too
+                var co = new MultiAxisCheck.Options { Head = o.Head, MinLayer = o.MinLayer, MaxLayer = o.MaxLayer, MaxFlow = o.MaxFlow > 0 ? o.MaxFlow : 0 };
+                r.Check = MultiAxisCheck.Run(r.Path, co);
+                r.Check?.Report?.Add(Inv.F($"Checked inside Reshape Path with tilt up to {co.MaxTilt:0} degrees, turning up to {co.MaxTiltPerSecond:0} degrees/s and {co.MaxTiltPerMm:0.#} degrees/mm; place a Multi-Axis Check after it for other limits."));
+            }
             // what was wrong before is not the fault of the new shape
             if (r.Check != null && !r.Check.Ok && !r.Identity) { var b = MultiAxisCheck.Run(tp, new MultiAxisCheck.Options { Head = o.Head }); if (!b.Ok) r.BeforeNote = b.First; }
         }
@@ -1176,6 +1182,9 @@ namespace LARGERslicer.Toolpaths
     /// </summary>
     public static class MultiAxisCheck
     {
+        /// <summary>The tallest bead the checks accept where nothing else is set: 0.8 x its width (Non-Planar Check uses the same).</summary>
+        public static double CheckMax(double width) => 0.8 * width;
+
         public class Options
         {
             public NonPlanarCheck.Head Head = new NonPlanarCheck.Head();
@@ -1215,8 +1224,10 @@ namespace LARGERslicer.Toolpaths
             var r = new Result(); o = o ?? new Options(); var head = o.Head ?? new NonPlanarCheck.Head();
             if (tp == null || tp.Count < 3) { r.Ok = false; r.First = "the path is empty"; r.Report.Add("CHECK: empty path."); return r; }
             var st = tp.Settings; int n = tp.Count; double w = st.BeadWidth, h = Math.Max(0.05, st.LayerHeight);
-            double minL = o.MinLayer > 0 ? o.MinLayer : PathReshape.AutoMin(st), maxL = o.MaxLayer > 0 ? o.MaxLayer : PathReshape.AutoMax(st);
-            double MaxAt(int i) => o.MaxLayer > 0 ? o.MaxLayer : PathReshape.AutoMax(st, tp.Widths[i]);
+            // the same limits as Non-Planar Check (calibrated on the printed head V2): a bead may stand up to 0.8 x its width,
+            // and should not get thinner than about 0.4 x the layer height (AutoMin); Max/Min Layer set by hand win
+            double minL = o.MinLayer > 0 ? o.MinLayer : PathReshape.AutoMin(st), maxL = o.MaxLayer > 0 ? o.MaxLayer : CheckMax(st.BeadWidth);
+            double MaxAt(int i) => o.MaxLayer > 0 ? o.MaxLayer : CheckMax(tp.Widths[i]);
             var pr = PathEngine.Process(tp, false);
             bool tilted = false;
             for (int i = 0; i < n; i++)

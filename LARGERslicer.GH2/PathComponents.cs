@@ -92,7 +92,7 @@ namespace LARGERslicer.GH2
             var tp = Io.Path(access, 0); if (tp == null) return;
             int loops, brim, brimLoops; double dist, exit, lift, flow;
             access.GetItem(1, out loops); access.GetItem(2, out dist); access.GetItem(3, out exit); access.GetItem(4, out lift);
-            access.GetItem(5, out Curve crv); access.GetItem(6, out flow);
+            Curve crv = CurveIo.Curve(access, 5); access.GetItem(6, out flow); // lines, polylines and arcs too
             access.GetItem(7, out brim); access.GetItem(8, out brimLoops);
             brim = Math.Max(0, Math.Min(3, brim));
             var log = new List<string>();

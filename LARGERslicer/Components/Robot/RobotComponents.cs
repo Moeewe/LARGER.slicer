@@ -63,7 +63,7 @@ namespace LARGERslicer.Components.Robot
     {
         public RobotArmComponent()
             : base("Robot", "Robot",
-                  "The robot arm. Empty inputs give the KUKA KR120 R2700-2 of the FH Münster cell. For any other six-axis arm connect a file of the Robots plug-in library (.xml): link lengths, axis ranges and speeds are read from it.") { }
+                  "The robot arm. Model picks the KUKA KR120 R2700-2 of the FH Münster cell or a Universal Robots arm (UR3, UR5, UR10 and their e-Series); Robot Program then writes KRL or URScript. For another six-axis arm connect a file of the Robots plug-in library (.xml): link lengths, axis ranges and speeds are read from it, and it is programmed like a KUKA.") { }
 
         public override Guid ComponentGuid => new Guid("A4F2C1E8-7B35-4D90-9C61-2E8F5A0B7D13");
         public override GH_Exposure Exposure => GH_Exposure.primary;
@@ -100,6 +100,8 @@ namespace LARGERslicer.Components.Robot
             string lib = null, cell = null, geo = null; Plane basePlane = Plane.WorldXY;
             da.GetData(0, ref lib); da.GetData(1, ref cell); da.GetData(2, ref basePlane);
             if (Params.Input.Count > 3) da.GetData(3, ref geo);
+            if (_model > 0 && !string.IsNullOrWhiteSpace(lib))
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "A Library file is connected, so the arm comes from it and the chosen Model is not used. Disconnect Library to use the Universal Robots arm.");
             // a Universal Robots arm: its own kinematics and the model Universal Robots publishes
             if (_model > 0 && string.IsNullOrWhiteSpace(lib))
             {
@@ -151,7 +153,7 @@ namespace LARGERslicer.Components.Robot
     {
         public RobotToolComponent()
             : base("Robot Tool", "Tool",
-                  "The tool on the flange: where its tip is and what it weighs. The TCP plane is given relative to the flange, as on the robot's pendant or in the Robots plug-in; its Z axis points out of the nozzle.") { }
+                  "The tool on the flange: where its tip is and what it weighs. Preset picks a tool of the FH Muenster cells (AE20 for the KUKA, clay extruder, pen and wool spinner for the UR5); Own tool takes the inputs. The TCP plane is given relative to the flange as in the Robots plug-in: origin at the nozzle tip, Z axis from the tip back into the tool. On a UR it is turned so its Z points out of the tool, as the UR pendant shows it.") { }
 
         public override Guid ComponentGuid => new Guid("C9E1B4A7-2D68-4F53-8A0C-6B3D9E7F1A24");
         public override GH_Exposure Exposure => GH_Exposure.primary;
@@ -259,8 +261,11 @@ namespace LARGERslicer.Components.Robot
                 URTool ut;
                 if (rt == null) ut = URTool.Preset(3, 0);
                 else if (rt.UrPreset >= 0) ut = URTool.Preset(rt.UrPreset, 0);
-                else ut = new URTool { Name = rt.Name, Tcp = rt.Tcp, Weight = rt.Weight, Centroid = rt.Centroid };
+                else { ut = new URTool { Name = rt.Name, Tcp = URTool.FromKukaConvention(rt.Tcp), Weight = rt.Weight, Centroid = rt.Centroid }; AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Own tool on a UR: its TCP (Z from the tip back into the tool, as for KUKA) is turned so Z points out of the tool, as the UR wants it."); }
                 var uc = new URCell { Model = ua.Model, Base = ua.Base, Tool = ut, StartCode = rt?.StartCode, OnCode = rt?.OnCode, OffCode = rt?.OffCode };
+                var unused = new List<string>();
+                for (int k = 2; k < Params.Input.Count; k++) if (Params.Input[k].SourceCount > 0) unused.Add(Params.Input[k].Name);
+                if (unused.Count > 0) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Not used for a UR: " + string.Join(", ", unused) + ". The UR prints the part where it lies in Rhino, relative to the robot's base, and is not checked for collisions.");
                 if (ut.Weight > ua.Model.Payload) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, Inv.F($"The tool weighs {ut.Weight:0.#} kg; the {ua.Model.Name} carries {ua.Model.Payload:0.#} kg."));
                 da.SetData(0, new GH_ObjectWrapper(uc));
                 da.SetData(1, uc + Inv.F($"; the part is printed where it lies in Rhino"));
@@ -372,7 +377,8 @@ namespace LARGERslicer.Components.Robot
         private void UploadUR()
         {
             if (_lastUR == null || _lastUR.Script.Count == 0) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Nothing to send yet."); return; }
-            try { var msg = URProgram.Upload(_lastUR.Script, _ip); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, msg + " The pendant now asks: Execute."); }
+            if (!_lastUR.Ok) { AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Not sent: the program is not OK (see Report). Fix it first; a program that cannot run should never reach the robot."); Grasshopper.Instances.RedrawCanvas(); return; }
+            try { var msg = URProgram.Upload(_lastUR.Script, _ip); AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, msg + " The robot runs it at once (an e-Series only in remote control); the start code first asks for the compressed air."); }
             catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Upload failed: " + ex.Message); }
             Grasshopper.Instances.RedrawCanvas();
         }
@@ -396,6 +402,8 @@ namespace LARGERslicer.Components.Robot
                 catch (Exception ex) { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Could not write the file: " + ex.Message); }
             }
             if (!prg.Ok) AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, string.Join(" ", prg.Report.Where(l => l.StartsWith("NOT") || l.StartsWith("TOO"))));
+            bool wired(int i) => i < Params.Input.Count && Params.Input[i].SourceCount > 0;
+            if (wired(8) || wired(10)) AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "On a UR no collision check runs: Environment and Check Collisions are not used.");
             Message = Inv.F($"{cell.Model.Name}: {prg.Targets.Count} moves, {prg.Minutes:0} min");
             da.SetDataList(3, prg.Script);
             da.SetData(4, prg.Ok);
@@ -405,7 +413,9 @@ namespace LARGERslicer.Components.Robot
             if (prg.Joints.Count > 0)
             {
                 int k = (int)Math.Round(Math.Max(0, Math.Min(1, pose)) * (prg.Joints.Count - 1));
-                if (Params.Output.Count > 9) da.SetDataList(9, URGeo.Arm(cell, prg.Joints[k]));
+                var arm = URGeo.Arm(cell, prg.Joints[k]);
+                if (Params.Output.Count > 9) da.SetDataList(9, arm);
+                _robot.AddRange(arm);
             }
             if (Params.Output.Count > 11) da.SetData(11, fileName);
             if (Params.Output.Count > 12) da.SetData(12, new GH_ObjectWrapper(prg));
@@ -416,7 +426,7 @@ namespace LARGERslicer.Components.Robot
             p.AddTextParameter("Robot Path", "Path", "One PTP line per path point with X, Y, Z, A, B, C: connect to Robot Path of the DXR Generator", GH_ParamAccess.list);
             p.AddNumberParameter("Extrusion", "E", "Extrusion per line, plus one closing value (the DXR Generator drops the last value)", GH_ParamAccess.list);
             p.AddNumberParameter("Feed", "F", "Feed F for the machine, in mm/min (mm/s x 60), per line, plus one closing value", GH_ParamAccess.list);
-            p.AddTextParameter("KRL", "KRL", "The path as a KUKA program (.src): tool, base and linear moves", GH_ParamAccess.list);
+            p.AddTextParameter("Code", "Code", "The program: KRL for a KUKA (.src: tool, base and linear moves), URScript for a Universal Robots arm (.script)", GH_ParamAccess.list);
             p.AddBooleanParameter("OK", "OK", "True if nothing that was checked speaks against the program: the robot reaches every point within its axis ranges, and nothing collides. What was not checked (Check off, no 3D model of the robot) is written in Report", GH_ParamAccess.item);
             p.AddTextParameter("Report", "R", "Reach, axis ranges, wrist and axis speed", GH_ParamAccess.list);
             p.AddTextParameter("Axes", "A", "Axis angles A1 to A6 of every point", GH_ParamAccess.list);
@@ -611,7 +621,7 @@ namespace LARGERslicer.Components.Robot
     public class RobotSimulationComponent : RobotComponent
     {
         public RobotSimulationComponent()
-            : base("Robot Simulation", "Simulate",
+            : base("Robot Simulation", "RobotSim",
                   "Plays the robot program: the robot with its tool at any moment of the print, as in Program Simulation of the Robots plug-in. Time runs from 0 (start) to 1 (end) and follows the real time of the print, so half way on the slider is half way through the print. Move the slider, or set Play and it runs by itself (Film Length = how many seconds one run takes on the screen). Outputs the axis angles and the place of the tool tip at that moment; with tilted layers (angled, non-planar, multi-axis) you see the tool lean. Moving the slider only places the robot: the program is not calculated again.") { }
 
         public override Guid ComponentGuid => new Guid("5D2E8B14-9A63-4F70-B1C8-3A6F0D9E2475");

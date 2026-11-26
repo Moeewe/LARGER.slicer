@@ -40,8 +40,8 @@ namespace LARGERslicer.Components.Utils
         public DXRVariableWidthComponent()
           : base("DXR Variable Width", "VarWidth",
               "Scales the XE extrusion values of a DXR program along X, Y or Z so the printed line width runs from Width Start to Width End. " +
-              "Use it between DXR Generator and Safe Component. Only lines with XE=[value*P1] are changed; all other lines are passed through unchanged.",
-              "LARGER", "Utilities")
+              "Use it between DXR Generator and Save Text File. Only lines with XE=[value*P1] are changed; all other lines are passed through unchanged.",
+              "LARGER", "DXR")
         {
         }
 
@@ -94,7 +94,7 @@ namespace LARGERslicer.Components.Utils
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddTextParameter("DXR Code", "Code",
-                "DXR program with scaled XE values (list of lines). Connect to Safe Component or Fast GCode DXR Preview.", GH_ParamAccess.list);
+                "DXR program with scaled XE values (list of lines). Connect to Save Text File or DXR Width Preview.", GH_ParamAccess.list);
             pManager.AddLineParameter("Segments", "Seg",
                 "Extruded segments of the toolpath (travel moves are left out).", GH_ParamAccess.list);
             pManager.AddNumberParameter("Widths", "W",
@@ -461,6 +461,8 @@ namespace LARGERslicer.Components.Utils
         }
 
         protected override Drawing.Bitmap Icon => IconHelper.Load("DXRVariableWidthIcon.png", this);
+
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         public override Guid ComponentGuid => new Guid("6E22931A-9B8B-4F69-A7E2-E085BDAE6E9C");
     }

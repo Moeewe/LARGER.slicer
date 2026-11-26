@@ -296,6 +296,11 @@ namespace LARGERslicer.Toolpaths
         /// turns every UR tool by +90 degrees about the flange axis before set_tcp.</summary>
         public static Frame FromRobotsPlugin(Frame tcp) => new Frame { X = Vector3d.YAxis, Y = -Vector3d.XAxis, Z = Vector3d.ZAxis, O = Point3d.Origin }.Times(tcp);
 
+        /// <summary>A TCP given as for KUKA and the Robots plug-in (origin at the tip, Z from the tip back into the tool), as the UR
+        /// wants it (Z out of the tool): turned half a turn about its own X axis. A straight tool of length L gives (0, 0, L), Z along
+        /// the flange axis, the same as the UR presets.</summary>
+        public static Frame FromKukaConvention(Frame tcp) => new Frame { X = tcp.X, Y = -tcp.Y, Z = -tcp.Z, O = tcp.O };
+
         public static readonly string[] Names = { "Clay extruder V2 (Lehmextruder, 2.5 kg)", "Pen holder (pen length)", "Wool spinner (97 mm)", "Own tool (length straight on)" };
     }
 
@@ -394,7 +399,9 @@ namespace LARGERslicer.Toolpaths
             {
                 var first = target(0, tp.Points[0] + tp.Normals[0] * approach);
                 AddTarget(r, m, tcpInv, first, ref q, ref far, cell, tp.Points[0] + tp.Normals[0] * approach, false, ref t, ref prevT, ref havePrev, 100);
-                s.Add($"  movej(get_inverse_kin({Pose(first)}), a=1.0, v=0.5)");
+                // the joint angles that were solved and simulated, so the controller cannot pick another configuration
+                // (get_inverse_kin without qnear takes the one nearest to wherever the arm stands)
+                s.Add($"  movej([{string.Join(", ", q.Select(N))}], a=1.0, v=0.5)");
             }
             for (int i = 0; i < tp.Count; i++)
             {
@@ -434,6 +441,29 @@ namespace LARGERslicer.Toolpaths
             if (cell.Tool.Weight > m.Payload) { r.Ok = false; r.Report.Add(Inv.F($"TOO HEAVY: the tool weighs {cell.Tool.Weight:0.#} kg, the {m.Name} carries {m.Payload:0.#} kg.")); }
             if (far == 0) r.Report.Add("Reach OK: the arm gets to every point from the start pose without changing its configuration.");
             else { r.Ok = false; r.Report.Add(Inv.F($"NOT REACHED: {far} point(s) are out of reach or need a turn of the wrist the arm cannot make from where it is. See Unreachable. Move the part nearer to the robot, lower it, or change Turn.")); }
+            // wrist singularity (axis 5 near 0: axes 4 and 6 in line) and the joint speeds the print speed needs
+            {
+                int singular = 0, firstSingular = -1, fast = 0, firstFast = -1; double worst = 0; int worstAxis = 0;
+                double limit = m.MaxJointSpeed * Math.PI / 180.0;
+                for (int i = 0; i < r.Joints.Count; i++)
+                {
+                    if (!r.Printing[i]) continue;
+                    if (Math.Abs(Math.Sin(r.Joints[i][4])) < Math.Sin(3 * Math.PI / 180.0)) { singular++; if (firstSingular < 0) firstSingular = i; }
+                    if (i == 0) continue;
+                    double dt = r.Seconds[i] - r.Seconds[i - 1];
+                    if (dt <= 1e-6) continue;
+                    for (int a = 0; a < 6; a++)
+                    {
+                        double w = Math.Abs(r.Joints[i][a] - r.Joints[i - 1][a]) / dt / limit;
+                        if (w > worst) { worst = w; worstAxis = a; }
+                        if (w > 1.0) { fast++; if (firstFast < 0) firstFast = i; break; }
+                    }
+                }
+                if (singular > 0) { r.Ok = false; r.Report.Add(Inv.F($"NOT RUNNABLE: at {singular} point(s) axis 5 is near 0, so axes 4 and 6 are in line (wrist singularity), first at move {firstSingular + 1}. The robot stops there with a protective stop. Change Turn, tilt the part a little or move it.")); }
+                if (fast > 0) { r.Ok = false; r.Report.Add(Inv.F($"TOO FAST FOR THE JOINTS: on {fast} move(s) a joint would have to turn faster than {m.MaxJointSpeed:0} deg/s (worst: joint {worstAxis + 1} at {worst * 100:0} %), first at move {firstFast + 1}. Lower the speed or move the part away from the base axis.")); }
+                else if (worst > 0) r.Report.Add(Inv.F($"Joint speed OK: at most {worst * 100:0} % of {m.MaxJointSpeed:0} deg/s (joint {worstAxis + 1})."));
+            }
+            r.Report.Add("Not checked on a UR: collisions with the cell or the part, external axes and the work base. Watch the first run.");
             if (s.Count > 60000) r.Report.Add(Inv.F($"Long program ({s.Count} lines): the controller needs a while to read it before it moves. Fewer points (Resolution in Print Settings) shorten it."));
             if (cell.Tool.Extrudes) r.Report.Add("The extruder is switched by: on = " + (onCode ?? "").Replace("\n", "; ").Trim() + ", off = " + (offCode ?? "").Replace("\n", "; ").Trim() + ".");
             r.Report.Add("First run: start slowly (speed slider on the pendant at 10 to 25 %) and watch the first layer; the robot plans every move itself.");
@@ -453,7 +483,8 @@ namespace LARGERslicer.Toolpaths
             r.Targets.Add(tcpTarget); r.Joints.Add((double[])q.Clone()); r.Printing.Add(print); r.Seconds.Add(t); r.PathPoints.Add(world);
         }
 
-        /// <summary>Sends the script to the robot (primary interface, port 30002): the pendant then asks to run it.</summary>
+        /// <summary>Sends the script to the robot (primary interface, port 30002). The controller runs it at once (an e-Series
+        /// only in remote control); the start code of the FH Muenster cell stops first with a popup that asks for the compressed air.</summary>
         public static string Upload(IEnumerable<string> script, string ip, int port = 30002)
         {
             using (var client = new System.Net.Sockets.TcpClient())

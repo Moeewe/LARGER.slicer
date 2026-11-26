@@ -49,7 +49,7 @@ namespace LARGERslicer.Types
         /// <summary>The fan in percent while layer 'layer' (0 = the first) is printed.</summary>
         public double FanAtLayer(int layer)
         {
-            if (FanSteps == null || FanSteps.Count == 0) return CoolingPercentage > 0 ? CoolingPercentage : (FanEnabled ? FanSpeed : 0);
+            if (FanSteps == null || FanSteps.Count == 0) return CoolingPercentage > 0 ? CoolingPercentage : (FanEnabled ? (UseAdvancedFormat ? FanSpeed / 2.55 : FanSpeed) : 0); // Extended: Fan Speed is 0-255
             double v = 0; int lastAt = 0; double lastV = 0;
             foreach (var st in FanSteps)
             {
@@ -65,7 +65,8 @@ namespace LARGERslicer.Types
         public System.Collections.Generic.List<string> FanLines(double percent, ref int lineNum)
         {
             var l = new System.Collections.Generic.List<string>();
-            if (UseAdvancedFormat) { l.Add($"N{lineNum} V.E.GLOBAL[3] = {percent:F0}"); lineNum += 10; return l; }
+            // Extended writes V.E.GLOBAL[3] on the 0-255 scale of its Fan Speed input, so a schedule in percent is scaled to it
+            if (UseAdvancedFormat) { l.Add($"N{lineNum} V.E.GLOBAL[3] = {Math.Round(percent * 2.55):F0}"); lineNum += 10; return l; }
             l.Add($"N{lineNum} V.P.VAR_fan = {percent:F0}"); lineNum += 10;
             l.Add($"N{lineNum} L fan_sub.nc"); lineNum += 10;
             return l;

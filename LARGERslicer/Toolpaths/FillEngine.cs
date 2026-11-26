@@ -167,7 +167,11 @@ namespace LARGERslicer.Toolpaths
                     bool any = false;
                     for (int k = 0; k < count; k++)
                     {
-                        double delta = -((position == 0 ? w * 0.5 : position == 2 ? -w * 0.5 : 0) + k * spacing);
+                        // inside (0) and centred (1): further walls go inwards. Outside (2): the print lies outside the geometry, so
+                        // further walls go outwards; wall 0 stays the outermost one (the others count inwards to the geometry)
+                        double delta = position == 2
+                            ? w * 0.5 + (count - 1 - k) * spacing
+                            : -((position == 0 ? w * 0.5 : 0) + k * spacing);
                         PathsD ring = Math.Abs(delta) < 1e-9 ? paths : Clipper.InflatePaths(paths, delta, JoinType.Miter, EndType.Polygon, 2.0, 4);
                         if (ring == null || ring.Count == 0) break;
                         foreach (var path in ring)

@@ -46,7 +46,7 @@ namespace LARGERslicer.GH2
     [IoId("f105ab40-71ac-4a33-af0c-a087ef3e3bc1")]
     public sealed class InfillCellsComponent : Component
     {
-        public InfillCellsComponent() : base(Io.Name("Infill Cells", "Fills the part with honeycomb or grid cells as part of the one continuous wall line. Every cell is a closed loop; neighbouring loops lie one bead spacing apart and fuse into a double wall. All loops and the wall are joined by short bridges into a single closed line that never crosses itself, so it also prints in spiral (vase) mode. Use it instead of Infill Ribs.", Io.Slicer, Group.Walls)) { }
+        public InfillCellsComponent() : base(Io.Name("Infill Cells", "Fills the part with honeycomb or grid cells as part of the one continuous wall line. Every cell is a closed loop; neighbouring loops lie one bead spacing apart and fuse into a double wall. All loops and the wall are joined by short bridges into a single closed line that never crosses itself. Layers with cells are printed flat (Layered), also when Continuous Path is set to Spiral.", Io.Slicer, Group.Walls)) { }
         public InfillCellsComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SlicerCellsIcon");
 
@@ -110,7 +110,8 @@ namespace LARGERslicer.GH2
             var origin = InfillIo.Point(access, 5);
             if (!(meet && depth <= 0) && depth < 2 * settings.BeadWidth)
             {
-                access.AddWarning("Depth too small", $"Depth must be at least {2 * settings.BeadWidth:0.#} mm (two bead widths).");
+                access.AddWarning("Depth too small", $"Depth must be at least {2 * settings.BeadWidth:0.#} mm (two bead widths). The layers pass through without waves.");
+                access.SetItem(0, new LayerStack(layers)); // the chain after it keeps working
                 return;
             }
             var log = new List<string>();
@@ -126,7 +127,7 @@ namespace LARGERslicer.GH2
     [IoId("c912fd57-67f7-44f3-a3b3-2a44fc41022b")]
     public sealed class InfillSketchComponent : Component
     {
-        public InfillSketchComponent() : base(Io.Name("Infill Sketch", "Draw your infill. Sketch curves over the part in top view; every curve that runs from wall to wall becomes a rib that follows it, built from two fused beads and joined into the one continuous wall path. Works on every layer the curve crosses, also on tilted and bent layers.", Io.Slicer, Group.Walls)) { }
+        public InfillSketchComponent() : base(Io.HiddenName("Infill Sketch", "Draw your infill. Sketch curves over the part in top view; every curve that runs from wall to wall becomes a rib that follows it, built from two fused beads and joined into the one continuous wall path. Works on every layer the curve crosses, also on tilted and bent layers.", Io.Slicer, Group.Walls)) { }
         public InfillSketchComponent(IReader reader) : base(reader) { }
         protected override IIcon IconInternal => Io.Icon("SlicerSketchIcon");
 
@@ -145,9 +146,9 @@ namespace LARGERslicer.GH2
             using var cancel = Io.Cancellable(access); // stop the core loops when this solution is cancelled
             var layers = Io.Layers(access, 0); if (layers == null) return;
             var settings = Io.Settings(access, 1);
-            access.ItemArray(2, out Curve[] curves);
+            var curves = CurveIo.Curves(access, 2); // lines, polylines and arcs too
             bool meet; double stagger; access.GetItem(3, out meet); access.GetItem(4, out stagger);
-            var sketch = (curves ?? new Curve[0]).Where(c => c != null && c.IsValid).Cast<object>().ToList();
+            var sketch = curves.Where(c => c != null && c.IsValid).Cast<object>().ToList();
             if (sketch.Count == 0)
             {
                 access.AddRemark("No sketch", "Draw curves over the part in top view and connect them to Sketch.");
@@ -241,6 +242,10 @@ namespace LARGERslicer.GH2
             if (locations.Count == 0 && spacing <= 0) access.AddRemark("No ribs", "No ribs: connect Locations or set Spacing.");
             var log = new List<string>();
             var sw = Stopwatch.StartNew();
+            // curves drawn in top view must not cross each other: a printed line cannot run across itself (as Infill Sketch did)
+            var crossLog = new List<string>();
+            locations = FillEngine.WithoutCrossingSketches(locations, crossLog);
+            foreach (var l in crossLog) access.AddWarning("Crossing curves", l);
             var result = FillEngine.Ribs(layers, settings, locations, spacing, depth, meet, stagger, log, out int ribs);
             sw.Stop();
             InfillIo.Done(access, result, log, $"{(ribs == 0 ? "No ribs" : meet ? "Meet" : "Across")}: {ribs} ribs in {result.Count} layers ({(result.Count > 0 ? (double)ribs / result.Count : 0):0.#} per layer), leg spacing {settings.BeadSpacing:0.##} mm, {sw.ElapsedMilliseconds} ms");

@@ -1,35 +1,38 @@
 # UR5 3D-Printing & Drawing Slicer
 
-**File:** `UR5.slicer.gh`  
-**Version:** Work-In-Progress  
+**Example:** example 06 of `EXAMPLE FILES/LARGERslicer - Beispiele für Studierende.gh` (LARGER.slicer alone)  
+**Old file:** `EXAMPLE FILES/99 - ARCHIVE/UR5slicer (Robots plug-in, before 2.0.3).gh` (Robots plug-in by Visose)  
 **By:** Moritz Wesseler  
 **Contributors:** Fabio Koczula & Torben Kurzhals – FH Münster 2025  
 
-> **Robot Clay Printing and Movement Algorithm**  
-> Based on the Robots plugin by Visose  
+---
+
+## The UR5 with LARGER.slicer (from version 2.0.4)
+
+No Robots plug-in and no robot library to install. The same Robot chain as for the KUKA does it:
+
+1. **Robot**: choose "Universal Robots UR5" (also UR3, UR10 and the e-Series). Base = where its foot stands. If a Library file is connected and names another arm, Robot warns that it overrides the chosen UR model (from 2.0.5).
+2. **Robot Tool**: Preset clay extruder V2, pen holder or wool spinner, or "Own tool". An own TCP is given as for the KUKA and the Robots plug-in (origin at the tip, Z from the tip back into the tool); from 2.0.5 it is turned for the UR so that Z points out of the tool (2.0.4 had it reversed).
+3. **Robot Cell**: robot and tool. From 2.0.5 it warns which inputs a UR ignores (Work Base, Environment, External Axes).
+4. **Robot Program**: a print path from any LARGER component becomes URScript at the output **Code**: set_tcp and set_payload, the compressed-air question, the extruder on digital outputs 0 and 1, movel at the speed of the path, blended over **Blend**. The approach is a joint move to the solved joint angles (from 2.0.5), so the robot starts in the configuration you see in the simulation. **Save script** writes a .script file; **Upload to robot** sends it to the **Robot IP** (right click on the component, default `192.168.1.66`).
+5. **Robot Simulation**: the arm (the model Universal Robots publishes) and the path printed so far, by slider or Play. From 2.0.5 Robot Program draws the arm too.
+
+What is checked: that the arm reaches every point, the payload, and from 2.0.5 the wrist singularity (axis 5 near 0) and the joint speeds against the limits of the model; the Report then says NOT RUNNABLE or TOO FAST. Not checked on a UR: collisions, external axes, the work base; the Report says so.
+
+**Upload to robot** (from 2.0.5) sends only a program that is OK (the hidden UR Program of old files sends once when Upload turns true). The robot runs the script at once (an e-Series only in remote control); the start code of the FH Münster UR5 first asks for the compressed air on the pendant. Run the first print slowly (speed slider on the pendant at 10 to 25 %) and watch the first layer. The network setup below stays the same.
+
+Version 2.0.3 had UR Cell, UR Program and UR Simulation; they still open in old files, but are no longer on the toolbar, and their clay extruder tool centre point was about 170 mm off. Use the Robot chain.
 
 ---
 
-## New: the UR5 with LARGER.slicer alone (from version 2.0.4)
+## The old definition with the Robots plug-in (archived)
 
-No Robots plug-in and no robot library to install. The same Robot components as for the KUKA do it:
-**Robot** (choose "Universal Robots UR5"; Base = where its foot stands), **Robot Tool** (Preset: clay extruder
-V2, pen holder or wool spinner), **Robot Cell**, **Robot Program** (a print path from any LARGER component
-becomes URScript, with the compressed-air question and the extruder on digital outputs 0 and 1; Save script
-writes a .script file, Upload to robot sends it to 192.168.1.66) and **Robot Simulation**. The arm is drawn with
-the model Universal Robots publishes. Example 06 of `EXAMPLE FILES/LARGERslicer - Beispiele für Studierende.gh`
-prints a clay vase with it. The network setup below stays the same. Run the first print slowly (speed slider on
-the pendant at 10 to 25 %) and watch the first layer.
+Everything from here on, apart from the network setup, describes `UR5slicer (Robots plug-in, before 2.0.3).gh`, now in `EXAMPLE FILES/99 - ARCHIVE/`.
 
-Version 2.0.3 had UR Cell, UR Program and UR Simulation; they still open in old files, but their clay extruder
-tool centre point was about 170 mm off. Use 2.0.4.
-
----
-
-## Quick Start Guide
+### Quick Start Guide (old definition)
 
 1. Connect UR5 via Ethernet (IP: `192.168.1.44`)
-2. Open Rhino & load `UR5.slicer.gh`
+2. Open Rhino & load `UR5slicer (Robots plug-in, before 2.0.3).gh`
 3. Configure robot orientation in Input Cf and plane flips
 4. Test full animation before upload
 5. Upload & execute program on UR5 pendant
@@ -41,8 +44,8 @@ tool centre point was about 170 mm off. Use 2.0.4.
 ### Required Software
 - Rhino 3D
 - Grasshopper
-- Robots plugin by Visose
-- MeshEdit plugin
+- LARGER.slicer 2.0.4 or newer (the Robot chain)
+- Only for the old definition: Robots plugin by Visose, MeshEdit plugin
 
 ### Hardware Setup
 - UR5 Robot
@@ -97,13 +100,13 @@ tool centre point was about 170 mm off. Use 2.0.4.
 > **Troubleshooting Tips**  
 > - If the Grasshopper upload hangs, disconnect the Ethernet cable, verify your IP settings and cable connection, then reconnect.  
 > - Always **save** your Grasshopper definition before uploading to prevent crashes.  
-> - When the connection succeeds, the UR5 pendant will display **Abort | Execute or Continue Script** – select **Execute** to start the job.  
+> - Old definition (Robots plug-in): when the connection succeeds, the UR5 pendant will display **Abort | Execute or Continue Script** – select **Execute** to start the job. LARGER.slicer's Upload to robot runs the script at once (see above).  
 
 ---
 
 ## Software Setup
 
-### Rhino & Grasshopper Installation
+### Rhino & Grasshopper Installation (old definition)
 1. **Open Rhino** → load your `.3dm` scene  
 2. In Rhino's command line, type `Grasshopper` → press Enter  
 3. Install required plugins via **_Tools → PackageManager_**:
@@ -111,7 +114,7 @@ tool centre point was about 170 mm off. Use 2.0.4.
    - MeshEdit
 
 ### Loading the Definition
-- **Drag & drop** `UR5.slicer.gh` into the Grasshopper canvas  
+- **Drag & drop** `UR5slicer (Robots plug-in, before 2.0.3).gh` (in `99 - ARCHIVE`) into the Grasshopper canvas  
 - Wait for all clusters to load—no red components should remain  
 - If prompted, unlock clusters with the provided password
 
@@ -286,7 +289,7 @@ Some clusters automatically insert lifting movements between paths or even insid
 
 - **No network link**: verify static IP and cable
 - **Red components**: install missing GH plugins or unlock clusters
-- **Upload fails**: ensure UR5 firmware matches your GH Robots plugin version
+- **Upload fails**: LARGER.slicer: is the Report OK (only an OK program is sent) and the Robot IP right? Old definition: ensure UR5 firmware matches your GH Robots plugin version
 - **Password prompts**: If asked for Admin, Master, or Safety password, try `Alwin` or `alwin` (robot nickname)
 - **Multiple overlapping robots in simulation**: This usually indicates that your input planes are not flattened. Check if your planes are in nested lists/branches - they should be in a single, flat list. Use the Flatten component to resolve this issue, as separate branches will create individual robot programs.
 

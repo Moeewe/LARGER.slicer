@@ -9,9 +9,9 @@ namespace LARGERslicer.Components.Utils
     public class GCodeDiffCheckComponent : GH_Component
     {
         public GCodeDiffCheckComponent()
-          : base("G-Code Diff Check", "GDiff",
-              "Line-by-line comparison of original and remap output G-code to prove whether coordinates changed.",
-              "LARGER", "Utilities")
+          : base("G-code Diff Check", "GDiff",
+              "Compares two programs line by line, e.g. before and after DXR E Remap, to prove that only the extrusion changed and no coordinate.",
+              "LARGER", "DXR")
         {
         }
 
@@ -184,6 +184,7 @@ namespace LARGERslicer.Components.Utils
         }
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("GCodeDiffCheckIcon.png", this);
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
         public override Guid ComponentGuid => new Guid("8266D9BD-1D39-410D-8846-04CF006104CD");
     }
 }

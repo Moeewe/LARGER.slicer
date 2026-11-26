@@ -71,9 +71,20 @@ namespace LARGERslicer.GH2
                 place(p, dx, dy);
                 return p;
             };
+            // the groups that hold a slicer chain get a Control Panel and a Result beside them, as in Grasshopper 1:
+            // the main settings and the verdict of the example in one place
+            string[] withPanel = { "INPUT GEOMETRY", "PART, GUIDE", "PART AND SLICER", "EASY SLICER", "HEAD SLICED", "VASE" };
             Action<string, Family, IEnumerable<IDocumentObject>> group = (title, colour, members) =>
             {
-                var g = new GroupObject(colour, members.ToArray()) { UserName = title };
+                var list = members.ToList();
+                if (withPanel.Any(k => title.StartsWith(k, StringComparison.Ordinal)))
+                {
+                    float right = list.Max(m => m.Attributes.Bounds.Right), top = list.Min(m => m.Attributes.Bounds.Top);
+                    var cp = new ControlPanelComponent(); doc.Objects.Add(cp, new PointF(right + 140, top + 60));
+                    var rs = new ResultComponent(); doc.Objects.Add(rs, new PointF(right + 140, top + 360));
+                    list.Add(cp); list.Add(rs);
+                }
+                var g = new GroupObject(colour, list.ToArray()) { UserName = title };
                 doc.Objects.Add(g);
             };
             // Titles as on the canvas of the FH Muenster definition: a numbered title in capitals,
@@ -156,9 +167,12 @@ namespace LARGERslicer.GH2
             group("CHECK AND VALUES FOR THE MACHINE", Family.Green, new IDocumentObject[] { check, values });
 
             float xo = 10 * col + 100; // right of the checks
-            var ginger = put(new GingerGCodeComponent(), xo, y1 - 330);
-            wire(finish, 0, ginger, 0);
-            group("OUTPUT A  -  GINGER ONE G-CODE  (set Save)", Family.Orange, new IDocumentObject[] { ginger });
+            // the Ginger One as a Machine, written by Machine G-code (the same writer as for every G-code machine)
+            var machineA = put(new MachineComponent(), xo, y1 - 520);
+            var ginger = put(new MachineGCodeComponent(), xo, y1 - 330);
+            wire(finish, 0, ginger, 0); wire(machineA, 0, ginger, 1);
+            hide.Add(machineA); // its 3D model would stand on top of the bed
+            group("OUTPUT A  -  GINGER ONE G-CODE  (choose the machine, set Save)", Family.Orange, new IDocumentObject[] { machineA, ginger });
 
             var robot = put(new RobotArmComponent(), xo, y1 - 60);
             var tool = put(new RobotToolComponent(), xo, y1 + 110);
@@ -195,7 +209,7 @@ namespace LARGERslicer.GH2
             var partName = new TextParameter("Part name", "Part name", "Goes into every file name: GIN or DXR, date and time, this name, weight and print time.", Access.Item);
             partName.Set(new[] { "Test Object" });
             place(partName, 8 * col + 40, y1 - 330);
-            feed(partName, ginger, 3); feed(partName, program, 3); feed(partName, desktop, 10);
+            feed(partName, ginger, 2); feed(partName, program, 3); feed(partName, desktop, 10);
             Connections.Connect(program.Parameters.Output(8), dxr.Parameters.Input(5), null);
             group("PART NAME  -  goes into every file name", Family.Gray, new IDocumentObject[] { partName });
             group("OUTPUT C  -  DESKTOP TEST PRINT  (choose your printer, set Save)", Family.Violet, new IDocumentObject[] { desktop });
@@ -281,7 +295,7 @@ namespace LARGERslicer.GH2
             // its own settings, as the head of 2024: bead 4, layer 1.75, 20 mm/s, first layer 0.9 mm at 25 mm/s;
             // the small crown rings may slow down far (Min Speed 0.2 mm/s) so every lap gets its cooling time
             var settings7 = put(new PrintSettingsComponent(), col, r7 + 40);
-            set(settings7, 0, 4.0); set(settings7, 1, 1.75); set(settings7, 2, 20.0); set(settings7, 3, 4);
+            set(settings7, 0, 4.0); set(settings7, 1, 1.75); set(settings7, 2, 20.0); // no profile preset: Machine G-code writes with the profile of its machine (Klipper: volume)
             set(settings7, 7, 0.9); set(settings7, 9, 25.0); set(settings7, 10, 0.0); set(settings7, 14, 0.2);
             var slice7 = put(new SliceComponent(), 2 * col + 40, r7);
             var walls7 = put(new WallsComponent(), 3 * col + 40, r7);
@@ -351,7 +365,7 @@ namespace LARGERslicer.GH2
                 "5  Before the big print: Output C writes the same path small for a desktop printer.\n\n" +
                 "File names are made for you: GIN or DXR, date and time, the part name, weight and print time, e.g. DXR_2611051216_Test Object_2668g_53min.dxr.\n" +
                 "Inputs with a list of choices (Nozzle, Brim, Mode, Pattern, Machine ...) offer their presets on the input. Seam: 'Seam Gap' of 'Continuous Path'. Brim: 'Brim' of 'Start and End'.\n" +
-                "Other infill: replace 'Infill Ribs' by Infill Wave, Cells, Chambers or Sketch.\n" +
+                "Other infill: replace 'Infill Ribs' by Infill Wave, Cells or Chambers, or draw curves and connect them to Locations of Infill Ribs.\nPellet extruders: 'Print Tuning' after Print Settings sets speeds by line type, Coasting, Prime and Travel Lift.\n" +
                 "Just want a path quickly? Example 6: the single component 'Easy Slicer'.\n" +
                 "Printer with a vertical nozzle and curved layers (Ginger One): example 7, played on the machine in Printer Simulation.\n" +
                 "Textures in the wall: example 8, Surface Pattern between Continuous Path and Start and End.");

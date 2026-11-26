@@ -16,8 +16,8 @@ namespace LARGERslicer.Components.Utils
     {
         public SurfaceThicknessHeatmapComponent()
           : base("Surface Thickness Heatmap", "ThkMap",
-              "Creates per-part thickness/color sampling, heatmap mesh, and rebuilt untrimmed fit surfaces from Breps/Surfaces.",
-              "LARGER", "Utilities")
+              "Measures the wall thickness of each part as a coloured mesh and gives the Part Info for DXR E Remap; also rebuilds untrimmed fit surfaces from Breps and surfaces.",
+              "LARGER", "DXR")
         {
         }
 
@@ -699,6 +699,7 @@ namespace LARGERslicer.Components.Utils
         }
 
         protected override Drawing.Bitmap Icon => IconHelper.Load("SurfaceThicknessHeatmapIcon.png", this);
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
         public override Guid ComponentGuid => new Guid("ED47AE1C-5A12-4BF4-9ACD-A3F0AE60E2D2");
 
         private readonly struct RebuildResult

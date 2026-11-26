@@ -192,7 +192,7 @@ namespace LARGERslicer.GH2
                 URTool ut;
                 if (rt == null) ut = URTool.Preset(3, 0);
                 else if (rt.UrPreset >= 0) ut = URTool.Preset(rt.UrPreset, 0);
-                else ut = new URTool { Name = rt.Name, Tcp = rt.Tcp, Weight = rt.Weight, Centroid = rt.Centroid };
+                else ut = new URTool { Name = rt.Name, Tcp = URTool.FromKukaConvention(rt.Tcp), Weight = rt.Weight, Centroid = rt.Centroid };
                 var uc = new URCell { Model = ua.Model, Base = ua.Base, Tool = ut, StartCode = rt?.StartCode, OnCode = rt?.OnCode, OffCode = rt?.OffCode };
                 if (ut.Weight > ua.Model.Payload) access.AddWarning("Too heavy", string.Format(CultureInfo.InvariantCulture, "The tool weighs {0:0.#} kg; the {1} carries {2:0.#} kg.", ut.Weight, ua.Model.Name, ua.Model.Payload));
                 access.SetItem(0, uc);
@@ -242,7 +242,7 @@ namespace LARGERslicer.GH2
         {
             inputs.AddNumber("Blend", "Bl", "Universal Robots only: the moves blend into each other over this many mm (at most 45 % of the neighbouring moves).").Set(1.0);
             inputs.AddText("Robot IP", "IP", "Universal Robots only: the address of the robot for Upload. The FH Muenster UR5: 192.168.1.66 (the laptop on 192.168.1.44, cable straight to the robot).").Set("192.168.1.66");
-            inputs.AddBoolean("Upload", "Up", "Universal Robots only: true sends the program to the robot (port 30002); the pendant then asks to Execute. Goes back to false by itself.").Set(false);
+            inputs.AddBoolean("Upload", "Up", "Universal Robots only: true sends the program to the robot (port 30002), only when it is OK; the robot runs it at once. Goes back to false by itself.").Set(false);
         }
         // the robot in its own colours: base dark, arm KUKA orange, tool steel blue (as in Grasshopper 1)
         protected override int[] OwnOutputs => new[] { 9 };
@@ -277,8 +277,8 @@ namespace LARGERslicer.GH2
         {
             outputs.AddText("Robot Path", "Path", "One PTP line per path point with X, Y, Z, A, B, C: for the DXR Generator.", Access.Twig);
             outputs.AddNumber("Extrusion", "E", "Extrusion per line.", Access.Twig);
-            outputs.AddNumber("Speed", "F", "Speed in mm/min per line.", Access.Twig);
-            outputs.AddText("KRL", "KRL", "The path as a KUKA program (.src).", Access.Twig);
+            outputs.AddNumber("Feed", "F", "Feed F in mm/min (mm/s x 60) per line, for the DXR Generator.", Access.Twig);
+            outputs.AddText("Code", "Code", "The program: KRL for a KUKA (.src), URScript for a Universal Robots arm (.script).", Access.Twig);
             outputs.AddBoolean("OK", "OK", "True if the robot reaches every point within its axis ranges.");
             outputs.AddText("Report", "R", "Reach, axis ranges, wrist and axis speed.", Access.Twig);
             outputs.AddPoint("Unreachable", "U", "Points the robot cannot get to.", Access.Twig);
@@ -373,10 +373,15 @@ namespace LARGERslicer.GH2
             Files.Save(access, this, 6, save, file, prg.Script, () => fileName + ".script");
             if (upload)
             {
-                try { access.AddRemark("Uploaded", URProgram.Upload(prg.Script, cell.Ip) + " The pendant now asks: Execute."); }
-                catch (Exception ex) { access.AddError("Upload failed", ex.Message); }
+                if (!prg.Ok) access.AddWarning("Not sent", "The program is not OK (see Report). Fix it first; a program that cannot run should never reach the robot.");
+                else
+                {
+                    try { access.AddRemark("Uploaded", URProgram.Upload(prg.Script, cell.Ip) + " The robot runs it at once (an e-Series only in remote control); the start code first asks for the compressed air."); }
+                    catch (Exception ex) { access.AddError("Upload failed", ex.Message); }
+                }
                 Files.Reset(this, 12);
             }
+            access.AddRemark("Not checked on a UR", "Collisions with the cell or the part, external axes and the work base. Watch the first run.");
             if (!prg.Ok) access.AddWarning("Not runnable", string.Join("\n", prg.Report.Where(l => l.StartsWith("NOT") || l.StartsWith("TOO"))));
             access.SetTwig(3, prg.Script.ToArray(), null, null);
             access.SetItem(4, prg.Ok);
@@ -413,6 +418,8 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Program", "Prg", "Program of Robot Program.");
             inputs.AddNumber("Time", "T", "Where in the print: 0 = start, 1 = end.").Set(0.0);
             inputs.AddBoolean("Show Cell", "Cell", "True = put the cell around the robot (floor, fence, glass, walls) into Environment, so it is drawn with the simulation. False = only the robot and its tool. The collision check always uses the cell.").Set(false);
+            inputs.AddBoolean("Play", "Play", "True = the simulation runs by itself, from where Time stands, and starts again at the end. False = it stands where Time says.", ("Play", "Runs by itself"), ("Stop", "Stands at Time")).Set(false);
+            inputs.AddNumber("Film Length", "Len", "How long one run of the whole print takes on the screen, in seconds.").Set(20.0).Values(5, 10, 20, 30, 60, 120, 300);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
@@ -430,6 +437,22 @@ namespace LARGERslicer.GH2
             outputs.AddMesh("Colliding", "Col", "What collides at this moment: robot links, tool, rail, table, environment, and a ball where it touches. Empty = clear.", Access.Twig);
         }
 
+        // Play: the component keeps its own clock and asks for the next picture (as Printer Simulation)
+        private bool _playing; private DateTime _playSince; private double _playFrom; private System.Threading.Timer _timer;
+
+        private double Clock(IDataAccess access, double time)
+        {
+            if (Parameters.InputCount < 5) return time;
+            access.GetItem(3, out bool play); access.GetItem(4, out double film);
+            if (!play) { _playing = false; _timer?.Dispose(); _timer = null; return time; }
+            if (!_playing) { _playing = true; _playSince = DateTime.UtcNow; _playFrom = time >= 1 ? 0 : time; }
+            double t = _playFrom + (DateTime.UtcNow - _playSince).TotalSeconds / Math.Max(1.0, film);
+            t -= Math.Floor(t);
+            if (_timer == null) _timer = new System.Threading.Timer(_ => Rhino.RhinoApp.InvokeOnUiThread((Action)(() => { try { Document?.Solution?.DelayedExpire(this); } catch { } })), null, 33, System.Threading.Timeout.Infinite);
+            else _timer.Change(33, System.Threading.Timeout.Infinite);
+            return t;
+        }
+
         protected override void Process(IDataAccess access)
         {
             Picture.Clear();
@@ -438,7 +461,7 @@ namespace LARGERslicer.GH2
             var run = Io.Get<RobotRun>(access, 0);
             if (run == null || run.Points.Count == 0) { access.AddError("No program", "Connect Program of Robot Program."); return; }
             double time; access.GetItem(1, out time);
-            time = Math.Max(0, Math.Min(1, time));
+            time = Math.Max(0, Math.Min(1, Clock(access, time)));
             double seconds = time * run.Duration;
             var axes = run.AxesAt(seconds, out int move, out double share);
             access.SetItem(3, move); access.SetItem(4, seconds);
@@ -496,7 +519,7 @@ namespace LARGERslicer.GH2
         {
             if (prg.Joints.Count == 0) { access.AddError("No program", "The UR program has no moves."); return; }
             double time; access.GetItem(1, out time);
-            time = Math.Max(0, Math.Min(1, time));
+            time = Math.Max(0, Math.Min(1, Clock(access, time)));
             double total = prg.Seconds[prg.Seconds.Count - 1], at = time * total;
             int k = prg.Seconds.BinarySearch(at); if (k < 0) k = Math.Max(0, ~k - 1);
             k = Math.Min(k, prg.Joints.Count - 1);

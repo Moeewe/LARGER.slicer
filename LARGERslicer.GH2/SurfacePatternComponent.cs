@@ -25,7 +25,7 @@ namespace LARGERslicer.GH2
             inputs.AddGeneric("Toolpath", "T", "Path from Continuous Path (any toolpath works).");
             inputs.AddInteger("Pattern", "P", "0 = Knit (pixels, rows alternate)\n1 = Ribs (the same every layer)\n2 = Waves (sine; drifts with Phase Shift)\n3 = Zigzag (sharp, the same every layer)\n4 = Dots (one bump per repeat, rows alternate)\n5 = Loops (long pulls that hang down: set Z Droop and Extra Flow)\n6 = Image (knit pixels where the picture is dark)").Set(0).Choices(SurfacePattern.Names);
             inputs.AddNumber("Amplitude", "A", "How far the wall is pulled out at the peaks, in mm. Up to half the bead width every bead rests on the one below; more hangs over on purpose.").Set(3.0).Values(1, 2, 2.5, 3, 5, 10, 20);
-            inputs.AddNumber("Pitch", "Pi", "Length of one repeat along the layer, in mm. Fitted around closed walls.").Set(10.0).Values(5, 10, 20, 30, 60);
+            inputs.AddNumber("Pitch", "Pi", "Length of one repeat along the layer, in mm. 0 = three bead widths. Fitted around closed walls.").Set(0.0).Values(0, 5, 10, 20, 30, 60);
             inputs.AddInteger("Layer Period", "Lp", "Layers printed with the same row before the pattern moves on.").Set(1).Counts(1, 2, 3, 4);
             inputs.AddNumber("Phase Shift", "Ph", "How far each row moves along the wall, as a fraction of the pitch. 0 = stacked, 0.5 = woven, 0.05 = diagonal.").Set(0.0).Values(0, 0.05, 0.1, 0.25, 0.5);
             inputs.AddNumber("Z Droop", "Dz", "The peaks are printed this much lower, in mm, so the bead sags into a loop.").Set(0.0);
@@ -63,7 +63,7 @@ namespace LARGERslicer.GH2
                 Amplitude = amp, Pitch = pitch, LayerPeriod = period, PhaseShift = phase, Droop = Math.Max(0, droop), ExtraFlow = flow,
                 Inside = side == 1, Falloff = falloff, Reach = reach, Invert = invert,
                 Regions = (region ?? new object[0]).Where(g => g != null).Select(Io.Solid).ToList(),
-                Attractors = (attr ?? new object[0]).Where(g => g != null).Select(g => g is Line l ? new LineCurve(l) : g).ToList(),
+                Attractors = (attr ?? new object[0]).Where(g => g != null).Select(g => g is Point3d || g is Rhino.Geometry.Point ? g : (object)CurveIo.ToCurve(g) ?? g).ToList(),
             };
             if (!string.IsNullOrWhiteSpace(file))
             {

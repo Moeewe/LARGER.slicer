@@ -40,9 +40,10 @@ namespace LARGERslicer.GH2
             for (int i = 0; i < layers.Count; i++)
             {
                 var l = layers[i];
-                curves[i] = l.Contours.Select(c => (Curve)new PolylineCurve(c)).ToArray();
+                curves[i] = l.RealContours().Select(c => (Curve)new PolylineCurve(c)).ToArray(); // where they print (mapped back on non-planar layers)
                 roles[i] = Enumerable.Range(0, l.Contours.Count).Select(c => (l.ContourRoles != null && c < l.ContourRoles.Count ? l.ContourRoles[c] : PathRole.Wall).ToString()).ToArray();
             }
+            if (layers.Any(l => l.Warp != null)) access.AddRemark("Non-planar", "The curves lie where they print. Curves to Layers turns them back into layers without the mapping, so do not bend them again with Slice.");
             access.SetTree(0, Garden.TreeFromArrays(curves, null, null));
             access.SetTwig(1, layers.Select(l => l.Plane).ToArray(), null, null);
             access.SetTwig(2, layers.Select(l => l.Height).ToArray(), null, null);
@@ -74,7 +75,8 @@ namespace LARGERslicer.GH2
 
         protected override void Process(IDataAccess access)
         {
-            if (!access.TreeOf(0, out Tree<Curve> tree) || tree == null || tree.PathCount == 0) return;
+            // Grasshopper 2 keeps lines, polylines, arcs and circles as they are: read anything and make Rhino curves of it
+            if (!access.TreeOf(0, out Tree<object> tree) || tree == null || tree.PathCount == 0) return;
             access.ItemArray(1, out Plane[] planeArr);
             var planes = planeArr ?? new Plane[0];
             var settings = Io.Settings(access, 2);
@@ -91,7 +93,7 @@ namespace LARGERslicer.GH2
                 Point3d firstPoint = Point3d.Unset;
                 for (int c = 0; c < branch.Count; c++)
                 {
-                    Curve crv = branch[c];
+                    Curve crv = CurveIo.ToCurve(branch[c]);
                     if (crv == null) continue;
                     if (!crv.TryGetPolyline(out Polyline pl))
                     {
@@ -115,6 +117,14 @@ namespace LARGERslicer.GH2
                     layer.Plane = new Plane(basePlane.Origin + basePlane.Normal * basePlane.DistanceTo(firstPoint), basePlane.XAxis, basePlane.YAxis);
                 }
                 else layer.Plane = new Plane(new Point3d(0, 0, firstPoint.Z), Vector3d.XAxis, Vector3d.YAxis);
+                // the first layer as First Layer Height says, the others the distance to the layer below
+                if (layers.Count == 0) layer.Height = settings.FirstLayerHeight > 0 ? settings.FirstLayerHeight : settings.LayerHeight;
+                else
+                {
+                    var below = layers[layers.Count - 1].Plane;
+                    double d = Math.Abs((layer.Plane.Origin - below.Origin) * below.Normal);
+                    if (d > 0.05 * settings.LayerHeight && d < 3 * settings.LayerHeight) layer.Height = d;
+                }
                 layers.Add(layer);
             }
             access.SetItem(0, new LayerStack(layers));

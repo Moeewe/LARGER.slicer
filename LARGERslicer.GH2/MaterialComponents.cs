@@ -54,6 +54,7 @@ namespace LARGERslicer.GH2
             var log = new List<string>();
             var all = MaterialDefinition.All(log);
             foreach (var l in log) access.AddWarning("Material file left out", l);
+            index = ChoiceByName.Resolve(this, access, index, all.Select(x => x.Name).ToList(), "LARGER_Material", "Material");
             if (index < 0 || index >= all.Count) { access.AddWarning("Unknown material", $"There are {all.Count} materials (0 to {all.Count - 1}); using the first."); index = 0; }
             var m = all[index].Duplicate();
             bool own = false;
@@ -119,13 +120,13 @@ namespace LARGERslicer.GH2
         {
             inputs.AddNumber("Target Width", "W", "The bead width you want, in mm.").Set(5.0);
             inputs.AddNumber("Measured Widths", "M", "Bead widths measured on the test print, in mm. Several values: the mean is used.", Access.Twig, Requirement.MayBeMissing);
-            inputs.AddNumber("Current Factor", "F", "The factor the test was printed with.").Set(1.0);
+            inputs.AddNumber("Current Factor", "F0", "The factor the test was printed with.").Set(1.0);
             inputs.AddNumber("Wall Thickness", "T", "Optional. Wall thicknesses measured on a single-wall test, in mm; counted as bead widths.", Access.Twig, Requirement.MayBeMissing);
         }
 
         protected override void AddOutputs(OutputAdder outputs)
         {
-            outputs.AddNumber("New Factor", "F", "The factor to print with.");
+            outputs.AddNumber("New Factor", "F1", "The factor to print with.");
             outputs.AddText("Report", "R", "What was measured and what it means.", Access.Twig);
             outputs.AddNumber("Off", "%", "How far the bead was off, in percent of the target width (+ = too wide).");
             outputs.AddNumber("Mean", "Mean", "Mean of the measurements in mm.");

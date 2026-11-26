@@ -144,7 +144,7 @@ namespace LARGERslicer.GH2
         // the main settings of each component (as in Grasshopper 1); a component not listed shows every setting
         internal static readonly Dictionary<string, string[]> Essential = new Dictionary<string, string[]>
         {
-            { "Machine Profile", new[] { "Machine" } },
+            { "Machine Profile", new[] { "Preset", "Factor" } },
             { "Print Settings", new[] { "Nozzle", "Bead Width", "Layer Height", "Speed", "Flow" } },
             { "Easy Slicer", new[] { "Bead Width", "Layer Height", "Speed", "Walls", "Bottom Layers", "Spiral", "Brim" } },
             { "Slice", new[] { "Angle", "Guide Mode" } },
@@ -153,7 +153,7 @@ namespace LARGERslicer.GH2
             { "Infill Wave", new[] { "Shape", "Wavelength" } },
             { "Continuous Path", new[] { "Mode", "Seam Gap", "Min Layer Time" } },
             { "Machine Settings", new[] { "Bed Temperature", "Nozzle Temperature", "Cooling" } },
-            { "Machine", new[] { "Machine", "Extrusion Factor", "Bed Temperature", "Nozzle Temperature" } },
+            { "Machine", new[] { "Machine", "Extrusion Factor", "Bed Temperature", "Material" } },
             { "Material Factor", new[] { "Target Width", "Current Factor" } },
             { "Weave", new[] { "Pattern", "Amplitude", "Wavelength", "Faces" } },
             { "Surface Pattern", new[] { "Pattern", "Amplitude", "Pitch", "Side" } },
@@ -175,6 +175,13 @@ namespace LARGERslicer.GH2
             { "Robot Simulation", new[] { "Time" } },
             { "Fan Schedule", new[] { "Off For", "Then", "Full After", "Full" } },
             { "Printer Simulation", new string[0] },
+            { "Print Tuning", new[] { "Coasting", "Prime", "Travel Lift" } },
+            { "Infill Ribs", new[] { "Spacing", "Depth", "Meet" } },
+            { "Infill Cells", new[] { "Pattern", "Cell Size" } },
+            { "Infill Chambers", new[] { "Shape", "Length", "Depth" } },
+            { "Infill Sketch", new[] { "Meet" } },
+            { "Support Fins", new[] { "Overhang Angle", "Spacing" } },
+            { "Self Supporting Envelope", new[] { "Factor" } },
         };
 
         // Save and Upload are buttons of the Result

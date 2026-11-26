@@ -9,14 +9,15 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilitySliceComponent : GH_Component
     {
                 public CncUtilitySliceComponent()
-                    : base("CNC Utilities 03 Layer Split", "CU_03",
-                                                "Splits total height into material layers and separation joints.",
-                            "LARGER", "CNC Utilities")
+                    : base("Formwork - Board Layers", "Boards",
+                                                "STEP 3. Splits total height into material layers and separation joints.",
+                            "LARGER", "Formwork")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "CNC Utilities";
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override string SubCategory => "Formwork";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {

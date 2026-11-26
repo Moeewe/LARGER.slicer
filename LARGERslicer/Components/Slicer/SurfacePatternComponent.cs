@@ -32,7 +32,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddGenericParameter("Toolpath", "T", "Print path from Continuous Path (any toolpath works)", GH_ParamAccess.item);
             p.AddIntegerParameter("Pattern", "P", "0 = Knit: pixels; every point out and back, rows alternate by half a repeat\n1 = Ribs: vertical ribs, the same every layer\n2 = Waves: a soft sine; with Phase Shift it runs diagonally or weaves\n3 = Zigzag: sharp, the same every layer\n4 = Dots: one bump per repeat, rows alternate\n5 = Loops: long pulls that hang down (set Z Droop and Extra Flow)\n6 = Image: knit pixels where the picture is dark", GH_ParamAccess.item, 0);
             p.AddNumberParameter("Amplitude", "A", "How far the wall is pulled out at the peaks, in mm. Up to half the bead width every bead rests on the one below; more makes pixels and loops hang over (on purpose)", GH_ParamAccess.item, 3.0);
-            p.AddNumberParameter("Pitch", "Pi", "Length of one repeat along the layer, in mm (one out and one back). Around closed walls it is fitted so a whole number of repeats goes round", GH_ParamAccess.item, 10.0);
+            p.AddNumberParameter("Pitch", "Pi", "Length of one repeat along the layer, in mm (one out and one back). 0 = three bead widths. Around closed walls it is fitted so a whole number of repeats goes round", GH_ParamAccess.item, 0.0);
             p.AddIntegerParameter("Layer Period", "Lp", "Layers printed with the same row before the pattern moves on. 1 = every layer; 2 or 3 = taller pixels", GH_ParamAccess.item, 1);
             p.AddNumberParameter("Phase Shift", "Ph", "How far each row moves along the wall, as a fraction of the pitch. 0 = stacked (ribs), 0.5 = every other row in between (woven), 0.05 = slow diagonal", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Z Droop", "Dz", "The peaks are also printed this much lower, in mm, so the bead sags into a loop. 0 = flat layers. About one layer height for loops", GH_ParamAccess.item, 0.0);
@@ -51,7 +51,8 @@ namespace LARGERslicer.Components.Slicer
         {
             AddValueList(doc, 1, "Pattern", SurfacePattern.Names);
             AddSlider(doc, 2, "Amplitude", 0.5m, 30m, 3m, 1, "mm");
-            AddSlider(doc, 3, "Pitch", 2m, 60m, 10m, 1, "mm");
+            var pi = AddSlider(doc, 3, "Pitch", 0m, 60m, 0m, 1, "mm", new double[] { 0, 10, 20, 30, 60 });
+            if (pi != null) pi.ZeroText = () => "3 bead widths";
             AddSlider(doc, 5, "Phase Shift", 0m, 1m, 0m, 2, "", new double[] { 0, 0.05, 0.1, 0.25, 0.5 });
             AddValueList(doc, 8, "Side", "Outside (looks into the open)", "Inside (the hollow of a vase)");
             AddToggle(doc, 14, "Invert", false);

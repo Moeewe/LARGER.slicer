@@ -72,6 +72,7 @@ namespace LARGERslicer.Components.Utils
         }
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("FeedrateIcon.png", this);
+        public override GH_Exposure Exposure => GH_Exposure.hidden;
         public override Guid ComponentGuid => new Guid("D5E6F7A8-B9C0-1234-EF01-345678901234");
     }
 }

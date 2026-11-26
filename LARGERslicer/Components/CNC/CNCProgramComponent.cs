@@ -306,6 +306,7 @@ namespace LARGERslicer.Components.CNC
         }
 
         protected override System.Drawing.Bitmap Icon => IconHelper.Load("CNCProgramIcon.png", this);
+        public override GH_Exposure Exposure => GH_Exposure.hidden;
         public override Guid ComponentGuid => new Guid("C1D2E3F4-A5B6-7890-CDEF-123456789ABC");
     }
 }

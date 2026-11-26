@@ -302,7 +302,7 @@ body{margin:0}
       <p>In Grasshopper unter File, Special Folders, Components Folder ablegen. Unter Windows vorher in den Eigenschaften jeder Datei „Zulassen“ anklicken. Alte Kopien entfernen, sonst erscheinen Bausteine doppelt.</p>
     </article>
   </div>
-  <p class="src">Grasshopper 2 (Vorschau, Rhino 9) liegt seit 2.0.4 im Rhino-9-Paket im Ordner <code>gh2</code>. Grasshopper 2 lädt es, wenn sein Pfad als eine Zeile in <code>CustomPluginInclude.txt</code> steht (Mac: <code>~/Library/Application Support/Grasshopper2/Settings</code>, Windows: <code>%APPDATA%\Grasshopper2\Settings</code>); danach Rhino neu starten. Mehr in der <a href="https://github.com/Moeewe/LARGER.slicer/tree/main/LARGERslicer.GH2">Anleitung zur Grasshopper-2-Version</a>.</p>
+  <p class="src">Grasshopper 2 (Vorschau, Rhino 9) liegt seit 2.0.4 im Rhino-9-Paket im Ordner <code>gh2</code>. Grasshopper 2 lädt es, wenn sein Pfad als eine Zeile in <code>CustomPluginInclude.txt</code> steht (Mac: <code>~/Library/Application Support/Grasshopper2/Settings</code>, Windows: <code>%APPDATA%\Grasshopper2\Settings</code>); danach Rhino neu starten. Ab 2.0.5 schreibt der SETUP-Installer diese Zeile selbst, und das Plug-in hält sie nach jedem Update auf der installierten Version. Mehr in der <a href="https://github.com/Moeewe/LARGER.slicer/tree/main/LARGERslicer.GH2">Anleitung zur Grasshopper-2-Version</a>.</p>
 </div></section>
 
 <section id="voraussetzungen"><div class="wrap">
@@ -310,12 +310,12 @@ body{margin:0}
   <div class="cmp"><table>
     <thead><tr><th>Was</th><th>Voraussetzung</th><th>Hinweis</th></tr></thead>
     <tbody>
-      <tr><th>Rhino</th><td class="k">Rhino 8 (empfohlen) oder Rhino 9</td><td>Für Rhino 7 liegt ein eigenes Paket bei. Die Definition im SETUP ist mit Rhino 8 getestet.</td></tr>
+      <tr><th>Rhino</th><td class="k">Rhino 8 (empfohlen) oder Rhino 9</td><td>Für Rhino 7 liegt ein eigenes Paket bei. Die Hausdefinition V2 im SETUP ist mit Rhino 8 und 9 getestet.</td></tr>
       <tr><th>Grasshopper</th><td class="k">Grasshopper 1</td><td>Grasshopper 2 nur in Rhino 9, als Vorschau.</td></tr>
       <tr><th>Betriebssystem</th><td class="k">Windows 11 oder macOS 11 und neuer</td><td>Die Weber-Anlage selbst läuft mit einem eigenen Windows-Rechner.</td></tr>
       <tr><th>Einheiten</th><td class="k">Millimeter</td><td>Das Bauteil steht auf der XY-Ebene, mit positiven Koordinaten.</td></tr>
       <tr><th>Internet</th><td class="k">während der Einrichtung</td><td>Der Installer lädt die Plug-ins über den Rhino-Paketmanager.</td></tr>
-      <tr><th>Weitere Plug-ins</th><td class="k">Robots, Pufferfish</td><td>Nur für die Definition im SETUP und die Roboterbibliothek. Der Installer richtet sie ein. Unter Rhino 7 gibt es Robots 1.9.</td></tr>
+      <tr><th>Weitere Plug-ins</th><td class="k">Robots, Pufferfish</td><td>Nur für die alte Hausdefinition V1 (jetzt im Archiv der Beispiele) und für andere Sechsachser aus der Robots-Bibliothek. Die Definition V2 und die Beispiele für Studierende brauchen nur LARGER.slicer. Der Installer richtet sie trotzdem ein. Unter Rhino 7 gibt es Robots 1.9.</td></tr>
       <tr><th>Lizenz</th><td class="k">CC BY-NC 4.0</td><td>Frei für nicht kommerzielle Nutzung.</td></tr>
     </tbody>
   </table></div>
@@ -325,7 +325,20 @@ body{margin:0}
   <div class="lhead"><span class="no num">03</span><h2>Was sich geändert hat</h2><p class="lead">Kurz und auf Deutsch. Die vollständige Liste steht im <a href="https://github.com/Moeewe/LARGER.slicer/blob/main/LARGERslicer/CHANGELOG.md">Changelog</a> (Englisch).</p></div>
 
   <article class="rel now">
-    <div><div class="v num">2.0.4</div><div class="d">25.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><div class="v num">2.0.5</div><div class="d">26.11.2026</div><span class="chip ok">Aktuelles Release</span></div>
+    <div><h3>Print Tuning, sicherere UR-Programme, aufgeräumte Leiste</h3><ul>
+      <li><b>Print Tuning:</b> neuer Baustein zwischen Print Settings und dem Slicer: eigene Geschwindigkeit für Wand, Infill, Boden, Skirt und Stützen, Coasting, Prime und Travel Lift. Machine G-code, DXR und KUKA folgen ihm.</li>
+      <li><b>UR sicherer:</b> Der Werkzeugpunkt eines eigenen Werkzeugs (oder des AE20) zeigt jetzt richtig aus dem Werkzeug heraus. Upload to robot schickt nur ein Programm, das OK ist (das alte UR Program schickt nur noch einmal, wenn Upload auf True springt). Die Anfahrt nimmt die Gelenkwinkel der Simulation. Neu geprüft: Handgelenk-Singularität und Gelenkgeschwindigkeit; der Report sagt, was beim UR nicht geprüft wird (Kollisionen, externe Achsen, Work Base).</li>
+      <li><b>Richtige Werte:</b> Robot Program mit AE20 nimmt das Weber-DXR25-Profil (1,128), wenn die Bahn das Ginger-Profil trägt. Machine G-code fährt beim Absenken aufs Teil mit Druckgeschwindigkeit. Fan Schedule geht auch mit G-Code-Maschinen (M106/M107).</li>
+      <li><b>Aufgeräumt:</b> Die CNC Utilities heißen jetzt Formwork und haben einen eigenen Reiter. DXR-Werkzeuge stehen im DXR-Reiter, „DXR GCode Postprocessor“ heißt „G-code to DXR“, „Safe Component“ heißt „Save Text File“. Ginger G-code, CNC - Program und einige alte Helfer sind aus der Leiste genommen; alte Dateien öffnen sie weiter.</li>
+      <li><b>Umbenannte Eingänge:</b> „Start/End Layers“ heißt „Sacrificial Layers“, die Zahl „Nozzle“ heißt „Nozzle Preset“, am DXR Generator heißt „Speed“ jetzt „Feed (mm/min)“, der Ausgang „KRL“ von Robot Program heißt „Code“.</li>
+      <li><b>CNC:</b> CNC - Cutter kann eigene Fräser (6 Schaft, 7 Kugel) und das Modul der Zünd (11, 21, 31).</li>
+      <li><b>Grasshopper 2:</b> Formwork, CAD Package Export, Path Heat und die DXR-Werkzeuge sind dabei; Quick Start legt neben jedes Beispiel ein Steuerpult und ein Ergebnis.</li>
+    </ul></div>
+  </article>
+
+  <article class="rel">
+    <div><div class="v num">2.0.4</div><div class="d">25.11.2026</div></div>
     <div><h3>Ein Robot-Baustein für KUKA und UR, Grasshopper 2 mit Steuerpult, Korrekturen</h3><ul>
       <li><b>Ein Roboter für alle:</b> Robot wählt KUKA KR120 oder einen Universal-Robots-Arm (UR3 bis UR10e, mit den Modellen von Universal Robots), Robot Tool hat Presets (AE20, Lehmextruder V2, Stifthalter, Wollspinner). Robot Program schreibt KRL oder URScript.</li>
       <li><b>Korrigiert:</b> Der Lehmextruder V2 am UR hatte in 2.0.3 einen falschen Werkzeugpunkt (rund 170 mm daneben). Die DXR-Datei ruft die Weber-Unterprogramme jetzt richtig auf (<code>L wall_sub.nc</code>). Dateien mit Steuerpult melden beim Öffnen keinen Fehler mehr.</li>

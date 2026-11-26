@@ -355,6 +355,8 @@ namespace LARGERslicer.Components.Slicer
             p.AddTextParameter("Name", "N", "Name of the part, for the log", GH_ParamAccess.item, "Part");
             p.AddTextParameter("Log File", "Lg", "CSV file the results are added to; the table goes beside it as .md. Empty = the Desktop", GH_ParamAccess.item);
             p.AddBooleanParameter("Write Log", "W", "Adds all results to the log", GH_ParamAccess.item, false);
+            p.AddIntegerParameter("Flat Layers", "Fl", "Layers at the bottom that stay flat, as in Reshape Path. -1 = the first layer and the solid bottom", GH_ParamAccess.item, -1);
+            p.AddIntegerParameter("Roof", "Ro", "A wall that closes to a roof, as in Reshape Path: 0 = its layers keep their thickness, 1 = stretch, 2 = refuse", GH_ParamAccess.item, 0);
             p[2].Optional = true; p[14].Optional = true;
         }
 
@@ -386,11 +388,17 @@ namespace LARGERslicer.Components.Slicer
             da.GetData(3, ref o.Material); da.GetData(4, ref o.MinLayer); da.GetData(5, ref o.MaxLayer); da.GetData(6, ref o.MaxSlope); da.GetData(7, ref o.Smooth); da.GetData(8, ref o.MaxFlow);
             if (!ReshapeIO.Head(this, da, 9, o.Head)) return;
             da.GetData(13, ref name); da.GetData(14, ref log); da.GetData(15, ref write);
+            if (Params.Input.Count > 17)
+            {
+                int roof = 0; da.GetData(16, ref o.FlatLayers); da.GetData(17, ref roof);
+                o.Roof = (RoofMode)Math.Max(0, Math.Min(2, roof));
+            }
             Async.Run(da, job =>
             {
                 var rows = ReshapeVariants.Compare(tp, fields, variants, o);
                 var table = ReshapeVariants.Table(rows); var now = DateTime.Now;
-                var lines = rows.Select((q, i) => PathReshape.LogLine(name, i, q.Field, q.Result, o, now)).ToList();
+                // step 0: these rows are a comparison, not steps of the loop Reshape Path writes into the same log
+                var lines = rows.Select(q => PathReshape.LogLine(name, 0, q.Field, q.Result, o, now)).ToList();
                 if (write)
                 {
                     try { string p = ReshapeIO.Append(log, "Reshape_Log.csv", PathReshape.LogHeader, lines); File.AppendAllLines(Path.ChangeExtension(p, ".md"), new[] { "## " + name + ", " + now.ToString("yyyy-MM-dd HH:mm", Inv.C), "" }.Concat(table).Concat(new[] { "" })); job.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Added to " + p); }
@@ -515,7 +523,7 @@ namespace LARGERslicer.Components.Slicer
             p.AddGenericParameter("Toolpath", "T", "Print path", GH_ParamAccess.item);
             ReshapeIO.HeadInputs((n, k, d, v) => p.AddNumberParameter(n, k, d, GH_ParamAccess.item, v));
             p.AddNumberParameter("Min Layer", "Hi", "Smallest layer height (mm), 0 = automatic", GH_ParamAccess.item, 0.0);
-            p.AddNumberParameter("Max Layer", "Ha", "Largest layer height (mm), 0 = automatic (half the bead width)", GH_ParamAccess.item, 0.0);
+            p.AddNumberParameter("Max Layer", "Ha", "Largest bead height the check accepts (mm). 0 = automatic: 0.8 x the bead width, the same limit as Non-Planar Check", GH_ParamAccess.item, 0.0);
             p.AddNumberParameter("Max Tilt", "Ti", "Largest tilt of the tool (degrees)", GH_ParamAccess.item, 45.0);
             p.AddNumberParameter("Max Turn Speed", "Ts", "How fast the tool may turn (degrees per second)", GH_ParamAccess.item, 30.0);
             p.AddNumberParameter("Max Turn", "Tm", "How fast the tool may turn along the path (degrees per mm)", GH_ParamAccess.item, 2.0);
@@ -526,7 +534,7 @@ namespace LARGERslicer.Components.Slicer
         {
             p.AddBooleanParameter("OK", "OK", "True if nothing is wrong", GH_ParamAccess.item);
             p.AddTextParameter("Report", "R", "What was found; the first line is the verdict", GH_ParamAccess.list);
-            p.AddNumberParameter("Bead Height", "H", "Measured height above the lap below, along the tool (mm), for every point; 0 = not measured", GH_ParamAccess.list);
+            p.AddNumberParameter("Bead Height", "H", "Measured height above the lap below, along the tool (mm), for every point; NaN = not measured (grey in Path Heat)", GH_ParamAccess.list);
             p.AddNumberParameter("Tilt", "Ti", "Tilt of the tool (degrees) for every point", GH_ParamAccess.list);
             p.AddPointParameter("Collisions", "X", "Where the head reaches into earlier beads", GH_ParamAccess.list);
             p.AddPointParameter("Bad Heights", "Bh", "Where the bead is too thick or too thin", GH_ParamAccess.list);
@@ -550,7 +558,7 @@ namespace LARGERslicer.Components.Slicer
                 var r = MultiAxisCheck.Run(tp, o);
                 job.Message = r.Ok ? "OK" : "Check!";
                 ReshapeIO.Verdict(job, r.Report.FirstOrDefault());
-                job.SetData(0, r.Ok); job.SetDataList(1, r.Report); job.SetDataList(2, r.Heights); job.SetDataList(3, r.Tilts);
+                job.SetData(0, r.Ok); job.SetDataList(1, r.Report); job.SetDataList(2, r.Heights.Select(h => h > 0 ? h : double.NaN)); job.SetDataList(3, r.Tilts);
                 job.SetDataList(4, r.Collisions); job.SetDataList(5, r.BadHeights); job.SetDataList(6, r.BadFlow); job.SetDataList(7, r.FastTurns);
                 job.SetDataList(8, PathReshape.LayerCsv(tp));
             });

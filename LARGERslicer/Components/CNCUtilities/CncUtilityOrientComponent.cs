@@ -8,14 +8,15 @@ namespace LARGERslicer.Components.CNCUtilities
     public class CncUtilityOrientComponent : GH_Component
     {
                 public CncUtilityOrientComponent()
-                : base("CNC Utilities 01 Orient Part", "CU_01",
-                    "Orients a solid for CNC processing: length in X, depth in Y, height in Z.",
-                            "LARGER", "CNC Utilities")
+                : base("Formwork - Orient Part", "Orient",
+                    "STEP 1. Orients a solid for CNC processing: length in X, depth in Y, height in Z.",
+                            "LARGER", "Formwork")
         {
         }
 
         public override string Category => "LARGER";
-        public override string SubCategory => "CNC Utilities";
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override string SubCategory => "Formwork";
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
